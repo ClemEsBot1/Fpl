@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, Info, ShieldAlert, RotateCcw } from 'lucide-react';
+import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, Info, ShieldAlert, RotateCcw, Trophy } from 'lucide-react';
 
 /* ============================================================================
    CONSTANTS
@@ -9,6 +9,9 @@ const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 const POSITION_LABELS = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 const POSITION_ORDER = [1, 2, 3, 4];
 const BAD_AVAIL_NOTES = ['Injured', 'Suspended', 'Unavailable'];
+const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
+const MAX_PER_REAL_TEAM = 3;
+const SQUAD_BUDGET = 100.0; // £100.0m
 
 const DIFF_COLORS = {
   1: { bg: '#1F9D55', text: '#06210F' },
@@ -221,6 +224,121 @@ function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
 function suggestCaptain(starters) {
   if (!starters.length) return null;
   return [...starters].sort((a, b) => b.nextMatchPredicted - a.nextMatchPredicted)[0];
+}
+
+/* ============================================================================
+   OPTIMAL SQUAD BUILDER
+   Builds the strongest possible 15-man squad within budget: 2 GKP, 5 DEF,
+   5 MID, 3 FWD, max 3 players from any one real club. This is a heuristic
+   (start with the best XV regardless of price, then repeatedly downgrade
+   whichever swap sheds the fewest predicted points per pound saved, until
+   under budget) rather than a provably-optimal solver — in practice it lands
+   very close to optimal and runs instantly in the browser.
+============================================================================ */
+
+function buildOptimalSquad(allPlayers, predictionsById, budget) {
+  const eligible = allPlayers.filter(p => !['u', 'n', 'i', 's'].includes(p.status));
+  const byPosition = { 1: [], 2: [], 3: [], 4: [] };
+  eligible.forEach(p => byPosition[p.positionId].push(p));
+  POSITION_ORDER.forEach(pos => {
+    byPosition[pos].sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted);
+  });
+
+  // Step 1: fill every slot with the best available player at that position,
+  // respecting only the 3-per-club cap — ignore price for now.
+  const squad = [];
+  const teamCounts = {};
+  POSITION_ORDER.forEach(pos => {
+    let need = SQUAD_SLOTS[pos];
+    for (const p of byPosition[pos]) {
+      if (need <= 0) break;
+      if ((teamCounts[p.team] || 0) < MAX_PER_REAL_TEAM) {
+        squad.push(p);
+        teamCounts[p.team] = (teamCounts[p.team] || 0) + 1;
+        need--;
+      }
+    }
+  });
+
+  // Step 2: while over budget, find the single swap (any squad player ->
+  // any cheaper same-position player not already in the squad) that loses
+  // the fewest predicted points per pound freed up, and apply it. Repeat.
+  const totalCost = (sq) => sq.reduce((s, p) => s + p.price, 0);
+  let guard = 0;
+  while (totalCost(squad) > budget + 1e-9 && guard < 500) {
+    guard++;
+    const squadIds = new Set(squad.map(p => p.id));
+    let bestSwap = null;
+    squad.forEach((out, idx) => {
+      const projectedCounts = { ...teamCounts, [out.team]: (teamCounts[out.team] || 0) - 1 };
+      for (const inP of byPosition[out.positionId]) {
+        if (squadIds.has(inP.id)) continue;
+        const moneySaved = out.price - inP.price;
+        if (moneySaved <= 0) continue;
+        if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
+        const pointsLost = predictionsById[out.id].predicted - predictionsById[inP.id].predicted;
+        const ratio = pointsLost / moneySaved;
+        if (!bestSwap || ratio < bestSwap.ratio) bestSwap = { idx, inP, ratio };
+      }
+    });
+    if (!bestSwap) break; // no downgrade available — shouldn't normally happen with real FPL prices
+    const out = squad[bestSwap.idx];
+    teamCounts[out.team] -= 1;
+    teamCounts[bestSwap.inP.team] = (teamCounts[bestSwap.inP.team] || 0) + 1;
+    squad[bestSwap.idx] = bestSwap.inP;
+  }
+
+  return squad;
+}
+
+// Picks the highest-predicted valid formation (1 GKP + 10 outfield in a
+// legal DEF/MID/FWD split) from a 15-man squad.
+function pickBestFormation(squad15, predictionsById) {
+  const byPos = { 1: [], 2: [], 3: [], 4: [] };
+  squad15.forEach(p => byPos[p.positionId].push(p));
+  POSITION_ORDER.forEach(pos => byPos[pos].sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted));
+
+  const gk = byPos[1][0];
+  let best = null;
+  for (let d = 3; d <= 5; d++) {
+    for (let m = 2; m <= 5; m++) {
+      const f = 10 - d - m;
+      if (f < 1 || f > 3) continue;
+      if (d > byPos[2].length || m > byPos[3].length || f > byPos[4].length) continue;
+      const defs = byPos[2].slice(0, d);
+      const mids = byPos[3].slice(0, m);
+      const fwds = byPos[4].slice(0, f);
+      const total = [...defs, ...mids, ...fwds].reduce((s, p) => s + predictionsById[p.id].predicted, 0);
+      if (!best || total > best.total) best = { defs, mids, fwds, total };
+    }
+  }
+
+  const startersSet = new Set([gk.id, ...best.defs.map(p => p.id), ...best.mids.map(p => p.id), ...best.fwds.map(p => p.id)]);
+  return startersSet;
+}
+
+function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
+  const squad15 = buildOptimalSquad(staticData.allPlayers, staticData.predictionsById, budget);
+  const startersSet = pickBestFormation(squad15, staticData.predictionsById);
+
+  const starters15 = squad15.filter(p => startersSet.has(p.id))
+    .sort((a, b) => staticData.predictionsById[b.id].nextMatchPredicted - staticData.predictionsById[a.id].nextMatchPredicted);
+  const captainId = starters15[0] ? starters15[0].id : null;
+  const viceCaptainId = starters15[1] ? starters15[1].id : null;
+
+  const squad = squad15.map(p => {
+    const pred = staticData.predictionsById[p.id];
+    const isCaptain = p.id === captainId;
+    return {
+      player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
+      isStarting: startersSet.has(p.id), isCaptain, isViceCaptain: p.id === viceCaptainId,
+      multiplier: isCaptain ? 2 : 1,
+    };
+  });
+
+  const totalCost = squad15.reduce((s, p) => s + p.price, 0);
+  const bankTenths = Math.round((budget - totalCost) * 10);
+  return { squad, bankTenths };
 }
 
 const MAX_TRANSFER_SUGGESTIONS = 5;
@@ -536,6 +654,13 @@ function IntroScreen({ onChoose }) {
           <span>
             <span style={{ display: 'block', fontSize: '1rem' }}>Paste from Claude chat</span>
             <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>Free — read your screenshot in a normal chat</span>
+          </span>
+        </button>
+        <button className="fpl-btn" onClick={() => onChoose('build')} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Trophy size={22} />
+          <span>
+            <span style={{ display: 'block', fontSize: '1rem' }}>Build the best squad</span>
+            <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>Optimal 15 within £{SQUAD_BUDGET.toFixed(1)}m, not your team</span>
           </span>
         </button>
       </div>
@@ -873,8 +998,9 @@ function TransferCard({ suggestion, teamsById, fixturesByTeam }) {
 // a working estimate of what a typical XI predicts to (tune this as you see
 // real results — it's a judgment call, not derived from official FPL data).
 // SPREAD is how many points above/below AVERAGE it takes to reach 100/0.
+// Calibrated so 45 predicted points -> a score of 70.
 function computeSquadScore(xiTotal) {
-  const AVERAGE = 45, SPREAD = 20;
+  const AVERAGE = 37, SPREAD = 20;
   const pct = 50 + ((xiTotal - AVERAGE) / SPREAD) * 50;
   return Math.round(Math.max(0, Math.min(100, pct)));
 }
@@ -1039,6 +1165,19 @@ export default function FPLSquadChecker() {
     setStage('results');
   }
 
+  async function handleBuildOptimalTeam() {
+    setStage('loading');
+    setLoadingMessage(`Testing lineups within £${SQUAD_BUDGET.toFixed(1)}m…`);
+    try {
+      const staticData = await ensureStaticData();
+      const { squad, bankTenths } = buildOptimalTeam(staticData, SQUAD_BUDGET);
+      finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null);
+    } catch (e) {
+      setErrorMessage("Couldn't build a squad right now — FPL's data might be temporarily unavailable. Please try again.");
+      setStage('error');
+    }
+  }
+
   async function handleTeamIdSubmit(rawId) {
     const teamId = (rawId || '').trim();
     if (!/^\d+$/.test(teamId)) {
@@ -1201,7 +1340,14 @@ export default function FPLSquadChecker() {
       <GlobalStyle />
       <Header summary={headerSummary} />
       <main style={{ maxWidth: 640, margin: '0 auto' }}>
-        {stage === 'intro' && <IntroScreen onChoose={(m) => setStage(m === 'id' ? 'teamIdForm' : m === 'paste' ? 'pasteForm' : 'screenshotForm')} />}
+        {stage === 'intro' && (
+          <IntroScreen
+            onChoose={(m) => {
+              if (m === 'build') { handleBuildOptimalTeam(); return; }
+              setStage(m === 'id' ? 'teamIdForm' : m === 'paste' ? 'pasteForm' : 'screenshotForm');
+            }}
+          />
+        )}
         {stage === 'teamIdForm' && (
           <TeamIdForm
             value={teamIdInput}
