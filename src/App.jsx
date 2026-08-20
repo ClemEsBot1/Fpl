@@ -212,12 +212,14 @@ function suggestCaptain(starters) {
   return [...starters].sort((a, b) => b.predicted - a.predicted)[0];
 }
 
+const MAX_TRANSFER_SUGGESTIONS = 5;
+
 function suggestTransfers(squad, allPlayers, predictionsById, bankTenths) {
   const starters = squad.filter(s => s.isStarting);
   const isBad = (s) => s.availNote && BAD_AVAIL_NOTES.includes(s.availNote);
   const flagged = starters.filter(isBad);
   const sortedByPred = [...starters].sort((a, b) => a.predicted - b.predicted);
-  const lowPerformers = sortedByPred.filter(s => !isBad(s)).slice(0, 3);
+  const lowPerformers = sortedByPred.filter(s => !isBad(s)).slice(0, MAX_TRANSFER_SUGGESTIONS);
 
   const seen = new Set();
   const candidates = [];
@@ -231,7 +233,7 @@ function suggestTransfers(squad, allPlayers, predictionsById, bankTenths) {
 
   const suggestions = [];
   for (const out of candidates) {
-    if (suggestions.length >= 4) break;
+    if (suggestions.length >= MAX_TRANSFER_SUGGESTIONS) break;
     const budget = out.player.price + bankTenths / 10;
     const pool = allPlayers.filter(p =>
       p.positionId === out.player.positionId &&
