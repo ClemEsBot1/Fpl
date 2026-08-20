@@ -855,8 +855,41 @@ function TransferCard({ suggestion, teamsById, fixturesByTeam }) {
   );
 }
 
+// Squad Score: maps predicted starting-XI points this gameweek onto a 1-100
+// scale. 35 pts ≈ a rough/injury-hit XI, 80 pts ≈ an elite, near-optimal XI.
+// These bounds are a judgment call, not an official FPL metric.
+function computeSquadScore(xiTotal) {
+  const MIN = 35, MAX = 80;
+  const pct = ((xiTotal - MIN) / (MAX - MIN)) * 100;
+  return Math.round(Math.max(0, Math.min(100, pct)));
+}
+
+function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
+  const clamped = Math.max(0, Math.min(100, score));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (clamped / 100) * circumference;
+  const hue = (clamped / 100) * 120; // 0 = red, 60 = yellow, 120 = green
+  const color = `hsl(${hue}, 72%, 50%)`;
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,0.14)" strokeWidth={strokeWidth} fill="none" />
+        <circle
+          cx={size / 2} cy={size / 2} r={radius} stroke={color} strokeWidth={strokeWidth} fill="none"
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="fpl-display" style={{ fontSize: size * 0.32, fontWeight: 800, color }}>{clamped}</span>
+      </div>
+    </div>
+  );
+}
+
 function ResultsScreen({ data, onStartOver }) {
-  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, targetEvent, teamsById, fixturesByTeam } = data;
+  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, targetEvent, teamsById, fixturesByTeam } = data;
 
   const grouped = POSITION_ORDER.map(posId => ({
     posId,
@@ -868,13 +901,17 @@ function ResultsScreen({ data, onStartOver }) {
 
   return (
     <div style={{ padding: '16px 16px 60px' }}>
-      <div style={{ marginBottom: 18 }}>
-        <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>
-          {entryMeta ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {targetEvent ? targetEvent.name.toUpperCase() : ''}
+      <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
+        <div>
+          <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>
+            {entryMeta ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {targetEvent ? targetEvent.name.toUpperCase() : ''}
+          </div>
+          {bankTenths !== null && bankTenths !== undefined && (
+            <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
+          )}
+          <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6 }}>Squad Score</div>
         </div>
-        {bankTenths !== null && bankTenths !== undefined && (
-          <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
-        )}
+        <ScoreRing score={squadScore} />
       </div>
 
       {showCaptainSuggestion && (
@@ -978,6 +1015,7 @@ export default function FPLSquadChecker() {
     setResultsData({
       squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions,
       entryMeta, bankTenths, activeChip,
+      squadScore: computeSquadScore(xiTotal),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam,
     });
     setStage('results');
