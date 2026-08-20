@@ -98,23 +98,12 @@ function formatCountdown(deadlineISO) {
 ============================================================================ */
 
 async function fetchFplJson(path) {
-  const target = FPL_BASE + path;
-  // Direct browser fetch to FPL always fails (they don't send CORS headers),
-  // so we race several CORS proxies at once and take whichever answers first.
-  const proxies = [
-    `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-  ];
-  const attempts = proxies.map(url =>
-    fetch(url).then(r => { if (!r.ok) throw new Error('status ' + r.status); return r.text(); })
-  );
-  try {
-    const text = await Promise.any(attempts);
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error('FPL_UNREACHABLE: all proxies failed');
-  }
+  // Calls our own /api/fpl/* serverless function (added via Vercel), which
+  // fetches FPL server-side — no CORS issue, no dependence on third-party
+  // proxy services that block this dev environment's origin.
+  const r = await fetch(`/api/fpl/${path}`);
+  if (!r.ok) throw new Error('status ' + r.status);
+  return r.json();
 }
 
 /* ============================================================================
