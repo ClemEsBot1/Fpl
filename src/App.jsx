@@ -9,7 +9,8 @@ const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 const POSITION_LABELS = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 const POSITION_ORDER = [1, 2, 3, 4];
 const BAD_AVAIL_NOTES = ['Injured', 'Suspended', 'Unavailable'];
-
+const AVERAGE = 45, SPREAD = 20;
+const pct = 50 + ((xiTotal - AVERAGE) / SPREAD) * 50;
 const DIFF_COLORS = {
   1: { bg: '#1F9D55', text: '#06210F' },
   2: { bg: '#6FCB90', text: '#06210F' },
