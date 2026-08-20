@@ -1006,7 +1006,8 @@ export default function FPLSquadChecker() {
       try {
         picks = await fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`);
       } catch (e) {
-        throw { code: 'ERR_PICKS_FETCH' };
+        const notReady = e && e.message === 'status 404';
+        throw { code: notReady ? 'ERR_GW_LOCKED' : 'ERR_PICKS_FETCH' };
       }
       if (!picks || picks.detail === 'Not found.' || !Array.isArray(picks.picks) || picks.picks.length === 0) {
         throw { code: 'ERR_TEAM_NOT_FOUND' };
@@ -1040,8 +1041,9 @@ export default function FPLSquadChecker() {
       setStage('error');
       const code = (e && e.code) || 'ERR_UNKNOWN';
       const messages = {
-        ERR_STATIC_DATA: "Couldn't load live FPL player data right now (all proxies failed). Try again in a moment, or upload a screenshot instead.",
+        ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead.",
         ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
+        ERR_GW_LOCKED: "FPL hasn't published picks for this gameweek yet (they're hidden until the deadline passes). Try again after the deadline, or upload a screenshot instead for now.",
         ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
         ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
       };
