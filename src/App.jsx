@@ -98,10 +98,10 @@ function formatCountdown(deadlineISO) {
 ============================================================================ */
 
 async function fetchFplJson(path) {
-  // Calls our own /api/fpl/* serverless function (added via Vercel), which
+  // Calls our own /api/fpl serverless function (added via Vercel), which
   // fetches FPL server-side — no CORS issue, no dependence on third-party
-  // proxy services that block this dev environment's origin.
-  const r = await fetch(`/api/fpl/${path}`);
+  // proxy services, and no dynamic-route filename to trip over.
+  const r = await fetch(`/api/fpl?path=${encodeURIComponent(path)}`);
   if (!r.ok) throw new Error('status ' + r.status);
   return r.json();
 }
