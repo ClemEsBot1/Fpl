@@ -177,14 +177,23 @@ function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
     base = 0.6 * epNext + 0.4 * ppg;
   }
 
+  function fixtureMultFor(diff) {
+    return Math.max(0.8, Math.min(1.18, 1 + (3 - diff) * 0.075));
+  }
+
   const fixtures = fixturesByTeam[p.team] || [];
   const upcoming = fixtures.slice(0, 4);
   let fixtureMult = 1;
   if (upcoming.length) {
     const avgDiff = upcoming.reduce((s, f) => s + f.difficulty, 0) / upcoming.length;
-    fixtureMult = 1 + (3 - avgDiff) * 0.075;
-    fixtureMult = Math.max(0.8, Math.min(1.18, fixtureMult));
+    fixtureMult = fixtureMultFor(avgDiff);
   }
+
+  // Captaincy is a free pick every gameweek, so only the very next fixture's
+  // difficulty is relevant there — not the 4-game rolling average used above
+  // for the general "predicted" figure (which suits squad/transfer decisions,
+  // since you're stuck with those players over several weeks).
+  const nextFixtureMult = upcoming.length ? fixtureMultFor(upcoming[0].difficulty) : 1;
 
   let availMult = 1;
   let availNote = null;
@@ -199,8 +208,10 @@ function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
   }
 
   const predicted = Math.max(0, base * fixtureMult * availMult);
+  const nextMatchPredicted = Math.max(0, base * nextFixtureMult * availMult);
   return {
     predicted: Math.round(predicted * 10) / 10,
+    nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
     availNote,
     fixtureMult,
     upcomingFixtures: upcoming,
@@ -209,7 +220,7 @@ function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
 
 function suggestCaptain(starters) {
   if (!starters.length) return null;
-  return [...starters].sort((a, b) => b.predicted - a.predicted)[0];
+  return [...starters].sort((a, b) => b.nextMatchPredicted - a.nextMatchPredicted)[0];
 }
 
 const MAX_TRANSFER_SUGGESTIONS = 5;
@@ -901,7 +912,7 @@ function ResultsScreen({ data, onStartOver }) {
     players: starters.filter(s => s.player.positionId === posId),
   })).filter(g => g.players.length > 0);
 
-  const showCaptainSuggestion = captainSuggestion && (!captain || captain.player.id !== captainSuggestion.player.id) && captainSuggestion.predicted > (captain ? captain.predicted : 0) + 0.3;
+  const showCaptainSuggestion = captainSuggestion && (!captain || captain.player.id !== captainSuggestion.player.id) && captainSuggestion.nextMatchPredicted > (captain ? captain.nextMatchPredicted : 0) + 0.3;
 
   return (
     <div style={{ padding: '16px 16px 60px' }}>
@@ -923,9 +934,9 @@ function ResultsScreen({ data, onStartOver }) {
           <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--cyan)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
             {showCaptainSuggestion ? (
-              <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.predicted)} pts predicted){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.predicted)} pts)</> : null}.</>
+              <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
             ) : (
-              <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.predicted)} pts predicted){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
+              <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
             )}
           </div>
         </div>
@@ -1072,7 +1083,7 @@ export default function FPLSquadChecker() {
         if (!player) return null;
         const pred = staticData.predictionsById[pk.element];
         return {
-          player, predicted: pred.predicted, availNote: pred.availNote,
+          player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
           isStarting: pk.position <= 11, isCaptain: !!pk.is_captain, isViceCaptain: !!pk.is_vice_captain,
           multiplier: pk.multiplier,
         };
@@ -1163,7 +1174,7 @@ export default function FPLSquadChecker() {
       if (!player) return null;
       const pred = staticData.predictionsById[player.id];
       return {
-        player, predicted: pred.predicted, availNote: pred.availNote,
+        player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
         isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
         multiplier: slot.isCaptain ? 2 : 1,
       };
