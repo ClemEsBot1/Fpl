@@ -9,8 +9,7 @@ const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 const POSITION_LABELS = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 const POSITION_ORDER = [1, 2, 3, 4];
 const BAD_AVAIL_NOTES = ['Injured', 'Suspended', 'Unavailable'];
-const AVERAGE = 45, SPREAD = 20;
-const pct = 50 + ((xiTotal - AVERAGE) / SPREAD) * 50;
+
 const DIFF_COLORS = {
   1: { bg: '#1F9D55', text: '#06210F' },
   2: { bg: '#6FCB90', text: '#06210F' },
@@ -856,12 +855,14 @@ function TransferCard({ suggestion, teamsById, fixturesByTeam }) {
   );
 }
 
-// Squad Score: maps predicted starting-XI points this gameweek onto a 1-100
-// scale. 35 pts ≈ a rough/injury-hit XI, 80 pts ≈ an elite, near-optimal XI.
-// These bounds are a judgment call, not an official FPL metric.
+// Squad Score: maps predicted starting-XI points this gameweek onto a 0-100
+// scale, centered so a squad predicted right at AVERAGE scores 50. AVERAGE is
+// a working estimate of what a typical XI predicts to (tune this as you see
+// real results — it's a judgment call, not derived from official FPL data).
+// SPREAD is how many points above/below AVERAGE it takes to reach 100/0.
 function computeSquadScore(xiTotal) {
-  const MIN = 35, MAX = 80;
-  const pct = ((xiTotal - MIN) / (MAX - MIN)) * 100;
+  const AVERAGE = 45, SPREAD = 20;
+  const pct = 50 + ((xiTotal - AVERAGE) / SPREAD) * 50;
   return Math.round(Math.max(0, Math.min(100, pct)));
 }
 
@@ -915,12 +916,15 @@ function ResultsScreen({ data, onStartOver }) {
         <ScoreRing score={squadScore} />
       </div>
 
-      {showCaptainSuggestion && (
-        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: '3px solid var(--cyan)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <Crown size={18} style={{ color: 'var(--cyan)', flexShrink: 0, marginTop: 2 }} />
+      {captainSuggestion && (
+        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--cyan)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--cyan)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-            Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.predicted)} pts predicted)
-            {captain ? <> instead of {captain.player.webName} ({fmtPts(captain.predicted)} pts)</> : null}.
+            {showCaptainSuggestion ? (
+              <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.predicted)} pts predicted){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.predicted)} pts)</> : null}.</>
+            ) : (
+              <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.predicted)} pts predicted){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
+            )}
           </div>
         </div>
       )}
