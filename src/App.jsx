@@ -99,21 +99,22 @@ function formatCountdown(deadlineISO) {
 
 async function fetchFplJson(path) {
   const target = FPL_BASE + path;
-  const attempts = [
-    () => fetch(target).then(r => { if (!r.ok) throw new Error('status ' + r.status); return r.text(); }),
-    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`).then(r => { if (!r.ok) throw new Error('status ' + r.status); return r.text(); }),
-    () => fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`).then(r => { if (!r.ok) throw new Error('status ' + r.status); return r.text(); }),
+  // Direct browser fetch to FPL always fails (they don't send CORS headers),
+  // so we race several CORS proxies at once and take whichever answers first.
+  const proxies = [
+    `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
   ];
-  let lastErr = null;
-  for (const attempt of attempts) {
-    try {
-      const text = await attempt();
-      return JSON.parse(text);
-    } catch (e) {
-      lastErr = e;
-    }
+  const attempts = proxies.map(url =>
+    fetch(url).then(r => { if (!r.ok) throw new Error('status ' + r.status); return r.text(); })
+  );
+  try {
+    const text = await Promise.any(attempts);
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('FPL_UNREACHABLE: all proxies failed');
   }
-  throw new Error('FPL_UNREACHABLE: ' + (lastErr ? lastErr.message : 'unknown'));
 }
 
 /* ============================================================================
@@ -658,8 +659,8 @@ function PasteJsonForm({ onSubmit, onBack }) {
 
       <div className="fpl-block" style={{ padding: 10, marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)' }}>PROMPT TO SEND CLAUDE</span>
-          <button className="fpl-chip-btn" onClick={copyPrompt}>{copied ? 'Copied!' : 'Copy'}</button>
+          <span className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)' }}>PROMPT TO SEND CLAUDE (not your squad — copy this into a separate Claude chat)</span>
+          <button className="fpl-chip-btn" onClick={copyPrompt}>{copied ? 'Copied!' : 'Copy prompt'}</button>
         </div>
         <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', maxHeight: 80, overflow: 'hidden', lineHeight: 1.5 }}>
           {CLAUDE_CHAT_PROMPT.slice(0, 160)}…
@@ -1003,7 +1004,12 @@ export default function FPLSquadChecker() {
     setStage('loading');
     setLoadingMessage('Pulling live player data…');
     try {
-      const staticData = await ensureStaticData();
+      let staticData;
+      try {
+        staticData = await ensureStaticData();
+      } catch (e) {
+        throw { code: 'ERR_STATIC_DATA' };
+      }
       setLoadingMessage('Fetching your team…');
       const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
 
@@ -1011,10 +1017,10 @@ export default function FPLSquadChecker() {
       try {
         picks = await fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`);
       } catch (e) {
-        throw { code: 'FETCH_FAILED' };
+        throw { code: 'ERR_PICKS_FETCH' };
       }
       if (!picks || picks.detail === 'Not found.' || !Array.isArray(picks.picks) || picks.picks.length === 0) {
-        throw { code: 'TEAM_NOT_FOUND' };
+        throw { code: 'ERR_TEAM_NOT_FOUND' };
       }
 
       let entryMeta = null;
@@ -1043,9 +1049,14 @@ export default function FPLSquadChecker() {
       finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip);
     } catch (e) {
       setStage('error');
-      if (e && e.code === 'TEAM_NOT_FOUND') setErrorMessage("We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.");
-      else if (e && e.code === 'FETCH_FAILED') setErrorMessage("FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.");
-      else setErrorMessage('Something went wrong pulling your team. Try again, or upload a screenshot instead.');
+      const code = (e && e.code) || 'ERR_UNKNOWN';
+      const messages = {
+        ERR_STATIC_DATA: "Couldn't load live FPL player data right now (all proxies failed). Try again in a moment, or upload a screenshot instead.",
+        ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
+        ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
+        ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
+      };
+      setErrorMessage(`${messages[code] || messages.ERR_UNKNOWN} [${code}]`);
     }
   }
 
@@ -1053,7 +1064,7 @@ export default function FPLSquadChecker() {
   // both end up with the same `extracted` shape, this just matches it to real players.
   async function processExtractedSquad(extracted, staticDataPromise) {
     if (extracted.not_fpl_screenshot) {
-      setErrorMessage("That doesn't look like an FPL squad. Re-check the JSON and try again.");
+      setErrorMessage("That doesn't look like an FPL squad. Re-check the JSON and try again. [ERR_NOT_FPL_SCREENSHOT]");
       setStage('error');
       return;
     }
@@ -1070,7 +1081,7 @@ export default function FPLSquadChecker() {
   async function handleScreenshotFile(file) {
     if (!file) return;
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      setErrorMessage('Please upload a PNG, JPG, or WEBP image.');
+      setErrorMessage('Please upload a PNG, JPG, or WEBP image. [ERR_BAD_FILE_TYPE]');
       setStage('error');
       return;
     }
@@ -1082,7 +1093,7 @@ export default function FPLSquadChecker() {
       const extracted = await extractSquadFromImage(base64, file.type);
       await processExtractedSquad(extracted, staticDataPromise);
     } catch (e) {
-      setErrorMessage('Couldn\'t read that screenshot clearly. Try a sharper, full "Pitch View" image, or enter your Team ID instead.');
+      setErrorMessage('Couldn\'t read that screenshot clearly. Try a sharper, full "Pitch View" image, or enter your Team ID instead. [ERR_SCREENSHOT_READ]');
       setStage('error');
     }
   }
@@ -1099,7 +1110,7 @@ export default function FPLSquadChecker() {
       const staticDataPromise = ensureStaticData();
       await processExtractedSquad(extracted, staticDataPromise);
     } catch (e) {
-      setErrorMessage("That didn't parse as valid JSON. Make sure you copied Claude's whole reply, starting with { and ending with }.");
+      setErrorMessage(`That didn't parse as valid JSON (${e.message || 'parse error'}). Make sure you copied Claude's whole reply, starting with { and ending with }. [ERR_JSON_PARSE]`);
       setStage('error');
     }
   }
@@ -1110,7 +1121,7 @@ export default function FPLSquadChecker() {
 
   function handleConfirmReview() {
     const staticData = pendingStaticData;
-    if (!staticData) { setStage('error'); setErrorMessage('Something went wrong. Please start over.'); return; }
+    if (!staticData) { setStage('error'); setErrorMessage('Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
     const squad = reviewSlots.map(slot => {
       const player = slot.matched;
       if (!player) return null;
@@ -1123,7 +1134,7 @@ export default function FPLSquadChecker() {
     }).filter(Boolean);
 
     if (squad.length < 11) {
-      setErrorMessage('A few players are still unmatched. Go back and fix them, or try a clearer screenshot.');
+      setErrorMessage('A few players are still unmatched. Go back and fix them, or try a clearer screenshot. [ERR_UNMATCHED_PLAYERS]');
       setStage('error');
       return;
     }
