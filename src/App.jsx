@@ -148,9 +148,17 @@ function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
 
   const predicted = Math.max(0, base * fixtureMult * availMult);
   const nextMatchPredicted = Math.max(0, base * nextFixtureMult * availMult);
+  // Fixture-difficulty-free base (still adjusted for availability). Anything that
+  // needs to apply its own per-gameweek fixture multiplier later (e.g. chip
+  // timing, which looks several gameweeks ahead one at a time) should start
+  // from this instead of `predicted`, which already has the 4-fixture rolling
+  // average baked in — multiplying that by another fixture factor double-counts
+  // fixture difficulty and inflates the result.
+  const baseAvail = Math.max(0, base * availMult);
   return {
     predicted: Math.round(predicted * 10) / 10,
     nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
+    baseAvail,
     availNote,
     fixtureMult,
     upcomingFixtures: upcoming,
@@ -529,14 +537,17 @@ function GlobalStyle() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
-      .fpl-root { --bg:#041530; --panel:#0B2547; --panel-alt:#123765; --line:#20518A;
-        --ink:#F1F6FB; --ink-dim:#9FBBDD; --blue:#3A9DFF; --green:#00E28A;
-        --red:#FF5A5A; --sky:#57C8FF; --amber:#FF9A45; }
-      .fpl-root { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); min-height:100%; }
+      .fpl-root { --bg:linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%);
+        --panel:rgba(10,8,30,0.60); --panel-alt:rgba(10,8,30,0.42); --line:rgba(255,255,255,0.20);
+        --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.72); --blue:#04F9FC; --green:#36FE48;
+        --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; }
+      .fpl-root { font-family:'Inter',sans-serif; background:var(--bg) fixed; color:var(--ink); min-height:100%; }
+
       .fpl-display { font-family:'Space Grotesk',sans-serif; }
       .fpl-mono { font-family:'IBM Plex Mono',monospace; }
 
-      .fpl-block { background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+      .fpl-block { background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden;
+        backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
       .fpl-btn { font-family:'Space Grotesk',sans-serif; font-weight:600; letter-spacing:0.02em;
         border:2px solid var(--blue); background:transparent; color:var(--blue); border-radius:6px;
         padding:14px 18px; cursor:pointer; transition:background .15s,color .15s; text-align:left; }
@@ -1271,7 +1282,7 @@ function PlayerRow({ slot, teamsById, fixturesByTeam }) {
         <DifficultyChips fixtures={fixtures} teamsById={teamsById} max={2} />
       </div>
       <div className="fpl-row-pred">
-        <div className="fpl-row-pred-num" style={{ color: predicted < 2 ? 'var(--red)' : predicted >= 5 ? 'var(--green)' : 'var(--ink)' }}>{fmtPts(predicted)}</div>
+        <div className="fpl-row-pred-num" style={{ color: predicted < 2 ? 'var(--red)' : predicted >= 5 ? 'var(--lime)' : 'var(--ink)' }}>{fmtPts(predicted)}</div>
         <div className="fpl-row-pred-label">PTS/WK</div>
       </div>
     </div>
@@ -1298,7 +1309,7 @@ function TransferCard({ suggestion, teamsById, fixturesByTeam, onApply }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: 6 }}>
         <span style={{ fontSize: '0.75rem', color: 'var(--ink-dim)' }}>{reason}</span>
         <span className="fpl-mono" style={{ fontSize: '0.75rem', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span style={{ color: 'var(--green)', fontWeight: 700 }}>+{fmtPts(gain)} pts</span>
+          <span style={{ color: 'var(--mint)', fontWeight: 700 }}>+{fmtPts(gain)} pts</span>
           <span style={{ color: costDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{costDelta >= 0 ? '+' : ''}{costDelta.toFixed(1)}m</span>
         </span>
       </div>
@@ -1341,7 +1352,7 @@ function fixtureMultFor(diff) {
   return Math.max(0.8, Math.min(1.18, 1 + (3 - diff) * 0.075));
 }
 
-function analyzeChipTiming(squad, fixturesByTeam, allEvents) {
+function analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById) {
   const gwSet = new Set();
   Object.values(fixturesByTeam).forEach(list => list.forEach(f => gwSet.add(f.event)));
   // Consider every scheduled gameweek for the rest of the season (FPL runs 38),
@@ -1356,8 +1367,13 @@ function analyzeChipTiming(squad, fixturesByTeam, allEvents) {
     squad.forEach(s => {
       const fixtures = (fixturesByTeam[s.player.team] || []).filter(f => f.event === gw);
       if (!fixtures.length) return;
+      // Use the fixture-difficulty-free base here, then apply this specific
+      // gameweek's own fixture multiplier once. Using `s.predicted` instead
+      // would double-apply fixture difficulty, since predicted already bakes
+      // in a 4-fixture rolling average multiplier of its own.
+      const baseAvail = predictionsById[s.player.id].baseAvail;
       let playerTotal = 0;
-      fixtures.forEach(f => { playerTotal += s.predicted * fixtureMultFor(f.difficulty); });
+      fixtures.forEach(f => { playerTotal += baseAvail * fixtureMultFor(f.difficulty); });
       totalSquad += playerTotal;
       if (s.isStarting && (!bestCaptain || playerTotal > bestCaptain.pts)) {
         bestCaptain = { player: s.player, pts: playerTotal, fixtureCount: fixtures.length };
@@ -1517,7 +1533,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
   const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
   const [editMode, setEditMode] = useState(false);
 
-  const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents);
+  const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById);
 
   function applySwap(outId, inPlayer) {
     const swapped = ensureCaptaincy(swapPlayerInSquad(squad, outId, inPlayer, predictionsById));
