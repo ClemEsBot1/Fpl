@@ -976,7 +976,9 @@ function fixtureMultFor(diff) {
 function analyzeChipTiming(squad, fixturesByTeam, allEvents) {
   const gwSet = new Set();
   Object.values(fixturesByTeam).forEach(list => list.forEach(f => gwSet.add(f.event)));
-  const gwIds = Array.from(gwSet).sort((a, b) => a - b).slice(0, 8);
+  // Consider every scheduled gameweek for the rest of the season (FPL runs 38),
+  // not just an early window — blank/double gameweeks can land anywhere.
+  const gwIds = Array.from(gwSet).sort((a, b) => a - b).slice(0, 38);
   const eventsById = {};
   (allEvents || []).forEach(e => { eventsById[e.id] = e; });
 
@@ -1031,7 +1033,7 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
 function ResultsScreen({ data, onStartOver }) {
   const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam, allEvents } = data;
 
-  const chipTiming = analyzeChipTiming(squad, fixturesByTeam, allEvents);
+  const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents);
 
   const grouped = POSITION_ORDER.map(posId => ({
     posId,
