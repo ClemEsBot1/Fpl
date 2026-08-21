@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2 } from 'lucide-react';
+import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2 } from 'lucide-react';
 
 /* ============================================================================
    CONSTANTS
@@ -554,7 +554,7 @@ function GlobalStyle() {
       .fpl-btn:hover, .fpl-btn:focus-visible { background:var(--blue); color:#03132B; }
       .fpl-btn:focus-visible { outline:3px solid var(--sky); outline-offset:2px; }
       .fpl-btn-solid { background:var(--blue); color:#03132B; }
-      .fpl-btn-solid:hover { background:#6BC1FF; }
+      .fpl-btn-solid:hover { background:var(--lime); }
       .fpl-btn:disabled { opacity:0.5; cursor:not-allowed; }
 
       .fpl-input { font-family:'IBM Plex Mono',monospace; font-size:1.1rem; letter-spacing:0.04em;
@@ -575,6 +575,9 @@ function GlobalStyle() {
         padding:3px 5px; display:inline-block; min-width:38px; text-align:center; border-radius:3px; }
 
       .fpl-row { display:flex; align-items:center; gap:10px; padding:10px 10px; border-bottom:1px solid var(--line); }
+      .fpl-row-editable { cursor:pointer; transition:background .12s; }
+      .fpl-row-editable:hover { background:var(--panel-alt); }
+      .fpl-row-editable.fpl-row-open { background:var(--panel-alt); }
       .fpl-row:last-child { border-bottom:none; }
       .fpl-row-bench { opacity:0.72; }
       .fpl-row-pos { font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:700;
@@ -637,9 +640,9 @@ function DifficultyChips({ fixtures, teamsById, max = 3 }) {
 
 function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
   return (
-    <header style={{ borderBottom: '1px solid var(--line)' }}>
+    <header style={{ borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100, background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 10, height: 10, background: 'var(--blue)', borderRadius: 2 }} />
+        <div style={{ width: 10, height: 10, background: 'var(--lime)', borderRadius: 2, flexShrink: 0 }} />
         <button
           onClick={onGoHome}
           className="fpl-display"
@@ -1262,12 +1265,13 @@ function ReviewScreen({ slots, allPlayers, onFix, onConfirm, onBack }) {
   );
 }
 
-function PlayerRow({ slot, teamsById, fixturesByTeam }) {
+function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle }) {
   const { player, predicted, availNote, isCaptain, isViceCaptain } = slot;
   const team = teamsById[player.team];
   const fixtures = fixturesByTeam[player.team];
+  const rowClass = `fpl-row ${!slot.isStarting ? 'fpl-row-bench' : ''} ${editable ? 'fpl-row-editable' : ''} ${isOpen ? 'fpl-row-open' : ''}`;
   return (
-    <div className={`fpl-row ${!slot.isStarting ? 'fpl-row-bench' : ''}`}>
+    <div className={rowClass} onClick={editable ? onToggle : undefined}>
       <div className="fpl-row-pos">{POSITION_LABELS[player.positionId]}</div>
       <div className="fpl-row-main">
         <div className="fpl-row-name">
@@ -1285,6 +1289,67 @@ function PlayerRow({ slot, teamsById, fixturesByTeam }) {
         <div className="fpl-row-pred-num" style={{ color: predicted < 2 ? 'var(--red)' : predicted >= 5 ? 'var(--lime)' : 'var(--ink)' }}>{fmtPts(predicted)}</div>
         <div className="fpl-row-pred-label">PTS/WK</div>
       </div>
+      {editable && (
+        <ChevronDown size={14} style={{ color: 'var(--ink-dim)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .12s' }} />
+      )}
+    </div>
+  );
+}
+
+// Inline replacement search, opened by clicking directly on a player's row in
+// edit mode — the same click-the-box-to-change pattern used by the squad
+// builder, rather than only being reachable via a form at the top.
+function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, teamsById, bankTenths, query, setQuery, onSwap }) {
+  const posId = outSlot.player.positionId;
+  const squadIds = new Set(squad.map(s => s.player.id));
+  const nq = normalize(query);
+  const candidates = allPlayers
+    .filter(p => p.positionId === posId && !squadIds.has(p.id))
+    .filter(p => nq.length < 2 || normalize(p.webName).includes(nq) || normalize(p.secondName).includes(nq))
+    .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted)
+    .slice(0, 8);
+  const remaining = (bankTenths || 0) / 10 + outSlot.player.price;
+
+  return (
+    <div style={{ padding: 10, borderBottom: '1px solid var(--line)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ position: 'relative', marginBottom: 8 }}>
+        <Search size={14} style={{ position: 'absolute', left: 9, top: 11, color: 'var(--ink-dim)' }} />
+        <input
+          className="fpl-input"
+          style={{ paddingLeft: 30, fontSize: '0.85rem' }}
+          placeholder={`Search a replacement ${POSITION_LABELS[posId]}…`}
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          autoFocus
+        />
+      </div>
+      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8 }}>
+        Budget for this slot: {fmtPrice(remaining)}{query ? ' · matching your search' : ''}
+      </div>
+      {candidates.length === 0 && (
+        <div style={{ padding: '6px 2px', fontSize: '0.8rem', color: 'var(--ink-dim)' }}>No matching players.</div>
+      )}
+      {candidates.map(p => {
+        const team = teamsById[p.team];
+        const priceDelta = Math.round((p.price - outSlot.player.price) * 10) / 10;
+        return (
+          <div
+            key={p.id}
+            className="fpl-search-item"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+            onClick={() => onSwap(outSlot.player.id, p)}
+          >
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <strong>{p.webName}</strong>{' '}
+              <span style={{ color: 'var(--ink-dim)' }}>· {team ? team.short_name : '—'} · {fmtPrice(p.price)}</span>
+            </span>
+            <span className="fpl-mono" style={{ flexShrink: 0, fontSize: '0.72rem', display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ color: 'var(--green)' }}>{fmtPts(predictionsById[p.id].predicted)}pts</span>
+              <span style={{ color: priceDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{priceDelta >= 0 ? '+' : ''}{priceDelta.toFixed(1)}m</span>
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1329,10 +1394,16 @@ function TransferCard({ suggestion, teamsById, fixturesByTeam, onApply }) {
 // Squad Score: the optimal squad (best possible XI within budget) is defined
 // as 100. Every other squad is scored relative to it — its predicted points
 // as a percentage of the optimal squad's predicted points, capped at 100.
+// Squads below optimal are penalised a bit more steeply than a straight
+// percentage would: the shortfall below 100 is scaled up by PUNISH_FACTOR
+// before being subtracted, so falling short of the optimal squad costs
+// slightly more Squad Score than 1-for-1.
+const PUNISH_FACTOR = 1.15;
 function computeSquadScore(xiTotal, optimalXiTotal) {
   if (!optimalXiTotal || optimalXiTotal <= 0) return 0;
   const pct = (xiTotal / optimalXiTotal) * 100;
-  return Math.round(Math.max(0, Math.min(100, pct)));
+  const score = pct >= 100 ? pct : 100 - (100 - pct) * PUNISH_FACTOR;
+  return Math.round(Math.max(0, Math.min(100, score)));
 }
 
 // Predicted points of the best possible squad within budget, used as the
@@ -1532,6 +1603,8 @@ function EditSquadPanel({ squad, allPlayers, predictionsById, bankTenths, teamsB
 function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
   const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
   const [editMode, setEditMode] = useState(false);
+  const [editSlotId, setEditSlotId] = useState(null);
+  const [editQuery, setEditQuery] = useState('');
 
   const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById);
 
@@ -1541,6 +1614,13 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
     const priceDelta = outPlayer ? inPlayer.price - outPlayer.player.price : 0;
     const newBankTenths = Math.round((bankTenths || 0) - priceDelta * 10);
     onSquadUpdate(swapped, newBankTenths);
+    setEditSlotId(null);
+    setEditQuery('');
+  }
+
+  function toggleRowEdit(playerId) {
+    setEditSlotId(current => (current === playerId ? null : playerId));
+    setEditQuery('');
   }
 
   const grouped = POSITION_ORDER.map(posId => ({
@@ -1562,7 +1642,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
           )}
           {isOptimalBuild && (
-            <button className="fpl-mono" onClick={onRebuildOptimal} style={{ background: 'none', border: 'none', color: 'var(--sky)', fontSize: '0.68rem', padding: 0, marginTop: 4, cursor: 'pointer', textDecoration: 'underline' }}>
+            <button className="fpl-mono" onClick={onRebuildOptimal} style={{ background: 'none', border: 'none', color: 'var(--lime)', fontSize: '0.68rem', padding: 0, marginTop: 4, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
               Saved build — rebuild with latest data
             </button>
           )}
@@ -1575,10 +1655,16 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
         <button
           className={`fpl-btn ${editMode ? 'fpl-btn-solid' : ''}`}
           style={{ width: '100%', marginBottom: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-          onClick={() => setEditMode(m => !m)}
+          onClick={() => { setEditMode(m => !m); setEditSlotId(null); setEditQuery(''); }}
         >
           <Edit3 size={16} /> {editMode ? 'Done editing' : 'Edit squad'}
         </button>
+      )}
+
+      {!isOptimalBuild && editMode && (
+        <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
+          Tap any player below to swap them, or use the finder here for a specific position.
+        </div>
       )}
 
       {!isOptimalBuild && editMode && (
@@ -1611,7 +1697,29 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
           <div className="fpl-section-title">{g.label}</div>
           <div className="fpl-block" style={{ borderTop: 'none' }}>
             {g.players.map(slot => (
-              <PlayerRow key={slot.player.id} slot={slot} teamsById={teamsById} fixturesByTeam={fixturesByTeam} />
+              <React.Fragment key={slot.player.id}>
+                <PlayerRow
+                  slot={slot}
+                  teamsById={teamsById}
+                  fixturesByTeam={fixturesByTeam}
+                  editable={editMode}
+                  isOpen={editSlotId === slot.player.id}
+                  onToggle={() => toggleRowEdit(slot.player.id)}
+                />
+                {editMode && editSlotId === slot.player.id && (
+                  <InlineSwapSearch
+                    outSlot={slot}
+                    squad={squad}
+                    allPlayers={allPlayers}
+                    predictionsById={predictionsById}
+                    teamsById={teamsById}
+                    bankTenths={bankTenths}
+                    query={editQuery}
+                    setQuery={setEditQuery}
+                    onSwap={applySwap}
+                  />
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -1622,7 +1730,29 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
           <div className="fpl-section-title">Bench</div>
           <div className="fpl-block" style={{ borderTop: 'none' }}>
             {bench.map(slot => (
-              <PlayerRow key={slot.player.id} slot={slot} teamsById={teamsById} fixturesByTeam={fixturesByTeam} />
+              <React.Fragment key={slot.player.id}>
+                <PlayerRow
+                  slot={slot}
+                  teamsById={teamsById}
+                  fixturesByTeam={fixturesByTeam}
+                  editable={editMode}
+                  isOpen={editSlotId === slot.player.id}
+                  onToggle={() => toggleRowEdit(slot.player.id)}
+                />
+                {editMode && editSlotId === slot.player.id && (
+                  <InlineSwapSearch
+                    outSlot={slot}
+                    squad={squad}
+                    allPlayers={allPlayers}
+                    predictionsById={predictionsById}
+                    teamsById={teamsById}
+                    bankTenths={bankTenths}
+                    query={editQuery}
+                    setQuery={setEditQuery}
+                    onSwap={applySwap}
+                  />
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -1666,7 +1796,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
             <TransferCard key={i} suggestion={s} teamsById={teamsById} fixturesByTeam={fixturesByTeam} onApply={editMode ? applySwap : null} />
           ))}
           {suggestions.length > 0 && !editMode && (
-            <button className="fpl-mono" onClick={() => setEditMode(true)} style={{ background: 'none', border: 'none', color: 'var(--sky)', fontSize: '0.72rem', padding: 0, marginTop: 2, cursor: 'pointer', textDecoration: 'underline' }}>
+            <button className="fpl-mono" onClick={() => setEditMode(true)} style={{ background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid var(--line)', borderRadius: 4, color: 'var(--lime)', fontSize: '0.72rem', padding: '8px 10px', marginTop: 2, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
               Switch to edit mode to accept a suggestion
             </button>
           )}
