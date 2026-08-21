@@ -288,6 +288,37 @@ function buildOptimalSquad(allPlayers, predictionsById, budget) {
     squad[bestSwap.idx] = bestSwap.inP;
   }
 
+  // Step 3: spend any leftover budget. While money remains, find the single
+  // swap (any squad player -> any pricier same-position player not already
+  // in the squad, within remaining budget) that gains the most predicted
+  // points per pound spent, and apply it. Repeat until no swap helps.
+  guard = 0;
+  while (guard < 500) {
+    guard++;
+    const remaining = budget - totalCost(squad);
+    if (remaining <= 1e-9) break;
+    const squadIds = new Set(squad.map(p => p.id));
+    let bestUpgrade = null;
+    squad.forEach((out, idx) => {
+      const projectedCounts = { ...teamCounts, [out.team]: (teamCounts[out.team] || 0) - 1 };
+      for (const inP of byPosition[out.positionId]) {
+        if (squadIds.has(inP.id)) continue;
+        const extraCost = inP.price - out.price;
+        if (extraCost <= 0 || extraCost > remaining + 1e-9) continue;
+        if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
+        const pointsGained = predictionsById[inP.id].predicted - predictionsById[out.id].predicted;
+        if (pointsGained <= 0) continue;
+        const ratio = pointsGained / extraCost;
+        if (!bestUpgrade || ratio > bestUpgrade.ratio) bestUpgrade = { idx, inP, ratio };
+      }
+    });
+    if (!bestUpgrade) break; // no affordable upgrade left — leftover money genuinely can't be spent well
+    const out = squad[bestUpgrade.idx];
+    teamCounts[out.team] -= 1;
+    teamCounts[bestUpgrade.inP.team] = (teamCounts[bestUpgrade.inP.team] || 0) + 1;
+    squad[bestUpgrade.idx] = bestUpgrade.inP;
+  }
+
   return squad;
 }
 
@@ -489,7 +520,7 @@ async function loadStaticData() {
   const predictionsById = {};
   allPlayers.forEach(p => { predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, seasonStarted); });
 
-  return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, seasonStarted, predictionsById };
+  return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, seasonStarted, predictionsById };
 }
 
 /* ============================================================================
@@ -596,7 +627,7 @@ function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   );
 }
 
-function Header({ summary }) {
+function Header({ summary, gwOptions, selectedGw, onSelectGw }) {
   return (
     <header style={{ borderBottom: '1px solid var(--line)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -604,6 +635,18 @@ function Header({ summary }) {
         <div className="fpl-display" style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '0.02em' }}>
           SQUAD CHECK <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>· FPL</span>
         </div>
+        {gwOptions && gwOptions.length > 0 && (
+          <select
+            className="fpl-mono"
+            value={selectedGw || ''}
+            onChange={e => onSelectGw(Number(e.target.value))}
+            style={{ marginLeft: 'auto', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '4px 6px', fontSize: '0.72rem' }}
+          >
+            {gwOptions.map(e => (
+              <option key={e.id} value={e.id}>{e.name}{e.is_current ? ' (current)' : ''}</option>
+            ))}
+          </select>
+        )}
       </div>
       {summary && (
         <div style={{ background: 'var(--panel-alt)', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
@@ -1030,7 +1073,7 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
 }
 
 function ResultsScreen({ data, onStartOver }) {
-  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, targetEvent, teamsById, fixturesByTeam } = data;
+  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam } = data;
 
   const grouped = POSITION_ORDER.map(posId => ({
     posId,
@@ -1049,6 +1092,11 @@ function ResultsScreen({ data, onStartOver }) {
           </div>
           {bankTenths !== null && bankTenths !== undefined && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
+          )}
+          {isOptimalBuild && (
+            <button className="fpl-mono" onClick={onRebuildOptimal} style={{ background: 'none', border: 'none', color: 'var(--cyan)', fontSize: '0.68rem', padding: 0, marginTop: 4, cursor: 'pointer', textDecoration: 'underline' }}>
+              Saved build — rebuild with latest data
+            </button>
           )}
           <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6 }}>Squad Score</div>
         </div>
@@ -1132,6 +1180,8 @@ export default function FPLSquadChecker() {
   const [reviewBank, setReviewBank] = useState(null);
   const [pendingStaticData, setPendingStaticData] = useState(null);
   const [resultsData, setResultsData] = useState(null);
+  const [selectedGw, setSelectedGw] = useState(null); // null = use current/next gameweek
+  const [gwOptions, setGwOptions] = useState([]);
 
   const staticPromiseRef = useRef(null);
 
@@ -1142,9 +1192,17 @@ export default function FPLSquadChecker() {
     return staticPromiseRef.current;
   }
 
-  useEffect(() => { ensureStaticData().catch(() => {}); }, []);
+  useEffect(() => {
+    ensureStaticData().then(data => {
+      // Only past/current gameweeks are selectable — future ones have no
+      // picks published yet, and there's nothing to check for them.
+      const selectable = data.allEvents.filter(e => e.finished || e.is_current);
+      setGwOptions(selectable);
+      if (selectedGw === null && data.targetEvent) setSelectedGw(data.targetEvent.id);
+    }).catch(() => {});
+  }, []);
 
-  function finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild) {
+  function finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, onRebuildOptimal) {
     const starters = squad.filter(s => s.isStarting);
     const bench = squad.filter(s => !s.isStarting);
 
@@ -1160,20 +1218,64 @@ export default function FPLSquadChecker() {
 
     setResultsData({
       squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions,
-      entryMeta, bankTenths, activeChip, isOptimalBuild: !!isOptimalBuild,
+      entryMeta, bankTenths, activeChip, isOptimalBuild, onRebuildOptimal,
       squadScore: computeSquadScore(xiTotal),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam,
     });
     setStage('results');
   }
 
-  async function handleBuildOptimalTeam() {
+  async function handleBuildOptimalTeam(forceRebuild) {
     setStage('loading');
     setLoadingMessage(`Testing lineups within £${SQUAD_BUDGET.toFixed(1)}m…`);
     try {
       const staticData = await ensureStaticData();
-      const { squad, bankTenths } = buildOptimalTeam(staticData, SQUAD_BUDGET);
-      finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null, true);
+      const gwId = selectedGw || (staticData.targetEvent ? staticData.targetEvent.id : 1);
+      const cacheKey = `fpl_optimal_squad_gw${gwId}`;
+
+      // Reuse a saved build for this gameweek instead of recomputing, unless
+      // the person explicitly asks to rebuild. Player IDs are re-matched
+      // against fresh live data each time, so prices/predictions stay current.
+      let squad = null, bankTenths = null;
+      if (!forceRebuild) {
+        try {
+          const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+          if (cached && Array.isArray(cached.playerIds)) {
+            const players = cached.playerIds.map(pid => staticData.allPlayers.find(p => p.id === pid)).filter(Boolean);
+            if (players.length === 15) {
+              const startersSet = pickBestFormation(players, staticData.predictionsById);
+              squad = players.map(p => {
+                const pred = staticData.predictionsById[p.id];
+                return {
+                  player: p, predicted: pred.predicted, availNote: pred.availNote,
+                  isStarting: startersSet.has(p.id),
+                  isCaptain: p.id === cached.captainId, isViceCaptain: p.id === cached.viceCaptainId,
+                  multiplier: p.id === cached.captainId ? 2 : 1,
+                };
+              });
+              bankTenths = Math.round((SQUAD_BUDGET - players.reduce((s, p) => s + p.price, 0)) * 10);
+            }
+          }
+        } catch (e) { /* corrupt/unavailable cache — fall through to a fresh build */ }
+      }
+
+      if (!squad) {
+        const built = buildOptimalTeam(staticData, SQUAD_BUDGET);
+        squad = built.squad;
+        bankTenths = built.bankTenths;
+        try {
+          const captain = squad.find(s => s.isCaptain);
+          const vice = squad.find(s => s.isViceCaptain);
+          localStorage.setItem(cacheKey, JSON.stringify({
+            playerIds: squad.map(s => s.player.id),
+            captainId: captain ? captain.player.id : null,
+            viceCaptainId: vice ? vice.player.id : null,
+            builtAt: Date.now(),
+          }));
+        } catch (e) { /* storage unavailable — non-critical, just won't persist */ }
+      }
+
+      finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null, true, () => handleBuildOptimalTeam(true));
     } catch (e) {
       setErrorMessage("Couldn't build a squad right now — FPL's data might be temporarily unavailable. Please try again.");
       setStage('error');
@@ -1197,7 +1299,7 @@ export default function FPLSquadChecker() {
         throw { code: 'ERR_STATIC_DATA' };
       }
       setLoadingMessage('Fetching your team…');
-      const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
+      const gwId = selectedGw || (staticData.targetEvent ? staticData.targetEvent.id : 1);
 
       let picks;
       try {
@@ -1340,7 +1442,7 @@ export default function FPLSquadChecker() {
   return (
     <div className="fpl-root">
       <GlobalStyle />
-      <Header summary={headerSummary} />
+      <Header summary={headerSummary} gwOptions={gwOptions} selectedGw={selectedGw} onSelectGw={setSelectedGw} />
       <main style={{ maxWidth: 640, margin: '0 auto' }}>
         {stage === 'intro' && (
           <IntroScreen
