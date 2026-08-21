@@ -529,45 +529,45 @@ function GlobalStyle() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 
-      .fpl-root { --bg:#0C1512; --panel:#132420; --panel-alt:#1A2E27; --line:#274038;
-        --ink:#F1F6F1; --ink-dim:#9FB8AB; --yellow:#FFD230; --green:#35D07F;
-        --red:#FF5A5A; --cyan:#5BE0F0; --amber:#FF9A45; }
+      .fpl-root { --bg:#041530; --panel:#0B2547; --panel-alt:#123765; --line:#20518A;
+        --ink:#F1F6FB; --ink-dim:#9FBBDD; --blue:#3A9DFF; --green:#00E28A;
+        --red:#FF5A5A; --sky:#57C8FF; --amber:#FF9A45; }
       .fpl-root { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); min-height:100%; }
       .fpl-display { font-family:'Space Grotesk',sans-serif; }
       .fpl-mono { font-family:'IBM Plex Mono',monospace; }
 
-      .fpl-block { background:var(--panel); border:1px solid var(--line); }
+      .fpl-block { background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden; }
       .fpl-btn { font-family:'Space Grotesk',sans-serif; font-weight:600; letter-spacing:0.02em;
-        border:2px solid var(--yellow); background:transparent; color:var(--yellow);
+        border:2px solid var(--blue); background:transparent; color:var(--blue); border-radius:6px;
         padding:14px 18px; cursor:pointer; transition:background .15s,color .15s; text-align:left; }
-      .fpl-btn:hover, .fpl-btn:focus-visible { background:var(--yellow); color:#1A1400; }
-      .fpl-btn:focus-visible { outline:3px solid var(--cyan); outline-offset:2px; }
-      .fpl-btn-solid { background:var(--yellow); color:#1A1400; }
-      .fpl-btn-solid:hover { background:#FFE066; }
+      .fpl-btn:hover, .fpl-btn:focus-visible { background:var(--blue); color:#03132B; }
+      .fpl-btn:focus-visible { outline:3px solid var(--sky); outline-offset:2px; }
+      .fpl-btn-solid { background:var(--blue); color:#03132B; }
+      .fpl-btn-solid:hover { background:#6BC1FF; }
       .fpl-btn:disabled { opacity:0.5; cursor:not-allowed; }
 
       .fpl-input { font-family:'IBM Plex Mono',monospace; font-size:1.1rem; letter-spacing:0.04em;
-        background:var(--panel-alt); border:2px solid var(--line); color:var(--ink);
+        background:var(--panel-alt); border:2px solid var(--line); color:var(--ink); border-radius:5px;
         padding:12px 14px; width:100%; }
-      .fpl-input:focus { outline:none; border-color:var(--yellow); }
+      .fpl-input:focus { outline:none; border-color:var(--blue); }
       .fpl-input::placeholder { color:var(--ink-dim); }
 
       .fpl-tag { display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:0.68rem;
-        font-weight:600; padding:2px 6px; letter-spacing:0.03em; }
+        font-weight:600; padding:2px 6px; letter-spacing:0.03em; border-radius:3px; }
 
       .fpl-armband { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
-        font-size:0.62rem; font-weight:700; margin-left:5px; background:var(--yellow); color:#1A1400;
+        font-size:0.62rem; font-weight:700; margin-left:5px; background:var(--blue); color:#03132B; border-radius:3px;
         font-family:'IBM Plex Mono',monospace; }
-      .fpl-armband-vc { background:var(--cyan); }
+      .fpl-armband-vc { background:var(--sky); }
 
       .fpl-fixchip { font-family:'IBM Plex Mono',monospace; font-size:0.66rem; font-weight:600;
-        padding:3px 5px; display:inline-block; min-width:38px; text-align:center; }
+        padding:3px 5px; display:inline-block; min-width:38px; text-align:center; border-radius:3px; }
 
       .fpl-row { display:flex; align-items:center; gap:10px; padding:10px 10px; border-bottom:1px solid var(--line); }
       .fpl-row:last-child { border-bottom:none; }
       .fpl-row-bench { opacity:0.72; }
       .fpl-row-pos { font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:700;
-        color:var(--ink-dim); background:var(--panel-alt); padding:4px 5px; min-width:34px; text-align:center; }
+        color:var(--ink-dim); background:var(--panel-alt); padding:4px 5px; min-width:34px; text-align:center; border-radius:3px; }
       .fpl-row-main { flex:1; min-width:0; }
       .fpl-row-name { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:0.95rem;
         display:flex; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -579,11 +579,11 @@ function GlobalStyle() {
       .fpl-row-pred-label { font-family:'IBM Plex Mono',monospace; font-size:0.55rem; color:var(--ink-dim); letter-spacing:0.04em; }
 
       .fpl-section-title { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.85rem;
-        letter-spacing:0.06em; text-transform:uppercase; color:var(--yellow); padding:10px 12px;
-        background:var(--panel-alt); border-bottom:1px solid var(--line); }
+        letter-spacing:0.06em; text-transform:uppercase; color:var(--blue); padding:10px 12px;
+        background:var(--panel-alt); border-bottom:1px solid var(--line); border-radius:6px 6px 0 0; }
 
       .fpl-pulse-wrap { display:flex; gap:6px; }
-      .fpl-pulse { width:10px; height:10px; background:var(--yellow); animation:fplPulse 1.1s ease-in-out infinite; }
+      .fpl-pulse { width:10px; height:10px; background:var(--blue); animation:fplPulse 1.1s ease-in-out infinite; }
       @keyframes fplPulse { 0%,100%{opacity:0.25;} 50%{opacity:1;} }
       @media (prefers-reduced-motion: reduce) {
         .fpl-pulse { animation:none; opacity:0.7; }
@@ -600,7 +600,7 @@ function GlobalStyle() {
       .fpl-search-item:last-child { border-bottom:none; }
 
       .fpl-chip-btn { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; padding:6px 8px;
-        border:1px solid var(--line); background:var(--panel-alt); color:var(--ink); cursor:pointer; }
+        border:1px solid var(--line); background:var(--panel-alt); color:var(--ink); cursor:pointer; border-radius:4px; }
       .fpl-chip-btn.active { border-color:var(--green); color:var(--green); }
     `}</style>
   );
@@ -628,7 +628,7 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
   return (
     <header style={{ borderBottom: '1px solid var(--line)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 10, height: 10, background: 'var(--yellow)' }} />
+        <div style={{ width: 10, height: 10, background: 'var(--blue)', borderRadius: 2 }} />
         <button
           onClick={onGoHome}
           className="fpl-display"
@@ -655,7 +655,7 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
             {summary.gwLabel}{summary.countdown ? ` · ${summary.countdown}` : ''}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span className="fpl-mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--yellow)' }}>{fmtPts(summary.xiTotal)}</span>
+            <span className="fpl-mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(summary.xiTotal)}</span>
             <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>PREDICTED XI PTS</span>
           </div>
         </div>
@@ -842,11 +842,11 @@ function PasteJsonForm({ onSubmit, onBack }) {
    CUSTOM SQUAD BUILDER (homepage: pick every player yourself)
 ============================================================================ */
 
+// Only chips that actually change a gameweek's score are previewable here —
+// Wildcard and Free Hit affect your transfers, not how this squad scores.
 const CHIP_INFO = {
   bboost: { label: 'Bench Boost', desc: 'All 15 squad players score this gameweek, not just your starting XI.' },
   '3xc': { label: 'Triple Captain', desc: "Your captain's points count 3x instead of 2x this gameweek." },
-  wildcard: { label: 'Wildcard', desc: 'Unlimited free transfers this gameweek only — no scoring change to the squad as picked.' },
-  freehit: { label: 'Free Hit', desc: 'Unlimited free transfers for one gameweek, reverting after — no scoring change to the squad as picked.' },
 };
 
 function SquadSlotRow({ posLabel, player, predictionsById, teamsById, isOpen, onOpenPicker, onRemove }) {
@@ -860,7 +860,7 @@ function SquadSlotRow({ posLabel, player, predictionsById, teamsById, isOpen, on
   const team = teamsById[player.team];
   const pred = predictionsById[player.id];
   return (
-    <div className="fpl-block" style={{ marginBottom: 6, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderColor: isOpen ? 'var(--yellow)' : undefined }}>
+    <div className="fpl-block" style={{ marginBottom: 6, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, borderColor: isOpen ? 'var(--blue)' : undefined }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="fpl-display" style={{ fontWeight: 600, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{player.webName}</div>
         <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)' }}>
@@ -1101,7 +1101,7 @@ function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
               {chipPreview ? CHIP_INFO[chipPreview].desc : 'No chip active — normal scoring (starting XI only, captain at 2x).'}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--yellow)' }}>{fmtPts(previewTotal)}</span>
+              <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(previewTotal)}</span>
               <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>PREDICTED PTS WITH THIS CHIP</span>
             </div>
             {(chipPreview === 'bboost' || chipPreview === '3xc') && (
@@ -1546,7 +1546,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
           )}
           {isOptimalBuild && (
-            <button className="fpl-mono" onClick={onRebuildOptimal} style={{ background: 'none', border: 'none', color: 'var(--cyan)', fontSize: '0.68rem', padding: 0, marginTop: 4, cursor: 'pointer', textDecoration: 'underline' }}>
+            <button className="fpl-mono" onClick={onRebuildOptimal} style={{ background: 'none', border: 'none', color: 'var(--sky)', fontSize: '0.68rem', padding: 0, marginTop: 4, cursor: 'pointer', textDecoration: 'underline' }}>
               Saved build — rebuild with latest data
             </button>
           )}
@@ -1555,15 +1555,17 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
         <ScoreRing score={squadScore} />
       </div>
 
-      <button
-        className={`fpl-btn ${editMode ? 'fpl-btn-solid' : ''}`}
-        style={{ width: '100%', marginBottom: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-        onClick={() => setEditMode(m => !m)}
-      >
-        <Edit3 size={16} /> {editMode ? 'Done editing' : 'Edit squad'}
-      </button>
+      {!isOptimalBuild && (
+        <button
+          className={`fpl-btn ${editMode ? 'fpl-btn-solid' : ''}`}
+          style={{ width: '100%', marginBottom: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+          onClick={() => setEditMode(m => !m)}
+        >
+          <Edit3 size={16} /> {editMode ? 'Done editing' : 'Edit squad'}
+        </button>
+      )}
 
-      {editMode && (
+      {!isOptimalBuild && editMode && (
         <EditSquadPanel
           squad={squad}
           allPlayers={allPlayers}
@@ -1576,8 +1578,8 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
       )}
 
       {captainSuggestion && !isOptimalBuild && (
-        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--cyan)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--cyan)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
+        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--sky)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
             {showCaptainSuggestion ? (
               <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
@@ -1615,7 +1617,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
           <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Chip timing</div>
           {chipTiming.bestTripleCaptain && (
             <div className="fpl-block" style={{ padding: 12, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <Trophy size={18} style={{ color: 'var(--yellow)', flexShrink: 0, marginTop: 2 }} />
+              <Trophy size={18} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
                 Best upcoming week for <strong>Triple Captain</strong>: <strong>{chipTiming.bestTripleCaptain.gwName}</strong> — {chipTiming.bestTripleCaptain.bestCaptain.player.webName} (~{fmtPts(chipTiming.bestTripleCaptain.bestCaptain.pts)} pts{chipTiming.bestTripleCaptain.bestCaptain.fixtureCount > 1 ? ', double gameweek' : ''}).
               </div>
@@ -1623,7 +1625,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
           )}
           {chipTiming.bestBenchBoost && (
             <div className="fpl-block" style={{ padding: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <ShieldAlert size={18} style={{ color: 'var(--cyan)', flexShrink: 0, marginTop: 2 }} />
+              <ShieldAlert size={18} style={{ color: 'var(--sky)', flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
                 Best upcoming week for <strong>Bench Boost</strong>: <strong>{chipTiming.bestBenchBoost.gwName}</strong> — full 15-man squad ~{fmtPts(chipTiming.bestBenchBoost.totalSquad)} pts combined.
               </div>
@@ -1648,7 +1650,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
             <TransferCard key={i} suggestion={s} teamsById={teamsById} fixturesByTeam={fixturesByTeam} onApply={editMode ? applySwap : null} />
           ))}
           {suggestions.length > 0 && !editMode && (
-            <button className="fpl-mono" onClick={() => setEditMode(true)} style={{ background: 'none', border: 'none', color: 'var(--cyan)', fontSize: '0.72rem', padding: 0, marginTop: 2, cursor: 'pointer', textDecoration: 'underline' }}>
+            <button className="fpl-mono" onClick={() => setEditMode(true)} style={{ background: 'none', border: 'none', color: 'var(--sky)', fontSize: '0.72rem', padding: 0, marginTop: 2, cursor: 'pointer', textDecoration: 'underline' }}>
               Switch to edit mode to accept a suggestion
             </button>
           )}
