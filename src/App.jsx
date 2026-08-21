@@ -563,14 +563,18 @@ function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   );
 }
 
-function Header({ summary, gwOptions, selectedGw, onSelectGw }) {
+function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
   return (
     <header style={{ borderBottom: '1px solid var(--line)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 10, height: 10, background: 'var(--yellow)' }} />
-        <div className="fpl-display" style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '0.02em' }}>
+        <button
+          onClick={onGoHome}
+          className="fpl-display"
+          style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '0.02em', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontFamily: 'inherit' }}
+        >
           SQUAD CHECK <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>· FPL</span>
-        </div>
+        </button>
         {gwOptions && gwOptions.length > 0 && (
           <select
             className="fpl-mono"
@@ -959,6 +963,47 @@ function computeOptimalXiTotal(staticData) {
   return squad.reduce((total, s) => total + (s.isStarting ? s.predicted * (s.multiplier || 1) : 0), 0);
 }
 
+// Scans upcoming fixtures (already loaded per-team, several gameweeks out) to
+// estimate which future gameweek would be strongest for Triple Captain
+// (single best-scoring starter that week, including double gameweeks) and
+// for Bench Boost (highest combined total across all 15 squad players).
+// This is an estimate based on currently scheduled fixtures — blank/double
+// gameweeks not yet announced by FPL obviously can't be accounted for.
+function fixtureMultFor(diff) {
+  return Math.max(0.8, Math.min(1.18, 1 + (3 - diff) * 0.075));
+}
+
+function analyzeChipTiming(squad, fixturesByTeam, allEvents) {
+  const gwSet = new Set();
+  Object.values(fixturesByTeam).forEach(list => list.forEach(f => gwSet.add(f.event)));
+  const gwIds = Array.from(gwSet).sort((a, b) => a - b).slice(0, 8);
+  const eventsById = {};
+  (allEvents || []).forEach(e => { eventsById[e.id] = e; });
+
+  const weekStats = gwIds.map(gw => {
+    let totalSquad = 0;
+    let bestCaptain = null;
+    squad.forEach(s => {
+      const fixtures = (fixturesByTeam[s.player.team] || []).filter(f => f.event === gw);
+      if (!fixtures.length) return;
+      let playerTotal = 0;
+      fixtures.forEach(f => { playerTotal += s.predicted * fixtureMultFor(f.difficulty); });
+      totalSquad += playerTotal;
+      if (s.isStarting && (!bestCaptain || playerTotal > bestCaptain.pts)) {
+        bestCaptain = { player: s.player, pts: playerTotal, fixtureCount: fixtures.length };
+      }
+    });
+    return { gw, gwName: eventsById[gw] ? eventsById[gw].name : `GW${gw}`, totalSquad, bestCaptain };
+  }).filter(w => w.totalSquad > 0);
+
+  if (weekStats.length === 0) return null;
+
+  const bestBenchBoost = weekStats.reduce((best, w) => (!best || w.totalSquad > best.totalSquad) ? w : best, null);
+  const bestTripleCaptain = weekStats.reduce((best, w) => (w.bestCaptain && (!best || w.bestCaptain.pts > best.bestCaptain.pts)) ? w : best, null);
+
+  return { bestBenchBoost, bestTripleCaptain };
+}
+
 function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
   const clamped = Math.max(0, Math.min(100, score));
   const radius = (size - strokeWidth) / 2;
@@ -984,7 +1029,9 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
 }
 
 function ResultsScreen({ data, onStartOver }) {
-  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam } = data;
+  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam, allEvents } = data;
+
+  const chipTiming = analyzeChipTiming(squad, fixturesByTeam, allEvents);
 
   const grouped = POSITION_ORDER.map(posId => ({
     posId,
@@ -1046,6 +1093,31 @@ function ResultsScreen({ data, onStartOver }) {
               <PlayerRow key={slot.player.id} slot={slot} teamsById={teamsById} fixturesByTeam={fixturesByTeam} />
             ))}
           </div>
+        </div>
+      )}
+
+      {chipTiming && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Chip timing</div>
+          {chipTiming.bestTripleCaptain && (
+            <div className="fpl-block" style={{ padding: 12, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <Trophy size={18} style={{ color: 'var(--yellow)', flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                Best upcoming week for <strong>Triple Captain</strong>: <strong>{chipTiming.bestTripleCaptain.gwName}</strong> — {chipTiming.bestTripleCaptain.bestCaptain.player.webName} (~{fmtPts(chipTiming.bestTripleCaptain.bestCaptain.pts)} pts{chipTiming.bestTripleCaptain.bestCaptain.fixtureCount > 1 ? ', double gameweek' : ''}).
+              </div>
+            </div>
+          )}
+          {chipTiming.bestBenchBoost && (
+            <div className="fpl-block" style={{ padding: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <ShieldAlert size={18} style={{ color: 'var(--cyan)', flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                Best upcoming week for <strong>Bench Boost</strong>: <strong>{chipTiming.bestBenchBoost.gwName}</strong> — full 15-man squad ~{fmtPts(chipTiming.bestBenchBoost.totalSquad)} pts combined.
+              </div>
+            </div>
+          )}
+          <p className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginTop: 6, lineHeight: 1.5 }}>
+            Estimated from currently scheduled fixtures for your squad as it stands now — this will shift as gameweeks pass, your squad changes, and FPL confirms any blank/double gameweeks.
+          </p>
         </div>
       )}
 
@@ -1139,7 +1211,7 @@ export default function FPLSquadChecker() {
       squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions,
       entryMeta, bankTenths, activeChip, isOptimalBuild, onRebuildOptimal,
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
-      targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam,
+      targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
     });
     setStage('results');
   }
@@ -1340,7 +1412,13 @@ export default function FPLSquadChecker() {
   return (
     <div className="fpl-root">
       <GlobalStyle />
-      <Header summary={headerSummary} gwOptions={gwOptions} selectedGw={selectedGw} onSelectGw={setSelectedGw} />
+      <Header
+        summary={headerSummary}
+        gwOptions={gwOptions}
+        selectedGw={selectedGw}
+        onSelectGw={setSelectedGw}
+        onGoHome={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); }}
+      />
       <main style={{ maxWidth: 640, margin: '0 auto' }}>
         {stage === 'intro' && (
           <IntroScreen
