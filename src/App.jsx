@@ -1414,9 +1414,16 @@ function computeOptimalXiTotal(staticData) {
 }
 
 // Scans upcoming fixtures (already loaded per-team, several gameweeks out) to
-// estimate which future gameweek would be strongest for Triple Captain
-// (single best-scoring starter that week, including double gameweeks) and
-// for Bench Boost (highest combined total across all 15 squad players).
+// estimate which future gameweek would be strongest for Triple Captain and
+// for Bench Boost. For each candidate week we compute the *whole squad's*
+// expected total for that week, not just a single player's points, so the
+// numbers shown are directly comparable to a normal no-chip gameweek score:
+//   - normalXi: starting XI only, best-available captain doubled (2x) —
+//     this is what the week would score with no chip played.
+//   - tripleXi: same, but the captain is tripled (3x) instead of doubled —
+//     this is the expected total if Triple Captain were played that week.
+//   - benchBoostXi: all 15 squad players score, captain still doubled —
+//     this is the expected total if Bench Boost were played that week.
 // This is an estimate based on currently scheduled fixtures — blank/double
 // gameweeks not yet announced by FPL obviously can't be accounted for.
 function fixtureMultFor(diff) {
@@ -1433,7 +1440,8 @@ function analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById) {
   (allEvents || []).forEach(e => { eventsById[e.id] = e; });
 
   const weekStats = gwIds.map(gw => {
-    let totalSquad = 0;
+    let totalAll = 0;
+    let startersTotal = 0;
     let bestCaptain = null;
     squad.forEach(s => {
       const fixtures = (fixturesByTeam[s.player.team] || []).filter(f => f.event === gw);
@@ -1445,18 +1453,29 @@ function analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById) {
       const baseAvail = predictionsById[s.player.id].baseAvail;
       let playerTotal = 0;
       fixtures.forEach(f => { playerTotal += baseAvail * fixtureMultFor(f.difficulty); });
-      totalSquad += playerTotal;
-      if (s.isStarting && (!bestCaptain || playerTotal > bestCaptain.pts)) {
-        bestCaptain = { player: s.player, pts: playerTotal, fixtureCount: fixtures.length };
+      totalAll += playerTotal;
+      if (s.isStarting) {
+        startersTotal += playerTotal;
+        if (!bestCaptain || playerTotal > bestCaptain.pts) {
+          bestCaptain = { player: s.player, pts: playerTotal, fixtureCount: fixtures.length };
+        }
       }
     });
-    return { gw, gwName: eventsById[gw] ? eventsById[gw].name : `GW${gw}`, totalSquad, bestCaptain };
-  }).filter(w => w.totalSquad > 0);
+    const capPts = bestCaptain ? bestCaptain.pts : 0;
+    return {
+      gw, gwName: eventsById[gw] ? eventsById[gw].name : `GW${gw}`,
+      bestCaptain,
+      normalXi: startersTotal + capPts,       // captain at 2x
+      tripleXi: startersTotal + capPts * 2,   // captain at 3x
+      benchBoostXi: totalAll + capPts,        // all 15 play, captain still at 2x
+      hasFixtures: totalAll > 0,
+    };
+  }).filter(w => w.hasFixtures);
 
   if (weekStats.length === 0) return null;
 
-  const bestBenchBoost = weekStats.reduce((best, w) => (!best || w.totalSquad > best.totalSquad) ? w : best, null);
-  const bestTripleCaptain = weekStats.reduce((best, w) => (w.bestCaptain && (!best || w.bestCaptain.pts > best.bestCaptain.pts)) ? w : best, null);
+  const bestBenchBoost = weekStats.reduce((best, w) => (!best || w.benchBoostXi > best.benchBoostXi) ? w : best, null);
+  const bestTripleCaptain = weekStats.reduce((best, w) => (w.bestCaptain && (!best || w.tripleXi > best.tripleXi)) ? w : best, null);
 
   return { bestBenchBoost, bestTripleCaptain };
 }
@@ -1485,128 +1504,24 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
   );
 }
 
-/* ============================================================================
-   EDIT SQUAD (post-submit): position dropdown -> player dropdown -> search
-============================================================================ */
-
-function EditSquadPanel({ squad, allPlayers, predictionsById, bankTenths, teamsById, onSwap, onClose }) {
-  const positionsPresent = POSITION_ORDER.filter(pos => squad.some(s => s.player.positionId === pos));
-  const [posId, setPosId] = useState(positionsPresent[0] || 1);
-  const playersInPos = squad.filter(s => s.player.positionId === posId);
-  const [outId, setOutId] = useState(playersInPos[0] ? playersInPos[0].player.id : null);
-  const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    const stillValid = playersInPos.some(s => s.player.id === outId);
-    if (!stillValid) setOutId(playersInPos[0] ? playersInPos[0].player.id : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posId]);
-
-  const outSlot = squad.find(s => s.player.id === outId) || null;
-  const squadIds = new Set(squad.map(s => s.player.id));
-  const nq = normalize(query);
-  const candidates = allPlayers
-    .filter(p => p.positionId === posId && !squadIds.has(p.id))
-    .filter(p => nq.length < 2 || normalize(p.webName).includes(nq) || normalize(p.secondName).includes(nq))
-    .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted)
-    .slice(0, 8);
-
-  const remaining = bankTenths / 10;
-
-  return (
-    <div className="fpl-block" style={{ padding: 14, marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div className="fpl-display" style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Edit3 size={16} /> Edit squad
-        </div>
-        <button onClick={onClose} className="fpl-mono" style={{ background: 'none', border: 'none', color: 'var(--ink-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem' }}>
-          <X size={14} /> Close
-        </button>
-      </div>
-
-      <div className="fpl-mono" style={{ fontSize: '0.68rem', color: remaining < 0 ? 'var(--red)' : 'var(--ink-dim)', marginBottom: 12 }}>
-        In the bank: {fmtPrice(remaining)}{remaining < 0 ? ' — over budget' : ''}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-        <select
-          className="fpl-input"
-          style={{ fontSize: '0.82rem', flex: 1 }}
-          value={posId}
-          onChange={e => setPosId(Number(e.target.value))}
-        >
-          {positionsPresent.map(pos => (
-            <option key={pos} value={pos}>{POSITION_LABELS[pos]}</option>
-          ))}
-        </select>
-        <select
-          className="fpl-input"
-          style={{ fontSize: '0.82rem', flex: 1.4 }}
-          value={outId || ''}
-          onChange={e => setOutId(Number(e.target.value))}
-        >
-          {playersInPos.map(s => (
-            <option key={s.player.id} value={s.player.id}>
-              {s.player.webName} ({s.isStarting ? 'Starting' : 'Bench'}) · {fmtPrice(s.player.price)}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {outSlot && (
-        <>
-          <div style={{ position: 'relative', marginBottom: 4 }}>
-            <Search size={14} style={{ position: 'absolute', left: 9, top: 13, color: 'var(--ink-dim)' }} />
-            <input
-              className="fpl-input"
-              style={{ paddingLeft: 30, fontSize: '0.85rem' }}
-              placeholder={`Search a replacement ${POSITION_LABELS[posId]}…`}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
-          </div>
-          <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8 }}>
-            Showing best-predicted {POSITION_LABELS[posId]}s not already in your squad{query ? ' matching your search' : ''}.
-          </div>
-          <div className="fpl-block" style={{ maxHeight: 260, overflowY: 'auto' }}>
-            {candidates.length === 0 && (
-              <div style={{ padding: 12, fontSize: '0.8rem', color: 'var(--ink-dim)' }}>No matching players.</div>
-            )}
-            {candidates.map(p => {
-              const team = teamsById[p.team];
-              const priceDelta = Math.round((p.price - outSlot.player.price) * 10) / 10;
-              return (
-                <div
-                  key={p.id}
-                  className="fpl-search-item"
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
-                  onClick={() => { onSwap(outSlot.player.id, p); setQuery(''); }}
-                >
-                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    <strong>{p.webName}</strong>{' '}
-                    <span style={{ color: 'var(--ink-dim)' }}>· {team ? team.short_name : '—'} · {fmtPrice(p.price)}</span>
-                  </span>
-                  <span className="fpl-mono" style={{ flexShrink: 0, fontSize: '0.72rem', display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ color: 'var(--green)' }}>{fmtPts(predictionsById[p.id].predicted)}pts</span>
-                    <span style={{ color: priceDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{priceDelta >= 0 ? '+' : ''}{priceDelta.toFixed(1)}m</span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
   const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
   const [editMode, setEditMode] = useState(false);
   const [editSlotId, setEditSlotId] = useState(null);
   const [editQuery, setEditQuery] = useState('');
+  const [chipPreview, setChipPreview] = useState(null);
 
   const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById);
+
+  // "How would a chip affect this squad right now" preview — captain
+  // doubled as normal, then Bench Boost adds the bench on top and Triple
+  // Captain adds one more captain multiple on top.
+  const benchTotal = bench.reduce((s, sl) => s + sl.predicted, 0);
+  const captainPred = captain ? captain.predicted : 0;
+  const normalTotal = starters.reduce((s, sl) => s + sl.predicted, 0) + captainPred;
+  let chipPreviewTotal = normalTotal;
+  if (chipPreview === 'bboost') chipPreviewTotal = normalTotal + benchTotal;
+  if (chipPreview === '3xc') chipPreviewTotal = normalTotal + captainPred;
 
   function applySwap(outId, inPlayer) {
     const swapped = ensureCaptaincy(swapPlayerInSquad(squad, outId, inPlayer, predictionsById));
@@ -1651,6 +1566,26 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
         <ScoreRing score={squadScore} />
       </div>
 
+      <div className="fpl-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={14} /> How would a chip affect this squad?</div>
+      <div className="fpl-block" style={{ padding: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>No chip</button>
+          {Object.entries(CHIP_INFO).map(([key, info]) => (
+            <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{info.label}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.5, marginBottom: 10 }}>
+          {chipPreview ? CHIP_INFO[chipPreview].desc : 'No chip active — normal scoring (starting XI only, captain at 2x).'}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--lime)' }}>{fmtPts(chipPreviewTotal)}</span>
+          <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>PREDICTED PTS THIS GAMEWEEK{chipPreview ? ' WITH THIS CHIP' : ''}</span>
+        </div>
+        {chipPreview && (
+          <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>vs {fmtPts(normalTotal)}pts with no chip</div>
+        )}
+      </div>
+
       {!isOptimalBuild && (
         <button
           className={`fpl-btn ${editMode ? 'fpl-btn-solid' : ''}`}
@@ -1663,20 +1598,8 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
 
       {!isOptimalBuild && editMode && (
         <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
-          Tap any player below to swap them, or use the finder here for a specific position.
+          Tap any player below to swap them.
         </div>
-      )}
-
-      {!isOptimalBuild && editMode && (
-        <EditSquadPanel
-          squad={squad}
-          allPlayers={allPlayers}
-          predictionsById={predictionsById}
-          bankTenths={bankTenths || 0}
-          teamsById={teamsById}
-          onSwap={applySwap}
-          onClose={() => setEditMode(false)}
-        />
       )}
 
       {captainSuggestion && !isOptimalBuild && (
@@ -1765,7 +1688,11 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
             <div className="fpl-block" style={{ padding: 12, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Trophy size={18} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                Best upcoming week for <strong>Triple Captain</strong>: <strong>{chipTiming.bestTripleCaptain.gwName}</strong> — {chipTiming.bestTripleCaptain.bestCaptain.player.webName} (~{fmtPts(chipTiming.bestTripleCaptain.bestCaptain.pts)} pts{chipTiming.bestTripleCaptain.bestCaptain.fixtureCount > 1 ? ', double gameweek' : ''}).
+                Best upcoming week for <strong>Triple Captain</strong>: <strong>{chipTiming.bestTripleCaptain.gwName}</strong> — captaining {chipTiming.bestTripleCaptain.bestCaptain.player.webName}{chipTiming.bestTripleCaptain.bestCaptain.fixtureCount > 1 ? ' (double gameweek)' : ''}.
+                <div className="fpl-mono" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>~{fmtPts(chipTiming.bestTripleCaptain.tripleXi)} pts</span>
+                  <span style={{ color: 'var(--ink-dim)' }}> expected total with the chip — vs ~{fmtPts(chipTiming.bestTripleCaptain.normalXi)} pts that week with no chip.</span>
+                </div>
               </div>
             </div>
           )}
@@ -1773,7 +1700,11 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
             <div className="fpl-block" style={{ padding: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <ShieldAlert size={18} style={{ color: 'var(--sky)', flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                Best upcoming week for <strong>Bench Boost</strong>: <strong>{chipTiming.bestBenchBoost.gwName}</strong> — full 15-man squad ~{fmtPts(chipTiming.bestBenchBoost.totalSquad)} pts combined.
+                Best upcoming week for <strong>Bench Boost</strong>: <strong>{chipTiming.bestBenchBoost.gwName}</strong> — full 15-man squad in action.
+                <div className="fpl-mono" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>~{fmtPts(chipTiming.bestBenchBoost.benchBoostXi)} pts</span>
+                  <span style={{ color: 'var(--ink-dim)' }}> expected total with the chip — vs ~{fmtPts(chipTiming.bestBenchBoost.normalXi)} pts that week with no chip.</span>
+                </div>
               </div>
             </div>
           )}
@@ -1837,6 +1768,14 @@ export default function FPLSquadChecker() {
   const staticPromiseRef = useRef(null);
   const optimalXiTotalRef = useRef(null);
   const currentStaticDataRef = useRef(null);
+
+  // Every screen is a fresh "page" — reset scroll position whenever we
+  // navigate to a new stage, so scrolling down on one screen (e.g. the
+  // intro) doesn't carry over and leave the next screen scrolled past its
+  // own top.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [stage]);
 
   function ensureStaticData() {
     if (!staticPromiseRef.current) {
