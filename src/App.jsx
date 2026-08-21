@@ -1030,7 +1030,7 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
 }
 
 function ResultsScreen({ data, onStartOver }) {
-  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, targetEvent, teamsById, fixturesByTeam } = data;
+  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, targetEvent, teamsById, fixturesByTeam } = data;
 
   const grouped = POSITION_ORDER.map(posId => ({
     posId,
@@ -1055,7 +1055,7 @@ function ResultsScreen({ data, onStartOver }) {
         <ScoreRing score={squadScore} />
       </div>
 
-      {captainSuggestion && (
+      {captainSuggestion && !isOptimalBuild && (
         <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--cyan)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--cyan)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
@@ -1090,18 +1090,20 @@ function ResultsScreen({ data, onStartOver }) {
         </div>
       )}
 
-      <div style={{ marginBottom: 8 }}>
-        <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Transfer suggestions</div>
-        {suggestions.length === 0 && (
-          <div className="fpl-block" style={{ padding: 14, fontSize: '0.85rem', color: 'var(--ink-dim)', display: 'flex', gap: 10, alignItems: 'center' }}>
-            <CheckCircle2 size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
-            Your squad's in good shape — no changes look necessary this week.
-          </div>
-        )}
-        {suggestions.map((s, i) => (
-          <TransferCard key={i} suggestion={s} teamsById={teamsById} fixturesByTeam={fixturesByTeam} />
-        ))}
-      </div>
+      {!isOptimalBuild && (
+        <div style={{ marginBottom: 8 }}>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Transfer suggestions</div>
+          {suggestions.length === 0 && (
+            <div className="fpl-block" style={{ padding: 14, fontSize: '0.85rem', color: 'var(--ink-dim)', display: 'flex', gap: 10, alignItems: 'center' }}>
+              <CheckCircle2 size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
+              Your squad's in good shape — no changes look necessary this week.
+            </div>
+          )}
+          {suggestions.map((s, i) => (
+            <TransferCard key={i} suggestion={s} teamsById={teamsById} fixturesByTeam={fixturesByTeam} />
+          ))}
+        </div>
+      )}
 
       <details className="fpl-details">
         <summary style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Info size={14} /> How these predictions work</summary>
@@ -1142,7 +1144,7 @@ export default function FPLSquadChecker() {
 
   useEffect(() => { ensureStaticData().catch(() => {}); }, []);
 
-  function finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip) {
+  function finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild) {
     const starters = squad.filter(s => s.isStarting);
     const bench = squad.filter(s => !s.isStarting);
 
@@ -1158,7 +1160,7 @@ export default function FPLSquadChecker() {
 
     setResultsData({
       squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions,
-      entryMeta, bankTenths, activeChip,
+      entryMeta, bankTenths, activeChip, isOptimalBuild: !!isOptimalBuild,
       squadScore: computeSquadScore(xiTotal),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam,
     });
@@ -1171,7 +1173,7 @@ export default function FPLSquadChecker() {
     try {
       const staticData = await ensureStaticData();
       const { squad, bankTenths } = buildOptimalTeam(staticData, SQUAD_BUDGET);
-      finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null);
+      finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null, true);
     } catch (e) {
       setErrorMessage("Couldn't build a squad right now — FPL's data might be temporarily unavailable. Please try again.");
       setStage('error');
