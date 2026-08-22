@@ -1,0 +1,314 @@
+/* ============================================================================
+   SHARED PREDICTION / OPTIMAL-SQUAD LOGIC
+
+   Pure functions only — no fetch, no DOM, no React. This file is imported
+   from two places that must never disagree with each other:
+     - src/App.jsx (runs in the browser)
+     - api/refresh-optimal.js (runs server-side, on a schedule)
+   If you tune the prediction formula or the squad-building heuristic, you
+   only need to change it here.
+============================================================================ */
+
+export const POSITION_ORDER = [1, 2, 3, 4];
+export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
+export const MAX_PER_REAL_TEAM = 3;
+export const SQUAD_BUDGET = 100.0; // £100.0m
+
+/* ----------------------------------------------------------------------------
+   PREDICTION ENGINE
+---------------------------------------------------------------------------- */
+
+export function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
+  const epNext = p.epNext || 0;
+  const ppg = p.pointsPerGame || 0;
+  const form = p.form || 0;
+
+  let base;
+  if (seasonStarted && form > 0) {
+    base = 0.45 * epNext + 0.35 * ppg + 0.20 * form;
+  } else {
+    base = 0.6 * epNext + 0.4 * ppg;
+  }
+
+  function fixtureMultFor(diff) {
+    return Math.max(0.8, Math.min(1.18, 1 + (3 - diff) * 0.075));
+  }
+
+  const fixtures = fixturesByTeam[p.team] || [];
+  const upcoming = fixtures.slice(0, 4);
+  let fixtureMult = 1;
+  if (upcoming.length) {
+    const avgDiff = upcoming.reduce((s, f) => s + f.difficulty, 0) / upcoming.length;
+    fixtureMult = fixtureMultFor(avgDiff);
+  }
+
+  // Captaincy is a free pick every gameweek, so only the very next fixture's
+  // difficulty is relevant there — not the 4-game rolling average used above
+  // for the general "predicted" figure (which suits squad/transfer decisions,
+  // since you're stuck with those players over several weeks).
+  const nextFixtureMult = upcoming.length ? fixtureMultFor(upcoming[0].difficulty) : 1;
+
+  let availMult = 1;
+  let availNote = null;
+  if (p.status === 'i') { availMult = 0.05; availNote = 'Injured'; }
+  else if (p.status === 's') { availMult = 0.05; availNote = 'Suspended'; }
+  else if (p.status === 'u' || p.status === 'n') { availMult = 0; availNote = 'Unavailable'; }
+  else if (typeof p.chanceNext === 'number' && p.chanceNext !== null) {
+    availMult = p.chanceNext / 100;
+    if (p.chanceNext <= 75) availNote = `${p.chanceNext}% chance of playing`;
+  } else if (p.status === 'd') {
+    availMult = 0.7; availNote = 'Doubtful';
+  }
+
+  const predicted = Math.max(0, base * fixtureMult * availMult);
+  const nextMatchPredicted = Math.max(0, base * nextFixtureMult * availMult);
+  const baseAvail = Math.max(0, base * availMult);
+  return {
+    predicted: Math.round(predicted * 10) / 10,
+    nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
+    baseAvail,
+    availNote,
+    fixtureMult,
+    upcomingFixtures: upcoming,
+  };
+}
+
+/* ----------------------------------------------------------------------------
+   RAW FPL JSON -> NORMALISED STATIC DATA
+   Pure transform: takes the two raw bootstrap-static / fixtures payloads
+   (however they were fetched — via the browser's /api/fpl proxy, or a direct
+   server-side fetch) and returns the same shape both callers rely on.
+---------------------------------------------------------------------------- */
+
+export function buildStaticDataFromRaw(bootstrap, fixturesRaw) {
+  const teamsById = {};
+  bootstrap.teams.forEach(t => { teamsById[t.id] = t; });
+
+  const seasonStarted = bootstrap.events.some(e => e.finished);
+  const currentEvent = bootstrap.events.find(e => e.is_current);
+  const nextEvent = bootstrap.events.find(e => e.is_next);
+  const targetEvent = currentEvent || nextEvent || bootstrap.events[0];
+
+  const fixturesByTeam = {};
+  bootstrap.teams.forEach(t => { fixturesByTeam[t.id] = []; });
+  fixturesRaw
+    .filter(f => f.event !== null && f.event !== undefined && f.event >= (targetEvent ? targetEvent.id : 1))
+    .sort((a, b) => a.event - b.event)
+    .forEach(f => {
+      if (fixturesByTeam[f.team_h]) {
+        fixturesByTeam[f.team_h].push({ event: f.event, opponent: f.team_a, isHome: true, difficulty: f.team_h_difficulty, kickoff: f.kickoff_time });
+      }
+      if (fixturesByTeam[f.team_a]) {
+        fixturesByTeam[f.team_a].push({ event: f.event, opponent: f.team_h, isHome: false, difficulty: f.team_a_difficulty, kickoff: f.kickoff_time });
+      }
+    });
+
+  const allPlayers = bootstrap.elements.map(e => ({
+    id: e.id,
+    webName: e.web_name,
+    firstName: e.first_name,
+    secondName: e.second_name,
+    team: e.team,
+    positionId: e.element_type,
+    price: e.now_cost / 10,
+    form: parseFloat(e.form) || 0,
+    pointsPerGame: parseFloat(e.points_per_game) || 0,
+    totalPoints: e.total_points,
+    epNext: parseFloat(e.ep_next) || 0,
+    status: e.status,
+    chanceNext: e.chance_of_playing_next_round,
+    news: e.news,
+    selectedBy: parseFloat(e.selected_by_percent) || 0,
+  }));
+
+  const playersById = {};
+  const playersByPosition = { 1: [], 2: [], 3: [], 4: [] };
+  allPlayers.forEach(p => { playersById[p.id] = p; playersByPosition[p.positionId].push(p); });
+
+  const predictionsById = {};
+  allPlayers.forEach(p => { predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, seasonStarted); });
+
+  return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, seasonStarted, predictionsById };
+}
+
+/* ----------------------------------------------------------------------------
+   OPTIMAL SQUAD BUILDER
+   Builds the strongest possible 15-man squad within budget: 2 GKP, 5 DEF,
+   5 MID, 3 FWD, max 3 players from any one real club. This is a heuristic
+   (start with the best XV regardless of price, then repeatedly downgrade
+   whichever swap sheds the fewest predicted points per pound saved, until
+   under budget) rather than a provably-optimal solver — in practice it lands
+   very close to optimal and runs instantly.
+---------------------------------------------------------------------------- */
+
+export function buildOptimalSquad(allPlayers, predictionsById, budget) {
+  const eligible = allPlayers.filter(p => !['u', 'n', 'i', 's'].includes(p.status));
+  const byPosition = { 1: [], 2: [], 3: [], 4: [] };
+  eligible.forEach(p => byPosition[p.positionId].push(p));
+  POSITION_ORDER.forEach(pos => {
+    byPosition[pos].sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted);
+  });
+
+  // Step 1: fill every slot with the best available player at that position,
+  // respecting only the 3-per-club cap — ignore price for now.
+  const squad = [];
+  const teamCounts = {};
+  POSITION_ORDER.forEach(pos => {
+    let need = SQUAD_SLOTS[pos];
+    for (const p of byPosition[pos]) {
+      if (need <= 0) break;
+      if ((teamCounts[p.team] || 0) < MAX_PER_REAL_TEAM) {
+        squad.push(p);
+        teamCounts[p.team] = (teamCounts[p.team] || 0) + 1;
+        need--;
+      }
+    }
+  });
+
+  // Step 2: while over budget, find the single swap (any squad player ->
+  // any cheaper same-position player not already in the squad) that loses
+  // the fewest predicted points per pound freed up, and apply it. Repeat.
+  const totalCost = (sq) => sq.reduce((s, p) => s + p.price, 0);
+  let guard = 0;
+  while (totalCost(squad) > budget + 1e-9 && guard < 500) {
+    guard++;
+    const squadIds = new Set(squad.map(p => p.id));
+    let bestSwap = null;
+    squad.forEach((out, idx) => {
+      const projectedCounts = { ...teamCounts, [out.team]: (teamCounts[out.team] || 0) - 1 };
+      for (const inP of byPosition[out.positionId]) {
+        if (squadIds.has(inP.id)) continue;
+        const moneySaved = out.price - inP.price;
+        if (moneySaved <= 0) continue;
+        if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
+        const pointsLost = predictionsById[out.id].predicted - predictionsById[inP.id].predicted;
+        const ratio = pointsLost / moneySaved;
+        if (!bestSwap || ratio < bestSwap.ratio) bestSwap = { idx, inP, ratio };
+      }
+    });
+    if (!bestSwap) break; // no downgrade available — shouldn't normally happen with real FPL prices
+    const out = squad[bestSwap.idx];
+    teamCounts[out.team] -= 1;
+    teamCounts[bestSwap.inP.team] = (teamCounts[bestSwap.inP.team] || 0) + 1;
+    squad[bestSwap.idx] = bestSwap.inP;
+  }
+
+  // Step 3: spend any leftover budget. While money remains, find the single
+  // swap (any squad player -> any pricier same-position player not already
+  // in the squad, within remaining budget) that gains the most predicted
+  // points per pound spent, and apply it. Repeat until no swap helps.
+  guard = 0;
+  while (guard < 500) {
+    guard++;
+    const remaining = budget - totalCost(squad);
+    if (remaining <= 1e-9) break;
+    const squadIds = new Set(squad.map(p => p.id));
+    let bestUpgrade = null;
+    squad.forEach((out, idx) => {
+      const projectedCounts = { ...teamCounts, [out.team]: (teamCounts[out.team] || 0) - 1 };
+      for (const inP of byPosition[out.positionId]) {
+        if (squadIds.has(inP.id)) continue;
+        const extraCost = inP.price - out.price;
+        if (extraCost <= 0 || extraCost > remaining + 1e-9) continue;
+        if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
+        const pointsGained = predictionsById[inP.id].predicted - predictionsById[out.id].predicted;
+        if (pointsGained <= 0) continue;
+        const ratio = pointsGained / extraCost;
+        if (!bestUpgrade || ratio > bestUpgrade.ratio) bestUpgrade = { idx, inP, ratio };
+      }
+    });
+    if (!bestUpgrade) break; // no affordable upgrade left — leftover money genuinely can't be spent well
+    const out = squad[bestUpgrade.idx];
+    teamCounts[out.team] -= 1;
+    teamCounts[bestUpgrade.inP.team] = (teamCounts[bestUpgrade.inP.team] || 0) + 1;
+    squad[bestUpgrade.idx] = bestUpgrade.inP;
+  }
+
+  return squad;
+}
+
+// Picks the highest-predicted valid formation (1 GKP + 10 outfield in a
+// legal DEF/MID/FWD split) from a 15-man squad.
+export function pickBestFormation(squad15, predictionsById) {
+  const byPos = { 1: [], 2: [], 3: [], 4: [] };
+  squad15.forEach(p => byPos[p.positionId].push(p));
+  POSITION_ORDER.forEach(pos => byPos[pos].sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted));
+
+  const gk = byPos[1][0];
+  if (!gk) throw new Error(`pickBestFormation: squad has no goalkeeper (${squad15.length} players supplied)`);
+
+  let best = null;
+  for (let d = 3; d <= 5; d++) {
+    for (let m = 2; m <= 5; m++) {
+      const f = 10 - d - m;
+      if (f < 1 || f > 3) continue;
+      if (d > byPos[2].length || m > byPos[3].length || f > byPos[4].length) continue;
+      const defs = byPos[2].slice(0, d);
+      const mids = byPos[3].slice(0, m);
+      const fwds = byPos[4].slice(0, f);
+      const total = [...defs, ...mids, ...fwds].reduce((s, p) => s + predictionsById[p.id].predicted, 0);
+      if (!best || total > best.total) best = { defs, mids, fwds, total };
+    }
+  }
+
+  if (!best) {
+    throw new Error(
+      `pickBestFormation: no legal formation fits this squad ` +
+      `(GKP:${byPos[1].length} DEF:${byPos[2].length} MID:${byPos[3].length} FWD:${byPos[4].length}) — ` +
+      `needs at least 3 DEF, 2 MID and 1 FWD to field a valid XI.`
+    );
+  }
+
+  const startersSet = new Set([gk.id, ...best.defs.map(p => p.id), ...best.mids.map(p => p.id), ...best.fwds.map(p => p.id)]);
+  return startersSet;
+}
+
+export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
+  const squad15 = buildOptimalSquad(staticData.allPlayers, staticData.predictionsById, budget);
+  const startersSet = pickBestFormation(squad15, staticData.predictionsById);
+
+  const starters15 = squad15.filter(p => startersSet.has(p.id))
+    .sort((a, b) => staticData.predictionsById[b.id].nextMatchPredicted - staticData.predictionsById[a.id].nextMatchPredicted);
+  const captainId = starters15[0] ? starters15[0].id : null;
+  const viceCaptainId = starters15[1] ? starters15[1].id : null;
+
+  const squad = squad15.map(p => {
+    const pred = staticData.predictionsById[p.id];
+    const isCaptain = p.id === captainId;
+    return {
+      player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
+      isStarting: startersSet.has(p.id), isCaptain, isViceCaptain: p.id === viceCaptainId,
+      multiplier: isCaptain ? 2 : 1,
+    };
+  });
+
+  const totalCost = squad15.reduce((s, p) => s + p.price, 0);
+  const bankTenths = Math.round((budget - totalCost) * 10);
+  return { squad, bankTenths, captainId, viceCaptainId };
+}
+
+// Rebuilds full squad-slot objects (predicted points, starting/bench,
+// captaincy) from a compact saved snapshot ({playerIds, captainId,
+// viceCaptainId}) against a fresh staticData — used both for the browser's
+// localStorage cache and for the server-computed snapshot, so prices and
+// predictions are always re-hydrated against current live data rather than
+// frozen at whenever the snapshot was built.
+export function hydrateSquadSnapshot(snapshot, staticData) {
+  if (!snapshot || !Array.isArray(snapshot.playerIds)) return null;
+  const players = snapshot.playerIds.map(pid => staticData.playersById[pid] || staticData.allPlayers.find(p => p.id === pid)).filter(Boolean);
+  if (players.length !== 15) return null;
+
+  const startersSet = pickBestFormation(players, staticData.predictionsById);
+  const squad = players.map(p => {
+    const pred = staticData.predictionsById[p.id];
+    const isCaptain = p.id === snapshot.captainId;
+    return {
+      player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
+      isStarting: startersSet.has(p.id),
+      isCaptain, isViceCaptain: p.id === snapshot.viceCaptainId,
+      multiplier: isCaptain ? 2 : 1,
+    };
+  });
+  const bankTenths = Math.round((SQUAD_BUDGET - players.reduce((s, p) => s + p.price, 0)) * 10);
+  return { squad, bankTenths };
+}

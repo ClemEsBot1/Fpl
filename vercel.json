@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/refresh-optimal", "schedule": "0 6 * * *" }
+  ]
+}
