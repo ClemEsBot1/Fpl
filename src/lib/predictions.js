@@ -18,13 +18,13 @@ export const SQUAD_BUDGET = 100.0; // £100.0m
    PREDICTION ENGINE
 ---------------------------------------------------------------------------- */
 
-export function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
+export function computePlayerPrediction(p, fixturesByTeam, formEligible) {
   const epNext = p.epNext || 0;
   const ppg = p.pointsPerGame || 0;
   const form = p.form || 0;
 
   let base;
-  if (seasonStarted && form > 0) {
+  if (formEligible && form > 0) {
     base = 0.45 * epNext + 0.35 * ppg + 0.20 * form;
   } else {
     base = 0.6 * epNext + 0.4 * ppg;
@@ -110,8 +110,12 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw) {
   const teamsById = {};
   bootstrap.teams.forEach(t => { teamsById[t.id] = t; });
 
-  const seasonStarted = bootstrap.events.some(e => e.finished);
   const targetEvent = getTargetEvent(bootstrap.events);
+  // FPL's "form" is a trailing-30-day average. At roughly a gameweek a week,
+  // GW1-4 cover under 30 days of actual season data, so form is either empty
+  // or still mostly noise until GW5 — don't let it influence predictions
+  // before then.
+  const formEligible = targetEvent.id >= 5;
 
   const fixturesByTeam = {};
   bootstrap.teams.forEach(t => { fixturesByTeam[t.id] = []; });
@@ -150,9 +154,9 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw) {
   allPlayers.forEach(p => { playersById[p.id] = p; playersByPosition[p.positionId].push(p); });
 
   const predictionsById = {};
-  allPlayers.forEach(p => { predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, seasonStarted); });
+  allPlayers.forEach(p => { predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible); });
 
-  return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, seasonStarted, predictionsById };
+  return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById };
 }
 
 /* ----------------------------------------------------------------------------
@@ -309,6 +313,41 @@ export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
   const totalCost = squad15.reduce((s, p) => s + p.price, 0);
   const bankTenths = Math.round((budget - totalCost) * 10);
   return { squad, bankTenths, captainId, viceCaptainId };
+}
+
+// Rebuilds squad-slot objects for a CLOSED gameweek from its frozen
+// snapshot ({playerIds, startingIds, captainId, viceCaptainId,
+// predictedById}). Deliberately does NOT recompute predictions or formation
+// against today's live data — that gameweek is over, so "predicted points"
+// should stay exactly what was predicted at the time, not drift as prices
+// and fixtures move on. Optionally merges in each player's actual points for
+// that gameweek (liveEventPointsById: {playerId: {totalPoints, minutes}}) —
+// pass null/undefined if that hasn't been fetched.
+export function hydrateFrozenSquadSnapshot(snapshot, staticData, liveEventPointsById) {
+  if (!snapshot || !Array.isArray(snapshot.playerIds)) return null;
+  const players = snapshot.playerIds.map(pid => staticData.playersById[pid] || staticData.allPlayers.find(p => p.id === pid)).filter(Boolean);
+  if (players.length !== 15) return null;
+
+  const startingIds = new Set(Array.isArray(snapshot.startingIds) ? snapshot.startingIds : []);
+  const predictedById = snapshot.predictedById || {};
+
+  const squad = players.map(p => {
+    const isCaptain = p.id === snapshot.captainId;
+    const predicted = predictedById[p.id] ?? predictedById[String(p.id)] ?? 0;
+    const live = liveEventPointsById ? liveEventPointsById[p.id] : null;
+    return {
+      player: p, predicted, nextMatchPredicted: predicted, availNote: null,
+      isStarting: startingIds.has(p.id),
+      isCaptain, isViceCaptain: p.id === snapshot.viceCaptainId,
+      multiplier: isCaptain ? 2 : 1,
+      actualPoints: live ? live.totalPoints : null,
+      played: live ? live.minutes > 0 : false,
+    };
+  });
+
+  const totalCost = players.reduce((s, p) => s + p.price, 0);
+  const bankTenths = Math.round((SQUAD_BUDGET - totalCost) * 10);
+  return { squad, bankTenths };
 }
 
 // Rebuilds full squad-slot objects (predicted points, starting/bench,

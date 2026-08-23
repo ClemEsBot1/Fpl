@@ -2,7 +2,15 @@ import { put } from '@vercel/blob';
 import { buildStaticDataFromRaw, buildOptimalTeam, SQUAD_BUDGET } from '../src/lib/predictions.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
-export const SNAPSHOT_PATHNAME = 'optimal-squad-latest.json';
+
+// One blob per gameweek, e.g. optimal-squad-gw3.json — never a single
+// "latest" file. The refresh job always writes to whichever gameweek is
+// currently the target, so once a gameweek's deadline passes and the target
+// moves on, that gameweek's file simply stops being touched and is
+// naturally frozen — no separate "close it" step needed.
+export function snapshotPathnameFor(gwId) {
+  return `optimal-squad-gw${gwId}.json`;
+}
 
 async function fetchFplJsonServer(path) {
   // Runs server-side — no browser involved, so no CORS restriction and no
@@ -17,7 +25,8 @@ export default async function handler(req, res) {
   //  - Vercel's own daily cron (see vercel.json) auto-sends this header using
   //    the CRON_SECRET env var Vercel provisions for you once crons exist.
   //  - The hourly GitHub Actions workflow sends the same header, using a
-  //    repo secret you copy from that same CRON_SECRET value.
+  //    repo secret you copy from that same CRON_SECRET value (not required —
+  //    the app works fine on the daily schedule alone).
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
   if (!expected || auth !== `Bearer ${expected}`) {
@@ -36,13 +45,15 @@ export default async function handler(req, res) {
     const built = buildOptimalTeam(staticData, SQUAD_BUDGET);
     const snapshot = {
       playerIds: built.squad.map(s => s.player.id),
+      startingIds: built.squad.filter(s => s.isStarting).map(s => s.player.id),
       captainId: built.captainId,
       viceCaptainId: built.viceCaptainId,
+      predictedById: Object.fromEntries(built.squad.map(s => [s.player.id, s.nextMatchPredicted])),
       gwId,
       builtAt: new Date().toISOString(),
     };
 
-    await put(SNAPSHOT_PATHNAME, JSON.stringify(snapshot), {
+    await put(snapshotPathnameFor(gwId), JSON.stringify(snapshot), {
       access: 'public',
       contentType: 'application/json',
       allowOverwrite: true,

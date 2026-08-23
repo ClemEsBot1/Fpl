@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2 } from 'lucide-react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
-  buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, isEventLocked,
+  buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
 } from './lib/predictions.js';
 
 /* ============================================================================
@@ -74,16 +74,17 @@ function findTopMatches(extractedName, candidates, topN = 3) {
 function fmtPts(n) { return (Math.round(n * 10) / 10).toFixed(1); }
 function fmtPrice(n) { return `£${n.toFixed(1)}m`; }
 
-function formatCountdown(deadlineISO) {
-  if (!deadlineISO) return '';
-  const diff = new Date(deadlineISO).getTime() - Date.now();
-  if (diff <= 0) return 'Deadline passed';
+function formatCountdown(targetISO, opts = {}) {
+  const { suffix = 'to deadline', passedLabel = 'Deadline passed' } = opts;
+  if (!targetISO) return '';
+  const diff = new Date(targetISO).getTime() - Date.now();
+  if (diff <= 0) return passedLabel;
   const totalMins = Math.floor(diff / 60000);
   const days = Math.floor(totalMins / 1440);
   const hours = Math.floor((totalMins % 1440) / 60);
   const mins = totalMins % 60;
-  if (days > 0) return `${days}d ${hours}h to deadline`;
-  return `${hours}h ${mins}m to deadline`;
+  if (days > 0) return `${days}d ${hours}h ${suffix}`;
+  return `${hours}h ${mins}m ${suffix}`;
 }
 
 /* ============================================================================
@@ -1025,7 +1026,7 @@ function ReviewScreen({ slots, allPlayers, onFix, onConfirm, onBack }) {
   );
 }
 
-function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle }) {
+function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle, isPastGw }) {
   const { player, predicted, availNote, isCaptain, isViceCaptain } = slot;
   const team = teamsById[player.team];
   const fixtures = fixturesByTeam[player.team];
@@ -1042,13 +1043,25 @@ function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle
         <div className="fpl-row-sub">{team ? team.short_name : '—'} · {fmtPrice(player.price)}</div>
         {availNote && <div className="fpl-availnote">{availNote}</div>}
       </div>
-      <div className="fpl-row-fixtures">
-        <DifficultyChips fixtures={fixtures} teamsById={teamsById} max={2} />
-      </div>
-      <div className="fpl-row-pred">
-        <div className="fpl-row-pred-num" style={{ color: predicted < 2 ? 'var(--red)' : predicted >= 5 ? 'var(--lime)' : 'var(--ink)' }}>{fmtPts(predicted)}</div>
-        <div className="fpl-row-pred-label">PTS/WK</div>
-      </div>
+      {!isPastGw && (
+        <div className="fpl-row-fixtures">
+          <DifficultyChips fixtures={fixtures} teamsById={teamsById} max={2} />
+        </div>
+      )}
+      {isPastGw ? (
+        <div className="fpl-row-pred">
+          <div className="fpl-row-pred-num" style={{ color: !slot.played ? 'var(--ink-dim)' : (slot.actualPoints >= 6 ? 'var(--lime)' : slot.actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
+            {!slot.played ? 'NP' : (slot.actualPoints ?? '—')}
+          </div>
+          <div className="fpl-row-pred-label">{!slot.played ? 'NOT PLAYED' : 'ACTUAL PTS'}</div>
+          <div className="fpl-mono" style={{ fontSize: '0.58rem', color: 'var(--ink-dim)', marginTop: 2 }}>{fmtPts(predicted)} predicted</div>
+        </div>
+      ) : (
+        <div className="fpl-row-pred">
+          <div className="fpl-row-pred-num" style={{ color: predicted < 2 ? 'var(--red)' : predicted >= 5 ? 'var(--lime)' : 'var(--ink)' }}>{fmtPts(predicted)}</div>
+          <div className="fpl-row-pred-label">PTS/WK</div>
+        </div>
+      )}
       {editable && (
         <ChevronDown size={14} style={{ color: 'var(--ink-dim)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .12s' }} />
       )}
@@ -1265,7 +1278,22 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
 }
 
 function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
-  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, onRebuildOptimal, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
+  if (data.gwUnavailable) {
+    return (
+      <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+        <Info size={28} style={{ color: 'var(--ink-dim)', margin: '0 auto 14px' }} />
+        <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 6, color: 'var(--ink)' }}>
+          No saved optimal squad for {data.targetEvent && data.allEvents ? ((data.allEvents.find(e => e.id === data.gwId) || {}).name || `gameweek ${data.gwId}`) : `gameweek ${data.gwId}`}.
+        </p>
+        <p style={{ fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--ink-dim)', marginBottom: 22 }}>
+          This gameweek closed before a build was ever saved for it, so there's nothing to show.
+        </p>
+        <button className="fpl-btn fpl-btn-solid" onClick={onStartOver}>Start over</button>
+      </div>
+    );
+  }
+
+  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
   const [editMode, setEditMode] = useState(false);
   const [editSlotId, setEditSlotId] = useState(null);
   const [editQuery, setEditQuery] = useState('');
@@ -1316,35 +1344,44 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
           {bankTenths !== null && bankTenths !== undefined && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
           )}
-          {isOptimalBuild && (
-            <button className="fpl-mono" onClick={onRebuildOptimal} style={{ background: 'none', border: 'none', color: 'var(--lime)', fontSize: '0.68rem', padding: 0, marginTop: 4, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-              Saved build — rebuild with latest data
-            </button>
+          {isOptimalBuild && !isPastGw && nextRefreshAt && (
+            <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
+              Next refresh: {formatCountdown(nextRefreshAt, { suffix: '', passedLabel: 'due any time' })}
+            </div>
+          )}
+          {isOptimalBuild && isPastGw && (
+            <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
+              Closed gameweek — squad locked in
+            </div>
           )}
           <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6 }}>Squad Score</div>
         </div>
         <ScoreRing score={squadScore} />
       </div>
 
-      <div className="fpl-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={14} /> How would a chip affect this squad?</div>
-      <div className="fpl-block" style={{ padding: 12, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>No chip</button>
-          {Object.entries(CHIP_INFO).map(([key, info]) => (
-            <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{info.label}</button>
-          ))}
-        </div>
-        <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.5, marginBottom: 10 }}>
-          {chipPreview ? CHIP_INFO[chipPreview].desc : 'No chip active — normal scoring (starting XI only, captain at 2x).'}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--lime)' }}>{fmtPts(chipPreviewTotal)}</span>
-          <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>PREDICTED PTS THIS GAMEWEEK{chipPreview ? ' WITH THIS CHIP' : ''}</span>
-        </div>
-        {chipPreview && (
-          <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>vs {fmtPts(normalTotal)}pts with no chip</div>
-        )}
-      </div>
+      {!isPastGw && (
+        <>
+          <div className="fpl-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={14} /> How would a chip affect this squad?</div>
+          <div className="fpl-block" style={{ padding: 12, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>No chip</button>
+              {Object.entries(CHIP_INFO).map(([key, info]) => (
+                <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{info.label}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.5, marginBottom: 10 }}>
+              {chipPreview ? CHIP_INFO[chipPreview].desc : 'No chip active — normal scoring (starting XI only, captain at 2x).'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--lime)' }}>{fmtPts(chipPreviewTotal)}</span>
+              <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>PREDICTED PTS THIS GAMEWEEK{chipPreview ? ' WITH THIS CHIP' : ''}</span>
+            </div>
+            {chipPreview && (
+              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>vs {fmtPts(normalTotal)}pts with no chip</div>
+            )}
+          </div>
+        </>
+      )}
 
       {!isOptimalBuild && (
         <button
@@ -1388,6 +1425,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
                   editable={editMode}
                   isOpen={editSlotId === slot.player.id}
                   onToggle={() => toggleRowEdit(slot.player.id)}
+                  isPastGw={isPastGw}
                 />
                 {editMode && editSlotId === slot.player.id && (
                   <InlineSwapSearch
@@ -1421,6 +1459,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
                   editable={editMode}
                   isOpen={editSlotId === slot.player.id}
                   onToggle={() => toggleRowEdit(slot.player.id)}
+                  isPastGw={isPastGw}
                 />
                 {editMode && editSlotId === slot.player.id && (
                   <InlineSwapSearch
@@ -1564,7 +1603,20 @@ export default function FPLSquadChecker() {
     }).catch(() => {});
   }, []);
 
-  function buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, onRebuildOptimal) {
+  // Picking a different gameweek while looking at the optimal squad should
+  // actually switch what's shown — re-resolve for whichever gameweek is now
+  // selected (its frozen results if it's closed, or the live build if it's
+  // the current one), instead of silently doing nothing.
+  useEffect(() => {
+    if (selectedGw === null) return;
+    if (stage === 'results' && resultsData && resultsData.isOptimalBuild && resultsData.gwId !== selectedGw) {
+      loadOptimalSquadForGw(selectedGw);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGw]);
+
+  function buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, extra = {}) {
+    const { isPastGw = false, nextRefreshAt = null, builtAt = null, gwUnavailable = false, gwId = null } = extra;
     const starters = squad.filter(s => s.isStarting);
     const bench = squad.filter(s => !s.isStarting);
 
@@ -1575,21 +1627,22 @@ export default function FPLSquadChecker() {
     });
 
     const captain = squad.find(s => s.isCaptain) || null;
-    const captainSuggestion = suggestCaptain(starters);
-    const suggestions = suggestTransfers(squad, staticData.allPlayers, staticData.predictionsById, bankTenths || 0);
+    const captainSuggestion = isPastGw ? null : suggestCaptain(starters);
+    const suggestions = isPastGw ? [] : suggestTransfers(squad, staticData.allPlayers, staticData.predictionsById, bankTenths || 0);
 
     return {
       squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions,
-      entryMeta, bankTenths, activeChip, isOptimalBuild, onRebuildOptimal,
+      entryMeta, bankTenths, activeChip, isOptimalBuild,
+      isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId,
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
       allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById,
     };
   }
 
-  function finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, onRebuildOptimal) {
+  function finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, extra) {
     currentStaticDataRef.current = staticData;
-    setResultsData(buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, onRebuildOptimal));
+    setResultsData(buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, extra));
     setStage('results');
   }
 
@@ -1599,7 +1652,9 @@ export default function FPLSquadChecker() {
   function handleSquadUpdate(newSquad, newBankTenths) {
     setResultsData(prev => {
       if (!prev || !currentStaticDataRef.current) return prev;
-      return buildResultsData(newSquad, currentStaticDataRef.current, newBankTenths, prev.entryMeta, prev.activeChip, prev.isOptimalBuild, prev.onRebuildOptimal);
+      return buildResultsData(newSquad, currentStaticDataRef.current, newBankTenths, prev.entryMeta, prev.activeChip, prev.isOptimalBuild, {
+        isPastGw: prev.isPastGw, nextRefreshAt: prev.nextRefreshAt, builtAt: prev.builtAt,
+      });
     });
   }
 
@@ -1621,40 +1676,78 @@ export default function FPLSquadChecker() {
     finalizeResults(squad, customStaticData, bankTenths, { teamName: 'My Squad' }, null, false);
   }
 
-  async function handleBuildOptimalTeam(forceRebuild) {
+  async function loadOptimalSquadForGw(gwId) {
     setStage('loading');
     setLoadingMessage(`Testing lineups within £${SQUAD_BUDGET.toFixed(1)}m…`);
     try {
       const staticData = await ensureStaticData();
-      const gwId = selectedGw || (staticData.targetEvent ? staticData.targetEvent.id : 1);
-      const cacheKey = `fpl_optimal_squad_gw${gwId}`;
+      const targetId = staticData.targetEvent ? staticData.targetEvent.id : 1;
+      const resolvedGwId = gwId || targetId;
+      const isPastGw = resolvedGwId < targetId;
 
-      let squad = null, bankTenths = null;
+      if (isPastGw) {
+        // Closed gameweek — only ever show the frozen snapshot from when it
+        // was current, plus how those players actually scored. Never
+        // rebuild: an "optimal squad" recomputed today with today's prices
+        // and news for a gameweek that's already over wouldn't mean
+        // anything, and would silently disagree with what was shown at the
+        // time.
+        let snap = null;
+        try {
+          const res = await fetch(`/api/optimal-squad?gw=${resolvedGwId}`);
+          if (res.ok) snap = await res.json();
+        } catch (e) { /* nothing saved for this gameweek */ }
+
+        if (!snap || !Array.isArray(snap.playerIds)) {
+          currentStaticDataRef.current = staticData;
+          setResultsData({ gwUnavailable: true, isOptimalBuild: true, isPastGw: true, gwId: resolvedGwId, targetEvent: staticData.targetEvent, allEvents: staticData.allEvents });
+          setStage('results');
+          return;
+        }
+
+        setLoadingMessage('Fetching gameweek results…');
+        const liveById = {};
+        try {
+          const live = await fetchFplJson(`event/${resolvedGwId}/live/`);
+          (live.elements || []).forEach(el => {
+            liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
+          });
+        } catch (e) { /* actual points unavailable — still show the frozen squad, just without scores */ }
+
+        const hydrated = hydrateFrozenSquadSnapshot(snap, staticData, liveById);
+        if (!hydrated) throw new Error('could not hydrate frozen snapshot');
+        finalizeResults(hydrated.squad, staticData, hydrated.bankTenths, { teamName: 'Optimal Squad' }, null, true, {
+          isPastGw: true, builtAt: snap.builtAt, gwId: resolvedGwId,
+        });
+        return;
+      }
+
+      // Current (open) gameweek.
+      const cacheKey = `fpl_optimal_squad_gw${resolvedGwId}`;
+      let squad = null, bankTenths = null, builtAt = null;
 
       // 1) Prefer the shared snapshot our server refreshes automatically (see
       // api/refresh-optimal.js) — computed once and reused by every visitor,
       // rather than every browser solving the same optimisation on its own.
-      if (!forceRebuild) {
-        try {
-          const res = await fetch('/api/optimal-squad');
-          if (res.ok) {
-            const snap = await res.json();
-            if (snap && snap.gwId === gwId) {
-              const hydrated = hydrateSquadSnapshot(snap, staticData);
-              if (hydrated) { squad = hydrated.squad; bankTenths = hydrated.bankTenths; }
-            }
+      try {
+        const res = await fetch(`/api/optimal-squad?gw=${resolvedGwId}`);
+        if (res.ok) {
+          const snap = await res.json();
+          if (snap && snap.gwId === resolvedGwId) {
+            const hydrated = hydrateSquadSnapshot(snap, staticData);
+            if (hydrated) { squad = hydrated.squad; bankTenths = hydrated.bankTenths; builtAt = snap.builtAt; }
           }
-        } catch (e) { /* server snapshot unavailable — fall through to local cache */ }
-      }
+        }
+      } catch (e) { /* server snapshot unavailable — fall through to local cache */ }
 
       // 2) Fall back to this browser's own cache for the gameweek, so a
       // person isn't forced to wait on a full rebuild every single visit
       // even before the server has a snapshot for this gameweek yet.
-      if (!squad && !forceRebuild) {
+      if (!squad) {
         try {
           const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
           const hydrated = hydrateSquadSnapshot(cached, staticData);
-          if (hydrated) { squad = hydrated.squad; bankTenths = hydrated.bankTenths; }
+          if (hydrated) { squad = hydrated.squad; bankTenths = hydrated.bankTenths; builtAt = cached.builtAt; }
         } catch (e) { /* corrupt/unavailable cache — fall through to a fresh build */ }
       }
 
@@ -1664,18 +1757,26 @@ export default function FPLSquadChecker() {
         const built = buildOptimalTeam(staticData, SQUAD_BUDGET);
         squad = built.squad;
         bankTenths = built.bankTenths;
+        builtAt = new Date().toISOString();
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
             playerIds: squad.map(s => s.player.id),
+            startingIds: squad.filter(s => s.isStarting).map(s => s.player.id),
             captainId: built.captainId,
             viceCaptainId: built.viceCaptainId,
-            gwId,
-            builtAt: new Date().toISOString(),
+            predictedById: Object.fromEntries(squad.map(s => [s.player.id, s.nextMatchPredicted])),
+            gwId: resolvedGwId,
+            builtAt,
           }));
         } catch (e) { /* storage unavailable — non-critical, just won't persist */ }
       }
 
-      finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null, true, () => handleBuildOptimalTeam(true));
+      // Refreshes once a day (see vercel.json) — surface when the next one's due.
+      const nextRefreshAt = builtAt ? new Date(new Date(builtAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
+
+      finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null, true, {
+        isPastGw: false, builtAt, nextRefreshAt, gwId: resolvedGwId,
+      });
     } catch (e) {
       setErrorMessage("Couldn't build a squad right now — FPL's data might be temporarily unavailable. Please try again.");
       setStage('error');
@@ -1832,7 +1933,7 @@ export default function FPLSquadChecker() {
         {stage === 'intro' && (
           <IntroScreen
             onChoose={(m) => {
-              if (m === 'build') { handleBuildOptimalTeam(); return; }
+              if (m === 'build') { loadOptimalSquadForGw(selectedGw); return; }
               if (m === 'custom') { handleStartCustomBuild(); return; }
               setStage(m === 'id' ? 'teamIdForm' : 'pasteForm');
             }}
