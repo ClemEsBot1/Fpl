@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2 } from 'lucide-react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
-  buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot,
+  buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, isEventLocked,
 } from './lib/predictions.js';
 
 /* ============================================================================
@@ -418,7 +418,7 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
             style={{ marginLeft: 'auto', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '4px 6px', fontSize: '0.72rem' }}
           >
             {gwOptions.map(e => (
-              <option key={e.id} value={e.id}>{e.name}{e.is_current ? ' (current)' : ''}</option>
+              <option key={e.id} value={e.id}>{e.name}{!isEventLocked(e) ? ' (current)' : ''}</option>
             ))}
           </select>
         )}
@@ -1553,9 +1553,12 @@ export default function FPLSquadChecker() {
 
   useEffect(() => {
     ensureStaticData().then(data => {
-      // Only past/current gameweeks are selectable — future ones have no
-      // picks published yet, and there's nothing to check for them.
-      const selectable = data.allEvents.filter(e => e.finished || e.is_current);
+      // Selectable gameweeks: any that have closed (deadline passed — safe
+      // to browse as history) plus whichever one is currently the target.
+      // Using is_current/is_next here would let a gameweek whose deadline
+      // has already passed keep showing as "current" for days, since that
+      // FPL flag tracks match-play status rather than transfer deadlines.
+      const selectable = data.allEvents.filter(e => isEventLocked(e) || (data.targetEvent && e.id === data.targetEvent.id));
       setGwOptions(selectable);
       if (selectedGw === null && data.targetEvent) setSelectedGw(data.targetEvent.id);
     }).catch(() => {});

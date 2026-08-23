@@ -80,14 +80,38 @@ export function computePlayerPrediction(p, fixturesByTeam, seasonStarted) {
    server-side fetch) and returns the same shape both callers rely on.
 ---------------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------------
+   TARGET GAMEWEEK
+   The gameweek the app should be planning for: the earliest one whose
+   transfer deadline hasn't passed yet. FPL's own `is_current` flag doesn't
+   suit this — it stays true for a gameweek for as long as its matches are
+   being played, which can be days after that gameweek's own deadline has
+   passed and the next gameweek is the one you can actually still act on.
+   Everything gameweek-dependent (optimal squad, predictions, transfer
+   suggestions, the gameweek picker) should derive from this one function,
+   so the whole app switches over together the instant a deadline passes.
+---------------------------------------------------------------------------- */
+
+export function getTargetEvent(events, now = Date.now()) {
+  const upcoming = events
+    .filter(e => new Date(e.deadline_time).getTime() > now)
+    .sort((a, b) => a.id - b.id);
+  if (upcoming.length) return upcoming[0];
+  return events[events.length - 1]; // every deadline has passed — season's over, show the last gameweek
+}
+
+// A gameweek is "closed" once its deadline has passed: picks are locked in,
+// so it's safe to browse as history and nothing about it should recompute.
+export function isEventLocked(event, now = Date.now()) {
+  return new Date(event.deadline_time).getTime() <= now;
+}
+
 export function buildStaticDataFromRaw(bootstrap, fixturesRaw) {
   const teamsById = {};
   bootstrap.teams.forEach(t => { teamsById[t.id] = t; });
 
   const seasonStarted = bootstrap.events.some(e => e.finished);
-  const currentEvent = bootstrap.events.find(e => e.is_current);
-  const nextEvent = bootstrap.events.find(e => e.is_next);
-  const targetEvent = currentEvent || nextEvent || bootstrap.events[0];
+  const targetEvent = getTargetEvent(bootstrap.events);
 
   const fixturesByTeam = {};
   bootstrap.teams.forEach(t => { fixturesByTeam[t.id] = []; });
