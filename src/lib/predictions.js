@@ -27,7 +27,14 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible) {
   if (formEligible && form > 0) {
     base = 0.45 * epNext + 0.35 * ppg + 0.20 * form;
   } else {
-    base = 0.6 * epNext + 0.4 * ppg;
+    // Early season (before GW5): points_per_game suffers the exact same
+    // small-sample problem as form — after one gameweek it's literally just
+    // that gameweek's score (a single big haul reads as an 11.0 ppg that's
+    // nowhere near sustainable). Lean on FPL's own next-gameweek model
+    // instead, which already accounts for this rather than getting fooled
+    // by it — e.g. a defender who scored 11 points in GW1 still shows a
+    // sober ep_next around 2.5, not an inflated one.
+    base = epNext;
   }
 
   function fixtureMultFor(diff) {

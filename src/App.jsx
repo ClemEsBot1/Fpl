@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2 } from 'lucide-react';
+import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu } from 'lucide-react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
   buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
@@ -400,6 +400,7 @@ function DifficultyChips({ fixtures, teamsById, max = 3 }) {
 }
 
 function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header style={{ borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100, background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -412,18 +413,33 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
           SQUAD CHECK <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>· FPL</span>
         </button>
         {gwOptions && gwOptions.length > 0 && (
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label="Menu"
+            aria-expanded={menuOpen}
+            style={{ marginLeft: 'auto', background: menuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          >
+            {menuOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
+        )}
+      </div>
+      {menuOpen && gwOptions && gwOptions.length > 0 && (
+        <div className="fpl-block" style={{ position: 'absolute', top: '100%', right: 16, zIndex: 20, padding: 12, minWidth: 210 }}>
+          <label className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' }}>
+            GAMEWEEK
+          </label>
           <select
             className="fpl-mono"
             value={selectedGw || ''}
-            onChange={e => onSelectGw(Number(e.target.value))}
-            style={{ marginLeft: 'auto', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '4px 6px', fontSize: '0.72rem' }}
+            onChange={e => { onSelectGw(Number(e.target.value)); setMenuOpen(false); }}
+            style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '8px 8px', fontSize: '0.8rem' }}
           >
             {gwOptions.map(e => (
               <option key={e.id} value={e.id}>{e.name}{!isEventLocked(e) ? ' (current)' : ''}</option>
             ))}
           </select>
-        )}
-      </div>
+        </div>
+      )}
       {summary && (
         <div style={{ background: 'var(--panel-alt)', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)' }}>
