@@ -74,6 +74,20 @@ function findTopMatches(extractedName, candidates, topN = 3) {
 function fmtPts(n) { return (Math.round(n * 10) / 10).toFixed(1); }
 function fmtPrice(n) { return `£${n.toFixed(1)}m`; }
 
+// Must match the hour in vercel.json's cron schedule ("0 6 * * *" = 06:00 UTC).
+const DAILY_REFRESH_HOUR_UTC = 6;
+
+// Next occurrence of the daily refresh, as a fixed point in time derived
+// purely from the clock — deliberately NOT derived from any cached/loaded
+// squad's builtAt, so it stays correct and stable no matter what device,
+// browser, or cache state produced the squad currently on screen.
+function getNextDailyRefreshUTC(hourUTC = DAILY_REFRESH_HOUR_UTC) {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hourUTC, 0, 0));
+  if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString();
+}
+
 function formatCountdown(targetISO, opts = {}) {
   const { suffix = 'to deadline', passedLabel = 'Deadline passed' } = opts;
   if (!targetISO) return '';
@@ -1309,7 +1323,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
     );
   }
 
-  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
+  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
   const [editMode, setEditMode] = useState(false);
   const [editSlotId, setEditSlotId] = useState(null);
   const [editQuery, setEditQuery] = useState('');
@@ -1367,7 +1381,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
           )}
           {isOptimalBuild && isPastGw && (
             <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
-              Closed gameweek — squad locked in
+              Closed gameweek — squad locked in{backfilled ? ' · backfilled from later data' : ''}
             </div>
           )}
           <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6 }}>Squad Score</div>
@@ -1632,7 +1646,7 @@ export default function FPLSquadChecker() {
   }, [selectedGw]);
 
   function buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, extra = {}) {
-    const { isPastGw = false, nextRefreshAt = null, builtAt = null, gwUnavailable = false, gwId = null } = extra;
+    const { isPastGw = false, nextRefreshAt = null, builtAt = null, gwUnavailable = false, gwId = null, backfilled = false } = extra;
     const starters = squad.filter(s => s.isStarting);
     const bench = squad.filter(s => !s.isStarting);
 
@@ -1649,7 +1663,7 @@ export default function FPLSquadChecker() {
     return {
       squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions,
       entryMeta, bankTenths, activeChip, isOptimalBuild,
-      isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId,
+      isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled,
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
       allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById,
@@ -1733,7 +1747,7 @@ export default function FPLSquadChecker() {
         const hydrated = hydrateFrozenSquadSnapshot(snap, staticData, liveById);
         if (!hydrated) throw new Error('could not hydrate frozen snapshot');
         finalizeResults(hydrated.squad, staticData, hydrated.bankTenths, { teamName: 'Optimal Squad' }, null, true, {
-          isPastGw: true, builtAt: snap.builtAt, gwId: resolvedGwId,
+          isPastGw: true, builtAt: snap.builtAt, gwId: resolvedGwId, backfilled: !!snap.backfilled,
         });
         return;
       }
@@ -1787,8 +1801,14 @@ export default function FPLSquadChecker() {
         } catch (e) { /* storage unavailable — non-critical, just won't persist */ }
       }
 
-      // Refreshes once a day (see vercel.json) — surface when the next one's due.
-      const nextRefreshAt = builtAt ? new Date(new Date(builtAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
+      // Refreshes once a day at a fixed time (see vercel.json's cron
+      // schedule) — countdown to that fixed time directly, rather than to
+      // "24h after whichever build happened to load here". The latter
+      // resets to ~24h any time the fallback chain lands on a fresh local
+      // build instead of the shared server snapshot (e.g. before the cron
+      // has ever run, or in a browser/session with no local cache yet),
+      // which looks like a broken countdown even though nothing's wrong.
+      const nextRefreshAt = getNextDailyRefreshUTC(DAILY_REFRESH_HOUR_UTC);
 
       finalizeResults(squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null, true, {
         isPastGw: false, builtAt, nextRefreshAt, gwId: resolvedGwId,

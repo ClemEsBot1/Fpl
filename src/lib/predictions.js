@@ -113,11 +113,13 @@ export function isEventLocked(event, now = Date.now()) {
   return new Date(event.deadline_time).getTime() <= now;
 }
 
-export function buildStaticDataFromRaw(bootstrap, fixturesRaw) {
+export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   const teamsById = {};
   bootstrap.teams.forEach(t => { teamsById[t.id] = t; });
 
-  const targetEvent = getTargetEvent(bootstrap.events);
+  const targetEvent = options.forceGwId
+    ? (bootstrap.events.find(e => e.id === options.forceGwId) || getTargetEvent(bootstrap.events))
+    : getTargetEvent(bootstrap.events);
   // FPL's "form" is a trailing-30-day average. At roughly a gameweek a week,
   // GW1-4 cover under 30 days of actual season data, so form is either empty
   // or still mostly noise until GW5 — don't let it influence predictions
