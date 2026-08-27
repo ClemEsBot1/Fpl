@@ -1968,7 +1968,18 @@ export default function FPLSquadChecker() {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: mode, username, password }),
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        // A non-JSON body (an HTML error page from a function timeout/crash,
+        // a gateway error, etc.) means something failed server-side before
+        // it could send a real response — surface that distinctly from a
+        // genuine client-side network failure.
+        setAuthError(`Server error (status ${res.status}) — please try again in a moment.`);
+        setAuthLoading(false);
+        return;
+      }
       if (!res.ok) {
         setAuthError(data.error || 'Something went wrong.');
         setAuthLoading(false);

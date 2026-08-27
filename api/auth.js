@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { getRedis, getJSON, setJSON } from '../src/lib/redis.js';
 import {
   validateUsername, validatePassword,
   hashPassword, verifyPassword, signSessionToken,
@@ -12,7 +12,10 @@ function requireSecret() {
   return secret;
 }
 
-export default async function handler(req, res) {
+// `redisOverride` is never passed in production (Vercel always calls
+// `handler(req, res)`) — it exists purely so tests can inject an in-memory
+// fake instead of a real Redis connection.
+export default async function handler(req, res, redisOverride) {
   let secret;
   try {
     secret = requireSecret();
@@ -42,6 +45,14 @@ export default async function handler(req, res) {
     return;
   }
 
+  let redis;
+  try {
+    redis = redisOverride || getRedis();
+  } catch (e) {
+    res.status(500).json({ error: 'server_misconfigured', detail: 'REDIS_URL is not set' });
+    return;
+  }
+
   if (action === 'register') {
     const { username, password } = body;
     const usernameCheck = validateUsername(username);
@@ -51,12 +62,12 @@ export default async function handler(req, res) {
 
     const key = userKeyFor(username);
     try {
-      const existing = await kv.get(key);
+      const existing = await getJSON(redis, key);
       if (existing) { res.status(409).json({ error: 'That username is already taken.' }); return; }
 
       const passwordHash = await hashPassword(password);
       const record = { username, passwordHash, teams: [] };
-      await kv.set(key, record);
+      await setJSON(redis, key, record);
 
       const token = signSessionToken(username, secret);
       res.setHeader('Set-Cookie', buildSessionCookie(token));
@@ -74,7 +85,7 @@ export default async function handler(req, res) {
       return;
     }
     try {
-      const record = await kv.get(userKeyFor(username));
+      const record = await getJSON(redis, userKeyFor(username));
       const match = record ? await verifyPassword(password, record.passwordHash) : false;
       if (!match) { res.status(401).json({ error: 'Incorrect username or password.' }); return; }
 

@@ -1,83 +1,76 @@
-import { getRedis, getJSON, setJSON } from '../src/lib/redis.js';
-import { getSessionFromRequest, userKeyFor, generateEntryId } from '../src/lib/auth.js';
-import { buildEntryFromBody, mergeEntry } from '../src/lib/teams.js';
+export const MAX_SAVED_TEAMS = 20;
+const MAX_LABEL_LENGTH = 40;
 
-function requireSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET is not configured');
-  return secret;
+function sanitizeLabel(label, fallback) {
+  if (typeof label !== 'string' || !label.trim()) return fallback;
+  return label.trim().slice(0, MAX_LABEL_LENGTH);
 }
 
-// `redisOverride` is never passed in production — tests inject an
-// in-memory fake instead of a real Redis connection.
-export default async function handler(req, res, redisOverride) {
-  let secret;
-  try {
-    secret = requireSecret();
-  } catch (e) {
-    res.status(500).json({ error: 'server_misconfigured', detail: 'JWT_SECRET is not set' });
-    return;
-  }
+// Validates the two shapes of saveable entry — an FPL Team ID, or a
+// compact custom-squad snapshot (playerIds/captainId/viceCaptainId, the
+// same shape hydrateSquadSnapshot already knows how to rebuild against
+// live data). Returns { ok, error } or { ok: true, entry } — entry is
+// missing id/savedAt, which the caller fills in.
+export function buildEntryFromBody(body) {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'A request body is required.' };
 
-  const session = getSessionFromRequest(req, secret);
-  if (!session) { res.status(401).json({ error: 'not_logged_in' }); return; }
-
-  let redis;
-  try {
-    redis = redisOverride || getRedis();
-  } catch (e) {
-    res.status(500).json({ error: 'server_misconfigured', detail: 'REDIS_URL is not set' });
-    return;
-  }
-
-  const key = userKeyFor(session.username);
-
-  if (req.method === 'GET') {
-    try {
-      const record = await getJSON(redis, key);
-      res.status(200).json({ ok: true, teams: (record && record.teams) || [] });
-    } catch (e) {
-      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+  if (body.type === 'teamId') {
+    const teamId = Number(body.teamId);
+    if (!Number.isInteger(teamId) || teamId < 1) {
+      return { ok: false, error: 'A valid numeric FPL Team ID is required.' };
     }
-    return;
+    return { ok: true, entry: { type: 'teamId', teamId, label: sanitizeLabel(body.label, `Team ${teamId}`) } };
   }
 
-  if (req.method === 'POST') {
-    const body = req.body || {};
-    const built = buildEntryFromBody(body);
-    if (!built.ok) { res.status(400).json({ error: built.error }); return; }
-
-    try {
-      const record = await getJSON(redis, key);
-      if (!record) { res.status(404).json({ error: 'user_not_found' }); return; }
-
-      const merged = mergeEntry(record.teams, built.entry, { makeId: generateEntryId });
-      if (!merged.ok) { res.status(400).json({ error: merged.error }); return; }
-
-      await setJSON(redis, key, { ...record, teams: merged.teams });
-      res.status(200).json({ ok: true, teams: merged.teams });
-    } catch (e) {
-      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+  if (body.type === 'custom') {
+    const squad = body.squad;
+    const playerIds = squad && Array.isArray(squad.playerIds) ? squad.playerIds.map(Number) : null;
+    if (!playerIds || playerIds.length !== 15 || playerIds.some(id => !Number.isInteger(id))) {
+      return { ok: false, error: 'A custom squad needs exactly 15 valid player ids.' };
     }
-    return;
-  }
-
-  if (req.method === 'DELETE') {
-    const body = req.body || {};
-    const entryId = body.entryId;
-    if (!entryId) { res.status(400).json({ error: 'entryId is required' }); return; }
-
-    try {
-      const record = await getJSON(redis, key);
-      if (!record) { res.status(404).json({ error: 'user_not_found' }); return; }
-      const teams = (Array.isArray(record.teams) ? record.teams : []).filter(t => t.id !== entryId);
-      await setJSON(redis, key, { ...record, teams });
-      res.status(200).json({ ok: true, teams });
-    } catch (e) {
-      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+    const captainId = Number(squad.captainId);
+    const viceCaptainId = Number(squad.viceCaptainId);
+    if (!playerIds.includes(captainId) || !playerIds.includes(viceCaptainId)) {
+      return { ok: false, error: 'Captain and vice-captain must be part of the squad.' };
     }
-    return;
+    return {
+      ok: true,
+      entry: {
+        type: 'custom',
+        squad: { playerIds, captainId, viceCaptainId },
+        label: sanitizeLabel(body.label, 'My squad'),
+      },
+    };
   }
 
-  res.status(405).json({ error: 'method_not_allowed' });
+  return { ok: false, error: 'Unknown entry type — expected "teamId" or "custom".' };
+}
+
+// Merges a validated entry into an existing teams list: re-saving the same
+// FPL Team ID updates that entry's label/timestamp in place rather than
+// creating a duplicate; custom squads have no natural dedupe key, so they
+// always append. Returns { ok: true, teams } or { ok: false, error } (cap
+// reached). `makeId`/`now` are injectable so tests get deterministic
+// output; real callers omit them and get generateEntryId()/Date.now().
+export function mergeEntry(existingTeams, entry, { makeId, now } = {}) {
+  const teams = Array.isArray(existingTeams) ? existingTeams : [];
+  const timestamp = (now ? now() : new Date()).toISOString ? (now ? now() : new Date()).toISOString() : new Date().toISOString();
+
+  const existingIdx = entry.type === 'teamId'
+    ? teams.findIndex(t => t.type === 'teamId' && t.teamId === entry.teamId)
+    : -1;
+
+  if (existingIdx !== -1) {
+    const updated = teams.slice();
+    updated[existingIdx] = { ...updated[existingIdx], ...entry, savedAt: timestamp };
+    return { ok: true, teams: updated };
+  }
+
+  if (teams.length >= MAX_SAVED_TEAMS) {
+    return { ok: false, error: `You can save up to ${MAX_SAVED_TEAMS} teams.` };
+  }
+
+  const id = makeId ? makeId() : undefined;
+  const newEntry = { id, ...entry, savedAt: timestamp };
+  return { ok: true, teams: [...teams, newEntry] };
 }
