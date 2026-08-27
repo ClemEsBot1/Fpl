@@ -1950,107 +1950,91 @@ export default function FPLSquadChecker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function fetchSavedTeams() {
+  // Wraps fetch + JSON parsing consistently for every /api/auth and
+  // /api/teams call: distinguishes a genuine network failure (fetch itself
+  // threw) from a server that responded but not with valid JSON (a
+  // crashed/timed-out function returning an HTML error page) from a normal
+  // JSON error response — so the UI can show something more useful than a
+  // blanket "Network error" for problems that aren't actually that.
+  async function fetchJson(url, options) {
+    let res;
     try {
-      const res = await fetch('/api/teams', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setSavedTeams(data.teams || []);
-      }
-    } catch (e) { /* non-critical — list just stays empty/stale */ }
+      res = await fetch(url, options);
+    } catch (e) {
+      return { ok: false, status: null, data: null, error: 'Network error — please try again.' };
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      return { ok: false, status: res.status, data: null, error: `Server error (status ${res.status}) — please try again in a moment.` };
+    }
+    return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data.error || 'Something went wrong.') };
+  }
+
+  async function fetchSavedTeams() {
+    const result = await fetchJson('/api/teams', { credentials: 'include' });
+    if (result.ok) setSavedTeams(result.data.teams || []);
+    // non-critical — list just stays empty/stale on failure
   }
 
   async function handleAuthSubmit(mode, username, password) {
     setAuthError('');
     setAuthLoading(true);
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: mode, username, password }),
-      });
-      let data;
-      try {
-        data = await res.json();
-      } catch (parseErr) {
-        // A non-JSON body (an HTML error page from a function timeout/crash,
-        // a gateway error, etc.) means something failed server-side before
-        // it could send a real response — surface that distinctly from a
-        // genuine client-side network failure.
-        setAuthError(`Server error (status ${res.status}) — please try again in a moment.`);
-        setAuthLoading(false);
-        return;
-      }
-      if (!res.ok) {
-        setAuthError(data.error || 'Something went wrong.');
-        setAuthLoading(false);
-        return;
-      }
-      setSession({ username: data.username });
-      setAuthLoading(false);
-      fetchSavedTeams();
-      if (authReturnStage) { setStage(authReturnStage); setAuthReturnStage(null); }
-      else setStage('intro');
-    } catch (e) {
-      setAuthError('Network error — please try again.');
-      setAuthLoading(false);
-    }
+    const result = await fetchJson('/api/auth', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: mode, username, password }),
+    });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return; }
+    setSession({ username: result.data.username });
+    fetchSavedTeams();
+    if (authReturnStage) { setStage(authReturnStage); setAuthReturnStage(null); }
+    else setStage('intro');
   }
 
   async function handleLogout() {
-    try {
-      await fetch('/api/auth', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'logout' }),
-      });
-    } catch (e) { /* cookie is short of network-independent; clear local state regardless */ }
+    await fetchJson('/api/auth', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'logout' }),
+    });
     setSession(null);
     setSavedTeams([]);
   }
 
   async function handleSaveTeamId(teamId, label) {
-    try {
-      const res = await fetch('/api/teams', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'teamId', teamId, label }),
-      });
-      const data = await res.json();
-      if (res.ok) setSavedTeams(data.teams);
-      return { ok: res.ok, error: data.error };
-    } catch (e) {
-      return { ok: false, error: 'Network error — please try again.' };
-    }
+    const result = await fetchJson('/api/teams', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'teamId', teamId, label }),
+    });
+    if (result.ok) setSavedTeams(result.data.teams);
+    return { ok: result.ok, error: result.error };
   }
 
   async function handleSaveCustomSquad(squad, label) {
     const playerIds = squad.map(s => s.player.id);
     const captain = squad.find(s => s.isCaptain);
     const vice = squad.find(s => s.isViceCaptain);
-    try {
-      const res = await fetch('/api/teams', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'custom', label,
-          squad: { playerIds, captainId: captain ? captain.player.id : null, viceCaptainId: vice ? vice.player.id : null },
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) setSavedTeams(data.teams);
-      return { ok: res.ok, error: data.error };
-    } catch (e) {
-      return { ok: false, error: 'Network error — please try again.' };
-    }
+    const result = await fetchJson('/api/teams', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'custom', label,
+        squad: { playerIds, captainId: captain ? captain.player.id : null, viceCaptainId: vice ? vice.player.id : null },
+      }),
+    });
+    if (result.ok) setSavedTeams(result.data.teams);
+    return { ok: result.ok, error: result.error };
   }
 
   async function handleDeleteSavedTeam(entryId) {
-    try {
-      const res = await fetch('/api/teams', {
-        method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId }),
-      });
-      const data = await res.json();
-      if (res.ok) setSavedTeams(data.teams);
-    } catch (e) { /* non-critical — list just stays as-is */ }
+    const result = await fetchJson('/api/teams', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId }),
+    });
+    if (result.ok) setSavedTeams(result.data.teams);
+    // non-critical — list just stays as-is on failure
   }
+
 
   async function handleLoadSavedTeam(entry) {
     if (entry.type === 'teamId') {
