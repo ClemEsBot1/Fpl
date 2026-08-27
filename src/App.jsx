@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu, History, User, LogOut, Bookmark, Trash2 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
   buildStaticDataFromRaw, buildOptimalTeam, buildHindsightSquad, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
@@ -2570,6 +2571,7 @@ export default function FPLSquadChecker() {
           <ErrorScreen message={errorMessage} onRetry={() => setStage('intro')} />
         )}
       </main>
+      <Analytics />
     </div>
   );
 }
