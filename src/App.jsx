@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu } from 'lucide-react';
+import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu, History } from 'lucide-react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
-  buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
+  buildStaticDataFromRaw, buildOptimalTeam, buildHindsightSquad, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
 } from './lib/predictions.js';
 
 /* ============================================================================
@@ -473,7 +473,7 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
    SCREENS
 ============================================================================ */
 
-function IntroScreen({ onChoose }) {
+function IntroScreen({ onChoose, showHindsight }) {
   return (
     <div style={{ padding: '20px 16px 40px' }}>
       <h1 className="fpl-display" style={{ fontSize: '1.6rem', fontWeight: 700, lineHeight: 1.2, marginBottom: 10 }}>
@@ -515,6 +515,19 @@ function IntroScreen({ onChoose }) {
           <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>Choose every player, formation & captain, preview chips</span>
         </span>
       </button>
+
+      {showHindsight && (
+        <>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '28px 0 10px', color: 'var(--ink-dim)' }}>Or look back</div>
+          <button className="fpl-btn" onClick={() => onChoose('hindsight')} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+            <History size={22} />
+            <span>
+              <span style={{ display: 'block', fontSize: '1rem' }}>Best XI: last gameweek</span>
+              <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>What was predicted vs. what would've actually scored best</span>
+            </span>
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -1577,6 +1590,100 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
   );
 }
 
+/* ----------------------------------------------------------------------------
+   HINDSIGHT: BEST XI FOR A CLOSED GAMEWEEK
+   Compact rows for the two side-by-side squads — no edit affordances, since
+   both squads are locked in history and can't be changed.
+---------------------------------------------------------------------------- */
+function HindsightPlayerRow({ slot, teamsById }) {
+  const { player, isCaptain, isViceCaptain, actualPoints, played } = slot;
+  const team = teamsById[player.team];
+  return (
+    <div className="fpl-row">
+      <div className="fpl-row-pos">{POSITION_LABELS[player.positionId]}</div>
+      <div className="fpl-row-main">
+        <div className="fpl-row-name">
+          {player.webName}
+          {isCaptain && <span className="fpl-armband" title="Captain">C</span>}
+          {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
+        </div>
+        <div className="fpl-row-sub">{team ? team.short_name : '—'} · {fmtPrice(player.price)}</div>
+      </div>
+      <div className="fpl-row-pred">
+        <div className="fpl-row-pred-num" style={{ color: !played ? 'var(--ink-dim)' : (actualPoints >= 6 ? 'var(--lime)' : actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
+          {!played ? 'NP' : (actualPoints ?? '—')}
+        </div>
+        <div className="fpl-row-pred-label">{!played ? 'NOT PLAYED' : 'ACTUAL PTS'}</div>
+      </div>
+    </div>
+  );
+}
+
+function HindsightSquadColumn({ title, squad, score, teamsById }) {
+  const starters = squad.filter(s => s.isStarting);
+  const bench = squad.filter(s => !s.isStarting);
+  const grouped = POSITION_ORDER.map(posId => ({
+    posId,
+    players: starters.filter(s => s.player.positionId === posId),
+  })).filter(g => g.players.length > 0);
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: 0 }}>{title}</div>
+        <div className="fpl-mono" style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(score)} <span style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', fontWeight: 500 }}>PTS</span></div>
+      </div>
+      {grouped.map(g => (
+        <div key={g.posId} style={{ marginBottom: 6 }}>
+          {g.players.map(slot => <HindsightPlayerRow key={slot.player.id} slot={slot} teamsById={teamsById} />)}
+        </div>
+      ))}
+      {bench.length > 0 && (
+        <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6, padding: '0 4px' }}>
+          Bench: {bench.map(s => s.player.webName).join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HindsightScreen({ data, onBack }) {
+  if (data.gwUnavailable) {
+    return (
+      <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+        <Info size={28} style={{ color: 'var(--ink-dim)', margin: '0 auto 14px' }} />
+        <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 6, color: 'var(--ink)' }}>
+          No saved optimal squad for {data.gwName || `gameweek ${data.gwId}`}, so there's nothing to compare against.
+        </p>
+        <button className="fpl-btn fpl-btn-solid" onClick={onBack}>Back</button>
+      </div>
+    );
+  }
+
+  const { gwName, predictedSquad, predictedScore, hindsightSquad, hindsightScore, teamsById } = data;
+  const pct = hindsightScore > 0 ? Math.round((predictedScore / hindsightScore) * 100) : 100;
+
+  return (
+    <div style={{ padding: '16px 16px 60px' }}>
+      <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em', marginBottom: 4 }}>
+        BEST XI · {gwName ? gwName.toUpperCase() : ''}
+      </div>
+      <div className="fpl-block" style={{ padding: 14, marginBottom: 22 }}>
+        <div style={{ fontSize: '0.85rem', lineHeight: 1.5, color: 'var(--ink)' }}>
+          The predicted squad actually scored <strong className="fpl-mono">{fmtPts(predictedScore)}</strong> that gameweek — the best possible squad would have scored <strong className="fpl-mono">{fmtPts(hindsightScore)}</strong> ({pct}%).
+        </div>
+      </div>
+
+      <HindsightSquadColumn title="What was predicted" squad={predictedSquad} score={predictedScore} teamsById={teamsById} />
+      <HindsightSquadColumn title="Best possible XI" squad={hindsightSquad} score={hindsightScore} teamsById={teamsById} />
+
+      <button className="fpl-btn" style={{ width: '100%', marginTop: 8, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={onBack}>
+        <RotateCcw size={16} /> Back
+      </button>
+    </div>
+  );
+}
+
 /* ============================================================================
    APP
 ============================================================================ */
@@ -1593,6 +1700,7 @@ export default function FPLSquadChecker() {
   const [selectedGw, setSelectedGw] = useState(null); // null = use current/next gameweek
   const [gwOptions, setGwOptions] = useState([]);
   const [customStaticData, setCustomStaticData] = useState(null);
+  const [hindsightData, setHindsightData] = useState(null);
 
   const staticPromiseRef = useRef(null);
   const optimalXiTotalRef = useRef(null);
@@ -1819,6 +1927,65 @@ export default function FPLSquadChecker() {
     }
   }
 
+  async function handleViewHindsight() {
+    setStage('loading');
+    setLoadingMessage('Working out what would have scored best…');
+    try {
+      const staticData = await ensureStaticData();
+      const targetId = staticData.targetEvent ? staticData.targetEvent.id : 1;
+      // Last CLOSED gameweek: the most recent one whose deadline has
+      // passed, i.e. one before whatever's currently open for transfers.
+      const closed = (staticData.allEvents || []).filter(e => isEventLocked(e) && e.id < targetId);
+      const lastClosed = closed.length ? closed.reduce((a, b) => (b.id > a.id ? b : a)) : null;
+
+      if (!lastClosed) {
+        setHindsightData({ gwUnavailable: true, gwId: null, gwName: null });
+        setStage('hindsight');
+        return;
+      }
+
+      let snap = null;
+      try {
+        const res = await fetch(`/api/optimal-squad?gw=${lastClosed.id}`);
+        if (res.ok) snap = await res.json();
+      } catch (e) { /* nothing saved for this gameweek */ }
+
+      if (!snap || !Array.isArray(snap.playerIds)) {
+        setHindsightData({ gwUnavailable: true, gwId: lastClosed.id, gwName: lastClosed.name });
+        setStage('hindsight');
+        return;
+      }
+
+      const liveById = {};
+      try {
+        const live = await fetchFplJson(`event/${lastClosed.id}/live/`);
+        (live.elements || []).forEach(el => {
+          liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
+        });
+      } catch (e) { /* actual points unavailable */ }
+
+      const hydratedPredicted = hydrateFrozenSquadSnapshot(snap, staticData, liveById);
+      if (!hydratedPredicted) throw new Error('could not hydrate frozen snapshot');
+
+      const predictedScore = hydratedPredicted.squad
+        .filter(s => s.isStarting)
+        .reduce((s, sl) => s + (sl.actualPoints || 0) * (sl.multiplier || 1), 0);
+
+      const best = buildHindsightSquad(staticData.allPlayers, liveById, SQUAD_BUDGET);
+
+      setHindsightData({
+        gwId: lastClosed.id, gwName: lastClosed.name,
+        predictedSquad: hydratedPredicted.squad, predictedScore,
+        hindsightSquad: best.squad, hindsightScore: best.totalScore,
+        teamsById: staticData.teamsById,
+      });
+      setStage('hindsight');
+    } catch (e) {
+      setErrorMessage("Couldn't work out the best XI right now — FPL's data might be temporarily unavailable. Please try again.");
+      setStage('error');
+    }
+  }
+
   async function handleTeamIdSubmit(rawId) {
     const teamId = (rawId || '').trim();
     if (!/^\d+$/.test(teamId)) {
@@ -1963,14 +2130,16 @@ export default function FPLSquadChecker() {
         gwOptions={gwOptions}
         selectedGw={selectedGw}
         onSelectGw={setSelectedGw}
-        onGoHome={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); }}
+        onGoHome={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); setHindsightData(null); }}
       />
       <main style={{ maxWidth: 640, margin: '0 auto' }}>
         {stage === 'intro' && (
           <IntroScreen
+            showHindsight={gwOptions.some(e => isEventLocked(e))}
             onChoose={(m) => {
               if (m === 'build') { loadOptimalSquadForGw(selectedGw); return; }
               if (m === 'custom') { handleStartCustomBuild(); return; }
+              if (m === 'hindsight') { handleViewHindsight(); return; }
               setStage(m === 'id' ? 'teamIdForm' : 'pasteForm');
             }}
           />
@@ -2004,6 +2173,12 @@ export default function FPLSquadChecker() {
             data={resultsData}
             onStartOver={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); }}
             onSquadUpdate={handleSquadUpdate}
+          />
+        )}
+        {stage === 'hindsight' && hindsightData && (
+          <HindsightScreen
+            data={hindsightData}
+            onBack={() => { setStage('intro'); setHindsightData(null); }}
           />
         )}
         {stage === 'error' && (

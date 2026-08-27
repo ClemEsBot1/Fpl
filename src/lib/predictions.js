@@ -178,8 +178,15 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
    very close to optimal and runs instantly.
 ---------------------------------------------------------------------------- */
 
-export function buildOptimalSquad(allPlayers, predictionsById, budget) {
-  const eligible = allPlayers.filter(p => !['u', 'n', 'i', 's'].includes(p.status));
+export function buildOptimalSquad(allPlayers, predictionsById, budget, options = {}) {
+  // Default eligibility excludes unavailable/injured/suspended/not-in-squad
+  // players — the normal "what should I actually pick" question. Callers
+  // building a hindsight squad for a gameweek that's already over pass
+  // `isEligible: () => true`, since a player who got injured *after* that
+  // gameweek shouldn't be excluded from "what was the best XI that week" —
+  // they were perfectly fine to own at the time.
+  const isEligible = options.isEligible || (p => !['u', 'n', 'i', 's'].includes(p.status));
+  const eligible = allPlayers.filter(isEligible);
   const byPosition = { 1: [], 2: [], 3: [], 4: [] };
   eligible.forEach(p => byPosition[p.positionId].push(p));
   POSITION_ORDER.forEach(pos => {
@@ -298,6 +305,70 @@ export function pickBestFormation(squad15, predictionsById) {
 
   const startersSet = new Set([gk.id, ...best.defs.map(p => p.id), ...best.mids.map(p => p.id), ...best.fwds.map(p => p.id)]);
   return startersSet;
+}
+
+// Wraps actual scored points (for one closed gameweek) in the same shape
+// computePlayerPrediction returns, so buildOptimalSquad/pickBestFormation —
+// which only ever read `.predicted` — can operate on "what actually
+// happened" instead of a forecast, with no other changes needed.
+function buildActualPredictionsById(allPlayers, liveEventPointsById) {
+  const predictionsById = {};
+  allPlayers.forEach(p => {
+    const live = liveEventPointsById[p.id];
+    const actual = live ? live.totalPoints : 0;
+    predictionsById[p.id] = {
+      predicted: actual,
+      nextMatchPredicted: actual,
+      baseAvail: actual,
+      availNote: null,
+      fixtureMult: 1,
+      upcomingFixtures: [],
+    };
+  });
+  return predictionsById;
+}
+
+// Builds the hindsight-optimal squad for a CLOSED gameweek: the strongest
+// possible 15 (and XI, and captain) given how everyone actually scored that
+// week, rather than what was predicted beforehand. Eligibility ignores
+// current injury/suspension status entirely (isEligible: () => true) — the
+// question is purely "what would have scored best", so a player who got
+// injured after this gameweek, or who's since been suspended, still counts;
+// they were fine to own at the time and their points that week were real.
+export function buildHindsightSquad(allPlayers, liveEventPointsById, budget = SQUAD_BUDGET) {
+  const predictionsById = buildActualPredictionsById(allPlayers, liveEventPointsById);
+  const squad15 = buildOptimalSquad(allPlayers, predictionsById, budget, { isEligible: () => true });
+  const startersSet = pickBestFormation(squad15, predictionsById);
+
+  const starters15 = squad15.filter(p => startersSet.has(p.id))
+    .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted);
+  const captainId = starters15[0] ? starters15[0].id : null;
+  const viceCaptainId = starters15[1] ? starters15[1].id : null;
+
+  const squad = squad15.map(p => {
+    const pred = predictionsById[p.id];
+    const isCaptain = p.id === captainId;
+    const live = liveEventPointsById[p.id];
+    return {
+      player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: null,
+      isStarting: startersSet.has(p.id), isCaptain, isViceCaptain: p.id === viceCaptainId,
+      multiplier: isCaptain ? 2 : 1,
+      actualPoints: live ? live.totalPoints : 0,
+      played: live ? live.minutes > 0 : false,
+    };
+  });
+
+  const totalCost = squad15.reduce((s, p) => s + p.price, 0);
+  const bankTenths = Math.round((budget - totalCost) * 10);
+
+  // What this squad would actually have scored: starting XI's actual
+  // points with the captain doubled — bench doesn't count, same as real
+  // FPL scoring for any squad.
+  const totalScore = squad.reduce((s, slot) => (
+    slot.isStarting ? s + slot.actualPoints * slot.multiplier : s
+  ), 0);
+
+  return { squad, bankTenths, captainId, viceCaptainId, totalScore };
 }
 
 export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
