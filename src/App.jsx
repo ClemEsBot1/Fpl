@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu, History } from 'lucide-react';
+import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu, History, User, LogOut, Bookmark, Trash2 } from 'lucide-react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
   buildStaticDataFromRaw, buildOptimalTeam, buildHindsightSquad, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
@@ -374,6 +374,8 @@ function GlobalStyle() {
       .fpl-pulse-wrap { display:flex; gap:6px; }
       .fpl-pulse { width:10px; height:10px; background:var(--blue); animation:fplPulse 1.1s ease-in-out infinite; }
       @keyframes fplPulse { 0%,100%{opacity:0.25;} 50%{opacity:1;} }
+      .fpl-spin { animation:fplSpin 0.8s linear infinite; }
+      @keyframes fplSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
       @media (prefers-reduced-motion: reduce) {
         .fpl-pulse { animation:none; opacity:0.7; }
         .fpl-spin { animation:none !important; }
@@ -413,8 +415,9 @@ function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   );
 }
 
-function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
+function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onMyTeamsClick, onLogoutClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   return (
     <header style={{ borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100, background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -426,16 +429,44 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
         >
           SQUAD CHECK <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>· FPL</span>
         </button>
-        {gwOptions && gwOptions.length > 0 && (
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
           <button
-            onClick={() => setMenuOpen(o => !o)}
-            aria-label="Menu"
-            aria-expanded={menuOpen}
-            style={{ marginLeft: 'auto', background: menuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            onClick={() => { if (session) setAccountMenuOpen(o => !o); else onLoginClick(); }}
+            aria-label="Account"
+            aria-expanded={session ? accountMenuOpen : undefined}
+            className="fpl-mono"
+            style={{ background: accountMenuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', maxWidth: 140 }}
           >
-            {menuOpen ? <X size={16} /> : <Menu size={16} />}
+            <User size={14} style={{ flexShrink: 0 }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session ? session.username : 'Log in'}</span>
           </button>
-        )}
+          {accountMenuOpen && session && (
+            <div className="fpl-block" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 20, padding: 6, minWidth: 160 }}>
+              <button
+                onClick={() => { setAccountMenuOpen(false); onMyTeamsClick(); }}
+                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
+              >
+                <Bookmark size={14} /> My Teams
+              </button>
+              <button
+                onClick={() => { setAccountMenuOpen(false); onLogoutClick(); }}
+                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
+              >
+                <LogOut size={14} /> Log out
+              </button>
+            </div>
+          )}
+          {gwOptions && gwOptions.length > 0 && (
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Menu"
+              aria-expanded={menuOpen}
+              style={{ background: menuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              {menuOpen ? <X size={16} /> : <Menu size={16} />}
+            </button>
+          )}
+        </div>
       </div>
       {menuOpen && gwOptions && gwOptions.length > 0 && (
         <div className="fpl-block" style={{ position: 'absolute', top: '100%', right: 16, zIndex: 20, padding: 12, minWidth: 210 }}>
@@ -473,7 +504,7 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome }) {
    SCREENS
 ============================================================================ */
 
-function IntroScreen({ onChoose, showHindsight }) {
+function IntroScreen({ onChoose, showHindsight, showMyTeams }) {
   return (
     <div style={{ padding: '20px 16px 40px' }}>
       <h1 className="fpl-display" style={{ fontSize: '1.6rem', fontWeight: 700, lineHeight: 1.2, marginBottom: 10 }}>
@@ -515,6 +546,19 @@ function IntroScreen({ onChoose, showHindsight }) {
           <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>Choose every player, formation & captain, preview chips</span>
         </span>
       </button>
+
+      {showMyTeams && (
+        <>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '28px 0 10px', color: 'var(--ink-dim)' }}>Or use a saved team</div>
+          <button className="fpl-btn" onClick={() => onChoose('myTeams')} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+            <Bookmark size={22} />
+            <span>
+              <span style={{ display: 'block', fontSize: '1rem' }}>My Teams</span>
+              <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>Load a Team ID or squad you've saved to your account</span>
+            </span>
+          </button>
+        </>
+      )}
 
       {showHindsight && (
         <>
@@ -1320,7 +1364,7 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
   );
 }
 
-function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
+function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
   if (data.gwUnavailable) {
     return (
       <div style={{ padding: '40px 16px', textAlign: 'center' }}>
@@ -1576,6 +1620,16 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
         </div>
       )}
 
+      {!data.isOptimalBuild && (
+        <SaveTeamSection
+          data={data}
+          session={session}
+          onSaveTeamId={onSaveTeamId}
+          onSaveCustomSquad={onSaveCustomSquad}
+          onRequestLoginToSave={onRequestLoginToSave}
+        />
+      )}
+
       <details className="fpl-details">
         <summary style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Info size={14} /> How these predictions work</summary>
         <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.6, paddingBottom: 10 }}>
@@ -1586,6 +1640,63 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate }) {
       <button className="fpl-btn" style={{ width: '100%', marginTop: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={onStartOver}>
         <RotateCcw size={16} /> Check another squad
       </button>
+    </div>
+  );
+}
+
+// Handles both save actions (Team ID, and the exact current squad) from
+// whichever results view is showing — Team-ID lookup, custom build, or a
+// pasted-screenshot squad. Shows one shared inline status line for
+// whichever button was last pressed.
+function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
+  const [status, setStatus] = useState(null); // { kind: 'saving'|'ok'|'error', message }
+  const teamId = data.entryMeta && data.entryMeta.teamId;
+
+  async function handleSaveTeamId() {
+    setStatus({ kind: 'saving' });
+    const label = (data.entryMeta && data.entryMeta.teamName) || `Team ${teamId}`;
+    const result = await onSaveTeamId(teamId, label);
+    setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
+  }
+
+  async function handleSaveSquad() {
+    setStatus({ kind: 'saving' });
+    const label = (data.entryMeta && data.entryMeta.teamName) || 'My squad';
+    const result = await onSaveCustomSquad(data.squad, label);
+    setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
+  }
+
+  if (!session) {
+    return (
+      <button
+        onClick={onRequestLoginToSave}
+        className="fpl-btn"
+        style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+      >
+        <Bookmark size={16} /> Log in to save this team
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {teamId && (
+          <button onClick={handleSaveTeamId} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <Bookmark size={14} /> Save this Team ID
+          </button>
+        )}
+        {!data.isPastGw && (
+          <button onClick={handleSaveSquad} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <Bookmark size={14} /> Save this squad
+          </button>
+        )}
+      </div>
+      {status && status.kind !== 'saving' && (
+        <div className="fpl-mono" style={{ fontSize: '0.7rem', marginTop: 6, color: status.kind === 'ok' ? 'var(--lime)' : 'var(--red)' }}>
+          {status.message}
+        </div>
+      )}
     </div>
   );
 }
@@ -1684,6 +1795,117 @@ function HindsightScreen({ data, onBack }) {
   );
 }
 
+/* ----------------------------------------------------------------------------
+   ACCOUNTS: LOGIN / REGISTER + SAVED TEAMS
+   Username + password only, no email — matches this app's low-stakes,
+   convenience-only use case (saving a team ID / squad, nothing sensitive).
+---------------------------------------------------------------------------- */
+function AuthScreen({ onSubmit, error, loading, onCancel }) {
+  const [mode, setMode] = useState('login');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    onSubmit(mode, username, password);
+  }
+
+  return (
+    <div style={{ padding: '32px 16px 60px', maxWidth: 380, margin: '0 auto' }}>
+      <div className="fpl-display" style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 4, textAlign: 'center' }}>
+        {mode === 'login' ? 'Log in' : 'Create an account'}
+      </div>
+      <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', textAlign: 'center', marginBottom: 24 }}>
+        Save your Team ID(s) or squads so you don't have to re-enter them.
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <label className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' }}>USERNAME</label>
+        <input
+          className="fpl-mono"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '10px 10px', fontSize: '0.9rem', marginBottom: 14 }}
+        />
+        <label className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' }}>PASSWORD</label>
+        <input
+          type="password"
+          className="fpl-mono"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '10px 10px', fontSize: '0.9rem', marginBottom: 14 }}
+        />
+
+        {error && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 14, color: 'var(--red)', fontSize: '0.8rem' }}>
+            <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {error}
+          </div>
+        )}
+
+        <button type="submit" disabled={loading || !username || !password} className="fpl-btn fpl-btn-solid" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
+          {loading ? <Loader2 size={16} className="fpl-spin" /> : (mode === 'login' ? 'Log in' : 'Create account')}
+        </button>
+      </form>
+
+      <button
+        onClick={() => setMode(m => (m === 'login' ? 'register' : 'login'))}
+        className="fpl-mono"
+        style={{ width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--blue)', padding: '14px 0 0', cursor: 'pointer', fontSize: '0.78rem' }}
+      >
+        {mode === 'login' ? "Don't have an account? Create one" : 'Already have an account? Log in'}
+      </button>
+
+      <button
+        onClick={onCancel}
+        className="fpl-mono"
+        style={{ width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--ink-dim)', padding: '10px 0 0', cursor: 'pointer', fontSize: '0.78rem' }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function MyTeamsScreen({ teams, onLoad, onDelete, onBack }) {
+  return (
+    <div style={{ padding: '16px 16px 60px' }}>
+      <div className="fpl-display" style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: 16 }}>My Teams</div>
+
+      {teams.length === 0 && (
+        <div style={{ padding: '32px 8px', textAlign: 'center' }}>
+          <Bookmark size={26} style={{ color: 'var(--ink-dim)', margin: '0 auto 12px' }} />
+          <p style={{ fontSize: '0.88rem', color: 'var(--ink-dim)', lineHeight: 1.5 }}>
+            Nothing saved yet. Check a Team ID or build a squad, then save it from the results screen.
+          </p>
+        </div>
+      )}
+
+      {teams.map(entry => (
+        <div key={entry.id} className="fpl-block" style={{ padding: 12, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.9rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.label}</div>
+            <div className="fpl-mono" style={{ fontSize: '0.66rem', color: 'var(--ink-dim)', marginTop: 2 }}>
+              {entry.type === 'teamId' ? `Team ID ${entry.teamId}` : 'Custom squad'}
+            </div>
+          </div>
+          <button onClick={() => onLoad(entry)} className="fpl-btn" style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}>
+            <ArrowRight size={14} /> Load
+          </button>
+          <button onClick={() => onDelete(entry.id)} aria-label="Remove" style={{ background: 'none', border: '1px solid var(--line)', color: 'var(--red)', padding: '7px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+
+      <button className="fpl-btn" style={{ width: '100%', marginTop: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={onBack}>
+        <RotateCcw size={16} /> Back
+      </button>
+    </div>
+  );
+}
+
 /* ============================================================================
    APP
 ============================================================================ */
@@ -1701,10 +1923,147 @@ export default function FPLSquadChecker() {
   const [gwOptions, setGwOptions] = useState([]);
   const [customStaticData, setCustomStaticData] = useState(null);
   const [hindsightData, setHindsightData] = useState(null);
+  const [session, setSession] = useState(null); // { username } | null
+  const [savedTeams, setSavedTeams] = useState([]);
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authReturnStage, setAuthReturnStage] = useState(null);
 
   const staticPromiseRef = useRef(null);
   const optimalXiTotalRef = useRef(null);
   const currentStaticDataRef = useRef(null);
+
+  // Check for an existing logged-in session once on load, and pull in
+  // their saved teams if so — lets returning users skip the login screen
+  // entirely on future visits (the session cookie is long-lived).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/auth', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setSession({ username: data.username });
+          fetchSavedTeams();
+        }
+      } catch (e) { /* not logged in / API unreachable — treat as logged out */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchSavedTeams() {
+    try {
+      const res = await fetch('/api/teams', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedTeams(data.teams || []);
+      }
+    } catch (e) { /* non-critical — list just stays empty/stale */ }
+  }
+
+  async function handleAuthSubmit(mode, username, password) {
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: mode, username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.error || 'Something went wrong.');
+        setAuthLoading(false);
+        return;
+      }
+      setSession({ username: data.username });
+      setAuthLoading(false);
+      fetchSavedTeams();
+      if (authReturnStage) { setStage(authReturnStage); setAuthReturnStage(null); }
+      else setStage('intro');
+    } catch (e) {
+      setAuthError('Network error — please try again.');
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch('/api/auth', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' }),
+      });
+    } catch (e) { /* cookie is short of network-independent; clear local state regardless */ }
+    setSession(null);
+    setSavedTeams([]);
+  }
+
+  async function handleSaveTeamId(teamId, label) {
+    try {
+      const res = await fetch('/api/teams', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'teamId', teamId, label }),
+      });
+      const data = await res.json();
+      if (res.ok) setSavedTeams(data.teams);
+      return { ok: res.ok, error: data.error };
+    } catch (e) {
+      return { ok: false, error: 'Network error — please try again.' };
+    }
+  }
+
+  async function handleSaveCustomSquad(squad, label) {
+    const playerIds = squad.map(s => s.player.id);
+    const captain = squad.find(s => s.isCaptain);
+    const vice = squad.find(s => s.isViceCaptain);
+    try {
+      const res = await fetch('/api/teams', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'custom', label,
+          squad: { playerIds, captainId: captain ? captain.player.id : null, viceCaptainId: vice ? vice.player.id : null },
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) setSavedTeams(data.teams);
+      return { ok: res.ok, error: data.error };
+    } catch (e) {
+      return { ok: false, error: 'Network error — please try again.' };
+    }
+  }
+
+  async function handleDeleteSavedTeam(entryId) {
+    try {
+      const res = await fetch('/api/teams', {
+        method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId }),
+      });
+      const data = await res.json();
+      if (res.ok) setSavedTeams(data.teams);
+    } catch (e) { /* non-critical — list just stays as-is */ }
+  }
+
+  async function handleLoadSavedTeam(entry) {
+    if (entry.type === 'teamId') {
+      handleTeamIdSubmit(String(entry.teamId));
+      return;
+    }
+    setStage('loading');
+    setLoadingMessage('Loading your saved squad…');
+    try {
+      const staticData = await ensureStaticData();
+      const hydrated = hydrateSquadSnapshot(entry.squad, staticData);
+      if (!hydrated) throw new Error('could not hydrate saved squad');
+      finalizeResults(hydrated.squad, staticData, hydrated.bankTenths, { teamName: entry.label }, null, false);
+    } catch (e) {
+      setErrorMessage("Couldn't load that saved squad — try again in a moment.");
+      setStage('error');
+    }
+  }
+
+  function handleRequestLoginToSave() {
+    setAuthReturnStage('results');
+    setAuthError('');
+    setStage('auth');
+  }
 
   // Every screen is a fresh "page" — reset scroll position whenever we
   // navigate to a new stage, so scrolling down on one screen (e.g. the
@@ -2016,11 +2375,11 @@ export default function FPLSquadChecker() {
         throw { code: 'ERR_TEAM_NOT_FOUND' };
       }
 
-      let entryMeta = null;
+      let entryMeta = { teamId: Number(teamId) };
       try {
         const entry = await fetchFplJson(`entry/${teamId}/`);
         if (entry && !entry.detail) {
-          entryMeta = { teamName: entry.name || 'Your Squad' };
+          entryMeta = { teamId: Number(teamId), teamName: entry.name || 'Your Squad' };
         }
       } catch (e) { /* non-critical */ }
 
@@ -2131,15 +2490,21 @@ export default function FPLSquadChecker() {
         selectedGw={selectedGw}
         onSelectGw={setSelectedGw}
         onGoHome={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); setHindsightData(null); }}
+        session={session}
+        onLoginClick={() => { setAuthReturnStage(null); setAuthError(''); setStage('auth'); }}
+        onMyTeamsClick={() => setStage('myTeams')}
+        onLogoutClick={handleLogout}
       />
       <main style={{ maxWidth: 640, margin: '0 auto' }}>
         {stage === 'intro' && (
           <IntroScreen
             showHindsight={gwOptions.some(e => isEventLocked(e))}
+            showMyTeams={!!session}
             onChoose={(m) => {
               if (m === 'build') { loadOptimalSquadForGw(selectedGw); return; }
               if (m === 'custom') { handleStartCustomBuild(); return; }
               if (m === 'hindsight') { handleViewHindsight(); return; }
+              if (m === 'myTeams') { setStage('myTeams'); return; }
               setStage(m === 'id' ? 'teamIdForm' : 'pasteForm');
             }}
           />
@@ -2173,12 +2538,32 @@ export default function FPLSquadChecker() {
             data={resultsData}
             onStartOver={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); }}
             onSquadUpdate={handleSquadUpdate}
+            session={session}
+            onSaveTeamId={handleSaveTeamId}
+            onSaveCustomSquad={handleSaveCustomSquad}
+            onRequestLoginToSave={handleRequestLoginToSave}
           />
         )}
         {stage === 'hindsight' && hindsightData && (
           <HindsightScreen
             data={hindsightData}
             onBack={() => { setStage('intro'); setHindsightData(null); }}
+          />
+        )}
+        {stage === 'auth' && (
+          <AuthScreen
+            onSubmit={handleAuthSubmit}
+            error={authError}
+            loading={authLoading}
+            onCancel={() => { setAuthError(''); setStage(authReturnStage || 'intro'); setAuthReturnStage(null); }}
+          />
+        )}
+        {stage === 'myTeams' && (
+          <MyTeamsScreen
+            teams={savedTeams}
+            onLoad={handleLoadSavedTeam}
+            onDelete={handleDeleteSavedTeam}
+            onBack={() => setStage('intro')}
           />
         )}
         {stage === 'error' && (
