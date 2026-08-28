@@ -1419,6 +1419,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
     players: starters.filter(s => s.player.positionId === posId),
   })).filter(g => g.players.length > 0);
 
+  const viewedGwName = (isPastGw && allEvents && data.gwId) ? ((allEvents.find(e => e.id === data.gwId) || {}).name) : null;
   const showCaptainSuggestion = captainSuggestion && (!captain || captain.player.id !== captainSuggestion.player.id) && captainSuggestion.nextMatchPredicted > (captain ? captain.nextMatchPredicted : 0) + 0.3;
 
   return (
@@ -1426,7 +1427,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
       <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
         <div>
           <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>
-            {entryMeta && entryMeta.teamName ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {targetEvent ? targetEvent.name.toUpperCase() : ''}
+            {entryMeta && entryMeta.teamName ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {(viewedGwName || (targetEvent ? targetEvent.name : '')).toUpperCase()}
           </div>
           {bankTenths !== null && bankTenths !== undefined && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
@@ -2491,21 +2492,37 @@ export default function FPLSquadChecker() {
       } catch (e) { /* non-critical */ }
 
       setLoadingMessage('Checking fixtures and working out predictions…');
+      const targetId = staticData.targetEvent ? staticData.targetEvent.id : 1;
+      const isPastGwView = gwId < targetId;
+
+      let liveById = {};
+      if (isPastGwView) {
+        setLoadingMessage('Fetching gameweek results…');
+        try {
+          const live = await fetchFplJson(`event/${gwId}/live/`);
+          (live.elements || []).forEach(el => {
+            liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
+          });
+        } catch (e) { /* actual points unavailable — still show predicted-only */ }
+      }
+
       const squad = picks.picks.map(pk => {
         const player = staticData.playersById[pk.element];
         if (!player) return null;
         const pred = staticData.predictionsById[pk.element];
+        const live = liveById[pk.element];
         return {
           player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
           isStarting: pk.position <= 11, isCaptain: !!pk.is_captain, isViceCaptain: !!pk.is_vice_captain,
           multiplier: pk.multiplier,
+          ...(isPastGwView ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false } : {}),
         };
       }).filter(Boolean);
 
       const bankTenths = picks.entry_history ? picks.entry_history.bank : 0;
       const activeChip = picks.active_chip || null;
 
-      finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip);
+      finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, false, { isPastGw: isPastGwView, gwId });
     } catch (e) {
       setStage('error');
       const code = (e && e.code) || 'ERR_UNKNOWN';
@@ -2558,29 +2575,48 @@ export default function FPLSquadChecker() {
     setReviewSlots(prev => prev.map((s, i) => i === index ? { ...s, matched: player, manuallyFixed: true } : s));
   }
 
-  function handleConfirmReview() {
+  async function handleConfirmReview() {
     const staticData = pendingStaticData;
     if (!staticData) { setStage('error'); setErrorMessage('Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
-    const squad = reviewSlots.map(slot => {
-      const player = slot.matched;
-      if (!player) return null;
-      const pred = staticData.predictionsById[player.id];
-      return {
-        player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
-        isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
-        multiplier: slot.isCaptain ? 2 : 1,
-      };
-    }).filter(Boolean);
 
-    if (squad.length < 11) {
+    const matchedCount = reviewSlots.filter(slot => slot.matched).length;
+    if (matchedCount < 11) {
       setErrorMessage('A few players are still unmatched. Go back and fix them. [ERR_UNMATCHED_PLAYERS]');
       setStage('error');
       return;
     }
 
+    const targetId = staticData.targetEvent ? staticData.targetEvent.id : null;
+    const gwId = selectedGw || targetId;
+    const isPastGwView = targetId != null && gwId < targetId;
+
+    let liveById = {};
+    if (isPastGwView) {
+      setStage('loading');
+      setLoadingMessage('Fetching gameweek results…');
+      try {
+        const live = await fetchFplJson(`event/${gwId}/live/`);
+        (live.elements || []).forEach(el => {
+          liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
+        });
+      } catch (e) { /* actual points unavailable — still show predicted-only */ }
+    }
+
+    const squad = reviewSlots.map(slot => {
+      const player = slot.matched;
+      if (!player) return null;
+      const pred = staticData.predictionsById[player.id];
+      const live = liveById[player.id];
+      return {
+        player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
+        isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
+        multiplier: slot.isCaptain ? 2 : 1,
+        ...(isPastGwView ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false } : {}),
+      };
+    }).filter(Boolean);
+
     const bankTenths = reviewBank != null ? Math.round(reviewBank * 10) : 0;
-    const gwId = staticData.targetEvent ? staticData.targetEvent.id : null;
-    finalizeResults(squad, staticData, bankTenths, { gwId }, null);
+    finalizeResults(squad, staticData, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
   }
 
   const headerSummary = (stage === 'results' && resultsData) ? {
