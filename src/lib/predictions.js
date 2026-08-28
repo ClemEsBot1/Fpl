@@ -371,6 +371,56 @@ export function buildHindsightSquad(allPlayers, liveEventPointsById, budget = SQ
   return { squad, bankTenths, captainId, viceCaptainId, totalScore };
 }
 
+// Given a fixed 15-man squad (as saved by a user — playerIds plus their
+// chosen captain/vice), works out what it would actually have scored in a
+// given closed gameweek: picks the best starting XI *from those exact 15*
+// using real points (not predictions), and doubles the saved captain's
+// score — falling back to the saved vice-captain, then simply the top
+// scorer among starters, if the original captain didn't end up playing.
+// Used to compare a user's own saved squad against the predicted-optimal
+// and hindsight-best squads for the same gameweek. Returns null if none of
+// the saved player ids resolve against current data (e.g. a since-removed
+// player).
+export function buildSavedSquadActualPerformance(playerIds, captainId, viceCaptainId, liveEventPointsById, playersById) {
+  const players = playerIds.map(id => playersById[id]).filter(Boolean);
+  if (players.length === 0) return null;
+
+  const predictionsById = {};
+  players.forEach(p => {
+    const live = liveEventPointsById[p.id];
+    predictionsById[p.id] = { predicted: live ? live.totalPoints : 0 };
+  });
+
+  let startersSet;
+  try {
+    startersSet = pickBestFormation(players, predictionsById);
+  } catch (e) {
+    return null; // saved squad doesn't have a legal formation (shouldn't happen for a squad built through this app, but data can go stale)
+  }
+
+  const starters = players.filter(p => startersSet.has(p.id))
+    .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted);
+  const resolvedCaptainId = startersSet.has(captainId) ? captainId
+    : (startersSet.has(viceCaptainId) ? viceCaptainId : (starters[0] ? starters[0].id : null));
+
+  const squad = players.map(p => {
+    const live = liveEventPointsById[p.id];
+    const isCaptain = p.id === resolvedCaptainId;
+    return {
+      player: p,
+      isStarting: startersSet.has(p.id),
+      isCaptain,
+      isViceCaptain: p.id === viceCaptainId && p.id !== resolvedCaptainId,
+      multiplier: isCaptain ? 2 : 1,
+      actualPoints: live ? live.totalPoints : 0,
+      played: live ? live.minutes > 0 : false,
+    };
+  });
+
+  const totalScore = squad.reduce((s, slot) => (slot.isStarting ? s + slot.actualPoints * slot.multiplier : s), 0);
+  return { squad, totalScore, captainId: resolvedCaptainId };
+}
+
 export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
   const squad15 = buildOptimalSquad(staticData.allPlayers, staticData.predictionsById, budget);
   const startersSet = pickBestFormation(squad15, staticData.predictionsById);

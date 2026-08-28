@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu, History, User, LogOut, Bookmark, Trash2 } from 'lucide-react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
-  buildStaticDataFromRaw, buildOptimalTeam, buildHindsightSquad, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
+  buildStaticDataFromRaw, buildOptimalTeam, buildHindsightSquad, buildSavedSquadActualPerformance, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
 } from './lib/predictions.js';
 
 /* ============================================================================
@@ -1770,7 +1770,7 @@ function HindsightSquadColumn({ title, squad, score, teamsById }) {
   );
 }
 
-function HindsightScreen({ data, onBack }) {
+function HindsightScreen({ data, savedTeams, compare, onSelectCompare, onBack }) {
   if (data.gwUnavailable) {
     return (
       <div style={{ padding: '40px 16px', textAlign: 'center' }}>
@@ -1785,6 +1785,7 @@ function HindsightScreen({ data, onBack }) {
 
   const { gwName, predictedSquad, predictedScore, hindsightSquad, hindsightScore, teamsById } = data;
   const pct = hindsightScore > 0 ? Math.round((predictedScore / hindsightScore) * 100) : 100;
+  const comparePct = compare && compare.score != null && hindsightScore > 0 ? Math.round((compare.score / hindsightScore) * 100) : null;
 
   return (
     <div style={{ padding: '16px 16px 60px' }}>
@@ -1794,10 +1795,47 @@ function HindsightScreen({ data, onBack }) {
       <div className="fpl-block" style={{ padding: 14, marginBottom: 22 }}>
         <div style={{ fontSize: '0.85rem', lineHeight: 1.5, color: 'var(--ink)' }}>
           The predicted squad actually scored <strong className="fpl-mono">{fmtPts(predictedScore)}</strong> that gameweek — the best possible squad would have scored <strong className="fpl-mono">{fmtPts(hindsightScore)}</strong> ({pct}%).
+          {compare && compare.score != null && (
+            <> Your saved <strong>{compare.label}</strong> scored <strong className="fpl-mono">{fmtPts(compare.score)}</strong> ({comparePct}%).</>
+          )}
         </div>
       </div>
 
+      {savedTeams && savedTeams.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 8px', color: 'var(--ink-dim)' }}>Compare with a saved team</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {savedTeams.map(entry => (
+              <button
+                key={entry.id}
+                onClick={() => onSelectCompare(entry)}
+                disabled={compare && compare.loading}
+                className="fpl-btn"
+                style={{
+                  padding: '7px 12px', fontSize: '0.78rem',
+                  background: compare && compare.entry && compare.entry.id === entry.id ? 'var(--panel-alt)' : undefined,
+                  borderColor: compare && compare.entry && compare.entry.id === entry.id ? 'var(--blue)' : undefined,
+                }}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+          {compare && compare.loading && (
+            <div className="fpl-mono" style={{ fontSize: '0.7rem', color: 'var(--ink-dim)', marginTop: 8 }}>Loading…</div>
+          )}
+          {compare && compare.error && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 8, color: 'var(--red)', fontSize: '0.78rem' }}>
+              <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {compare.error}
+            </div>
+          )}
+        </div>
+      )}
+
       <HindsightSquadColumn title="What was predicted" squad={predictedSquad} score={predictedScore} teamsById={teamsById} />
+      {compare && compare.squad && (
+        <HindsightSquadColumn title={compare.label} squad={compare.squad} score={compare.score} teamsById={teamsById} />
+      )}
       <HindsightSquadColumn title="Best possible XI" squad={hindsightSquad} score={hindsightScore} teamsById={teamsById} />
 
       <button className="fpl-btn" style={{ width: '100%', marginTop: 8, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={onBack}>
@@ -1935,6 +1973,7 @@ export default function FPLSquadChecker() {
   const [gwOptions, setGwOptions] = useState([]);
   const [customStaticData, setCustomStaticData] = useState(null);
   const [hindsightData, setHindsightData] = useState(null);
+  const [hindsightCompare, setHindsightCompare] = useState(null); // { loading, entry, label, squad?, score?, error? }
   const [session, setSession] = useState(null); // { username } | null
   const [savedTeams, setSavedTeams] = useState([]);
   const [authError, setAuthError] = useState('');
@@ -2297,6 +2336,7 @@ export default function FPLSquadChecker() {
   async function handleViewHindsight() {
     setStage('loading');
     setLoadingMessage('Working out what would have scored best…');
+    setHindsightCompare(null);
     try {
       const staticData = await ensureStaticData();
       const targetId = staticData.targetEvent ? staticData.targetEvent.id : 1;
@@ -2344,12 +2384,71 @@ export default function FPLSquadChecker() {
         gwId: lastClosed.id, gwName: lastClosed.name,
         predictedSquad: hydratedPredicted.squad, predictedScore,
         hindsightSquad: best.squad, hindsightScore: best.totalScore,
-        teamsById: staticData.teamsById,
+        teamsById: staticData.teamsById, liveById,
       });
       setStage('hindsight');
     } catch (e) {
       setErrorMessage("Couldn't work out the best XI right now — FPL's data might be temporarily unavailable. Please try again.");
       setStage('error');
+    }
+  }
+
+  // Loads one of the user's saved teams (a Team ID or a custom squad) into
+  // the hindsight comparison, showing what it actually scored that
+  // gameweek alongside the predicted-optimal and best-possible squads.
+  async function handleCompareSavedInHindsight(entry) {
+    if (!hindsightData || hindsightData.gwUnavailable) return;
+    setHindsightCompare({ loading: true, entry, label: entry.label });
+    try {
+      const staticData = await ensureStaticData();
+      const gwId = hindsightData.gwId;
+      const liveById = hindsightData.liveById || {};
+
+      if (entry.type === 'teamId') {
+        let picks;
+        try {
+          picks = await fetchFplJson(`entry/${entry.teamId}/event/${gwId}/picks/`);
+        } catch (e) {
+          const notReady = e && e.message === 'status 404';
+          setHindsightCompare({
+            loading: false, entry, label: entry.label,
+            error: notReady ? `This team didn't exist yet in ${hindsightData.gwName} — nothing to compare.` : "Couldn't fetch that team's picks for this gameweek right now.",
+          });
+          return;
+        }
+        if (!picks || picks.detail === 'Not found.' || !Array.isArray(picks.picks) || picks.picks.length === 0) {
+          setHindsightCompare({ loading: false, entry, label: entry.label, error: "Couldn't find picks for that team in this gameweek." });
+          return;
+        }
+        const squad = picks.picks.map(pk => {
+          const player = staticData.playersById[pk.element];
+          if (!player) return null;
+          const live = liveById[pk.element];
+          return {
+            player, isStarting: pk.position <= 11, isCaptain: !!pk.is_captain, isViceCaptain: !!pk.is_vice_captain,
+            multiplier: pk.multiplier,
+            actualPoints: live ? live.totalPoints : 0,
+            played: live ? live.minutes > 0 : false,
+          };
+        }).filter(Boolean);
+        const totalScore = squad.reduce((s, slot) => (slot.isStarting ? s + slot.actualPoints * slot.multiplier : s), 0);
+        setHindsightCompare({ loading: false, entry, label: entry.label, squad, score: totalScore });
+        return;
+      }
+
+      // Custom saved squad — no real historical picks exist for it, so
+      // work out the best XI it could have fielded from those exact 15
+      // players using that gameweek's actual scores.
+      const result = buildSavedSquadActualPerformance(
+        entry.squad.playerIds, entry.squad.captainId, entry.squad.viceCaptainId, liveById, staticData.playersById
+      );
+      if (!result) {
+        setHindsightCompare({ loading: false, entry, label: entry.label, error: "Couldn't match this saved squad's players to current data." });
+        return;
+      }
+      setHindsightCompare({ loading: false, entry, label: entry.label, squad: result.squad, score: result.totalScore });
+    } catch (e) {
+      setHindsightCompare({ loading: false, entry, label: entry.label, error: 'Something went wrong loading that comparison.' });
     }
   }
 
@@ -2498,7 +2597,7 @@ export default function FPLSquadChecker() {
         gwOptions={gwOptions}
         selectedGw={selectedGw}
         onSelectGw={setSelectedGw}
-        onGoHome={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); setHindsightData(null); }}
+        onGoHome={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); setHindsightData(null); setHindsightCompare(null); }}
         session={session}
         onLoginClick={() => { setAuthReturnStage(null); setAuthError(''); setStage('auth'); }}
         onMyTeamsClick={() => setStage('myTeams')}
@@ -2556,7 +2655,10 @@ export default function FPLSquadChecker() {
         {stage === 'hindsight' && hindsightData && (
           <HindsightScreen
             data={hindsightData}
-            onBack={() => { setStage('intro'); setHindsightData(null); }}
+            savedTeams={savedTeams}
+            compare={hindsightCompare}
+            onSelectCompare={handleCompareSavedInHindsight}
+            onBack={() => { setStage('intro'); setHindsightData(null); setHindsightCompare(null); }}
           />
         )}
         {stage === 'auth' && (
