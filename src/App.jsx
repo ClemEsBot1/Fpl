@@ -1655,18 +1655,18 @@ function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onReq
   // (entryMeta.gwId); fall back to whatever gameweek is currently showing
   // in the header if that's somehow missing.
   const gwId = (data.entryMeta && data.entryMeta.gwId) || (data.targetEvent && data.targetEvent.id) || null;
+  const defaultLabel = (data.entryMeta && data.entryMeta.teamName) || (teamId ? `Team ${teamId}` : 'My squad');
+  const [label, setLabel] = useState(defaultLabel);
 
   async function handleSaveTeamId() {
     setStatus({ kind: 'saving' });
-    const label = (data.entryMeta && data.entryMeta.teamName) || `Team ${teamId}`;
-    const result = await onSaveTeamId(teamId, label, gwId);
+    const result = await onSaveTeamId(teamId, label.trim() || defaultLabel, gwId);
     setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
   }
 
   async function handleSaveSquad() {
     setStatus({ kind: 'saving' });
-    const label = (data.entryMeta && data.entryMeta.teamName) || 'My squad';
-    const result = await onSaveCustomSquad(data.squad, label, gwId);
+    const result = await onSaveCustomSquad(data.squad, label.trim() || defaultLabel, gwId);
     setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
   }
 
@@ -1684,6 +1684,14 @@ function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onReq
 
   return (
     <div style={{ marginBottom: 10 }}>
+      <input
+        value={label}
+        onChange={e => setLabel(e.target.value)}
+        placeholder="Name this squad"
+        maxLength={40}
+        className="fpl-mono"
+        style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '9px 10px', fontSize: '0.85rem', marginBottom: 8 }}
+      />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {teamId && (
           <button onClick={handleSaveTeamId} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
