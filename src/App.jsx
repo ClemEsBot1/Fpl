@@ -1426,7 +1426,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
       <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
         <div>
           <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>
-            {entryMeta ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {targetEvent ? targetEvent.name.toUpperCase() : ''}
+            {entryMeta && entryMeta.teamName ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {targetEvent ? targetEvent.name.toUpperCase() : ''}
           </div>
           {bankTenths !== null && bankTenths !== undefined && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
@@ -1651,18 +1651,22 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
 function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
   const [status, setStatus] = useState(null); // { kind: 'saving'|'ok'|'error', message }
   const teamId = data.entryMeta && data.entryMeta.teamId;
+  // Prefer the gameweek this squad/team was actually fetched/built for
+  // (entryMeta.gwId); fall back to whatever gameweek is currently showing
+  // in the header if that's somehow missing.
+  const gwId = (data.entryMeta && data.entryMeta.gwId) || (data.targetEvent && data.targetEvent.id) || null;
 
   async function handleSaveTeamId() {
     setStatus({ kind: 'saving' });
     const label = (data.entryMeta && data.entryMeta.teamName) || `Team ${teamId}`;
-    const result = await onSaveTeamId(teamId, label);
+    const result = await onSaveTeamId(teamId, label, gwId);
     setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
   }
 
   async function handleSaveSquad() {
     setStatus({ kind: 'saving' });
     const label = (data.entryMeta && data.entryMeta.teamName) || 'My squad';
-    const result = await onSaveCustomSquad(data.squad, label);
+    const result = await onSaveCustomSquad(data.squad, label, gwId);
     setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
   }
 
@@ -1887,7 +1891,7 @@ function MyTeamsScreen({ teams, onLoad, onDelete, onBack }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '0.9rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.label}</div>
             <div className="fpl-mono" style={{ fontSize: '0.66rem', color: 'var(--ink-dim)', marginTop: 2 }}>
-              {entry.type === 'teamId' ? `Team ID ${entry.teamId}` : 'Custom squad'}
+              {entry.type === 'teamId' ? `Team ID ${entry.teamId}` : 'Custom squad'}{entry.gwId ? ` · GW${entry.gwId}` : ''}
             </div>
           </div>
           <button onClick={() => onLoad(entry)} className="fpl-btn" style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}>
@@ -2002,23 +2006,23 @@ export default function FPLSquadChecker() {
     setSavedTeams([]);
   }
 
-  async function handleSaveTeamId(teamId, label) {
+  async function handleSaveTeamId(teamId, label, gwId) {
     const result = await fetchJson('/api/teams', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'teamId', teamId, label }),
+      body: JSON.stringify({ type: 'teamId', teamId, label, gwId }),
     });
     if (result.ok) setSavedTeams(result.data.teams);
     return { ok: result.ok, error: result.error };
   }
 
-  async function handleSaveCustomSquad(squad, label) {
+  async function handleSaveCustomSquad(squad, label, gwId) {
     const playerIds = squad.map(s => s.player.id);
     const captain = squad.find(s => s.isCaptain);
     const vice = squad.find(s => s.isViceCaptain);
     const result = await fetchJson('/api/teams', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'custom', label,
+        type: 'custom', label, gwId,
         squad: { playerIds, captainId: captain ? captain.player.id : null, viceCaptainId: vice ? vice.player.id : null },
       }),
     });
@@ -2047,7 +2051,7 @@ export default function FPLSquadChecker() {
       const staticData = await ensureStaticData();
       const hydrated = hydrateSquadSnapshot(entry.squad, staticData);
       if (!hydrated) throw new Error('could not hydrate saved squad');
-      finalizeResults(hydrated.squad, staticData, hydrated.bankTenths, { teamName: entry.label }, null, false);
+      finalizeResults(hydrated.squad, staticData, hydrated.bankTenths, { teamName: entry.label, gwId: entry.gwId }, null, false);
     } catch (e) {
       setErrorMessage("Couldn't load that saved squad — try again in a moment.");
       setStage('error');
@@ -2165,7 +2169,8 @@ export default function FPLSquadChecker() {
 
   function handleCustomSquadSubmit(squad, bankTenths) {
     if (!customStaticData) { setStage('error'); setErrorMessage('Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
-    finalizeResults(squad, customStaticData, bankTenths, { teamName: 'My Squad' }, null, false);
+    const gwId = customStaticData.targetEvent ? customStaticData.targetEvent.id : null;
+    finalizeResults(squad, customStaticData, bankTenths, { teamName: 'My Squad', gwId }, null, false);
   }
 
   async function loadOptimalSquadForGw(gwId) {
@@ -2370,11 +2375,11 @@ export default function FPLSquadChecker() {
         throw { code: 'ERR_TEAM_NOT_FOUND' };
       }
 
-      let entryMeta = { teamId: Number(teamId) };
+      let entryMeta = { teamId: Number(teamId), gwId };
       try {
         const entry = await fetchFplJson(`entry/${teamId}/`);
         if (entry && !entry.detail) {
-          entryMeta = { teamId: Number(teamId), teamName: entry.name || 'Your Squad' };
+          entryMeta = { teamId: Number(teamId), gwId, teamName: entry.name || 'Your Squad' };
         }
       } catch (e) { /* non-critical */ }
 
@@ -2467,7 +2472,8 @@ export default function FPLSquadChecker() {
     }
 
     const bankTenths = reviewBank != null ? Math.round(reviewBank * 10) : 0;
-    finalizeResults(squad, staticData, bankTenths, null, null);
+    const gwId = staticData.targetEvent ? staticData.targetEvent.id : null;
+    finalizeResults(squad, staticData, bankTenths, { gwId }, null);
   }
 
   const headerSummary = (stage === 'results' && resultsData) ? {

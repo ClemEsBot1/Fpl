@@ -6,20 +6,29 @@ function sanitizeLabel(label, fallback) {
   return label.trim().slice(0, MAX_LABEL_LENGTH);
 }
 
+function sanitizeGwId(gwId) {
+  const n = Number(gwId);
+  return Number.isInteger(n) && n >= 1 ? n : null;
+}
+
 // Validates the two shapes of saveable entry — an FPL Team ID, or a
 // compact custom-squad snapshot (playerIds/captainId/viceCaptainId, the
 // same shape hydrateSquadSnapshot already knows how to rebuild against
-// live data). Returns { ok, error } or { ok: true, entry } — entry is
-// missing id/savedAt, which the caller fills in.
+// live data). Both shapes also carry an optional `gwId` — the gameweek
+// that was current/being viewed when the squad was saved, purely
+// informational (rehydration always uses live current data regardless).
+// Returns { ok, error } or { ok: true, entry } — entry is missing
+// id/savedAt, which the caller fills in.
 export function buildEntryFromBody(body) {
   if (!body || typeof body !== 'object') return { ok: false, error: 'A request body is required.' };
+  const gwId = sanitizeGwId(body.gwId);
 
   if (body.type === 'teamId') {
     const teamId = Number(body.teamId);
     if (!Number.isInteger(teamId) || teamId < 1) {
       return { ok: false, error: 'A valid numeric FPL Team ID is required.' };
     }
-    return { ok: true, entry: { type: 'teamId', teamId, label: sanitizeLabel(body.label, `Team ${teamId}`) } };
+    return { ok: true, entry: { type: 'teamId', teamId, gwId, label: sanitizeLabel(body.label, `Team ${teamId}`) } };
   }
 
   if (body.type === 'custom') {
@@ -38,6 +47,7 @@ export function buildEntryFromBody(body) {
       entry: {
         type: 'custom',
         squad: { playerIds, captainId, viceCaptainId },
+        gwId,
         label: sanitizeLabel(body.label, 'My squad'),
       },
     };
