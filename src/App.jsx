@@ -493,6 +493,13 @@ function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session,
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
             <span className="fpl-mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(summary.xiTotal)}</span>
             <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>PREDICTED XI PTS</span>
+            {summary.actualXiTotal != null && (
+              <>
+                <span className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)' }}>·</span>
+                <span className="fpl-mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--lime)' }}>{fmtPts(summary.actualXiTotal)}</span>
+                <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>ACTUAL XI PTS</span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2165,9 +2172,11 @@ export default function FPLSquadChecker() {
     const bench = squad.filter(s => !s.isStarting);
 
     let xiTotal = 0;
+    let actualXiTotal = 0;
     squad.forEach(s => {
       const mult = activeChip === 'bboost' ? 1 : (s.isStarting ? (s.multiplier || 1) : 0);
       xiTotal += s.predicted * mult;
+      actualXiTotal += (s.actualPoints || 0) * mult;
     });
 
     const captain = squad.find(s => s.isCaptain) || null;
@@ -2175,7 +2184,7 @@ export default function FPLSquadChecker() {
     const suggestions = isPastGw ? [] : suggestTransfers(squad, staticData.allPlayers, staticData.predictionsById, bankTenths || 0);
 
     return {
-      squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions,
+      squad, starters, bench, xiTotal, actualXiTotal: isPastGw ? actualXiTotal : null, captain, captainSuggestion, suggestions,
       entryMeta, bankTenths, activeChip, isOptimalBuild,
       isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled,
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
@@ -2620,9 +2629,12 @@ export default function FPLSquadChecker() {
   }
 
   const headerSummary = (stage === 'results' && resultsData) ? {
-    gwLabel: resultsData.targetEvent ? resultsData.targetEvent.name : '',
-    countdown: resultsData.targetEvent ? formatCountdown(resultsData.targetEvent.deadline_time) : '',
+    gwLabel: resultsData.isPastGw
+      ? ((resultsData.allEvents?.find(e => e.id === resultsData.gwId))?.name || '')
+      : (resultsData.targetEvent ? resultsData.targetEvent.name : ''),
+    countdown: resultsData.isPastGw ? '' : (resultsData.targetEvent ? formatCountdown(resultsData.targetEvent.deadline_time) : ''),
     xiTotal: resultsData.xiTotal,
+    actualXiTotal: resultsData.isPastGw ? resultsData.actualXiTotal : null,
   } : null;
 
   return (
