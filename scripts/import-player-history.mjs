@@ -10,10 +10,13 @@
 // then just reads that one blob at runtime — no per-player API calls, no
 // repeated GitHub fetches.
 //
-// Requires BLOB_READ_WRITE_TOKEN in the environment (the same one Vercel
-// auto-populates in production — for local use, run `vercel env pull
-// .env.local` in the project root first, or copy it from the Vercel
-// dashboard: Storage -> your Blob store -> .env.local tab).
+// Requires Blob credentials in the environment — either the modern OIDC
+// pair (VERCEL_OIDC_TOKEN + BLOB_STORE_ID, which `vercel env pull` gives you
+// automatically for a connected store) or the older static
+// BLOB_READ_WRITE_TOKEN. For local use, run `vercel env pull .env.local` in
+// the project root first (needs `vercel link` done once beforehand), then
+// run this script with `node --env-file=.env.local
+// scripts/import-player-history.mjs` so those variables are loaded.
 //
 // Re-run this whenever you want to add a newly-completed season: add its
 // folder name to SEASONS below and run again (allowOverwrite replaces the
@@ -78,8 +81,10 @@ async function fetchSeasonCsv(season) {
 }
 
 async function main() {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.error('BLOB_READ_WRITE_TOKEN is not set. Run `vercel env pull .env.local` in the project root first (and load it, e.g. `node --env-file=.env.local scripts/import-player-history.mjs`), or export it manually.');
+  const hasStaticToken = !!process.env.BLOB_READ_WRITE_TOKEN;
+  const hasOidc = !!process.env.VERCEL_OIDC_TOKEN && !!process.env.BLOB_STORE_ID;
+  if (!hasStaticToken && !hasOidc) {
+    console.error('No Blob credentials found. Run `vercel env pull .env.local` in the project root first (and load it, e.g. `node --env-file=.env.local scripts/import-player-history.mjs`) — modern Vercel Blob stores authenticate via OIDC (VERCEL_OIDC_TOKEN + BLOB_STORE_ID) rather than a static BLOB_READ_WRITE_TOKEN, and `vercel env pull` picks up whichever one your store actually issues once the project is linked.');
     process.exit(1);
   }
 
