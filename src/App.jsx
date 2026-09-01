@@ -115,6 +115,22 @@ async function fetchFplJson(path) {
   return r.json();
 }
 
+async function fetchPlayerHistory() {
+  // Unlike fetchFplJson above, a failure here is NOT an error worth
+  // surfacing — the player-history blob only exists once
+  // scripts/import-player-history.mjs has been run at least once, and
+  // predictions work fine without it (falls back to the pre-existing
+  // position-average ep_next shrinkage baseline). So this always resolves,
+  // never throws.
+  try {
+    const r = await fetch('/api/player-history');
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 /* ============================================================================
    PREDICTION ENGINE
    (computePlayerPrediction now lives in ./lib/predictions.js — imported above
@@ -296,11 +312,12 @@ function matchExtractedSquad(extracted, playersByPosition, allPlayers) {
 ============================================================================ */
 
 async function loadStaticData() {
-  const [bootstrap, fixturesRaw] = await Promise.all([
+  const [bootstrap, fixturesRaw, playerHistoryData] = await Promise.all([
     fetchFplJson('bootstrap-static/'),
     fetchFplJson('fixtures/'),
+    fetchPlayerHistory(),
   ]);
-  return buildStaticDataFromRaw(bootstrap, fixturesRaw);
+  return buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData });
 }
 
 /* ============================================================================

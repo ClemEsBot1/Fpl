@@ -9,6 +9,8 @@
    only need to change it here.
 ============================================================================ */
 
+import { buildCareerBaselineByCode } from './playerHistory.js';
+
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
 export const MAX_PER_REAL_TEAM = 3;
@@ -18,10 +20,27 @@ export const SQUAD_BUDGET = 100.0; // £100.0m
    PREDICTION ENGINE
 ---------------------------------------------------------------------------- */
 
-export function computePlayerPrediction(p, fixturesByTeam, formEligible) {
-  const epNext = p.epNext || 0;
+export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink = null) {
+  const rawEpNext = p.epNext || 0;
   const ppg = p.pointsPerGame || 0;
   const form = p.form || 0;
+
+  // ep_next is FPL's own next-gameweek model, and it's the input the rest of
+  // this function leans on hardest (100% of the base early season, still the
+  // largest single weight once form kicks in). But it has the exact same
+  // small-sample problem as form/ppg: this early it's built from only a
+  // couple of games, so a hot start reads as a sustained one — a cheap
+  // rotation-priced defender can show an ep_next of 10 after two clean
+  // sheets, when the honest expectation is more like half that. Shrink it
+  // toward the position-wide average ep_next (computed once across the
+  // player pool in buildStaticDataFromRaw) in proportion to how little of
+  // the season has actually happened, so early gameweeks don't take these
+  // extremes at full face value; by ~6 gameweeks in, confidence reaches 1
+  // and ep_next is trusted as-is again.
+  const confidence = epNextShrink ? epNextShrink.confidence : 1;
+  const epNext = (epNextShrink && confidence < 1)
+    ? confidence * rawEpNext + (1 - confidence) * epNextShrink.baseline
+    : rawEpNext;
 
   let base;
   if (formEligible && form > 0) {
@@ -31,9 +50,8 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible) {
     // small-sample problem as form — after one gameweek it's literally just
     // that gameweek's score (a single big haul reads as an 11.0 ppg that's
     // nowhere near sustainable). Lean on FPL's own next-gameweek model
-    // instead, which already accounts for this rather than getting fooled
-    // by it — e.g. a defender who scored 11 points in GW1 still shows a
-    // sober ep_next around 2.5, not an inflated one.
+    // instead (now shrunk toward the position average above, for the same
+    // small-sample reason), rather than getting fooled by either one.
     base = epNext;
   }
 
@@ -142,6 +160,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
 
   const allPlayers = bootstrap.elements.map(e => ({
     id: e.id,
+    code: e.code,
     webName: e.web_name,
     firstName: e.first_name,
     secondName: e.second_name,
@@ -162,8 +181,35 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   const playersByPosition = { 1: [], 2: [], 3: [], 4: [] };
   allPlayers.forEach(p => { playersById[p.id] = p; playersByPosition[p.positionId].push(p); });
 
+  // ep_next shrinkage setup (see computePlayerPrediction): confidence ramps
+  // linearly from 0 at GW1 to 1 once EPNEXT_CONFIDENCE_GAMES gameweeks have
+  // been played. The shrinkage target is, in priority order: (1) the
+  // player's own recency-weighted career points-per-90 from past seasons
+  // (options.playerHistoryData — see src/lib/playerHistory.js — built by
+  // scripts/import-player-history.mjs; a real track record beats a generic
+  // average), falling back to (2) the position-wide average ep_next among
+  // players who are actually available to play, for anyone with no usable
+  // history (new to the league, or the import hasn't been run) — an
+  // injured/suspended/unavailable player's near-zero ep_next would
+  // otherwise drag that average down and under-shrink everyone else's
+  // early-season number.
+  const EPNEXT_CONFIDENCE_GAMES = 5;
+  const gamesPlayed = Math.max(0, targetEvent.id - 1);
+  const epNextConfidence = Math.min(1, gamesPlayed / EPNEXT_CONFIDENCE_GAMES);
+  const epNextBaselineByPosition = {};
+  POSITION_ORDER.forEach(pos => {
+    const available = playersByPosition[pos].filter(p => !['u', 'n', 'i', 's'].includes(p.status));
+    const pool = available.length ? available : playersByPosition[pos];
+    epNextBaselineByPosition[pos] = pool.length ? pool.reduce((s, p) => s + p.epNext, 0) / pool.length : 0;
+  });
+  const careerBaselineByCode = buildCareerBaselineByCode(options.playerHistoryData);
+
   const predictionsById = {};
-  allPlayers.forEach(p => { predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible); });
+  allPlayers.forEach(p => {
+    const baseline = careerBaselineByCode[p.code] ?? epNextBaselineByPosition[p.positionId];
+    const epNextShrink = { confidence: epNextConfidence, baseline };
+    predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink);
+  });
 
   return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById };
 }

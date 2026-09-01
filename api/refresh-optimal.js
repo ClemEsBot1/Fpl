@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { put, get } from '@vercel/blob';
 import { buildStaticDataFromRaw, buildOptimalTeam, SQUAD_BUDGET } from '../src/lib/predictions.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
@@ -18,6 +18,22 @@ async function fetchFplJsonServer(path) {
   const r = await fetch(FPL_BASE + path);
   if (!r.ok) throw new Error(`FPL fetch failed for ${path}: status ${r.status}`);
   return r.json();
+}
+
+// Best-effort: the player-history blob only exists once
+// scripts/import-player-history.mjs has been run at least once. A missing
+// blob is not an error here — it just means predictions fall back to the
+// pre-existing position-average ep_next shrinkage baseline, exactly as
+// before this feature existed.
+async function fetchPlayerHistoryServer() {
+  try {
+    const result = await get('player-history.json', { access: 'public', useCache: false });
+    if (!result) return null;
+    const text = await new Response(result.stream).text();
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
@@ -45,11 +61,12 @@ export default async function handler(req, res) {
   const forceGwId = req.query && req.query.gw ? Number(req.query.gw) : null;
 
   try {
-    const [bootstrap, fixturesRaw] = await Promise.all([
+    const [bootstrap, fixturesRaw, playerHistoryData] = await Promise.all([
       fetchFplJsonServer('bootstrap-static/'),
       fetchFplJsonServer('fixtures/'),
+      fetchPlayerHistoryServer(),
     ]);
-    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, forceGwId ? { forceGwId } : {});
+    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData });
     const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
 
     const built = buildOptimalTeam(staticData, SQUAD_BUDGET);
@@ -70,7 +87,7 @@ export default async function handler(req, res) {
       allowOverwrite: true,
     });
 
-    res.status(200).json({ ok: true, gwId, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length });
+    res.status(200).json({ ok: true, gwId, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData });
   } catch (e) {
     res.status(502).json({ error: 'refresh_failed', detail: String((e && e.message) || e) });
   }
