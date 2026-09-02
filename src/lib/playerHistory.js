@@ -24,6 +24,15 @@
 // zero.
 const RECENCY_WEIGHTS = [3, 2, 1]; // most-recent-first
 
+// A per-90 extrapolation from a handful of career minutes is noise, not
+// signal — a fringe/academy player who picked up a couple of points in one
+// substitute cameo would otherwise extrapolate to a rate that looks like a
+// nailed-on starter's. 450 minutes (~5 full matches) is a rough floor for
+// "enough of a sample that the rate means something"; below that, return
+// null so the caller (buildStaticDataFromRaw) falls back to the
+// position-wide average instead of trusting the noisy per-90 figure.
+const MIN_CAREER_MINUTES = 450;
+
 // seasonsOldestToNewest: the master `seasons` array from the imported blob
 // (chronological order, e.g. ['2016-17', ..., '2025-26']).
 export function computeCareerBaseline(playerHistoryEntry, seasonsOldestToNewest) {
@@ -31,6 +40,7 @@ export function computeCareerBaseline(playerHistoryEntry, seasonsOldestToNewest)
   const recentFirst = [...seasonsOldestToNewest].reverse();
   let weightedPoints = 0;
   let weightedMinutes = 0;
+  let totalMinutes = 0; // unweighted, for the sample-size floor below
   let weightIdx = 0;
   for (const season of recentFirst) {
     const stats = playerHistoryEntry.seasons[season];
@@ -38,10 +48,12 @@ export function computeCareerBaseline(playerHistoryEntry, seasonsOldestToNewest)
     const weight = RECENCY_WEIGHTS[weightIdx] ?? 1;
     weightedPoints += weight * stats.total_points;
     weightedMinutes += weight * stats.minutes;
+    totalMinutes += stats.minutes;
     weightIdx++;
     if (weightIdx >= RECENCY_WEIGHTS.length) break;
   }
   if (weightedMinutes <= 0) return null; // no usable playing-time history at all
+  if (totalMinutes < MIN_CAREER_MINUTES) return null; // sample too small to trust
   return (weightedPoints / weightedMinutes) * 90;
 }
 
