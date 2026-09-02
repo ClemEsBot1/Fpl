@@ -16,11 +16,24 @@ export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per pos
 export const MAX_PER_REAL_TEAM = 3;
 export const SQUAD_BUDGET = 100.0; // £100.0m
 
+// Every tunable weight the prediction formula uses, in one place — so
+// scripts/calibrate-weights.mjs can grid-search combinations against real
+// results without touching this file. These defaults are reasoned
+// starting points (documented inline below), not backtest-tuned; running
+// the calibration script against a range of past gameweeks is how you'd
+// replace a guess here with an evidence-based one.
+export const DEFAULT_PREDICTION_WEIGHTS = {
+  epNext: 0.45, ppg: 0.35, form: 0.20,          // must sum to 1 — the post-GW5 blended formula
+  xgRegression: 0.15,                            // how much of the xG/actual gap to credit, per computePlayerPrediction
+  selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
+};
+
 /* ----------------------------------------------------------------------------
    PREDICTION ENGINE
 ---------------------------------------------------------------------------- */
 
-export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink = null) {
+export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink = null, options = {}) {
+  const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
   const rawEpNext = p.epNext || 0;
   const ppg = p.pointsPerGame || 0;
   const form = p.form || 0;
@@ -44,7 +57,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
 
   let base;
   if (formEligible && form > 0) {
-    base = 0.45 * epNext + 0.35 * ppg + 0.20 * form;
+    base = weights.epNext * epNext + weights.ppg * ppg + weights.form * form;
   } else {
     // Early season (before GW5): points_per_game suffers the exact same
     // small-sample problem as form — after one gameweek it's literally just
@@ -54,6 +67,46 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     // small-sample reason), rather than getting fooled by either one.
     base = epNext;
   }
+
+  // Set-piece duty is a real, low-noise signal FPL already publishes but
+  // the formula above never used: a confirmed penalty taker has a
+  // materially higher expected-points floor than their open-play output
+  // alone suggests, and it doesn't suffer from the small-sample problems
+  // above (who's on penalties doesn't get less certain early in a season).
+  // Modest and additive, applied before the fixture/availability
+  // multipliers below so it still scales down for a hard fixture or an
+  // injury doubt, same as everything else — this isn't meant to be a large
+  // driver, just credit for information the formula was otherwise ignoring.
+  let setPieceBonus = 0;
+  if (p.penaltiesOrder === 1) setPieceBonus += 0.45;
+  else if (p.penaltiesOrder === 2) setPieceBonus += 0.15;
+  if (p.directFreekicksOrder === 1) setPieceBonus += 0.15;
+  if (p.cornersOrder === 1) setPieceBonus += 0.15;
+  base += setPieceBonus;
+
+  // xG/xA regression-to-underlying-rate nudge: compares ACTUAL goal
+  // involvements this season to what the underlying chances (expected_goals
+  // + expected_assists) say they "should" have produced. A player scoring
+  // MORE than their xG suggests is finishing at a rate that's unlikely to
+  // hold (nudged down); one under-performing xG is getting into good
+  // positions without the run of luck yet (nudged up). Crucially this needs
+  // far fewer minutes to mean something than raw goals/assists, since xG
+  // doesn't care whether the shot actually went in — the same small-sample
+  // idea as the ep_next shrinkage above, applied to a different input.
+  // Requires a meaningful sample (2 full games' worth of minutes) and the
+  // result is capped to a modest swing either way: this is a nudge on top
+  // of the formula above, not a replacement for it.
+  const minutesPlayed = p.minutes || 0;
+  let xgAdjustment = 0;
+  if (minutesPlayed >= 180) {
+    const actualGI = (p.goalsScored || 0) + (p.assists || 0);
+    const expectedGI = (p.expectedGoals || 0) + (p.expectedAssists || 0);
+    const per90Gap = (expectedGI - actualGI) / (minutesPlayed / 90); // +ve = under-performing xG (unlucky so far)
+    const goalPointsForPosition = { 1: 6, 2: 6, 3: 5, 4: 4 }[p.positionId] || 5;
+    const pointsGapPer90 = per90Gap * ((goalPointsForPosition + 3) / 2); // rough blended value per involvement (goal vs assist)
+    xgAdjustment = Math.max(-1.0, Math.min(1.0, pointsGapPer90 * weights.xgRegression));
+  }
+  base += xgAdjustment;
 
   function fixtureMultFor(diff) {
     return Math.max(0.8, Math.min(1.18, 1 + (3 - diff) * 0.075));
@@ -85,8 +138,22 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     availMult = 0.7; availNote = 'Doubtful';
   }
 
-  const predicted = Math.max(0, base * fixtureMult * availMult);
-  const nextMatchPredicted = Math.max(0, base * nextFixtureMult * availMult);
+  // Short-rest rotation risk: a team playing again within a handful of days
+  // is more likely to rotate its squad. This can only see Premier League
+  // fixture scheduling (the gap between kickoffs FPL's own /fixtures/
+  // endpoint gives us) — it has no visibility into European or domestic cup
+  // fixtures, which is the more common real-world driver of rotation for
+  // clubs in continental competition. So this under-detects congestion for
+  // those clubs specifically, but a genuinely short PL-to-PL turnaround
+  // (rearranged or festive-period fixtures) is still a real, if partial,
+  // signal worth a modest discount rather than none at all.
+  const REST_DAYS_THRESHOLD = 4; // a normal gap is ~7 days
+  const CONGESTION_DISCOUNT = 0.92;
+  const restDays = p.daysSinceLastFixture;
+  const congestionMult = (typeof restDays === 'number' && restDays < REST_DAYS_THRESHOLD) ? CONGESTION_DISCOUNT : 1;
+
+  const predicted = Math.max(0, base * fixtureMult * availMult * congestionMult);
+  const nextMatchPredicted = Math.max(0, base * nextFixtureMult * availMult * congestionMult);
   const baseAvail = Math.max(0, base * availMult);
   return {
     predicted: Math.round(predicted * 10) / 10,
@@ -158,6 +225,25 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       }
     });
 
+  // Rest-days-per-team, for the short-rest rotation-risk discount in
+  // computePlayerPrediction: for each team's next upcoming fixture, find
+  // the most recent PREVIOUS fixture (by kickoff time, from the full
+  // fixture list — not just the future-filtered one above) and measure the
+  // gap in days. Deliberately keyed off actual kickoff timestamps rather
+  // than gameweek numbers, so a postponed/rearranged fixture doesn't throw
+  // the gap off.
+  const restDaysByTeam = {};
+  bootstrap.teams.forEach(t => {
+    const next = fixturesByTeam[t.id][0];
+    if (!next || !next.kickoff) return;
+    const nextTime = new Date(next.kickoff).getTime();
+    const prior = fixturesRaw
+      .filter(f => (f.team_h === t.id || f.team_a === t.id) && f.kickoff_time && new Date(f.kickoff_time).getTime() < nextTime)
+      .sort((a, b) => new Date(b.kickoff_time).getTime() - new Date(a.kickoff_time).getTime())[0];
+    if (!prior) return;
+    restDaysByTeam[t.id] = (nextTime - new Date(prior.kickoff_time).getTime()) / (1000 * 60 * 60 * 24);
+  });
+
   const allPlayers = bootstrap.elements.map(e => ({
     id: e.id,
     code: e.code,
@@ -175,6 +261,15 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     chanceNext: e.chance_of_playing_next_round,
     news: e.news,
     selectedBy: parseFloat(e.selected_by_percent) || 0,
+    penaltiesOrder: e.penalties_order === null || e.penalties_order === undefined ? null : Number(e.penalties_order),
+    directFreekicksOrder: e.direct_freekicks_order === null || e.direct_freekicks_order === undefined ? null : Number(e.direct_freekicks_order),
+    cornersOrder: e.corners_and_indirect_freekicks_order === null || e.corners_and_indirect_freekicks_order === undefined ? null : Number(e.corners_and_indirect_freekicks_order),
+    minutes: Number(e.minutes) || 0,
+    goalsScored: Number(e.goals_scored) || 0,
+    assists: Number(e.assists) || 0,
+    expectedGoals: parseFloat(e.expected_goals) || 0,
+    expectedAssists: parseFloat(e.expected_assists) || 0,
+    daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
   }));
 
   const playersById = {};
@@ -203,12 +298,41 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     epNextBaselineByPosition[pos] = pool.length ? pool.reduce((s, p) => s + p.epNext, 0) / pool.length : 0;
   });
   const careerBaselineByCode = buildCareerBaselineByCode(options.playerHistoryData);
+  const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
 
   const predictionsById = {};
   allPlayers.forEach(p => {
     const baseline = careerBaselineByCode[p.code] ?? epNextBaselineByPosition[p.positionId];
     const epNextShrink = { confidence: epNextConfidence, baseline };
-    predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink);
+    predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink, { weights });
+  });
+
+  // "Winner's curse" correction for SELECTION only (squad-picking and
+  // captaincy) — never for what's displayed. Picking the single
+  // highest-predicted player at each slot systematically favours players
+  // whose forecast happened to run hot, a standard regression-to-the-mean
+  // effect in any pick-the-top-of-a-noisy-ranking system (the same reason
+  // "last year's best fund" tends to underperform next). Shrinking the
+  // value used purely for ranking/selection toward the position-wide
+  // average dampens that without changing the number shown to the user —
+  // `predicted`/`nextMatchPredicted` above are untouched; only this new
+  // `selectionValue`/`nextMatchSelectionValue` pair feeds buildOptimalSquad,
+  // pickBestFormation, and captain choice. weights.selectionShrinkage is a
+  // reasonable starting point, not backtest-tuned — see
+  // scripts/calibrate-weights.mjs if you want to calibrate it against real
+  // results.
+  const avgPredictedByPosition = {};
+  const avgNextMatchByPosition = {};
+  POSITION_ORDER.forEach(pos => {
+    const available = playersByPosition[pos].filter(p => !['u', 'n', 'i', 's'].includes(p.status));
+    const pool = available.length ? available : playersByPosition[pos];
+    avgPredictedByPosition[pos] = pool.length ? pool.reduce((s, p) => s + predictionsById[p.id].predicted, 0) / pool.length : 0;
+    avgNextMatchByPosition[pos] = pool.length ? pool.reduce((s, p) => s + predictionsById[p.id].nextMatchPredicted, 0) / pool.length : 0;
+  });
+  allPlayers.forEach(p => {
+    const pred = predictionsById[p.id];
+    pred.selectionValue = weights.selectionShrinkage * pred.predicted + (1 - weights.selectionShrinkage) * avgPredictedByPosition[p.positionId];
+    pred.nextMatchSelectionValue = weights.selectionShrinkage * pred.nextMatchPredicted + (1 - weights.selectionShrinkage) * avgNextMatchByPosition[p.positionId];
   });
 
   return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById };
@@ -225,6 +349,15 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
 ---------------------------------------------------------------------------- */
 
 export function buildOptimalSquad(allPlayers, predictionsById, budget, options = {}) {
+  // Ranking value for selection decisions: prefers the "winner's curse"
+  // shrunk selectionValue (see buildStaticDataFromRaw) when it's present,
+  // falling back to the raw predicted/actual figure for callers that build
+  // a minimal predictionsById of their own — buildActualPredictionsById
+  // (hindsight) and buildSavedSquadActualPerformance both do this, and
+  // neither should be shrunk: there's no forecast noise to correct for in
+  // "what actually happened".
+  const selVal = id => predictionsById[id].selectionValue ?? predictionsById[id].predicted;
+
   // Default eligibility excludes unavailable/injured/suspended/not-in-squad
   // players — the normal "what should I actually pick" question. Callers
   // building a hindsight squad for a gameweek that's already over pass
@@ -236,7 +369,7 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
   const byPosition = { 1: [], 2: [], 3: [], 4: [] };
   eligible.forEach(p => byPosition[p.positionId].push(p));
   POSITION_ORDER.forEach(pos => {
-    byPosition[pos].sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted);
+    byPosition[pos].sort((a, b) => selVal(b.id) - selVal(a.id));
   });
 
   // Step 1: fill every slot with the best available player at that position,
@@ -271,7 +404,7 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
         const moneySaved = out.price - inP.price;
         if (moneySaved <= 0) continue;
         if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
-        const pointsLost = predictionsById[out.id].predicted - predictionsById[inP.id].predicted;
+        const pointsLost = selVal(out.id) - selVal(inP.id);
         const ratio = pointsLost / moneySaved;
         if (!bestSwap || ratio < bestSwap.ratio) bestSwap = { idx, inP, ratio };
       }
@@ -301,7 +434,7 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
         const extraCost = inP.price - out.price;
         if (extraCost <= 0 || extraCost > remaining + 1e-9) continue;
         if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
-        const pointsGained = predictionsById[inP.id].predicted - predictionsById[out.id].predicted;
+        const pointsGained = selVal(inP.id) - selVal(out.id);
         if (pointsGained <= 0) continue;
         const ratio = pointsGained / extraCost;
         if (!bestUpgrade || ratio > bestUpgrade.ratio) bestUpgrade = { idx, inP, ratio };
@@ -320,9 +453,10 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
 // Picks the highest-predicted valid formation (1 GKP + 10 outfield in a
 // legal DEF/MID/FWD split) from a 15-man squad.
 export function pickBestFormation(squad15, predictionsById) {
+  const selVal = id => predictionsById[id].selectionValue ?? predictionsById[id].predicted;
   const byPos = { 1: [], 2: [], 3: [], 4: [] };
   squad15.forEach(p => byPos[p.positionId].push(p));
-  POSITION_ORDER.forEach(pos => byPos[pos].sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted));
+  POSITION_ORDER.forEach(pos => byPos[pos].sort((a, b) => selVal(b.id) - selVal(a.id)));
 
   const gk = byPos[1][0];
   if (!gk) throw new Error(`pickBestFormation: squad has no goalkeeper (${squad15.length} players supplied)`);
@@ -336,7 +470,7 @@ export function pickBestFormation(squad15, predictionsById) {
       const defs = byPos[2].slice(0, d);
       const mids = byPos[3].slice(0, m);
       const fwds = byPos[4].slice(0, f);
-      const total = [...defs, ...mids, ...fwds].reduce((s, p) => s + predictionsById[p.id].predicted, 0);
+      const total = [...defs, ...mids, ...fwds].reduce((s, p) => s + selVal(p.id), 0);
       if (!best || total > best.total) best = { defs, mids, fwds, total };
     }
   }
@@ -471,10 +605,24 @@ export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
   const squad15 = buildOptimalSquad(staticData.allPlayers, staticData.predictionsById, budget);
   const startersSet = pickBestFormation(squad15, staticData.predictionsById);
 
+  const nextSelVal = id => staticData.predictionsById[id].nextMatchSelectionValue ?? staticData.predictionsById[id].nextMatchPredicted;
   const starters15 = squad15.filter(p => startersSet.has(p.id))
-    .sort((a, b) => staticData.predictionsById[b.id].nextMatchPredicted - staticData.predictionsById[a.id].nextMatchPredicted);
-  const captainId = starters15[0] ? starters15[0].id : null;
-  const viceCaptainId = starters15[1] ? starters15[1].id : null;
+    .sort((a, b) => nextSelVal(b.id) - nextSelVal(a.id));
+
+  // Captaincy doubles a single gameweek's score, so a pick with fitness
+  // doubt risks doubling zero — a downside a plain point-estimate ranking
+  // doesn't weight heavily enough (the EV hit from a lower chance-of-playing
+  // is already baked into their predicted score via availMult, but the risk
+  // of a captain BLANK specifically matters more than that EV alone
+  // suggests). Prefer the highest-ranked starter with no injury/rotation
+  // doubt for both captain and vice; only fall back to the top-ranked pick
+  // regardless of doubt if every starter has some flag.
+  const isCaptainSafe = p => p.status === 'a' && (p.chanceNext === null || p.chanceNext === undefined || p.chanceNext >= 90);
+  const safeCaptain = starters15.find(p => isCaptainSafe(p));
+  const captainId = (safeCaptain || starters15[0])?.id ?? null;
+  const viceCandidates = starters15.filter(p => p.id !== captainId);
+  const safeVice = viceCandidates.find(p => isCaptainSafe(p));
+  const viceCaptainId = (safeVice || viceCandidates[0])?.id ?? null;
 
   const squad = squad15.map(p => {
     const pred = staticData.predictionsById[p.id];
