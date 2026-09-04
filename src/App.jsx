@@ -131,6 +131,21 @@ async function fetchPlayerHistory() {
   }
 }
 
+async function fetchOdds() {
+  // Same reasoning as fetchPlayerHistory above: this reads whatever the
+  // daily cron last cached (see api/odds.js) — never a live call to the
+  // odds provider, and a miss here just means oddsAdjustment is 0 for
+  // everyone (see buildStaticDataFromRaw), exactly as before this feature
+  // existed. Always resolves, never throws.
+  try {
+    const r = await fetch('/api/odds');
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 /* ============================================================================
    PREDICTION ENGINE
    (computePlayerPrediction now lives in ./lib/predictions.js — imported above
@@ -312,12 +327,13 @@ function matchExtractedSquad(extracted, playersByPosition, allPlayers) {
 ============================================================================ */
 
 async function loadStaticData() {
-  const [bootstrap, fixturesRaw, playerHistoryData] = await Promise.all([
+  const [bootstrap, fixturesRaw, playerHistoryData, oddsData] = await Promise.all([
     fetchFplJson('bootstrap-static/'),
     fetchFplJson('fixtures/'),
     fetchPlayerHistory(),
+    fetchOdds(),
   ]);
-  return buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData });
+  return buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData });
 }
 
 /* ============================================================================

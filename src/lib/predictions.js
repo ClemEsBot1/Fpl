@@ -10,6 +10,7 @@
 ============================================================================ */
 
 import { buildCareerBaselineByCode } from './playerHistory.js';
+import { buildOddsByTeamForEvent, computeOddsAdjustment } from './oddsAdjustment.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
@@ -26,6 +27,7 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
   epNext: 0.45, ppg: 0.35, form: 0.20,          // must sum to 1 — the post-GW5 blended formula
   xgRegression: 0.15,                            // how much of the xG/actual gap to credit, per computePlayerPrediction
   selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
+  oddsAdjustment: 1.0,                           // scales the already-capped nudge from src/lib/oddsAdjustment.js; 1.0 = trust it at face value
 };
 
 /* ----------------------------------------------------------------------------
@@ -107,6 +109,16 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     xgAdjustment = Math.max(-1.0, Math.min(1.0, pointsGapPer90 * weights.xgRegression));
   }
   base += xgAdjustment;
+
+  // Bookmaker-odds nudge (see src/lib/oddsAdjustment.js for the full
+  // reasoning): p.oddsAdjustment is pre-computed once per player in
+  // buildStaticDataFromRaw from that player's NEXT fixture's odds only —
+  // odds aren't available/reliable for fixtures further out the way FPL's
+  // own fixture-difficulty rating is, so unlike fixtureMult below (a 4-game
+  // average) this only ever reflects the immediate next match. Already
+  // capped small in computeOddsAdjustment; weights.oddsAdjustment just
+  // scales trust in it, same role xgRegression plays above.
+  base += (p.oddsAdjustment || 0) * weights.oddsAdjustment;
 
   function fixtureMultFor(diff) {
     return Math.max(0.8, Math.min(1.18, 1 + (3 - diff) * 0.075));
@@ -244,6 +256,15 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     restDaysByTeam[t.id] = (nextTime - new Date(prior.kickoff_time).getTime()) / (1000 * 60 * 60 * 24);
   });
 
+  // Bookmaker-odds lookup for the target gameweek only — see the note on
+  // p.oddsAdjustment above for why this can't cover the full 4-game window.
+  // options.oddsData is the array produced by matchOddsToFixtures() in
+  // src/lib/oddsAdjustment.js (already resolved to FPL team ids/event
+  // numbers) — best-effort, like playerHistoryData: no odds fetched yet, or
+  // the fetch/matching failed for this gameweek, just means oddsAdjustment
+  // is 0 for everyone, same as before this feature existed.
+  const oddsByTeamForTargetEvent = buildOddsByTeamForEvent(options.oddsData, targetEvent.id);
+
   const allPlayers = bootstrap.elements.map(e => ({
     id: e.id,
     code: e.code,
@@ -270,6 +291,10 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     expectedGoals: parseFloat(e.expected_goals) || 0,
     expectedAssists: parseFloat(e.expected_assists) || 0,
     daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
+    oddsAdjustment: (() => {
+      const info = oddsByTeamForTargetEvent[e.team];
+      return info ? computeOddsAdjustment({ probs: info.probs, isHome: info.isHome, positionId: e.element_type }) : 0;
+    })(),
   }));
 
   const playersById = {};

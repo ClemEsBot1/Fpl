@@ -1,7 +1,13 @@
 import { put, get } from '@vercel/blob';
 import { buildStaticDataFromRaw, buildOptimalTeam, SQUAD_BUDGET } from '../src/lib/predictions.js';
+import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
+// The Odds API (the-odds-api.com) — free tier (500 requests/month) is
+// plenty for one fetch/day here. Swap ODDS_API_URL and the parsing in
+// fetchOddsServer if you use a different provider; nothing else in this
+// file or in oddsAdjustment.js is tied to this specific one.
+const ODDS_API_URL = 'https://api.the-odds-api.com/v4/sports/soccer_epl/odds/?regions=uk&markets=h2h&oddsFormat=decimal';
 
 // One blob per gameweek, e.g. optimal-squad-gw3.json — never a single
 // "latest" file. The refresh job always writes to whichever gameweek is
@@ -36,6 +42,21 @@ async function fetchPlayerHistoryServer() {
   }
 }
 
+// Best-effort, same reasoning as fetchPlayerHistoryServer above: no
+// ODDS_API_KEY set, or the request fails, just means oddsAdjustment is 0 for
+// everyone this run — not a reason to fail the whole refresh.
+async function fetchOddsServer() {
+  const apiKey = process.env.ODDS_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const r = await fetch(`${ODDS_API_URL}&apiKey=${apiKey}`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   // Authenticate both trigger sources with one check:
   //  - Vercel's own daily cron (see vercel.json) auto-sends this header using
@@ -61,12 +82,33 @@ export default async function handler(req, res) {
   const forceGwId = req.query && req.query.gw ? Number(req.query.gw) : null;
 
   try {
-    const [bootstrap, fixturesRaw, playerHistoryData] = await Promise.all([
+    const [bootstrap, fixturesRaw, playerHistoryData, oddsApiEvents] = await Promise.all([
       fetchFplJsonServer('bootstrap-static/'),
       fetchFplJsonServer('fixtures/'),
       fetchPlayerHistoryServer(),
+      fetchOddsServer(),
     ]);
-    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData });
+
+    const teamsById = {};
+    bootstrap.teams.forEach(t => { teamsById[t.id] = t; });
+    // Matched once here (not inside buildStaticDataFromRaw) because matching
+    // needs the raw provider event shape (team names, commence_time) that
+    // buildStaticDataFromRaw has no business knowing about — it only ever
+    // sees the already-resolved {event, homeTeamId, awayTeamId, ...} shape.
+    const oddsData = oddsApiEvents ? matchOddsToFixtures(oddsApiEvents, fixturesRaw, teamsById) : null;
+    if (oddsData && oddsData.length) {
+      // Cached for the browser to read via /api/odds — see that file for why
+      // it's not a live proxy. Best-effort: a failed write here shouldn't
+      // fail the whole refresh, since the squad snapshot below is the part
+      // that actually matters.
+      try {
+        await put('odds-latest.json', JSON.stringify(oddsData), {
+          access: 'public', contentType: 'application/json', allowOverwrite: true,
+        });
+      } catch { /* non-fatal — see comment above */ }
+    }
+
+    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData });
     const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
 
     const built = buildOptimalTeam(staticData, SQUAD_BUDGET);
@@ -87,7 +129,7 @@ export default async function handler(req, res) {
       allowOverwrite: true,
     });
 
-    res.status(200).json({ ok: true, gwId, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData });
+    res.status(200).json({ ok: true, gwId, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData, usedOdds: !!(oddsData && oddsData.length), matchedFixtureCount: oddsData ? oddsData.length : 0 });
   } catch (e) {
     res.status(502).json({ error: 'refresh_failed', detail: String((e && e.message) || e) });
   }
