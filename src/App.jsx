@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu, History, User, LogOut, Bookmark, Trash2 } from 'lucide-react';
+import { Hash, Camera, Loader2, AlertTriangle, CheckCircle2, Crown, ArrowRight, Search, ChevronLeft, ChevronDown, Info, ShieldAlert, RotateCcw, Trophy, Edit3, Plus, X, Zap, Layers, RefreshCw, Wand2, Menu, History, User, LogOut, Bookmark, Trash2, Download, Clipboard, Check } from 'lucide-react';
 import {
   POSITION_ORDER, SQUAD_SLOTS, MAX_PER_REAL_TEAM, SQUAD_BUDGET,
   buildStaticDataFromRaw, buildOptimalTeam, buildHindsightSquad, buildSavedSquadActualPerformance, hydrateSquadSnapshot, hydrateFrozenSquadSnapshot, isEventLocked,
@@ -122,8 +122,11 @@ async function fetchPlayerHistory() {
   // predictions work fine without it (falls back to the pre-existing
   // position-average ep_next shrinkage baseline). So this always resolves,
   // never throws.
+  // 5s timeout: this is best-effort by design (see above) — if the server
+  // is slow to answer, don't let it hold up the whole page. A skipped
+  // history fetch just means the same fallback as a failed one.
   try {
-    const r = await fetch('/api/player-history');
+    const r = await fetch('/api/player-history', { signal: AbortSignal.timeout(5000) });
     if (!r.ok) return null;
     return await r.json();
   } catch {
@@ -136,9 +139,9 @@ async function fetchOdds() {
   // daily cron last cached (see api/odds.js) — never a live call to the
   // odds provider, and a miss here just means oddsAdjustment is 0 for
   // everyone (see buildStaticDataFromRaw), exactly as before this feature
-  // existed. Always resolves, never throws.
+  // existed. Always resolves, never throws. Same 5s timeout, same reason.
   try {
-    const r = await fetch('/api/odds');
+    const r = await fetch('/api/odds', { signal: AbortSignal.timeout(5000) });
     if (!r.ok) return null;
     return await r.json();
   } catch {
@@ -1404,6 +1407,33 @@ function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
   );
 }
 
+// Builds a clean, portable JSON snapshot of a squad for export (download or
+// clipboard) — just the human-relevant facts (who, what position, price,
+// predicted points, starting/bench, captaincy), not the internal slot
+// objects React uses to render, which carry a lot that wouldn't mean
+// anything outside this app.
+function buildSquadExportPayload(data) {
+  const { squad, entryMeta, bankTenths, isOptimalBuild, isPastGw, gwId, targetEvent, teamsById, builtAt } = data;
+  return {
+    exportedAt: new Date().toISOString(),
+    source: isOptimalBuild ? 'optimal-squad' : 'my-squad',
+    teamName: (entryMeta && entryMeta.teamName) || null,
+    gameweek: isPastGw ? gwId : (targetEvent ? targetEvent.id : gwId),
+    builtAt: builtAt || null,
+    bank: bankTenths !== null && bankTenths !== undefined ? +(bankTenths / 10).toFixed(1) : null,
+    players: squad.map(s => ({
+      name: s.player.webName,
+      position: POSITION_LABELS[s.player.positionId],
+      team: (teamsById && teamsById[s.player.team] && teamsById[s.player.team].name) || null,
+      price: s.player.price,
+      predictedPoints: s.nextMatchPredicted,
+      starting: s.isStarting,
+      captain: s.isCaptain,
+      viceCaptain: s.isViceCaptain,
+    })),
+  };
+}
+
 function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
   if (data.gwUnavailable) {
     return (
@@ -1427,6 +1457,34 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
   const [chipPreview, setChipPreview] = useState(null);
 
   const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById);
+  const [copyState, setCopyState] = useState('idle'); // 'idle' | 'copied' | 'failed'
+
+  function handleDownloadSquadJson() {
+    const payload = buildSquadExportPayload(data);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fpl-optimal-squad-gw${payload.gameweek ?? ''}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleCopySquadJson() {
+    const payload = buildSquadExportPayload(data);
+    const text = JSON.stringify(payload, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState('copied');
+    } catch {
+      // Clipboard API can fail without HTTPS/permission — not worth a hard
+      // error, just let the button say so and let the person try again.
+      setCopyState('failed');
+    }
+    setTimeout(() => setCopyState('idle'), 2000);
+  }
 
   // "How would a chip affect this squad right now" preview — captain
   // doubled as normal, then Bench Boost adds the bench on top and Triple
@@ -1486,6 +1544,26 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
         </div>
         <ScoreRing score={squadScore} />
       </div>
+
+      {isOptimalBuild && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button
+            className="fpl-btn"
+            style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}
+            onClick={handleDownloadSquadJson}
+          >
+            <Download size={14} /> Download JSON
+          </button>
+          <button
+            className="fpl-btn"
+            style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}
+            onClick={handleCopySquadJson}
+          >
+            {copyState === 'copied' ? <Check size={14} /> : <Clipboard size={14} />}
+            {copyState === 'copied' ? 'Copied!' : copyState === 'failed' ? "Couldn't copy" : 'Copy to clipboard'}
+          </button>
+        </div>
+      )}
 
       {!isPastGw && (
         <>

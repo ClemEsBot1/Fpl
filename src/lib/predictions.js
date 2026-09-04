@@ -456,14 +456,49 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
     teamCounts[bestSwap.inP.team] = (teamCounts[bestSwap.inP.team] || 0) + 1;
     squad[bestSwap.idx] = bestSwap.inP;
   }
-  startingIds = startingIdsFor(squad); // prices changed above — refresh who'd actually start now
+  startingIds = startingIdsFor(squad); // prices changed in Step 2 — refresh who'd actually start now
 
-  // Step 3: spend any leftover budget. While money remains, find the single
-  // swap (any squad player -> any pricier same-position player not already
-  // in the squad, within remaining budget) that gains the most predicted
-  // points per pound spent, and apply it. Repeat until no swap helps.
-  // Also weighted by starter/bench — this is what stops leftover cash being
-  // spent bulking up a bench player's price for near-zero real benefit.
+  // Step 3: minimize bench cost. Unconditional — run this BEFORE spending
+  // leftover budget on starters, not paired with a specific starter upgrade.
+  // The earlier version of this only trimmed a bench player when it could
+  // immediately pair that trim with an affordable starter upgrade in the
+  // same step, and gave up on the whole thing otherwise — which is exactly
+  // why bench cost stayed high even with money still unspent: a bench
+  // player being expensive costs almost nothing at BENCH_WEIGHT (0.03), so
+  // trimming them is essentially free regardless of whether a starter
+  // upgrade happens to be available yet. Doing this unconditionally first,
+  // then letting the next step spend whatever it freed, is simpler and
+  // actually reaches the minimum bench cost.
+  guard = 0;
+  while (guard < 500) {
+    guard++;
+    const squadIds = new Set(squad.map(p => p.id));
+    let bestTrim = null;
+    squad.forEach((out, idx) => {
+      if (startingIds.has(out.id)) return; // starters aren't touched here — that's Step 4
+      const projectedCounts = { ...teamCounts, [out.team]: (teamCounts[out.team] || 0) - 1 };
+      for (const inP of byPosition[out.positionId]) {
+        if (squadIds.has(inP.id)) continue;
+        const moneySaved = out.price - inP.price;
+        if (moneySaved <= 0) continue;
+        if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
+        if (!bestTrim || moneySaved > bestTrim.moneySaved) bestTrim = { idx, inP, moneySaved };
+      }
+    });
+    if (!bestTrim) break; // every bench player is already at the cheapest eligible option for their position
+    const out = squad[bestTrim.idx];
+    teamCounts[out.team] -= 1;
+    teamCounts[bestTrim.inP.team] = (teamCounts[bestTrim.inP.team] || 0) + 1;
+    squad[bestTrim.idx] = bestTrim.inP;
+  }
+  startingIds = startingIdsFor(squad);
+
+  // Step 4: spend all remaining budget (now substantially more, thanks to
+  // Step 3) on starters. Single-swap greedy, same mechanic as before: find
+  // the swap (any squad player -> pricier same-position player, within
+  // remaining budget) that gains the most predicted points per pound spent,
+  // apply it, repeat. Weighted by starter/bench so this never spends back
+  // down on the bench Step 3 just minimized.
   guard = 0;
   while (guard < 500) {
     guard++;
@@ -491,80 +526,11 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
         if (!bestUpgrade || ratio > bestUpgrade.ratio) bestUpgrade = { idx, inP, ratio };
       }
     });
-    if (!bestUpgrade) break; // no affordable single-swap upgrade left — Step 4 below picks up from here
+    if (!bestUpgrade) break; // no affordable upgrade left — leftover money genuinely can't be spent well
     const out = squad[bestUpgrade.idx];
     teamCounts[out.team] -= 1;
     teamCounts[bestUpgrade.inP.team] = (teamCounts[bestUpgrade.inP.team] || 0) + 1;
     squad[bestUpgrade.idx] = bestUpgrade.inP;
-  }
-  startingIds = startingIdsFor(squad);
-
-  // Step 4: bench-trim-for-starter-upgrade. Step 3 only ever considers ONE
-  // swap at a time, so it misses cases where no single starter upgrade fits
-  // the leftover budget alone, but trimming a bench player down to the
-  // cheapest eligible replacement at their position would free enough extra
-  // cash to afford one. This is exactly why budget was being left unspent —
-  // find the best paired move (cheapen one bench slot + upgrade one starter
-  // slot, applied together) and repeat until no such pair is worth it.
-  guard = 0;
-  while (guard < 500) {
-    guard++;
-    const remaining = budget - totalCost(squad);
-    const squadIds = new Set(squad.map(p => p.id));
-
-    // Cheapest available downgrade for each current bench player (may not
-    // exist if they're already the cheapest eligible player at their spot).
-    let bestBenchTrim = null;
-    squad.forEach((out, idx) => {
-      if (startingIds.has(out.id)) return; // starters aren't touched in this step
-      const projectedCounts = { ...teamCounts, [out.team]: (teamCounts[out.team] || 0) - 1 };
-      for (const inP of byPosition[out.positionId]) {
-        if (squadIds.has(inP.id)) continue;
-        const moneySaved = out.price - inP.price;
-        if (moneySaved <= 0) continue;
-        if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
-        if (!bestBenchTrim || moneySaved > bestBenchTrim.moneySaved) bestBenchTrim = { idx, inP, moneySaved };
-      }
-    });
-    if (!bestBenchTrim) break; // no bench player can be made any cheaper
-
-    const budgetIfTrimmed = remaining + bestBenchTrim.moneySaved;
-    const trimmedSquadIds = new Set(squad.map((p, i) => (i === bestBenchTrim.idx ? bestBenchTrim.inP : p)).map(p => p.id));
-    const teamCountsIfTrimmed = { ...teamCounts, [squad[bestBenchTrim.idx].team]: teamCounts[squad[bestBenchTrim.idx].team] - 1, [bestBenchTrim.inP.team]: (teamCounts[bestBenchTrim.inP.team] || 0) + 1 };
-
-    // Given that freed cash, is there now an affordable starter upgrade
-    // whose points gain outweighs what the bench trim itself costs?
-    let bestStarterUpgrade = null;
-    squad.forEach((out, idx) => {
-      if (idx === bestBenchTrim.idx || !startingIds.has(out.id)) return;
-      const projectedCounts = { ...teamCountsIfTrimmed, [out.team]: (teamCountsIfTrimmed[out.team] || 0) - 1 };
-      for (const inP of byPosition[out.positionId]) {
-        if (trimmedSquadIds.has(inP.id)) continue;
-        const extraCost = inP.price - out.price;
-        if (extraCost <= 0 || extraCost > budgetIfTrimmed + 1e-9) continue;
-        if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
-        const pointsGained = selVal(inP.id) - selVal(out.id);
-        if (!bestStarterUpgrade || pointsGained > bestStarterUpgrade.pointsGained) bestStarterUpgrade = { idx, inP, pointsGained };
-      }
-    });
-
-    // Only worth it if the starter gain beats the (heavily-discounted)
-    // points lost trimming the bench — otherwise leave both alone.
-    const benchPointsLost = selVal(squad[bestBenchTrim.idx].id) * BENCH_WEIGHT - selVal(bestBenchTrim.inP.id) * BENCH_WEIGHT;
-    if (!bestStarterUpgrade || bestStarterUpgrade.pointsGained <= benchPointsLost) break;
-
-    // Apply both halves of the move together.
-    const trimmedOut = squad[bestBenchTrim.idx];
-    teamCounts[trimmedOut.team] -= 1;
-    teamCounts[bestBenchTrim.inP.team] = (teamCounts[bestBenchTrim.inP.team] || 0) + 1;
-    squad[bestBenchTrim.idx] = bestBenchTrim.inP;
-
-    const upgradedOut = squad[bestStarterUpgrade.idx];
-    teamCounts[upgradedOut.team] -= 1;
-    teamCounts[bestStarterUpgrade.inP.team] = (teamCounts[bestStarterUpgrade.inP.team] || 0) + 1;
-    squad[bestStarterUpgrade.idx] = bestStarterUpgrade.inP;
-
-    startingIds = startingIdsFor(squad);
   }
 
   return squad;
