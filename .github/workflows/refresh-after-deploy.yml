@@ -1,0 +1,27 @@
+name: Refresh optimal squad after deploy
+
+# Runs automatically on every push to main, so you never need to manually
+# curl /api/refresh-optimal after updating the app — this replaces that
+# manual step. The existing daily 6am cron in vercel.json is untouched and
+# keeps running regardless; this just also triggers a refresh right after
+# each deploy so you see your changes reflected immediately.
+on:
+  push:
+    branches: [main]  # change this if your default branch is called something else (e.g. master)
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel deploy to finish
+        # This app's build is small (seconds), but Vercel's own deploy
+        # pipeline (build + assign the new URL) still takes a bit longer.
+        # 90s is a reasoned buffer, not measured against your actual deploy
+        # times — if this ever fires before the new code is live (refresh
+        # succeeds but doesn't reflect your latest change), bump this up.
+        run: sleep 90
+
+      - name: Trigger refresh-optimal
+        run: |
+          curl -sf -X POST https://fpl-virid-psi.vercel.app/api/refresh-optimal \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
