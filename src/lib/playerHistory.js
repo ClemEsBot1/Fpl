@@ -71,3 +71,45 @@ export function buildCareerBaselineByCode(playerHistoryData) {
   });
   return byCode;
 }
+
+// Literal last-season totals for display (GW1's "(LS)" row stat) — distinct
+// from computeCareerBaseline above, which recency-weights across up to
+// three seasons and applies a 450-minute noise floor for use as a
+// *prediction input*. This is just "what actually happened last season",
+// so no floor/weighting: even a low-minutes season is real and worth
+// showing, and we only ever look at the single most recent season on
+// record for that player.
+// Returns null if the player has no recorded season at all (new to the
+// dataset), not if that season happens to have low/zero minutes.
+export function getLastSeasonStats(playerHistoryEntry, seasonsOldestToNewest) {
+  if (!playerHistoryEntry || !playerHistoryEntry.seasons || !seasonsOldestToNewest) return null;
+  const recentFirst = [...seasonsOldestToNewest].reverse();
+  for (const season of recentFirst) {
+    const stats = playerHistoryEntry.seasons[season];
+    if (!stats || stats.total_points === undefined) continue;
+    // points_per_game is FPL's own official figure for that season, present
+    // for imports run after this field was added to NUMERIC_FIELDS in
+    // scripts/import-player-history.mjs; older blobs won't have it, so fall
+    // back to a minutes-based approximation rather than showing nothing.
+    const pointsPerGame = stats.points_per_game !== undefined
+      ? stats.points_per_game
+      : (stats.minutes > 0 ? (stats.total_points / (stats.minutes / 90)) : 0);
+    return { season, totalPoints: stats.total_points, pointsPerGame };
+  }
+  return null;
+}
+
+// Precomputes a { [code]: { season, totalPoints, pointsPerGame } } lookup,
+// mirroring buildCareerBaselineByCode's pattern. Only worth calling for
+// GW1 (see buildStaticDataFromRaw) — for every other gameweek the current
+// season's own totals are shown instead and this lookup is skipped
+// entirely.
+export function buildLastSeasonStatsByCode(playerHistoryData) {
+  const byCode = {};
+  if (!playerHistoryData || !playerHistoryData.players || !playerHistoryData.seasons) return byCode;
+  Object.entries(playerHistoryData.players).forEach(([code, entry]) => {
+    const stats = getLastSeasonStats(entry, playerHistoryData.seasons);
+    if (stats !== null) byCode[code] = stats;
+  });
+  return byCode;
+}

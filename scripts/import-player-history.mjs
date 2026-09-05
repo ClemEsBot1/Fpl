@@ -43,6 +43,12 @@ const NUMERIC_FIELDS = [
   'influence', 'creativity', 'threat', 'ict_index',
   'expected_goals', 'expected_assists', 'expected_goal_involvements',
   'defensive_contribution',
+  // FPL's own official per-game average for that season — used by the
+  // "last season" display on a player's row when the app is showing GW1
+  // (see getLastSeasonStats in playerHistory.js). Deriving this ourselves
+  // from total_points/minutes would be a rough proxy (assumes 90 minutes
+  // per appearance); this is the real figure FPL computed at the time.
+  'points_per_game',
 ];
 
 // Minimal RFC4180-ish CSV parser (quote-aware, handles embedded commas/

@@ -9,7 +9,7 @@
    only need to change it here.
 ============================================================================ */
 
-import { buildCareerBaselineByCode } from './playerHistory.js';
+import { buildCareerBaselineByCode, buildLastSeasonStatsByCode } from './playerHistory.js';
 import { buildOddsByTeamForEvent, computeOddsAdjustment } from './oddsAdjustment.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
@@ -231,6 +231,15 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   // before then.
   const formEligible = targetEvent.id >= 5;
 
+  // At GW1, "points so far this season" and "points per match this season"
+  // are both trivially 0/undefined for every player — there's nothing to
+  // show yet. Falling back to last season's real totals (labelled "(LS)" in
+  // the UI, see PlayerRow in App.jsx) gives the person something actually
+  // useful to look at instead of a wall of zeros. Only computed for GW1 —
+  // every other gameweek shows the current season's own in-progress totals.
+  const isGw1 = targetEvent.id === 1;
+  const lastSeasonStatsByCode = isGw1 ? buildLastSeasonStatsByCode(options.playerHistoryData) : {};
+
   const fixturesByTeam = {};
   bootstrap.teams.forEach(t => { fixturesByTeam[t.id] = []; });
   fixturesRaw
@@ -273,37 +282,58 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   // is 0 for everyone, same as before this feature existed.
   const oddsByTeamForTargetEvent = buildOddsByTeamForEvent(options.oddsData, targetEvent.id);
 
-  const allPlayers = bootstrap.elements.map(e => ({
-    id: e.id,
-    code: e.code,
-    webName: e.web_name,
-    firstName: e.first_name,
-    secondName: e.second_name,
-    team: e.team,
-    positionId: e.element_type,
-    price: e.now_cost / 10,
-    form: parseFloat(e.form) || 0,
-    pointsPerGame: parseFloat(e.points_per_game) || 0,
-    totalPoints: e.total_points,
-    epNext: parseFloat(e.ep_next) || 0,
-    status: e.status,
-    chanceNext: e.chance_of_playing_next_round,
-    news: e.news,
-    selectedBy: parseFloat(e.selected_by_percent) || 0,
-    penaltiesOrder: e.penalties_order === null || e.penalties_order === undefined ? null : Number(e.penalties_order),
-    directFreekicksOrder: e.direct_freekicks_order === null || e.direct_freekicks_order === undefined ? null : Number(e.direct_freekicks_order),
-    cornersOrder: e.corners_and_indirect_freekicks_order === null || e.corners_and_indirect_freekicks_order === undefined ? null : Number(e.corners_and_indirect_freekicks_order),
-    minutes: Number(e.minutes) || 0,
-    goalsScored: Number(e.goals_scored) || 0,
-    assists: Number(e.assists) || 0,
-    expectedGoals: parseFloat(e.expected_goals) || 0,
-    expectedAssists: parseFloat(e.expected_assists) || 0,
-    daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
-    oddsAdjustment: (() => {
-      const info = oddsByTeamForTargetEvent[e.team];
-      return info ? computeOddsAdjustment({ probs: info.probs, isHome: info.isHome, positionId: e.element_type }) : 0;
-    })(),
-  }));
+  const allPlayers = bootstrap.elements.map(e => {
+    const seasonPoints = e.total_points;
+    const seasonPPG = parseFloat(e.points_per_game) || 0;
+    // Last-season fallback only ever applies at GW1 (lastSeasonStatsByCode
+    // is an empty lookup for every other gameweek) — see the note above
+    // isGw1. A player with no recorded last season (new to the league)
+    // just keeps showing this season's (zero) totals, same as before this
+    // feature existed.
+    const lastSeason = lastSeasonStatsByCode[e.code];
+    const useLastSeason = isGw1 && !!lastSeason;
+    return {
+      id: e.id,
+      code: e.code,
+      webName: e.web_name,
+      firstName: e.first_name,
+      secondName: e.second_name,
+      team: e.team,
+      positionId: e.element_type,
+      price: e.now_cost / 10,
+      form: parseFloat(e.form) || 0,
+      pointsPerGame: seasonPPG,
+      totalPoints: seasonPoints,
+      // What a player's row actually displays for "points so far" / "points
+      // per match" (see PlayerRow/HindsightPlayerRow in App.jsx) — this
+      // season's own in-progress totals normally, or last season's real
+      // numbers at GW1 when this season's totals are still all zero.
+      // displayIsLastSeason drives the "(LS)" label; totalPoints/
+      // pointsPerGame above are untouched so anything else that needs this
+      // season's actual (possibly zero) figures still gets them.
+      displaySeasonPoints: useLastSeason ? lastSeason.totalPoints : seasonPoints,
+      displaySeasonPPG: useLastSeason ? lastSeason.pointsPerGame : seasonPPG,
+      displayIsLastSeason: useLastSeason,
+      epNext: parseFloat(e.ep_next) || 0,
+      status: e.status,
+      chanceNext: e.chance_of_playing_next_round,
+      news: e.news,
+      selectedBy: parseFloat(e.selected_by_percent) || 0,
+      penaltiesOrder: e.penalties_order === null || e.penalties_order === undefined ? null : Number(e.penalties_order),
+      directFreekicksOrder: e.direct_freekicks_order === null || e.direct_freekicks_order === undefined ? null : Number(e.direct_freekicks_order),
+      cornersOrder: e.corners_and_indirect_freekicks_order === null || e.corners_and_indirect_freekicks_order === undefined ? null : Number(e.corners_and_indirect_freekicks_order),
+      minutes: Number(e.minutes) || 0,
+      goalsScored: Number(e.goals_scored) || 0,
+      assists: Number(e.assists) || 0,
+      expectedGoals: parseFloat(e.expected_goals) || 0,
+      expectedAssists: parseFloat(e.expected_assists) || 0,
+      daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
+      oddsAdjustment: (() => {
+        const info = oddsByTeamForTargetEvent[e.team];
+        return info ? computeOddsAdjustment({ probs: info.probs, isHome: info.isHome, positionId: e.element_type }) : 0;
+      })(),
+    };
+  });
 
   const playersById = {};
   const playersByPosition = { 1: [], 2: [], 3: [], 4: [] };

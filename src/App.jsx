@@ -1171,6 +1171,9 @@ function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle
           {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
         </div>
         <div className="fpl-row-sub">{team ? team.short_name : '—'} · {fmtPrice(player.price)}</div>
+        <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
+          {fmtPts(player.displaySeasonPoints)} pts · {fmtPts(player.displaySeasonPPG)} pts/match{player.displayIsLastSeason ? ' (LS)' : ''}
+        </div>
         {availNote && <div className="fpl-availnote">{availNote}</div>}
       </div>
       {!isPastGw && (
@@ -1850,6 +1853,9 @@ function HindsightPlayerRow({ slot, teamsById }) {
           {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
         </div>
         <div className="fpl-row-sub">{team ? team.short_name : '—'} · {fmtPrice(player.price)}</div>
+        <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
+          {fmtPts(player.displaySeasonPoints)} pts · {fmtPts(player.displaySeasonPPG)} pts/match{player.displayIsLastSeason ? ' (LS)' : ''}
+        </div>
       </div>
       <div className="fpl-row-pred">
         <div className="fpl-row-pred-num" style={{ color: !played ? 'var(--ink-dim)' : (actualPoints >= 6 ? 'var(--lime)' : actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
