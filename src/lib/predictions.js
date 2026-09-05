@@ -494,11 +494,23 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
   startingIds = startingIdsFor(squad);
 
   // Step 4: spend all remaining budget (now substantially more, thanks to
-  // Step 3) on starters. Single-swap greedy, same mechanic as before: find
-  // the swap (any squad player -> pricier same-position player, within
+  // Step 3) on starters — and ONLY starters. Single-swap greedy: find the
+  // swap (any STARTING squad player -> pricier same-position player, within
   // remaining budget) that gains the most predicted points per pound spent,
-  // apply it, repeat. Weighted by starter/bench so this never spends back
-  // down on the bench Step 3 just minimized.
+  // apply it, repeat.
+  //
+  // The `if (!startingIds.has(out.id)) return;` line below is load-bearing:
+  // without it, this step's own "pointsGained > 0" check is satisfiable by
+  // bench players too, because a bench swap's gain is measured against the
+  // CURRENT (already cheap) bench occupant, so even a marginal predicted-
+  // points edge on a pricier replacement clears it. Once no more starter
+  // upgrades fit the shrinking remaining budget, the greedy search would
+  // then happily spend leftover pennies re-inflating the very bench Step 3
+  // just minimized — which is exactly the bug this line fixes. (Previously
+  // this was "handled" only by weighting the incoming player's gain by
+  // BENCH_WEIGHT when swapping OUT a bench player, but that weight applies
+  // symmetrically to the outgoing player's current value too, so it doesn't
+  // actually suppress bench-vs-bench upgrades — only an explicit skip does.)
   guard = 0;
   while (guard < 500) {
     guard++;
@@ -507,6 +519,7 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
     const squadIds = new Set(squad.map(p => p.id));
     let bestUpgrade = null;
     squad.forEach((out, idx) => {
+      if (!startingIds.has(out.id)) return; // bench players are never touched here — Step 3 already minimized them
       const projectedCounts = { ...teamCounts, [out.team]: (teamCounts[out.team] || 0) - 1 };
       for (const inP of byPosition[out.positionId]) {
         if (squadIds.has(inP.id)) continue;
@@ -514,13 +527,10 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
         if (extraCost <= 0 || extraCost > remaining + 1e-9) continue;
         if ((projectedCounts[inP.team] || 0) >= MAX_PER_REAL_TEAM) continue;
         // inP isn't in the squad yet, so it can't be "starting" under the
-        // current formation — but if it's clearly better than the weakest
-        // current starter at this position, it would be, so treat it as a
-        // starter candidate for weighting purposes. Understates its value
-        // if it'd actually be a bench upgrade, which only makes this step
-        // more conservative about spending on the bench, not less.
-        const inWeight = startingIds.has(out.id) ? 1 : BENCH_WEIGHT;
-        const pointsGained = selVal(inP.id) * inWeight - weightedVal(out.id, startingIds);
+        // current formation — but out.id always is (guarded above), so
+        // this is a straight starter-vs-starter comparison; no bench
+        // weighting needed on either side.
+        const pointsGained = selVal(inP.id) - selVal(out.id);
         if (pointsGained <= 0) continue;
         const ratio = pointsGained / extraCost;
         if (!bestUpgrade || ratio > bestUpgrade.ratio) bestUpgrade = { idx, inP, ratio };
