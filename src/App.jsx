@@ -1246,6 +1246,27 @@ function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle
 // Inline replacement search, opened by clicking directly on a player's row in
 // edit mode — the same click-the-box-to-change pattern used by the squad
 // builder, rather than only being reachable via a form at the top.
+// Shown inside the same expand-on-click panel as the swap search, when a
+// row is open in edit mode — lets you (re)assign captain/vice-captain
+// directly on an already-confirmed squad, the same way the paste-a-squad
+// review screen lets you do it before confirming. Works for every way a
+// squad can reach this screen (paste, custom build, team ID) since they
+// all render through this one ResultsScreen.
+function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
+  return (
+    <div style={{ display: 'flex', gap: 16, padding: '10px 10px 0', borderBottom: 'none' }} onClick={e => e.stopPropagation()}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!slot.isCaptain} onChange={() => onSetCaptain(slot.player.id)} />
+        Captain
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!slot.isViceCaptain} onChange={() => onSetVice(slot.player.id)} />
+        Vice-captain
+      </label>
+    </div>
+  );
+}
+
 function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, teamsById, bankTenths, query, setQuery, onSwap }) {
   const posId = outSlot.player.positionId;
   const squadIds = new Set(squad.map(s => s.player.id));
@@ -1550,6 +1571,36 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
     setEditQuery('');
   }
 
+  // Same mutual-exclusivity rules as the paste-a-squad review screen: only
+  // one captain and one vice-captain at a time, never the same player as
+  // both, and re-checking an already-checked box clears it. `multiplier`
+  // has to be kept in lockstep with isCaptain here (unlike the review
+  // screen, where it's only derived once at final squad construction) —
+  // buildResultsData reads slot.multiplier directly for scoring, it
+  // doesn't re-derive it from isCaptain.
+  function applyCaptainChange(playerId, role) {
+    const newSquad = squad.map(s => {
+      const isTarget = s.player.id === playerId;
+      if (role === 'captain') {
+        const nowCaptain = isTarget && !s.isCaptain;
+        return {
+          ...s,
+          isCaptain: nowCaptain,
+          multiplier: nowCaptain ? 2 : 1,
+          isViceCaptain: nowCaptain ? false : s.isViceCaptain,
+        };
+      }
+      const nowVice = isTarget && !s.isViceCaptain;
+      return {
+        ...s,
+        isViceCaptain: nowVice,
+        isCaptain: nowVice ? false : s.isCaptain,
+        multiplier: nowVice && s.isCaptain ? 1 : s.multiplier,
+      };
+    });
+    onSquadUpdate(newSquad, bankTenths);
+  }
+
   function toggleRowEdit(playerId) {
     setEditSlotId(current => (current === playerId ? null : playerId));
     setEditQuery('');
@@ -1645,7 +1696,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
 
       {!isOptimalBuild && editMode && (
         <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
-          Tap any player below to swap them.
+          Tap any player below to swap them, or set captain/vice-captain.
         </div>
       )}
 
@@ -1678,17 +1729,24 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
                   isPastGw={isPastGw}
                 />
                 {editMode && editSlotId === slot.player.id && (
-                  <InlineSwapSearch
-                    outSlot={slot}
-                    squad={squad}
-                    allPlayers={allPlayers}
-                    predictionsById={predictionsById}
-                    teamsById={teamsById}
-                    bankTenths={bankTenths}
-                    query={editQuery}
-                    setQuery={setEditQuery}
-                    onSwap={applySwap}
-                  />
+                  <>
+                    <CaptaincyPicker
+                      slot={slot}
+                      onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
+                      onSetVice={(id) => applyCaptainChange(id, 'vice')}
+                    />
+                    <InlineSwapSearch
+                      outSlot={slot}
+                      squad={squad}
+                      allPlayers={allPlayers}
+                      predictionsById={predictionsById}
+                      teamsById={teamsById}
+                      bankTenths={bankTenths}
+                      query={editQuery}
+                      setQuery={setEditQuery}
+                      onSwap={applySwap}
+                    />
+                  </>
                 )}
               </React.Fragment>
             ))}
@@ -1712,17 +1770,24 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
                   isPastGw={isPastGw}
                 />
                 {editMode && editSlotId === slot.player.id && (
-                  <InlineSwapSearch
-                    outSlot={slot}
-                    squad={squad}
-                    allPlayers={allPlayers}
-                    predictionsById={predictionsById}
-                    teamsById={teamsById}
-                    bankTenths={bankTenths}
-                    query={editQuery}
-                    setQuery={setEditQuery}
-                    onSwap={applySwap}
-                  />
+                  <>
+                    <CaptaincyPicker
+                      slot={slot}
+                      onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
+                      onSetVice={(id) => applyCaptainChange(id, 'vice')}
+                    />
+                    <InlineSwapSearch
+                      outSlot={slot}
+                      squad={squad}
+                      allPlayers={allPlayers}
+                      predictionsById={predictionsById}
+                      teamsById={teamsById}
+                      bankTenths={bankTenths}
+                      query={editQuery}
+                      setQuery={setEditQuery}
+                      onSwap={applySwap}
+                    />
+                  </>
                 )}
               </React.Fragment>
             ))}
