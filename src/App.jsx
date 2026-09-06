@@ -11,7 +11,20 @@ import {
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 const POSITION_LABELS = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
-const BAD_AVAIL_NOTES = ['Injured', 'Suspended', 'Unavailable'];
+// Previously matched availNote against a fixed list of exact strings
+// ['Injured', 'Suspended', 'Unavailable'] to decide whether a player's
+// availability alone should force them onto the transfer-suggestion
+// candidate list. That missed two whole categories that predictions.js
+// actually produces: the literal string 'Doubtful' (status === 'd' with no
+// chanceNext data), and the dynamic `${chanceNext}% chance of playing`
+// string used whenever chanceNext is a number <= 75. Neither of those ever
+// equals one of the three fixed strings, so a doubtful player (say, 25%
+// chance of playing) was never flagged this way — they'd only surface if
+// their availability-suppressed predicted points happened to *also* land
+// them in the bottom 5 of the starting XI, which isn't guaranteed in an
+// 11-player squad with several other genuinely weak-but-healthy picks.
+// See suggestTransfers below: isBad is now "has any availability note at
+// all", which covers every case predictions.js can produce.
 
 const DIFF_COLORS = {
   1: { bg: '#1F9D55', text: '#06210F' },
@@ -238,7 +251,7 @@ const MAX_TRANSFER_SUGGESTIONS = 5;
 
 function suggestTransfers(squad, allPlayers, predictionsById, bankTenths) {
   const starters = squad.filter(s => s.isStarting);
-  const isBad = (s) => s.availNote && BAD_AVAIL_NOTES.includes(s.availNote);
+  const isBad = (s) => !!s.availNote;
   const flagged = starters.filter(isBad);
   const sortedByPred = [...starters].sort((a, b) => a.predicted - b.predicted);
   const lowPerformers = sortedByPred.filter(s => !isBad(s)).slice(0, MAX_TRANSFER_SUGGESTIONS);
