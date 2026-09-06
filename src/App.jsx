@@ -1102,7 +1102,7 @@ function PlayerSearchPicker({ allPlayers, onPick }) {
   );
 }
 
-function ReviewSlot({ slot, index, onFix, allPlayers }) {
+function ReviewSlot({ slot, index, onFix, allPlayers, onSetCaptain, onSetViceCaptain }) {
   const [showSearch, setShowSearch] = useState(false);
   const confident = slot.matched && slot.top[0] && slot.top[0].score > 0.72 && !slot.manuallyFixed === false ? true : (slot.matched && slot.top[0] && slot.top[0].score > 0.72);
   const needsReview = !slot.matched || (slot.top[0] && slot.top[0].score <= 0.72);
@@ -1112,7 +1112,7 @@ function ReviewSlot({ slot, index, onFix, allPlayers }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', fontFamily: "'IBM Plex Mono',monospace" }}>
-            READ AS "{slot.extractedName}" {slot.isCaptain ? '· CAPTAIN' : slot.isViceCaptain ? '· VICE' : ''}
+            READ AS "{slot.extractedName}"
           </div>
           <div className="fpl-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
             {slot.matched ? slot.matched.webName : <span style={{ color: 'var(--amber)' }}>Not matched</span>}
@@ -1121,6 +1121,34 @@ function ReviewSlot({ slot, index, onFix, allPlayers }) {
         {needsReview
           ? <ShieldAlert size={18} style={{ color: 'var(--amber)', flexShrink: 0 }} />
           : <CheckCircle2 size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />}
+      </div>
+
+      {/* Captaincy is read from the pasted JSON's captain/vice_captain names
+          when they matched cleanly, but that match can miss (typo, a name
+          that reads ambiguously, etc.) with no other way to fix it — so
+          these checkboxes let the person set/correct it directly, the same
+          way tapping a player does on the live-squad screens. Disabled
+          until the player itself is matched, since toggling captaincy on
+          an unresolved slot wouldn't have anywhere to attach to. */}
+      <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: slot.matched ? 'var(--ink)' : 'var(--ink-dim)', cursor: slot.matched ? 'pointer' : 'not-allowed' }}>
+          <input
+            type="checkbox"
+            checked={!!slot.isCaptain}
+            disabled={!slot.matched}
+            onChange={() => onSetCaptain(index)}
+          />
+          Captain
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: slot.matched ? 'var(--ink)' : 'var(--ink-dim)', cursor: slot.matched ? 'pointer' : 'not-allowed' }}>
+          <input
+            type="checkbox"
+            checked={!!slot.isViceCaptain}
+            disabled={!slot.matched}
+            onChange={() => onSetViceCaptain(index)}
+          />
+          Vice-captain
+        </label>
       </div>
 
       {slot.top && slot.top.length > 0 && needsReview && (
@@ -1141,7 +1169,7 @@ function ReviewSlot({ slot, index, onFix, allPlayers }) {
   );
 }
 
-function ReviewScreen({ slots, allPlayers, onFix, onConfirm, onBack }) {
+function ReviewScreen({ slots, allPlayers, onFix, onSetCaptain, onSetViceCaptain, onConfirm, onBack }) {
   const unresolved = slots.filter(s => !s.matched).length;
   return (
     <div style={{ padding: '20px 16px 100px' }}>
@@ -1154,7 +1182,7 @@ function ReviewScreen({ slots, allPlayers, onFix, onConfirm, onBack }) {
       </p>
 
       {slots.map((slot, i) => (
-        <ReviewSlot key={i} slot={slot} index={i} onFix={onFix} allPlayers={allPlayers} />
+        <ReviewSlot key={i} slot={slot} index={i} onFix={onFix} allPlayers={allPlayers} onSetCaptain={onSetCaptain} onSetViceCaptain={onSetViceCaptain} />
       ))}
 
       <button
@@ -2714,6 +2742,30 @@ export default function FPLSquadChecker() {
     setReviewSlots(prev => prev.map((s, i) => i === index ? { ...s, matched: player, manuallyFixed: true } : s));
   }
 
+  // Only one captain and one vice-captain at a time, and never the same
+  // player as both. Clicking the checkbox that's already checked for a
+  // player unsets it (so you can end up with none selected mid-edit,
+  // rather than being forced to immediately pick a replacement).
+  function updateSlotCaptain(index) {
+    setReviewSlots(prev => prev.map((s, i) => {
+      if (i === index) {
+        const nowCaptain = !s.isCaptain;
+        return { ...s, isCaptain: nowCaptain, isViceCaptain: nowCaptain ? false : s.isViceCaptain };
+      }
+      return { ...s, isCaptain: false };
+    }));
+  }
+
+  function updateSlotViceCaptain(index) {
+    setReviewSlots(prev => prev.map((s, i) => {
+      if (i === index) {
+        const nowVice = !s.isViceCaptain;
+        return { ...s, isViceCaptain: nowVice, isCaptain: nowVice ? false : s.isCaptain };
+      }
+      return { ...s, isViceCaptain: false };
+    }));
+  }
+
   async function handleConfirmReview() {
     const staticData = pendingStaticData;
     if (!staticData) { setStage('error'); setErrorMessage('Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
@@ -2755,7 +2807,7 @@ export default function FPLSquadChecker() {
     }).filter(Boolean);
 
     const bankTenths = reviewBank != null ? Math.round(reviewBank * 10) : 0;
-    finalizeResults(squad, staticData, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
+    finalizeResults(ensureCaptaincy(squad), staticData, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
   }
 
   const headerSummary = (stage === 'results' && resultsData) ? {
@@ -2815,6 +2867,8 @@ export default function FPLSquadChecker() {
             slots={reviewSlots}
             allPlayers={pendingStaticData ? pendingStaticData.allPlayers : []}
             onFix={updateSlotMatch}
+            onSetCaptain={updateSlotCaptain}
+            onSetViceCaptain={updateSlotViceCaptain}
             onConfirm={handleConfirmReview}
             onBack={() => setStage('pasteForm')}
           />
