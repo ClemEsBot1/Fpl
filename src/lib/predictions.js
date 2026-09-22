@@ -140,11 +140,41 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     fixtureMult = fixtureMultFor(avgDiff);
   }
 
-  // Captaincy is a free pick every gameweek, so only the very next fixture's
-  // difficulty is relevant there — not the 4-game rolling average used above
-  // for the general "predicted" figure (which suits squad/transfer decisions,
-  // since you're stuck with those players over several weeks).
-  const nextFixtureMult = upcoming.length ? fixtureMultFor(upcoming[0].difficulty) : 1;
+  // Blank/double gameweek handling for the TARGET gameweek specifically
+  // (the one this whole staticData build is for — options.targetEventId).
+  // fixturesByTeam is already filtered to event >= targetEventId and sorted
+  // by event, so "this event's fixtures" is just the leading run of
+  // `fixtures` whose event matches — could be 0 (blank), 1 (normal), or 2+
+  // (double).
+  //
+  // This deliberately only touches nextMatchPredicted (the "just next
+  // gameweek" figure used for captaincy) and not the `fixtureMult` above
+  // (the 4-fixture rolling average that `predicted` uses for squad/transfer
+  // decisions) — `predicted` is intentionally smoothed across several
+  // gameweeks for stability, and blindly doubling it for a double or
+  // zeroing it for a blank would fight that design. The one correction
+  // `predicted` DOES get for a blank is lower down (predicted is floored to
+  // 0 when there's no fixture at all this gameweek — a player who
+  // definitely isn't playing this week has no "typical week" to smooth
+  // toward, whatever the multi-week average says).
+  const thisEventFixtures = typeof options.targetEventId === 'number'
+    ? fixtures.filter(f => f.event === options.targetEventId)
+    : (fixtures.length ? [fixtures[0]] : []); // no targetEventId supplied — behave like the single-next-fixture logic this replaced
+  const fixtureCountThisEvent = thisEventFixtures.length;
+  const isBlankThisEvent = typeof options.targetEventId === 'number' && fixtureCountThisEvent === 0;
+  const isDoubleThisEvent = fixtureCountThisEvent >= 2;
+
+  // Captaincy is a free pick every gameweek, so what matters is this
+  // specific gameweek's fixture(s) — not the 4-game rolling average used
+  // above for the general "predicted" figure. A double counts both
+  // fixtures (each fixture's own difficulty multiplier, summed) rather
+  // than just the first — missing this was the difference between
+  // correctly flagging a double-gameweek player as the standout captain
+  // pick and quietly treating them the same as anyone with one game.
+  const DOUBLE_FIXTURE_DISCOUNT = 0.92; // modest rotation/fatigue discount on the 2nd+ fixture of a double — not a precise model, just "not a clean free 2x"
+  const nextFixtureMult = isBlankThisEvent
+    ? 0
+    : thisEventFixtures.reduce((sum, f, i) => sum + fixtureMultFor(f.difficulty) * (i === 0 ? 1 : DOUBLE_FIXTURE_DISCOUNT), 0);
 
   let availMult = 1;
   let availNote = null;
@@ -172,7 +202,11 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   const restDays = p.daysSinceLastFixture;
   const congestionMult = (typeof restDays === 'number' && restDays < REST_DAYS_THRESHOLD) ? CONGESTION_DISCOUNT : 1;
 
-  const predicted = Math.max(0, base * fixtureMult * availMult * congestionMult);
+  // See the comment above nextFixtureMult: predicted (the multi-week
+  // smoothed figure) isn't scaled for a double here, but IS floored to 0
+  // for a blank — there's nothing to smooth toward when the team plain
+  // doesn't play this gameweek at all.
+  const predicted = isBlankThisEvent ? 0 : Math.max(0, base * fixtureMult * availMult * congestionMult);
   const nextMatchPredicted = Math.max(0, base * nextFixtureMult * availMult * congestionMult);
   const baseAvail = Math.max(0, base * availMult);
   return {
@@ -182,6 +216,33 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     availNote,
     fixtureMult,
     upcomingFixtures: upcoming,
+    fixtureCountThisEvent,
+    isBlankThisEvent,
+    isDoubleThisEvent,
+    // Full component breakdown for the "why this prediction" UI (see
+    // PredictionBreakdown in App.jsx) — every input that fed into `base`
+    // before the fixture/availability multipliers were applied, plus the
+    // multipliers themselves. Nothing here changes what predicted/
+    // nextMatchPredicted equal; this is purely for explaining them.
+    breakdown: {
+      epNext: Math.round(epNext * 100) / 100,
+      epNextShrunk: !!(epNextShrink && confidence < 1),
+      ppg,
+      form,
+      formEligible: !!(formEligible && form > 0),
+      setPieceBonus: Math.round(setPieceBonus * 100) / 100,
+      xgAdjustment: Math.round(xgAdjustment * 100) / 100,
+      oddsAdjustment: Math.round((p.oddsAdjustment || 0) * weights.oddsAdjustment * 100) / 100,
+      base: Math.round(base * 100) / 100,
+      fixtureMult: Math.round(fixtureMult * 1000) / 1000,
+      nextFixtureMult: Math.round(nextFixtureMult * 1000) / 1000,
+      availMult: Math.round(availMult * 1000) / 1000,
+      congestionMult: Math.round(congestionMult * 1000) / 1000,
+      restDays: typeof restDays === 'number' ? restDays : null,
+      fixtureCountThisEvent,
+      isBlankThisEvent,
+      isDoubleThisEvent,
+    },
   };
 }
 
@@ -367,7 +428,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   allPlayers.forEach(p => {
     const baseline = careerBaselineByCode[p.code] ?? epNextBaselineByPosition[p.positionId];
     const epNextShrink = { confidence: epNextConfidence, baseline };
-    predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink, { weights });
+    predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink, { weights, targetEventId: targetEvent.id });
   });
 
   // "Winner's curse" correction for SELECTION only (squad-picking and
@@ -677,6 +738,47 @@ export function buildHindsightSquad(allPlayers, liveEventPointsById, budget = SQ
   return { squad, bankTenths, captainId, viceCaptainId, totalScore };
 }
 
+// Corrects a squad's starting/bench status and captaincy multiplier for
+// FPL's real automatic substitutions, using the ground truth FPL's own
+// /picks/ endpoint provides (`automatic_subs`) rather than re-simulating
+// FPL's bench-priority/formation-legality autosub algorithm ourselves.
+// FPL's `picks[].position`/`multiplier` are the manager's ORIGINAL
+// pre-autosub selections and are never updated after the gameweek — so
+// without this, a completed gameweek where any autosub happened (which is
+// most gameweeks, for most squads) shows the wrong starting XI and the
+// wrong actual score: a blanked original starter still counts as
+// "started" with their (usually 0) points, while whoever was actually
+// subbed in and scored real points still shows as benched and doesn't
+// count at all.
+export function applyAutomaticSubs(squad, automaticSubs) {
+  if (!Array.isArray(automaticSubs) || automaticSubs.length === 0) return squad;
+  const outIds = new Set(automaticSubs.map(s => s.element_out));
+  const inIds = new Set(automaticSubs.map(s => s.element_in));
+  let next = squad.map(s => {
+    if (outIds.has(s.player.id)) return { ...s, isStarting: false };
+    if (inIds.has(s.player.id)) return { ...s, isStarting: true };
+    return s;
+  });
+
+  // Captain-to-vice-captain fallback is a separate FPL rule from the
+  // substitution itself: if the captain got 0 minutes, the armband's
+  // multiplier passes to the vice-captain (whether or not the captain
+  // personally had a valid formation-preserving autosub available).
+  const captainSlot = next.find(s => s.isCaptain);
+  if (captainSlot && captainSlot.played === false) {
+    const viceSlot = next.find(s => s.isViceCaptain);
+    if (viceSlot && viceSlot.played) {
+      const capMultiplier = captainSlot.multiplier;
+      next = next.map(s => {
+        if (s === captainSlot) return { ...s, multiplier: 1 };
+        if (s === viceSlot) return { ...s, multiplier: capMultiplier };
+        return s;
+      });
+    }
+  }
+  return next;
+}
+
 // Given a fixed 15-man squad (as saved by a user — playerIds plus their
 // chosen captain/vice), works out what it would actually have scored in a
 // given closed gameweek: picks the best starting XI *from those exact 15*
@@ -755,6 +857,7 @@ export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
     const isCaptain = p.id === captainId;
     return {
       player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
+      breakdown: pred.breakdown,
       isStarting: startersSet.has(p.id), isCaptain, isViceCaptain: p.id === viceCaptainId,
       multiplier: isCaptain ? 2 : 1,
     };
@@ -817,6 +920,7 @@ export function hydrateSquadSnapshot(snapshot, staticData) {
     const isCaptain = p.id === snapshot.captainId;
     return {
       player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
+      breakdown: pred.breakdown,
       isStarting: startersSet.has(p.id),
       isCaptain, isViceCaptain: p.id === snapshot.viceCaptainId,
       multiplier: isCaptain ? 2 : 1,
