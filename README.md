@@ -1,74 +1,98 @@
 # FPL Squad Check
 
-## Optimal-squad storage & auto-refresh
+A Fantasy Premier League (FPL) squad checker and optimiser. Load your squad, see point predictions for every player, get transfer and captain suggestions, or generate a data-driven "optimal" squad for any gameweek.
 
-The "Optimal Squad" build used to be cached per-browser in `localStorage`, so
-every visitor's device recomputed and stored its own copy. It's now computed
-once, server-side, and shared by everyone via [Vercel Blob](https://vercel.com/docs/vercel-blob).
-Two new API routes and a scheduled job make this work:
+**Live app:** https://fpl-virid-psi.vercel.app
 
-- `api/refresh-optimal.js` — fetches live FPL data directly (no CORS proxy
-  needed server-side), builds the optimal squad, and saves a small JSON
-  snapshot (`{ playerIds, captainId, viceCaptainId, gwId, builtAt }`) to Blob
-  storage. Protected by a `CRON_SECRET` bearer token.
-- `api/optimal-squad.js` — the frontend calls this to read the latest
-  snapshot. Falls back gracefully (404) if nothing's been built yet.
-- `src/lib/predictions.js` — the prediction formula and squad-building logic,
-  shared between the browser bundle and the server refresh job so the two
-  can never disagree.
+## Features
 
-### One-time setup
+- **Three ways to load a squad** — enter an FPL team ID, paste a squad read from a screenshot (via a Claude-generated JSON), or build one from scratch.
+- **Point predictions** for every player, with a per-player **"Why?"** breakdown showing exactly which inputs drove the number (FPL's own model, form, set pieces, xG/xA, bookmaker odds, fixture difficulty, availability, rest days).
+- **Optimal squad builder** — picks the best 15 within a £100m budget, aware of who actually starts vs. sits on the bench so budget isn't wasted on players who won't play.
+- **Transfer suggestions** that account for free transfers vs. the -4 point hit, so a marginal swap isn't recommended if it costs you points.
+- **Captain and vice-captain suggestions**, plus click-to-edit captaincy on any squad.
+- **Blank and double gameweek handling** in next-gameweek predictions.
+- **Past gameweek hindsight view** with FPL's real automatic substitutions and captain-to-vice fallback applied, so completed gameweeks score correctly.
+- **Chip timing analysis** for planning Wildcard, Free Hit, Bench Boost and Triple Captain.
+- **Accounts** (username and password) for saving squads, plus JSON export of the optimal squad.
+- **Last-season stats** shown at GW1 (marked "LS") when there's no current-season data yet.
 
-1. **Create a Blob store.** Vercel dashboard → your project → Storage →
-   Create Database → Blob. This auto-injects `BLOB_READ_WRITE_TOKEN` into
-   your project's environment variables — no manual copying needed.
-2. **Deploy** (this repo already includes `vercel.json`, which registers a
-   daily cron and causes Vercel to auto-generate a `CRON_SECRET` env var).
-3. **Every-hour refresh, for free.** Vercel's Hobby plan only allows cron
-   jobs that run once a day — an hourly schedule fails at deploy time on
-   that plan. `vercel.json` here uses a safe once-daily schedule so it works
-   regardless of plan. To actually get hourly refreshes for free, this repo
-   also includes `.github/workflows/refresh-optimal-squad.yml`, which calls
-   the same endpoint every hour using GitHub's own scheduler. Follow the
-   setup steps in that file's comments (copy `CRON_SECRET` from Vercel into
-   a GitHub Actions repo secret, set your deployed URL). If you're on
-   **Vercel Pro**, you can skip GitHub Actions entirely and just change the
-   schedule in `vercel.json` to `"0 * * * *"`.
-4. Everything still works if you skip all of the above — `handleBuildOptimalTeam`
-   falls back to this browser's local cache, then to building fresh on the
-   spot, exactly as before.
+## How predictions work
 
----
+Each player's predicted points blend several signals, all in `src/lib/predictions.js`:
 
+- FPL's own expected-points figure, shrunk toward the position average early in the season and trusted more as games are played
+- Season points-per-game and recent form once enough gameweeks have been played
+- A career baseline built from up to 10 past seasons of imported data (with a minimum-minutes floor so fringe players don't skew it)
+- Set-piece duty, an xG/xA regression nudge, fixture congestion, and a bookmaker-odds adjustment
+- Fixture difficulty and availability (injuries, suspensions, doubts)
 
+For squad-building decisions, values are shrunk toward the position average to counter the "winner's curse" (picking players whose predictions are inflated by noise).
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The prediction logic is a set of pure functions shared by the browser and the server cron job, so the two can never disagree.
 
-Currently, two official plugins are available:
+## Tech stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend:** React 19, Vite, TypeScript, lucide-react
+- **Backend:** Vercel serverless functions in `api/`
+- **Storage:** Vercel Blob (shared snapshots, historical data, cached odds) and Redis (user accounts and saved squads)
+- **Auth:** bcrypt password hashing, JWT session cookies
+- **Data:** the public FPL API, a community archive of past seasons ([vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)), and [The Odds API](https://the-odds-api.com) for bookmaker odds
+- **Tooling:** Oxlint
 
-## React Compiler
+## Project structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+api/
+  auth.js               Login, signup, session
+  teams.js              Saved squads for logged-in users
+  fpl.js                Proxy for the FPL API
+  optimal-squad.js      Serves the latest optimal-squad snapshot
+  refresh-optimal.js    Cron job: builds and saves the snapshot (needs CRON_SECRET)
+  odds.js               Serves cached bookmaker odds
+  player-history.js     Serves imported historical player data
+src/
+  App.jsx               Main UI
+  lib/
+    predictions.js      Prediction and squad-building logic (shared with the server)
+    playerHistory.js    Turns past-season data into a career baseline
+    oddsAdjustment.js   Bookmaker-odds maths and fixture matching
+    auth.js, redis.js, teams.js
+scripts/
+  import-player-history.mjs   One-time import of 10 seasons of history into Blob
+  calibrate-weights.mjs       Grid-search of formula weights via walk-forward backtest
+.github/workflows/
+  refresh-after-deploy.yml    Rebuilds the optimal squad after each push to main
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Setup
+
+1. **Install and run locally**
+   ```bash
+   npm install
+   npm run dev
+   ```
+2. **Deploy to Vercel** and add these environment variables:
+
+   | Variable | Purpose |
+   |---|---|
+   | `BLOB_READ_WRITE_TOKEN` | Injected automatically when you create a Vercel Blob store |
+   | `CRON_SECRET` | Bearer token protecting `/api/refresh-optimal` (Vercel generates one for the cron) |
+   | `REDIS_URL` | Redis connection string for accounts and saved squads |
+   | `JWT_SECRET` | Secret used to sign session cookies |
+   | `ODDS_API_KEY` | Optional. Free key from the-odds-api.com; without it the odds adjustment is skipped |
+
+3. **Import historical data (optional, once):** run `node scripts/import-player-history.mjs` to upload past seasons to Blob. Without it, predictions fall back to the position-average baseline.
+
+## Optimal-squad storage and auto-refresh
+
+The optimal squad is computed once, server-side, and shared by every visitor via Vercel Blob rather than being recomputed in each browser.
+
+- `api/refresh-optimal.js` fetches live FPL data, builds the optimal squad, and saves a small JSON snapshot to Blob. It also fetches and caches bookmaker odds.
+- `api/optimal-squad.js` is what the frontend reads. It returns 404 if nothing has been built yet, and the app falls back to building locally.
+- A **daily cron** in `vercel.json` refreshes the snapshot at 06:00 UTC (Vercel's Hobby plan only allows once-daily crons).
+- `.github/workflows/refresh-after-deploy.yml` also triggers a refresh about 90 seconds after every push to `main`. It needs a `CRON_SECRET` repository secret in GitHub Actions, matching the value in Vercel.
+
+## Security headers
+
+`vercel.json` sets a Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy and Permissions-Policy on every route.
