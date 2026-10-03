@@ -66,10 +66,14 @@ function prepareCanvases(img) {
 
   const labels = new Uint8ClampedArray(w * h);
   const inverted = new Uint8ClampedArray(w * h);
-  // Near-black and near-white colourless pixels: the captain/vice armband
-  // badges are a white letter on a black disc (see findArmbandBadges).
+  // The captain/vice armband badges are a white letter on a very dark disc
+  // (FPL's dark purple, rgb(55,0,60), or black) — see findArmbandBadges.
+  // Dark card backgrounds and shirts are noticeably brighter than that.
   const dark = new Uint8Array(w * h);
   const light = new Uint8Array(w * h);
+  // Name-label background: white, or the yellow/amber FPL uses to flag a
+  // doubtful player — see findLabelBoxes.
+  const labelBg = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2];
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -78,18 +82,117 @@ function prepareCanvases(img) {
     // Near-black stays (text, even when slightly tinted by anti-aliasing).
     labels[i] = saturation > 0.3 && max > 70 ? 255 : lum;
     inverted[i] = 255 - lum;
-    dark[i] = lum < 90 && max - min < 50 ? 1 : 0;
+    dark[i] = lum < 55 ? 1 : 0;
     light[i] = lum > 170 && max - min < 60 ? 1 : 0;
+    labelBg[i] = (lum > 215 && max - min < 40) || (r > 215 && g > 170 && b < 170 && r - b > 70) ? 1 : 0;
   }
-  return { canvases: [toCanvas(labels, w, h), toCanvas(inverted, w, h)], dark, light, width: w, height: h };
+  return {
+    canvases: [toCanvas(labels, w, h), toCanvas(inverted, w, h)],
+    source: src,
+    dark, light, labelBoxes: findLabelBoxes(labelBg, w, h), width: w, height: h,
+  };
+}
+
+// Visits each 4-connected blob of set pixels in `mask`, calling
+// visit(box, pixelCount) with its bounding box.
+function forEachBlob(mask, w, h, visit) {
+  const seen = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  for (let start = 0; start < w * h; start++) {
+    if (!mask[start] || seen[start]) continue;
+    let top = 0, count = 0;
+    let x0 = w, y0 = h, x1 = 0, y1 = 0;
+    stack[top++] = start; seen[start] = 1;
+    while (top) {
+      const i = stack[--top];
+      const x = i % w, y = (i - x) / w;
+      count++;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+      if (x > 0 && mask[i - 1] && !seen[i - 1]) { seen[i - 1] = 1; stack[top++] = i - 1; }
+      if (x < w - 1 && mask[i + 1] && !seen[i + 1]) { seen[i + 1] = 1; stack[top++] = i + 1; }
+      if (y > 0 && mask[i - w] && !seen[i - w]) { seen[i - w] = 1; stack[top++] = i - w; }
+      if (y < h - 1 && mask[i + w] && !seen[i + w]) { seen[i + w] = 1; stack[top++] = i + w; }
+    }
+    visit({ x0, y0, x1, y1 }, count);
+  }
+}
+
+// FPL prints every player's name on a small solid white (or yellow, for a
+// flagged player) label under their shirt. Finding those rectangles lets
+// us OCR each name on its own: Tesseract reads a small clean label far
+// more reliably than it picks every label out of a busy full screenshot,
+// where it silently skips some.
+function findLabelBoxes(mask, w, h) {
+  const boxes = [];
+  forEachBlob(mask, w, h, (b, count) => {
+    const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1;
+    if (bw < w * 0.06 || bw > w * 0.35) return;
+    if (bh < h * 0.008 || bh > h * 0.07) return;
+    if (bw < bh * 1.6) return;
+    if (count / (bw * bh) < 0.5) return; // solid box (text makes holes)
+    boxes.push(b);
+  });
+  return boxes;
 }
 
 /* ---------------------------------------------------------------------------
    OCR
 --------------------------------------------------------------------------- */
 
-async function ocrWords(canvases, onProgress) {
+function toWords(data, minConfidence = MIN_WORD_CONFIDENCE) {
+  const lines = [];
+  for (const block of data.blocks || []) {
+    for (const para of block.paragraphs || []) {
+      for (const line of para.lines || []) {
+        const words = (line.words || [])
+          .filter(w => w.text && w.text.trim() && w.confidence >= minConfidence)
+          .map(w => ({ text: w.text.trim(), bbox: w.bbox, confidence: w.confidence }));
+        if (words.length) lines.push(words);
+      }
+    }
+  }
+  return lines;
+}
+
+// Copies one label from the original (colour) image onto its own
+// greyscale canvas with a white margin all round — Tesseract often drops
+// text that touches the image border, and FPL's name text sits close to
+// the label's edge. Measured on a real screenshot this reads every name
+// where the whole-page pass skipped several. Returns the canvas and a
+// function mapping its word boxes back to page coordinates.
+const LABEL_PAD = 24;
+// Labels are clean, isolated text, and every candidate still has to match
+// a real player's name, so low-confidence words are worth keeping here.
+const LABEL_MIN_CONFIDENCE = 15;
+function cropLabel(source, b) {
+  const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = bw + LABEL_PAD * 2;
+  canvas.height = bh + LABEL_PAD * 2;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(source, b.x0, b.y0, bw, bh, LABEL_PAD, LABEL_PAD, bw, bh);
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    px[i] = px[i + 1] = px[i + 2] = lum;
+  }
+  ctx.putImageData(img, 0, 0);
+  const toPage = bb => ({ x0: bb.x0 - LABEL_PAD + b.x0, y0: bb.y0 - LABEL_PAD + b.y0, x1: bb.x1 - LABEL_PAD + b.x0, y1: bb.y1 - LABEL_PAD + b.y0 });
+  return { canvas, toPage };
+}
+
+// Two kinds of reading: the whole page (both prepared images), and each
+// name label on its own. Returns { pageLines, labelLines }, each an array
+// of lines of { text, bbox, confidence } words in page coordinates.
+async function ocrWords(canvases, onProgress, labelBoxes = [], source = null) {
   let pass = 0;
+  const totalPasses = canvases.length + (labelBoxes.length ? 1 : 0);
   const worker = await createWorker('eng', 1, {
     workerPath: `${TESSERACT_BASE}/worker.min.js`,
     corePath: TESSERACT_BASE,
@@ -98,27 +201,26 @@ async function ocrWords(canvases, onProgress) {
     // A blob: worker would be blocked by our Content-Security-Policy.
     workerBlobURL: false,
     logger: m => {
-      if (onProgress && m.status === 'recognizing text') onProgress((pass + m.progress) / canvases.length);
+      if (onProgress && m.status === 'recognizing text' && pass < canvases.length) onProgress((pass + m.progress) / totalPasses);
     },
   });
   try {
     // "Sparse text": names are scattered labels, not paragraphs.
     await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
-    const lines = [];
+    const pageLines = [];
     for (pass = 0; pass < canvases.length; pass++) {
       const { data } = await worker.recognize(canvases[pass], {}, { blocks: true, text: true });
-      for (const block of data.blocks || []) {
-        for (const para of block.paragraphs || []) {
-          for (const line of para.lines || []) {
-            const words = (line.words || [])
-              .filter(w => w.text && w.text.trim() && w.confidence >= MIN_WORD_CONFIDENCE)
-              .map(w => ({ text: w.text.trim(), bbox: w.bbox, confidence: w.confidence }));
-            if (words.length) lines.push(words);
-          }
-        }
-      }
+      pageLines.push(...toWords(data));
     }
-    return lines;
+    const labelLines = [];
+    for (let i = 0; i < labelBoxes.length; i++) {
+      const b = labelBoxes[i];
+      const { canvas, toPage } = cropLabel(source || canvases[0], b);
+      const { data } = await worker.recognize(canvas, {}, { blocks: true, text: true });
+      labelLines.push(...toWords(data, LABEL_MIN_CONFIDENCE).map(line => line.map(w => ({ ...w, bbox: toPage(w.bbox) }))));
+      if (onProgress) onProgress((canvases.length + (i + 1) / labelBoxes.length) / totalPasses);
+    }
+    return { pageLines, labelLines };
   } finally {
     await worker.terminate();
   }
@@ -226,11 +328,16 @@ function findNamesInLine(words, index) {
       // at either end of a multi-word name.
       const alnum = w => w.text.replace(/[^\p{L}\p{N}]/gu, '').length;
       if (len > 1 && (alnum(span[0]) < 2 || alnum(span[len - 1]) < 2)) continue;
-      const text = span.map(w => w.text).join(' ');
+      // Drop stray OCR punctuation at the edges ('"De Cuyper'), keeping a
+      // trailing ellipsis, which marks a truncated name.
+      const text = span.map(w => w.text).join(' ')
+        .replace(/^[^\p{L}\p{N}]+/u, '')
+        .replace(/[^\p{L}\p{N}.…]+$/u, '');
       if (len === 1 && UI_WORDS.has(compactKey(text))) continue;
       const key = compactKey(text);
       const { score, players } = bestPlayersForKey(key, index, ELLIPSIS_RE.test(text));
-      if (score >= 0.65 && players.length) {
+      const minScore = Math.max(0.65, ...span.map(w => w.minScore || 0));
+      if (score >= minScore && players.length) {
         found.push({ start: i, end: i + len, text, score, players, bbox: unionBox(span) });
       }
     }
@@ -390,6 +497,10 @@ export function findArmbandBadges(light, dark, w, h, lines) {
     });
     if (inWord) continue;
     if (surroundDarkness(dark, w, h, box) < 0.8) continue;
+    // The badge letter stands alone in its disc; a "C" or "V" inside a word
+    // on a dark bar ("Goalkeepers", "Substitutes") has neighbours right
+    // beside it.
+    if (sideLightness(light, w, box) > 0.05) continue;
     const letter = classifyLetter(light, w, box);
     if (letter) badges.push({ letter, bbox: box });
   }
@@ -407,6 +518,23 @@ function surroundDarkness(dark, w, h, box) {
     for (let x = xa; x <= xb; x++) {
       if (x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1) continue;
       n += dark[y * w + x]; total++;
+    }
+  }
+  return total ? n / total : 0;
+}
+
+// Fraction of light pixels in strips half a letter-height wide immediately
+// left and right of the box.
+function sideLightness(light, w, box) {
+  const bh = box.y1 - box.y0 + 1;
+  const gap = Math.max(1, Math.round(bh * 0.06));
+  const strip = Math.max(2, Math.round(bh * 0.5));
+  let n = 0, total = 0;
+  for (let y = box.y0; y <= box.y1; y++) {
+    for (let k = gap; k < gap + strip; k++) {
+      const xl = box.x0 - k, xr = box.x1 + k;
+      if (xl >= 0) { n += light[y * w + xl]; total++; }
+      if (xr < w) { n += light[y * w + xr]; total++; }
     }
   }
   return total ? n / total : 0;
@@ -439,8 +567,12 @@ function classifyLetter(light, w, box) {
   return null;
 }
 
-// Each badge belongs to the closest player label (it sits beside or just
-// above the name), within a few text-heights.
+// Each badge belongs to one player: in Pitch View it sits in the top
+// corner of that player's card, above the shirt and the name label; in
+// List View it sits on the same row as the name. So a candidate player is
+// one whose name is below the badge and roughly in line with it
+// horizontally (within a card's width), or on the same row; of those the
+// closest wins.
 function assignArmbands(badges, squad) {
   const result = { captain: null, viceCaptain: null };
   if (!badges.length || !squad.length) return result;
@@ -449,11 +581,13 @@ function assignArmbands(badges, squad) {
     let best = null, bestDist = Infinity;
     squad.forEach(d => {
       const textH = d.bbox.y1 - d.bbox.y0;
-      const nx = Math.max(d.bbox.x0, Math.min(bx, d.bbox.x1));
-      const ny = Math.max(d.bbox.y0, Math.min(by, d.bbox.y1));
-      const dist = Math.hypot(bx - nx, by - ny);
-      if (by > d.bbox.y1 + textH) return; // badges never sit below the name
-      if (dist < textH * 8 && dist < bestDist) { bestDist = dist; best = d; }
+      const cx = (d.bbox.x0 + d.bbox.x1) / 2, cy = (d.bbox.y0 + d.bbox.y1) / 2;
+      const cardHalfWidth = Math.max(d.bbox.x1 - d.bbox.x0, textH * 5);
+      const above = by < d.bbox.y0 && d.bbox.y0 - by < textH * 14 && Math.abs(bx - cx) < cardHalfWidth;
+      const sameRow = Math.abs(by - cy) < textH * 1.5 && Math.abs(bx - cx) < textH * 15;
+      if (!above && !sameRow) return;
+      const dist = Math.hypot(bx - cx, by - cy);
+      if (dist < bestDist) { bestDist = dist; best = d; }
     });
     return best ? { det: best, dist: bestDist } : null;
   };
@@ -469,19 +603,69 @@ function assignArmbands(badges, squad) {
   return result;
 }
 
+// The same label is often read twice (whole-page pass and label pass);
+// keep one detection per spot on the screen, the best-scoring.
+function dedupeByPlace(found) {
+  const kept = [];
+  [...found].sort((a, b) => b.score - a.score).forEach(f => {
+    const h = f.bbox.y1 - f.bbox.y0;
+    const cx = (f.bbox.x0 + f.bbox.x1) / 2, cy = (f.bbox.y0 + f.bbox.y1) / 2;
+    const clash = kept.some(k => Math.abs((k.bbox.x0 + k.bbox.x1) / 2 - cx) < h * 3 && Math.abs((k.bbox.y0 + k.bbox.y1) / 2 - cy) < h);
+    if (!clash) kept.push(f);
+  });
+  return kept;
+}
+
+// In Pitch View the starting XI is laid out in rows: goalkeeper (alone),
+// then defenders, midfielders and forwards (2–5 each), then the bench.
+// When the detected names fall into rows of that shape, each of the first
+// four rows tells us the position of every name in it. Returns a Map from
+// each detection in `found` (duplicates included) to a position id.
+function pitchRowPositions(unique) {
+  const hints = new Map();
+  if (unique.length < 8) return hints;
+  const byY = [...unique].sort((a, b) => a.bbox.y0 - b.bbox.y0);
+  const rows = [];
+  byY.forEach(f => {
+    const h = f.bbox.y1 - f.bbox.y0;
+    const cy = (f.bbox.y0 + f.bbox.y1) / 2;
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(row.cy - cy) < h * 2) row.items.push(f);
+    else rows.push({ cy, items: [f] });
+  });
+  if (rows.length < 4 || rows[0].items.length !== 1) return hints;
+  if (!rows.slice(1, 4).every(r => r.items.length >= 2 && r.items.length <= 5)) return hints;
+  const rowBands = rows.slice(0, 4).map((r, i) => ({ cy: r.cy, position: i + 1 }));
+  return {
+    get(f) {
+      const h = f.bbox.y1 - f.bbox.y0;
+      const cy = (f.bbox.y0 + f.bbox.y1) / 2;
+      const band = rowBands.find(b => Math.abs(b.cy - cy) < h * 2);
+      return band ? band.position : null;
+    },
+  };
+}
+
 // Pure text → squad step, separate from OCR so it can be tested directly.
-export function extractSquadFromOcrLines(lines, allPlayers, badges = []) {
+// `nameLines` (default: all lines) are the ones player names are looked
+// for in; prices and the bank figure can come from anywhere.
+export function extractSquadFromOcrLines(lines, allPlayers, badges = [], nameLines = lines) {
   const index = buildNameIndex(allPlayers);
   const prices = findPrices(lines);
-  const detections = [];
-  lines.forEach(words => {
-    findNamesInLine(words, index).forEach(f => {
-      // Several players can share a printed name (two "Gomes"); the review
-      // screen offers the alternatives, so pick the priciest — usually the
-      // one people actually own — as the starting guess.
-      const player = [...f.players].sort((a, b) => b.price - a.price)[0];
-      detections.push({ ...f, player, ambiguous: f.players.length > 1 });
-    });
+  const found = [];
+  nameLines.forEach(words => found.push(...findNamesInLine(words, index)));
+  const hints = pitchRowPositions(dedupeByPlace(found));
+
+  const detections = found.map(f => {
+    // Several players can share a printed name (two "Gomez"). In Pitch
+    // View the row says which position it is; otherwise (and to break any
+    // remaining tie) pick the priciest — usually the one people actually
+    // own. The review screen still flags the name and offers the others.
+    const hint = hints.get(f);
+    const inPosition = hint ? f.players.filter(p => p.positionId === hint) : [];
+    const candidates = inPosition.length ? inPosition : f.players;
+    const player = [...candidates].sort((a, b) => b.price - a.price)[0];
+    return { ...f, player, ambiguous: candidates.length > 1 };
   });
 
   const squad = trimToSquadShape(detections);
@@ -506,12 +690,41 @@ export function extractSquadFromOcrLines(lines, allPlayers, badges = []) {
 // Raw OCR lines (arrays of { text, bbox, confidence }), useful on its own
 // for debugging what Tesseract saw.
 export async function readScreenshotText(img, onProgress) {
-  return ocrWords(prepareCanvases(img).canvases, onProgress);
+  const prepared = prepareCanvases(img);
+  const { pageLines, labelLines } = await ocrWords(prepared.canvases, onProgress, prepared.labelBoxes, prepared.source);
+  return [...pageLines, ...labelLines];
+}
+
+// A full pitch has 15 labels. With most of them found, text outside the
+// labels has to match a name almost exactly, which keeps shirt sponsors
+// ("CMC MARKETS" → "Markelo") and other screen text from being taken for
+// players while still allowing a cleanly read name on a label we missed
+// (a red "injured" label, say). Otherwise (List View, unusual screens)
+// every line is treated alike.
+const MIN_LABELS_FOR_LABEL_ONLY = 11;
+const STRICT_NAME_SCORE = 0.9;
+// ...and be a confidently read word of a few letters, not OCR noise that
+// happens to spell a short surname ("mee" → Mee).
+const STRICT_MIN_CONFIDENCE = 70;
+
+function insideAnyBox(word, boxes) {
+  const cx = (word.bbox.x0 + word.bbox.x1) / 2, cy = (word.bbox.y0 + word.bbox.y1) / 2;
+  return boxes.some(b => cx >= b.x0 && cx <= b.x1 && cy >= b.y0 && cy <= b.y1);
 }
 
 export async function readSquadFromScreenshot(img, allPlayers, onProgress) {
   const prepared = prepareCanvases(img);
-  const lines = await ocrWords(prepared.canvases, onProgress);
-  const badges = findArmbandBadges(prepared.light, prepared.dark, prepared.width, prepared.height, lines);
-  return extractSquadFromOcrLines(lines, allPlayers, badges);
+  const { pageLines, labelLines } = await ocrWords(prepared.canvases, onProgress, prepared.labelBoxes, prepared.source);
+  const allLines = [...pageLines, ...labelLines];
+  const boxes = prepared.labelBoxes;
+  // With most labels found, text outside them (shirt sponsors, banners)
+  // only counts as a name on a near-exact match; fuzzy matches must come
+  // from inside a label.
+  const strictOutside = boxes.length >= MIN_LABELS_FOR_LABEL_ONLY;
+  const nameLines = allLines.map(line => line
+    .filter(w => !strictOutside || insideAnyBox(w, boxes) || (w.confidence >= STRICT_MIN_CONFIDENCE && w.text.length >= 4))
+    .map(w => ({ ...w, minScore: strictOutside && !insideAnyBox(w, boxes) ? STRICT_NAME_SCORE : undefined })))
+    .filter(line => line.length);
+  const badges = findArmbandBadges(prepared.light, prepared.dark, prepared.width, prepared.height, allLines);
+  return extractSquadFromOcrLines(allLines, allPlayers, badges, nameLines);
 }
