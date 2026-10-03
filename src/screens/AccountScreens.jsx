@@ -13,17 +13,33 @@ const inputStyle = { width: '100%', background: 'var(--panel-alt)', color: 'var(
 const hintStyle = { fontSize: '0.66rem', color: 'var(--ink-dim)', margin: '-10px 0 14px' };
 const linkStyle = { width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--blue)', padding: '14px 0 0', cursor: 'pointer', fontSize: '0.78rem' };
 
-const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email' };
+const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email', forgot: 'Reset your password', reset: 'Choose a new password' };
+const SUBMIT_LABELS = { login: 'Log in', register: 'Create account', email: 'Save email', forgot: 'Send reset link', reset: 'Save new password' };
 
 // mode: 'login' | 'register' | 'email' (add or change the logged-in
-// user's email). Uses a native <dialog> opened with showModal(), which
-// gives focus trapping, Escape-to-close and an inert page behind it.
-export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit, onSetEmail, error, loading, onClose }) {
+// user's email) | 'forgot' (ask for a reset link) | 'reset' (set a new
+// password from an emailed link). Uses a native <dialog> opened with
+// showModal(), which gives focus trapping, Escape-to-close and an inert
+// page behind it.
+export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit, onSetEmail, onForgot, onReset, onClearError, error, loading, onClose }) {
   const dialogRef = useRef(null);
-  const [mode, setMode] = useState(initialMode);
+  const [mode, setModeState] = useState(initialMode);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState(initialMode === 'email' ? currentEmail : '');
+  const [identifier, setIdentifier] = useState('');
+  const [notice, setNotice] = useState(''); // "check your inbox" after a reset request
+
+  function setMode(next) {
+    setNotice('');
+    onClearError();
+    setModeState(next);
+    // Put the cursor in the new form's first field.
+    setTimeout(() => {
+      const field = dialogRef.current && dialogRef.current.querySelector('input');
+      if (field) field.focus();
+    }, 0);
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -35,13 +51,21 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
     return () => { if (dialog && dialog.open) dialog.close(); };
   }, []);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (mode === 'email') onSetEmail(email);
+    else if (mode === 'forgot') {
+      const message = await onForgot(identifier);
+      if (message) setNotice(message);
+    } else if (mode === 'reset') onReset(password);
     else onSubmit(mode, { username, password, email: mode === 'register' ? email : undefined });
   }
 
-  const canSubmit = mode === 'email' ? email.trim() !== '' : (username && password);
+  const canSubmit = {
+    email: email.trim() !== '',
+    forgot: identifier.trim() !== '',
+    reset: password !== '',
+  }[mode] ?? Boolean(username && password);
 
   return (
     <dialog
@@ -59,13 +83,52 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
           {TITLES[mode]}
         </h2>
         <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', textAlign: 'center', marginBottom: 22 }}>
-          {mode === 'email'
-            ? (currentEmail ? 'Change the email on your account.' : 'Add an email address to your account.')
-            : "Save your Team ID(s) or squads so you don't have to re-enter them."}
+          {{
+            email: currentEmail ? 'Change the email on your account.' : 'Add an email address to your account.',
+            forgot: "Enter your username or email and we'll email you a link to choose a new password.",
+            reset: 'Pick a new password for your account.',
+          }[mode] || "Save your Team ID(s) or squads so you don't have to re-enter them."}
         </div>
 
+        {notice ? (
+          <div role="status" className="fpl-block" style={{ padding: 12, fontSize: '0.85rem', lineHeight: 1.5, marginBottom: 4 }}>{notice}</div>
+        ) : (
         <form onSubmit={handleSubmit}>
-          {mode !== 'email' && (
+          {mode === 'forgot' && (
+            <>
+              <label htmlFor="auth-identifier" className="fpl-mono" style={labelStyle}>USERNAME OR EMAIL</label>
+              <input
+                id="auth-identifier"
+                className="fpl-mono"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
+                style={inputStyle}
+              />
+            </>
+          )}
+
+          {mode === 'reset' && (
+            <>
+              <label htmlFor="auth-new-password" className="fpl-mono" style={labelStyle}>NEW PASSWORD</label>
+              <input
+                id="auth-new-password"
+                type="password"
+                className="fpl-mono"
+                autoComplete="new-password"
+                minLength={8}
+                aria-describedby="auth-new-password-hint"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={inputStyle}
+              />
+              <div id="auth-new-password-hint" className="fpl-mono" style={hintStyle}>At least 8 characters.</div>
+            </>
+          )}
+
+          {(mode === 'login' || mode === 'register') && (
             <>
               <label htmlFor="auth-username" className="fpl-mono" style={labelStyle}>USERNAME</label>
               <input
@@ -93,10 +156,15 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
               {mode === 'register' && (
                 <div id="auth-password-hint" className="fpl-mono" style={hintStyle}>At least 8 characters.</div>
               )}
+              {mode === 'login' && (
+                <button type="button" onClick={() => setMode('forgot')} className="fpl-mono" style={{ ...linkStyle, width: 'auto', display: 'block', margin: '-6px 0 14px auto', padding: 0, fontSize: '0.7rem' }}>
+                  Forgot password?
+                </button>
+              )}
             </>
           )}
 
-          {mode !== 'login' && (
+          {(mode === 'register' || mode === 'email') && (
             <>
               <label htmlFor="auth-email" className="fpl-mono" style={labelStyle}>
                 EMAIL{mode === 'register' && <span style={{ textTransform: 'none' }}> (optional)</span>}
@@ -124,18 +192,29 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
           )}
 
           <button type="submit" disabled={loading || !canSubmit} className="fpl-btn fpl-btn-solid" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
-            {loading ? <Loader2 size={16} className="fpl-spin" /> : ({ login: 'Log in', register: 'Create account', email: 'Save email' })[mode]}
+            {loading ? <Loader2 size={16} className="fpl-spin" /> : SUBMIT_LABELS[mode]}
           </button>
         </form>
+        )}
 
         {mode === 'email' && currentEmail && (
           <button type="button" onClick={() => onSetEmail('')} disabled={loading} className="fpl-mono" style={{ ...linkStyle, color: 'var(--ink-dim)' }}>
             Remove email
           </button>
         )}
-        {mode !== 'email' && (
-          <button type="button" onClick={() => setMode(m => (m === 'login' ? 'register' : 'login'))} className="fpl-mono" style={linkStyle}>
+        {(mode === 'login' || mode === 'register') && (
+          <button type="button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="fpl-mono" style={linkStyle}>
             {mode === 'login' ? "Don't have an account? Create one" : 'Already have an account? Log in'}
+          </button>
+        )}
+        {mode === 'forgot' && (
+          <button type="button" onClick={() => setMode('login')} className="fpl-mono" style={linkStyle}>
+            Back to log in
+          </button>
+        )}
+        {mode === 'reset' && (
+          <button type="button" onClick={() => setMode('forgot')} className="fpl-mono" style={linkStyle}>
+            Link expired? Send me a new one
           </button>
         )}
       </div>

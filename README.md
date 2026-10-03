@@ -111,6 +111,11 @@ npm run build
    | `REDIS_URL` | Redis connection string for accounts and saved squads |
    | `JWT_SECRET` | Secret used to sign session cookies |
    | `ODDS_API_KEY` | Optional. Free key from the-odds-api.com; without it the odds adjustment is skipped |
+| `SMTP_USER` | Optional. Address that sends password-reset emails, e.g. a Gmail address. Without it and `SMTP_PASS`, "Forgot password?" says resets aren't set up |
+| `SMTP_PASS` | Optional. For Gmail, an [app password](https://myaccount.google.com/apppasswords) (needs 2-Step Verification), not the account password |
+| `SMTP_HOST` / `SMTP_PORT` | Optional. Default `smtp.gmail.com` / `465`; set these to use another email provider |
+| `EMAIL_FROM` | Optional. From line on emails; default `FPL Squad Check <SMTP_USER>` |
+| `APP_URL` | Optional. Site address used in reset links; default `https://fplchecker.vercel.app` |
 
 3. **Import historical data (optional, once):** run `node scripts/import-player-history.mjs` to upload past seasons to Blob. Without it, predictions fall back to the position-average baseline.
 
