@@ -36,9 +36,24 @@ export default function FPLSquadChecker() {
   const [savedTeams, setSavedTeams] = useState([]);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  // The log-in pop-up: null (closed), 'login' (log in / sign up) or
-  // 'email' (add or change the logged-in user's email).
+  // The log-in pop-up: null (closed), 'login' (log in / sign up), 'email'
+  // (add or change the logged-in user's email) or 'reset' (choose a new
+  // password from an emailed ?reset= link).
   const [authDialog, setAuthDialog] = useState(null);
+  const [resetToken, setResetToken] = useState(null);
+
+  // A password-reset email links to /?reset=<token>: open the pop-up to
+  // choose a new password, and take the token out of the address bar.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('reset');
+    if (!token) return;
+    setResetToken(token);
+    setAuthDialog('reset');
+    params.delete('reset');
+    const query = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+  }, []);
 
   const staticPromiseRef = useRef(null);
   // The optimal XI's predicted total, per static-data set (the current one,
@@ -111,6 +126,34 @@ export default function FPLSquadChecker() {
     if (!result.ok) { setAuthError(result.error); return; }
     setSession({ username: result.data.username, email: result.data.email || '' });
     fetchSavedTeams();
+    setAuthDialog(null);
+  }
+
+  // Returns the "check your inbox" message on success, otherwise null.
+  async function handleForgotPassword(identifier) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await fetchJson('/api/auth', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'forgot_password', identifier }),
+    });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return null; }
+    return result.data.message;
+  }
+
+  async function handleResetPassword(password) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await fetchJson('/api/auth', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reset_password', token: resetToken, password }),
+    });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return; }
+    setSession({ username: result.data.username, email: result.data.email || '' });
+    fetchSavedTeams();
+    setResetToken(null);
     setAuthDialog(null);
   }
 
@@ -944,6 +987,9 @@ export default function FPLSquadChecker() {
           currentEmail={session ? session.email : ''}
           onSubmit={handleAuthSubmit}
           onSetEmail={handleSetEmail}
+          onForgot={handleForgotPassword}
+          onReset={handleResetPassword}
+          onClearError={() => setAuthError('')}
           error={authError}
           loading={authLoading}
           onClose={() => { setAuthError(''); setAuthDialog(null); }}

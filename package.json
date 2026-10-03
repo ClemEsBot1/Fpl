@@ -20,6 +20,7 @@
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.33.0",
+    "nodemailer": "^10.0.14",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "redis": "^6.2.1",

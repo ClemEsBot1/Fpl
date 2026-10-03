@@ -1,10 +1,10 @@
+import { createHash, randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 export const SESSION_COOKIE_NAME = 'fpl_session';
-// Long-lived on purpose: there's no password-reset flow (emails are
-// optional and only stored), so forcing frequent re-logins would just be
-// friction with no real security upside for this app.
+// Long-lived on purpose: this is a low-stakes app (saved team IDs and
+// squads), so frequent re-logins would just be friction.
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
@@ -31,9 +31,9 @@ export function validatePassword(password) {
   return { ok: true };
 }
 
-// Email is optional (sign-up and later from the account menu). It's only
-// stored for now — logins are still by username. A loose shape check is
-// enough; anything stricter rejects real addresses.
+// Email is optional (sign-up and later from the account menu). It's used
+// for password resets; logins are still by username. A loose shape check
+// is enough; anything stricter rejects real addresses.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Returns { ok, email } with the address trimmed and lower-cased, or '' for
@@ -45,6 +45,26 @@ export function normalizeEmail(email) {
   if (!trimmed) return { ok: true, email: '' };
   if (trimmed.length > 254 || !EMAIL_RE.test(trimmed)) return { ok: false, error: 'Enter a valid email address.' };
   return { ok: true, email: trimmed };
+}
+
+// Lookup key from an email address to the username that owns it, so a
+// password reset can start from either. Kept in step by register,
+// set_email and (for accounts that added an email before this existed)
+// login.
+export function emailKeyFor(email) {
+  return `email:${String(email).trim().toLowerCase()}`;
+}
+
+// Password-reset links carry a random token; only its SHA-256 is stored,
+// so someone who can read the database can't use a pending reset.
+export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
+
+export function createResetToken() {
+  return randomBytes(32).toString('base64url');
+}
+
+export function resetKeyFor(token) {
+  return `pwreset:${createHash('sha256').update(String(token)).digest('hex')}`;
 }
 
 // Usernames are stored case-insensitively (so "Clem" and "clem" collide),
