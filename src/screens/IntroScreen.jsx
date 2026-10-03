@@ -1,8 +1,9 @@
 // Home screen (with the prediction-accuracy panel) and the Team ID form.
 import { useEffect, useState } from 'react';
-import { ArrowRight, Bookmark, Camera, ChevronLeft, Hash, History, Trophy, Wand2 } from 'lucide-react';
+import { ArrowRight, Bookmark, Camera, ChevronLeft, Download, Hash, History, Trophy, Wand2 } from 'lucide-react';
 import { fmtPts } from '../lib/format.js';
 import { SQUAD_BUDGET } from '../lib/predictions.js';
+import { useInstallPrompt } from '../lib/pwa.js';
 
 // "How accurate were we?" — last gameweek's predictions against what
 // players actually scored (api/accuracy.js). Hidden until there's data.
@@ -29,6 +30,25 @@ export function AccuracyPanel() {
         Compared across {data.playersCompared} players who played, using predictions saved before the deadline.
       </p>
     </section>
+  );
+}
+
+// Shown only where the browser can install the site as an app (Chrome on
+// Android and desktop) and it isn't installed yet.
+function InstallAppButton() {
+  const install = useInstallPrompt();
+  if (!install) return null;
+  return (
+    <>
+      <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '28px 0 10px', color: 'var(--ink-dim)' }}>Use it like an app</div>
+      <button className="fpl-btn" onClick={install} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+        <Download size={22} />
+        <span>
+          <span className="fpl-option-title">Install the app</span>
+          <span className="fpl-mono fpl-option-sub">Adds it to your home screen, opens full screen</span>
+        </span>
+      </button>
+    </>
   );
 }
 
@@ -100,6 +120,7 @@ export function IntroScreen({ onChoose, showHindsight, showMyTeams }) {
           </button>
         </>
       )}
+      <InstallAppButton />
       <AccuracyPanel />
     </div>
   );
