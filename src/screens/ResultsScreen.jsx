@@ -483,6 +483,16 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           {bankTenths !== null && bankTenths !== undefined && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
           )}
+          {data.asOfGwId && (
+            <div className="fpl-mono fpl-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
+              Predictions use only data from before this gameweek's deadline. Prices and set-piece takers are today's.
+            </div>
+          )}
+          {data.asOfFailedGwId && (
+            <div className="fpl-mono" role="status" style={{ fontSize: '0.68rem', color: 'var(--amber)', marginTop: 4, fontWeight: 600, lineHeight: 1.5 }}>
+              Couldn't load player data from before this gameweek, so these predictions use today's data (they may reflect what happened since).
+            </div>
+          )}
           {entryMeta && entryMeta.picksFromGwId && (
             <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>
               Your Gameweek {entryMeta.picksFromGwId} team — this gameweek's picks are hidden until the deadline, so transfers made since won't show.

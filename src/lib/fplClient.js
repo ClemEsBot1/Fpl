@@ -1,6 +1,7 @@
 // Browser-side data loading: FPL data through the /api/fpl proxy, plus the
 // cached player-history and odds blobs.
 import { buildStaticDataFromRaw } from './predictions.js';
+import { applyAsOfStats } from './asOf.js';
 
 export async function fetchFplJson(path) {
   // Calls our own /api/fpl serverless function (added via Vercel), which
@@ -52,5 +53,22 @@ export async function loadStaticData() {
     fetchPlayerHistory(),
     fetchOdds(),
   ]);
-  return buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData });
+  const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData });
+  // Kept so a past gameweek can be rebuilt "as of" its deadline.
+  return { ...staticData, raw: { bootstrap, fixturesRaw, playerHistoryData } };
+}
+
+// Static data for a past gameweek, using only what was known before its
+// deadline: player stats from earlier gameweeks (/api/as-of, see
+// src/lib/asOf.js), with that gameweek as the target. Bookmaker odds are
+// left out — the cached odds are for upcoming matches only.
+export async function loadStaticDataAsOf(base, gwId) {
+  const r = await fetch(`/api/as-of?gw=${gwId}`);
+  if (!r.ok) throw new Error('status ' + r.status);
+  const asOf = await r.json();
+  const bootstrap = applyAsOfStats(base.raw.bootstrap, asOf);
+  const staticData = buildStaticDataFromRaw(bootstrap, base.raw.fixturesRaw, {
+    forceGwId: gwId, playerHistoryData: base.raw.playerHistoryData, oddsData: null,
+  });
+  return { ...staticData, raw: base.raw, asOfGwId: gwId };
 }
