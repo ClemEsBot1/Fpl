@@ -8,6 +8,7 @@ import {
   createResetToken, resetKeyFor, RESET_TOKEN_TTL_SECONDS,
 } from '../src/lib/auth.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
+import { resetPasswordEmail } from '../src/lib/emails.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
 // Failed logins are counted per username (protects one account from a
@@ -53,22 +54,6 @@ function requireSecret() {
 async function emailAvailable(redis, email, username) {
   const owner = await redis.get(emailKeyFor(email));
   return !owner || owner === normalizeUsername(username);
-}
-
-function resetEmail(username, link) {
-  const text = `Hi ${username},
-
-Someone (hopefully you) asked to reset the password for your FPL Squad Check account. Open this link to choose a new one:
-
-${link}
-
-The link works once and expires in 30 minutes. If you didn't ask for this, ignore this email; your password hasn't changed.`;
-  const html = `<p>Hi ${username},</p>
-<p>Someone (hopefully you) asked to reset the password for your FPL Squad Check account.</p>
-<p><a href="${link}" style="display:inline-block;padding:10px 16px;background:#04F9FC;color:#03132B;border-radius:6px;font-weight:700;text-decoration:none">Choose a new password</a></p>
-<p>Or paste this link into your browser:<br>${link}</p>
-<p style="color:#666">The link works once and expires in 30 minutes. If you didn't ask for this, ignore this email; your password hasn't changed.</p>`;
-  return { subject: 'Reset your FPL Squad Check password', text, html };
 }
 
 // `redisOverride` and `mailOverride` are never passed in production
@@ -275,7 +260,7 @@ export default async function handler(req, res, redisOverride, mailOverride) {
       const entry = { username: normalizeUsername(record.username), expiresAt: Date.now() + RESET_TOKEN_TTL_SECONDS * 1000 };
       await redis.set(resetKeyFor(token), JSON.stringify(entry), 'EX', RESET_TOKEN_TTL_SECONDS);
       const link = `${APP_URL}/?reset=${encodeURIComponent(token)}`;
-      await send({ to: record.email, ...resetEmail(record.username, link) });
+      await send({ to: record.email, ...resetPasswordEmail({ username: record.username, link, appUrl: APP_URL, expiresMinutes: RESET_TOKEN_TTL_SECONDS / 60 }) });
       res.status(200).json({ ok: true, message: `We've sent a reset link to ${maskEmail(record.email)}. It expires in 30 minutes; check your spam folder if it doesn't arrive.` });
     } catch (e) {
       console.error('forgot_password failed:', e && e.message);
