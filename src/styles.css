@@ -1,0 +1,106 @@
+/* App-wide styles (previously injected at runtime by a <GlobalStyle> component in App.jsx). */
+
+.fpl-root { --bg:linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%);
+  --panel:rgba(10,8,30,0.60); --panel-alt:rgba(10,8,30,0.42); --line:rgba(255,255,255,0.20);
+  --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.78); --blue:#04F9FC; --green:#36FE48;
+  --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45;
+  --bg-tint:rgba(10,8,30,0.62); }
+/* The gradient sits under a dark tint so light text on it stays readable
+   (WCAG AA contrast); untinted, white text on the cyan end measured ~1.8:1. */
+.fpl-root { font-family:'Inter',sans-serif; color:var(--ink); min-height:100vh;
+  background:linear-gradient(var(--bg-tint), var(--bg-tint)) fixed, var(--bg) fixed; }
+
+.fpl-display { font-family:'Space Grotesk',sans-serif; }
+.fpl-mono { font-family:'IBM Plex Mono',monospace; }
+
+.fpl-block { background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden;
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+.fpl-btn { font-family:'Space Grotesk',sans-serif; font-weight:600; letter-spacing:0.02em;
+  border:2px solid var(--blue); background:transparent; color:var(--blue); border-radius:6px;
+  padding:14px 18px; cursor:pointer; transition:background .15s,color .15s; text-align:left; }
+.fpl-btn:hover, .fpl-btn:focus-visible { background:var(--blue); color:#03132B; }
+.fpl-btn:focus-visible { outline:3px solid var(--sky); outline-offset:2px; }
+.fpl-btn-solid { background:var(--blue); color:#03132B; }
+.fpl-btn-solid:hover { background:var(--lime); }
+.fpl-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+.fpl-input { font-family:'IBM Plex Mono',monospace; font-size:1.1rem; letter-spacing:0.04em;
+  background:var(--panel-alt); border:2px solid var(--line); color:var(--ink); border-radius:5px;
+  padding:12px 14px; width:100%; }
+.fpl-input:focus { outline:none; border-color:var(--blue); }
+.fpl-input::placeholder { color:var(--ink-dim); }
+
+.fpl-tag { display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:0.68rem;
+  font-weight:600; padding:2px 6px; letter-spacing:0.03em; border-radius:3px; }
+
+.fpl-armband { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+  font-size:0.62rem; font-weight:700; margin-left:5px; background:var(--blue); color:#03132B; border-radius:3px;
+  font-family:'IBM Plex Mono',monospace; }
+.fpl-armband-vc { background:var(--sky); }
+
+.fpl-fixchip { font-family:'IBM Plex Mono',monospace; font-size:0.66rem; font-weight:600;
+  padding:3px 5px; display:inline-block; min-width:38px; text-align:center; border-radius:3px; }
+
+.fpl-row { display:flex; align-items:center; gap:10px; padding:10px 10px; border-bottom:1px solid var(--line); }
+.fpl-row-editable { cursor:pointer; transition:background .12s; }
+.fpl-row-editable:hover { background:var(--panel-alt); }
+.fpl-row-editable.fpl-row-open { background:var(--panel-alt); }
+.fpl-row:last-child { border-bottom:none; }
+.fpl-row-bench { opacity:0.72; }
+.fpl-row-pos { font-family:'IBM Plex Mono',monospace; font-size:0.62rem; font-weight:700;
+  color:var(--ink-dim); background:var(--panel-alt); padding:4px 5px; min-width:34px; text-align:center; border-radius:3px; }
+.fpl-row-main { flex:1; min-width:0; }
+.fpl-row-name { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:0.95rem;
+  display:flex; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fpl-row-sub { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--ink-dim); margin-top:2px; }
+.fpl-availnote { font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--red); margin-top:2px; font-weight:600; }
+.fpl-row-fixtures { display:flex; gap:3px; flex-shrink:0; }
+.fpl-row-pred { text-align:right; flex-shrink:0; min-width:52px; }
+.fpl-row-pred-num { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:1.15rem; line-height:1; }
+.fpl-row-pred-label { font-family:'IBM Plex Mono',monospace; font-size:0.55rem; color:var(--ink-dim); letter-spacing:0.04em; }
+
+.fpl-section-title { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.85rem;
+  letter-spacing:0.06em; text-transform:uppercase; color:var(--blue); padding:10px 12px;
+  background:var(--panel-alt); border-bottom:1px solid var(--line); border-radius:6px 6px 0 0; }
+
+.fpl-pulse-wrap { display:flex; gap:6px; }
+.fpl-pulse { width:10px; height:10px; background:var(--blue); animation:fplPulse 1.1s ease-in-out infinite; }
+@keyframes fplPulse { 0%,100%{opacity:0.25;} 50%{opacity:1;} }
+.fpl-spin { animation:fplSpin 0.8s linear infinite; }
+@keyframes fplSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+@media (prefers-reduced-motion: reduce) {
+  .fpl-pulse { animation:none; opacity:0.7; }
+  .fpl-spin { animation:none !important; }
+}
+
+.fpl-details summary { cursor:pointer; font-family:'Space Grotesk',sans-serif; font-weight:600;
+  font-size:0.85rem; color:var(--ink-dim); padding:10px 0; list-style:none; }
+.fpl-details summary::-webkit-details-marker { display:none; }
+.fpl-details[open] summary { color:var(--ink); }
+
+.fpl-search-item { padding:8px 10px; cursor:pointer; border-bottom:1px solid var(--line); font-size:0.85rem; }
+.fpl-search-item:hover { background:var(--panel-alt); }
+.fpl-search-item:last-child { border-bottom:none; }
+
+.fpl-chip-btn { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; padding:6px 8px;
+  border:1px solid var(--line); background:var(--panel-alt); color:var(--ink); cursor:pointer; border-radius:4px; }
+.fpl-chip-btn.active { border-color:var(--green); color:var(--green); }
+
+/* Shared patterns that used to be repeated as inline styles. */
+.fpl-dim { color:var(--ink-dim); }
+.fpl-meta { font-size:0.68rem; color:var(--ink-dim); }
+.fpl-meta-lg { font-size:0.72rem; color:var(--ink-dim); }
+.fpl-inline { display:flex; align-items:center; gap:6px; }
+.fpl-screen { padding:20px 16px 40px; }
+.fpl-screen-title { font-size:1.25rem; font-weight:700; margin-bottom:6px; }
+.fpl-option-title { display:block; font-size:1rem; }
+.fpl-option-sub { display:block; font-size:0.7rem; font-weight:400; margin-top:2px; opacity:0.75; }
+.fpl-back-btn { background:none; border:none; color:var(--ink-dim); display:flex; align-items:center; gap:4px;
+  font-size:0.78rem; margin-bottom:18px; cursor:pointer; padding:0; }
+.fpl-back-btn:hover, .fpl-back-btn:focus-visible { color:var(--ink); }
+
+/* Player pick lists are real buttons (keyboard and screen-reader
+   accessible); this keeps them looking like plain list rows. */
+button.fpl-search-item { display:block; width:100%; text-align:left; background:none; border:none;
+  border-bottom:1px solid var(--line); color:inherit; font:inherit; font-size:0.85rem; }
+button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:2px solid var(--blue); outline-offset:-2px; }

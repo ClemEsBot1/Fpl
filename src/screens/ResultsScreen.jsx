@@ -1,0 +1,833 @@
+// Results for a squad: predicted points per player, captaincy, transfer
+// suggestions, chip timing, editing, saving, sharing and reminders.
+import { Fragment, useState } from 'react';
+import { ArrowRight, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Crown, Download, Edit3, Info, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Trophy, Zap } from 'lucide-react';
+import { DifficultyChips } from '../components/common.jsx';
+import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, normalize } from '../lib/format.js';
+import { POSITION_ORDER } from '../lib/predictions.js';
+import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, swapPlayerInSquad } from '../lib/squadLogic.js';
+
+// Every input that fed into a player's predicted points, in plain language
+// — see computePlayerPrediction in src/lib/predictions.js for where each
+// of these numbers actually comes from. Only rendered when a row's "Why?"
+// toggle is open, and only for slots that carry a live breakdown (the two
+// synthetic "actual points" paths — hindsight and frozen past-gw snapshots
+// — don't have one, since there's no live formula to explain there).
+export function PredictionBreakdown({ breakdown }) {
+  if (!breakdown) return null;
+  const b = breakdown;
+
+  // Absolute-value inputs (not deltas) — no +/- sign.
+  const inputRows = [
+    [`FPL's own model (ep_next)${b.epNextShrunk ? ' — shrunk toward position average, early season' : ''}`, fmtPts(b.epNext)],
+  ];
+  if (b.formEligible) {
+    inputRows.push(['Season points-per-game', fmtPts(b.ppg)]);
+    inputRows.push(['Recent form', fmtPts(b.form)]);
+  }
+
+  // Signed adjustments layered on top of the input(s) above — shown only
+  // when non-zero, always with an explicit sign since they're deltas.
+  const adjustmentRows = [];
+  if (b.setPieceBonus) adjustmentRows.push(['Set-piece duty (pens/FKs/corners)', b.setPieceBonus]);
+  if (b.xgAdjustment) adjustmentRows.push(['Underlying chances (xG/xA)', b.xgAdjustment]);
+  if (b.oddsAdjustment) adjustmentRows.push(['Bookmaker odds nudge', b.oddsAdjustment]);
+
+  // Multipliers applied to the base above to reach the final predicted
+  // figures — shown as ×values, not deltas, since that's what they are.
+  const multRows = [];
+  if (b.isBlankThisEvent) {
+    multRows.push(['No fixture this gameweek', 'Blank — 0 pts']);
+  } else {
+    if (b.isDoubleThisEvent) multRows.push(['Fixtures this gameweek', `Double (${b.fixtureCountThisEvent})`]);
+    multRows.push(['Fixture difficulty (next match)', `×${b.nextFixtureMult.toFixed(2)}`]);
+    multRows.push(['Fixture difficulty (4-wk average, used for PTS/WK)', `×${b.fixtureMult.toFixed(2)}`]);
+  }
+  if (b.availMult < 1) multRows.push(['Availability', `×${b.availMult.toFixed(2)}`]);
+  if (b.congestionMult < 1) multRows.push(['Short rest', `×${b.congestionMult.toFixed(2)} (${b.restDays}d since last match)`]);
+
+  return (
+    <div className="fpl-block" style={{ padding: 12, marginTop: 2, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
+      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8, letterSpacing: '0.03em' }}>WHY THIS PREDICTION</div>
+      {inputRows.map(([label, val], i) => (
+        <div key={`in-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '3px 0' }}>
+          <span className="fpl-dim">{label}</span>
+          <span className="fpl-mono">{val}</span>
+        </div>
+      ))}
+      {adjustmentRows.map(([label, val], i) => (
+        <div key={`adj-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '3px 0' }}>
+          <span className="fpl-dim">{label}</span>
+          <span className="fpl-mono" style={{ color: val < 0 ? 'var(--red)' : 'var(--mint)' }}>{val > 0 ? '+' : ''}{fmtPts(val)}</span>
+        </div>
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '5px 0', borderTop: '1px solid var(--line)', marginTop: 4, fontWeight: 600 }}>
+        <span>Base (before fixture/availability)</span>
+        <span className="fpl-mono">{fmtPts(b.base)}</span>
+      </div>
+      {multRows.map(([label, val], i) => (
+        <div key={`mult-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '3px 0', color: 'var(--ink-dim)' }}>
+          <span>{label}</span>
+          <span className="fpl-mono">{val}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle, isPastGw }) {
+  const { player, predicted, availNote, isCaptain, isViceCaptain } = slot;
+  const [showWhy, setShowWhy] = useState(false);
+  const team = teamsById[player.team];
+  const fixtures = fixturesByTeam[player.team];
+  const rowClass = `fpl-row ${!slot.isStarting ? 'fpl-row-bench' : ''} ${editable ? 'fpl-row-editable' : ''} ${isOpen ? 'fpl-row-open' : ''}`;
+  return (
+    <>
+      <div
+        className={rowClass}
+        onClick={editable ? onToggle : undefined}
+        {...(editable ? {
+          role: 'button',
+          tabIndex: 0,
+          'aria-expanded': !!isOpen,
+          'aria-label': `${player.webName}: change player or captaincy`,
+          onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } },
+        } : {})}
+      >
+        <div className="fpl-row-pos">{POSITION_LABELS[player.positionId]}</div>
+        <div className="fpl-row-main">
+          <div className="fpl-row-name">
+            {player.webName}
+            {isCaptain && <span className="fpl-armband" title="Captain">C</span>}
+            {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
+          </div>
+          <div className="fpl-row-sub">{team ? team.short_name : '—'} · {fmtPrice(player.price)}</div>
+          <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
+            {fmtPts(player.displaySeasonPoints)} pts · {fmtPts(player.displaySeasonPPG)} pts/match{player.displayIsLastSeason ? ' (LS)' : ''}
+          </div>
+          {availNote && <div className="fpl-availnote">{availNote}</div>}
+          {slot.breakdown && (
+            <button
+              className="fpl-mono"
+              onClick={(e) => { e.stopPropagation(); setShowWhy(v => !v); }}
+              style={{ background: 'none', border: 'none', color: 'var(--ink-dim)', textDecoration: 'underline', fontSize: '0.62rem', padding: 0, marginTop: 3, cursor: 'pointer' }}
+            >
+              {showWhy ? 'Hide why' : 'Why?'}
+            </button>
+          )}
+        </div>
+        {!isPastGw && (
+          <div className="fpl-row-fixtures">
+            <DifficultyChips fixtures={fixtures} teamsById={teamsById} max={2} />
+          </div>
+        )}
+        {isPastGw ? (
+          <div className="fpl-row-pred">
+            <div className="fpl-row-pred-num" style={{ color: !slot.played ? 'var(--ink-dim)' : (slot.actualPoints >= 6 ? 'var(--lime)' : slot.actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
+              {!slot.played ? 'NP' : (slot.actualPoints ?? '—')}
+            </div>
+            <div className="fpl-row-pred-label">{!slot.played ? 'NOT PLAYED' : 'ACTUAL PTS'}</div>
+            <div className="fpl-mono" style={{ fontSize: '0.58rem', color: 'var(--ink-dim)', marginTop: 2 }}>{fmtPts(predicted)} predicted</div>
+          </div>
+        ) : (
+          <div className="fpl-row-pred">
+            <div className="fpl-row-pred-num" style={{ color: predicted < 2 ? 'var(--red)' : predicted >= 5 ? 'var(--lime)' : 'var(--ink)' }}>{fmtPts(predicted)}</div>
+            <div className="fpl-row-pred-label">PTS/WK</div>
+          </div>
+        )}
+        {editable && (
+          <ChevronDown size={14} style={{ color: 'var(--ink-dim)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .12s' }} />
+        )}
+      </div>
+      {showWhy && <PredictionBreakdown breakdown={slot.breakdown} />}
+    </>
+  );
+}
+
+// Inline replacement search, opened by clicking directly on a player's row in
+// edit mode — the same click-the-box-to-change pattern used by the squad
+// builder, rather than only being reachable via a form at the top.
+// Shown inside the same expand-on-click panel as the swap search, when a
+// row is open in edit mode — lets you (re)assign captain/vice-captain
+// directly on an already-confirmed squad, the same way the screenshot
+// review screen lets you do it before confirming. Works for every way a
+// squad can reach this screen (screenshot, custom build, team ID) since they
+// all render through this one ResultsScreen.
+export function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
+  return (
+    <div style={{ display: 'flex', gap: 16, padding: '10px 10px 0', borderBottom: 'none' }} onClick={e => e.stopPropagation()}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!slot.isCaptain} onChange={() => onSetCaptain(slot.player.id)} />
+        Captain
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!slot.isViceCaptain} onChange={() => onSetVice(slot.player.id)} />
+        Vice-captain
+      </label>
+    </div>
+  );
+}
+
+export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, teamsById, bankTenths, query, setQuery, onSwap }) {
+  const posId = outSlot.player.positionId;
+  const squadIds = new Set(squad.map(s => s.player.id));
+  const nq = normalize(query);
+  const candidates = allPlayers
+    .filter(p => p.positionId === posId && !squadIds.has(p.id))
+    .filter(p => nq.length < 2 || normalize(p.webName).includes(nq) || normalize(p.secondName).includes(nq))
+    .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted)
+    .slice(0, 8);
+  const remaining = (bankTenths || 0) / 10 + outSlot.player.price;
+
+  return (
+    <div style={{ padding: 10, borderBottom: '1px solid var(--line)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ position: 'relative', marginBottom: 8 }}>
+        <Search size={14} style={{ position: 'absolute', left: 9, top: 11, color: 'var(--ink-dim)' }} />
+        <input
+          className="fpl-input"
+          style={{ paddingLeft: 30, fontSize: '0.85rem' }}
+          placeholder={`Search a replacement ${POSITION_LABELS[posId]}…`}
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          autoFocus
+        />
+      </div>
+      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8 }}>
+        Budget for this slot: {fmtPrice(remaining)}{query ? ' · matching your search' : ''}
+      </div>
+      {candidates.length === 0 && (
+        <div style={{ padding: '6px 2px', fontSize: '0.8rem', color: 'var(--ink-dim)' }}>No matching players.</div>
+      )}
+      {candidates.map(p => {
+        const team = teamsById[p.team];
+        const priceDelta = Math.round((p.price - outSlot.player.price) * 10) / 10;
+        return (
+          <div
+            key={p.id}
+            className="fpl-search-item"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+            onClick={() => onSwap(outSlot.player.id, p)}
+          >
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <strong>{p.webName}</strong>{' '}
+              <span className="fpl-dim">· {team ? team.short_name : '—'} · {fmtPrice(p.price)}</span>
+            </span>
+            <span className="fpl-mono" style={{ flexShrink: 0, fontSize: '0.72rem', display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ color: 'var(--green)' }}>{fmtPts(predictionsById[p.id].predicted)}pts</span>
+              <span style={{ color: priceDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{priceDelta >= 0 ? '+' : ''}{priceDelta.toFixed(1)}m</span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function TransferCard({ suggestion, teamsById, fixturesByTeam, onApply }) {
+  const { out, inPlayer, inPredicted, gain, costDelta, reason, isFree, hitCost, netGain } = suggestion;
+  return (
+    <div className="fpl-block" style={{ padding: 12, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div className="fpl-mono" style={{ fontSize: '0.6rem', color: 'var(--red)', fontWeight: 700, letterSpacing: '0.04em' }}>OUT</div>
+          <div className="fpl-display" style={{ fontWeight: 600 }}>{out.player.webName}</div>
+          <div className="fpl-mono fpl-meta">{fmtPts(out.predicted)} pts/wk</div>
+        </div>
+        <ArrowRight size={16} style={{ color: 'var(--ink-dim)', flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <div className="fpl-mono" style={{ fontSize: '0.6rem', color: 'var(--green)', fontWeight: 700, letterSpacing: '0.04em' }}>IN</div>
+          <div className="fpl-display" style={{ fontWeight: 600 }}>{inPlayer.webName}</div>
+          <div className="fpl-mono fpl-meta">{fmtPts(inPredicted)} pts/wk</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: 6 }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--ink-dim)' }}>{reason}</span>
+        <span className="fpl-mono" style={{ fontSize: '0.75rem', display: 'flex', gap: 10, alignItems: 'center' }}>
+          <span style={{ color: 'var(--mint)', fontWeight: 700 }}>+{fmtPts(gain)} pts</span>
+          <span style={{ color: costDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{costDelta >= 0 ? '+' : ''}{costDelta.toFixed(1)}m</span>
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 6 }}>
+        {isFree ? (
+          <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--green)', fontWeight: 700, letterSpacing: '0.03em' }}>FREE TRANSFER</span>
+        ) : (
+          <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--amber)', fontWeight: 700, letterSpacing: '0.03em' }}>
+            -{hitCost} HIT · NET {netGain >= 0 ? '+' : ''}{fmtPts(netGain)} PTS
+          </span>
+        )}
+      </div>
+      {onApply && (
+        <button
+          className="fpl-chip-btn"
+          style={{ width: '100%', marginTop: 10, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}
+          onClick={() => onApply(out.player.id, inPlayer)}
+        >
+          <RefreshCw size={12} /> Accept this swap
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
+  const clamped = Math.max(0, Math.min(100, score));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (clamped / 100) * circumference;
+  const hue = (clamped / 100) * 120; // 0 = red, 60 = yellow, 120 = green
+  const color = `hsl(${hue}, 72%, 50%)`;
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,0.14)" strokeWidth={strokeWidth} fill="none" />
+        <circle
+          cx={size / 2} cy={size / 2} r={radius} stroke={color} strokeWidth={strokeWidth} fill="none"
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="fpl-display" style={{ fontSize: size * 0.32, fontWeight: 800, color }}>{clamped}</span>
+      </div>
+    </div>
+  );
+}
+
+// Deadline reminder (.ics with a 3-hour alert) and a shareable image of
+// the squad's predicted points.
+export function ResultsActions({ squad, teamName, gwName, total, teamsById, deadline }) {
+  const [shareState, setShareState] = useState('');
+  const deadlineAhead = deadline && new Date(deadline).getTime() > Date.now();
+
+  async function addReminder() {
+    const { buildDeadlineIcs, squadWarnings } = await import('../lib/calendar.js');
+    const ics = buildDeadlineIcs({ gwName, deadline, notes: squadWarnings(squad), url: window.location.origin });
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fpl-${gwName.toLowerCase().replace(/\s+/g, '-')}-deadline.ics`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
+  async function share() {
+    setShareState('Preparing…');
+    try {
+      const { drawShareCard, shareCard } = await import('../lib/shareCard.js');
+      const canvas = await drawShareCard({ teamName, gwName, total, slots: squad, teamsById, siteUrl: window.location.host });
+      const result = await shareCard(canvas, { title: `${teamName} · ${gwName}`, fileName: 'fpl-squad.png' });
+      setShareState(result === 'downloaded' ? 'Image downloaded' : '');
+    } catch {
+      setShareState("Couldn't create the image");
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
+      {deadlineAhead && (
+        <button type="button" className="fpl-chip-btn fpl-inline" onClick={addReminder}>
+          <Bell size={14} aria-hidden="true" /> Deadline reminder
+        </button>
+      )}
+      <button type="button" className="fpl-chip-btn fpl-inline" onClick={share}>
+        <Share2 size={14} aria-hidden="true" /> Share
+      </button>
+      {shareState && <span className="fpl-mono fpl-meta" role="status">{shareState}</span>}
+    </div>
+  );
+}
+
+// The early return used to sit at the top of ResultsScreen, before its
+// hooks — so a screen that went from "unavailable" to a real gameweek (or
+// back) rendered a different number of hooks and React threw. Each branch
+// is now its own component, so hooks always run in the same order.
+export function ResultsScreen(props) {
+  return props.data.gwUnavailable
+    ? <GameweekUnavailable data={props.data} onStartOver={props.onStartOver} />
+    : <SquadResults {...props} />;
+}
+
+function GameweekUnavailable({ data, onStartOver }) {
+  return (
+    <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+      <Info size={28} style={{ color: 'var(--ink-dim)', margin: '0 auto 14px' }} />
+      <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 6, color: 'var(--ink)' }}>
+        No saved optimal squad for {data.targetEvent && data.allEvents ? ((data.allEvents.find(e => e.id === data.gwId) || {}).name || `gameweek ${data.gwId}`) : `gameweek ${data.gwId}`}.
+      </p>
+      <p style={{ fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--ink-dim)', marginBottom: 22 }}>
+        This gameweek closed before a build was ever saved for it, so there's nothing to show.
+      </p>
+      <button className="fpl-btn fpl-btn-solid" onClick={onStartOver}>Start over</button>
+    </div>
+  );
+}
+
+function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
+  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
+  const [editMode, setEditMode] = useState(false);
+  const [editSlotId, setEditSlotId] = useState(null);
+  const [editQuery, setEditQuery] = useState('');
+  const [chipPreview, setChipPreview] = useState(null);
+  // Purely a UI input — suggestTransfers itself has no idea how many free
+  // transfers the person actually has, so this only affects which
+  // suggestions get shown as free vs. costing a hit (applyFreeTransferEconomics
+  // below), not what gets suggested in the first place. Defaults to 1
+  // (the common case) rather than trying to derive it, since that would
+  // need transfer-history data this app doesn't fetch.
+  const [freeTransfers, setFreeTransfers] = useState(1);
+  const visibleSuggestions = applyFreeTransferEconomics(suggestions, freeTransfers);
+
+  const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById);
+  const [copyState, setCopyState] = useState('idle'); // 'idle' | 'copied' | 'failed'
+
+  function handleDownloadSquadJson() {
+    const payload = buildSquadExportPayload(data);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fpl-optimal-squad-gw${payload.gameweek ?? ''}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleCopySquadJson() {
+    const payload = buildSquadExportPayload(data);
+    const text = JSON.stringify(payload, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState('copied');
+    } catch {
+      // Clipboard API can fail without HTTPS/permission — not worth a hard
+      // error, just let the button say so and let the person try again.
+      setCopyState('failed');
+    }
+    setTimeout(() => setCopyState('idle'), 2000);
+  }
+
+  // "How would a chip affect this squad right now" preview — captain
+  // doubled as normal, then Bench Boost adds the bench on top and Triple
+  // Captain adds one more captain multiple on top.
+  const benchTotal = bench.reduce((s, sl) => s + sl.predicted, 0);
+  const captainPred = captain ? captain.predicted : 0;
+  const normalTotal = starters.reduce((s, sl) => s + sl.predicted, 0) + captainPred;
+  let chipPreviewTotal = normalTotal;
+  if (chipPreview === 'bboost') chipPreviewTotal = normalTotal + benchTotal;
+  if (chipPreview === '3xc') chipPreviewTotal = normalTotal + captainPred;
+
+  function applySwap(outId, inPlayer) {
+    const swapped = ensureCaptaincy(swapPlayerInSquad(squad, outId, inPlayer, predictionsById));
+    const outPlayer = squad.find(s => s.player.id === outId);
+    const priceDelta = outPlayer ? inPlayer.price - outPlayer.player.price : 0;
+    const newBankTenths = Math.round((bankTenths || 0) - priceDelta * 10);
+    onSquadUpdate(swapped, newBankTenths);
+    setEditSlotId(null);
+    setEditQuery('');
+  }
+
+  // Same mutual-exclusivity rules as the screenshot review screen: only
+  // one captain and one vice-captain at a time, never the same player as
+  // both, and re-checking an already-checked box clears it. `multiplier`
+  // has to be kept in lockstep with isCaptain here (unlike the review
+  // screen, where it's only derived once at final squad construction) —
+  // buildResultsData reads slot.multiplier directly for scoring, it
+  // doesn't re-derive it from isCaptain.
+  function applyCaptainChange(playerId, role) {
+    const newSquad = squad.map(s => {
+      const isTarget = s.player.id === playerId;
+      if (role === 'captain') {
+        const nowCaptain = isTarget && !s.isCaptain;
+        return {
+          ...s,
+          isCaptain: nowCaptain,
+          multiplier: nowCaptain ? 2 : 1,
+          isViceCaptain: nowCaptain ? false : s.isViceCaptain,
+        };
+      }
+      const nowVice = isTarget && !s.isViceCaptain;
+      return {
+        ...s,
+        isViceCaptain: nowVice,
+        isCaptain: nowVice ? false : s.isCaptain,
+        multiplier: nowVice && s.isCaptain ? 1 : s.multiplier,
+      };
+    });
+    onSquadUpdate(newSquad, bankTenths);
+  }
+
+  function toggleRowEdit(playerId) {
+    setEditSlotId(current => (current === playerId ? null : playerId));
+    setEditQuery('');
+  }
+
+  const grouped = POSITION_ORDER.map(posId => ({
+    posId,
+    label: POSITION_LABELS[posId],
+    players: starters.filter(s => s.player.positionId === posId),
+  })).filter(g => g.players.length > 0);
+
+  const viewedGwName = (isPastGw && allEvents && data.gwId) ? ((allEvents.find(e => e.id === data.gwId) || {}).name) : null;
+  const showCaptainSuggestion = captainSuggestion && (!captain || captain.player.id !== captainSuggestion.player.id) && captainSuggestion.nextMatchPredicted > (captain ? captain.nextMatchPredicted : 0) + 0.3;
+
+  return (
+    <div style={{ padding: '16px 16px 60px' }}>
+      <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
+        <div>
+          <h1 className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em', margin: 0, fontWeight: 400 }}>
+            {entryMeta && entryMeta.teamName ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {(viewedGwName || (targetEvent ? targetEvent.name : '')).toUpperCase()}
+          </h1>
+          {bankTenths !== null && bankTenths !== undefined && (
+            <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
+          )}
+          {entryMeta && entryMeta.picksFromGwId && (
+            <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>
+              Your Gameweek {entryMeta.picksFromGwId} team — this gameweek's picks are hidden until the deadline, so transfers made since won't show.
+            </div>
+          )}
+          {isOptimalBuild && !isPastGw && nextRefreshAt && (
+            <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
+              Next refresh: {formatCountdown(nextRefreshAt, { suffix: '', passedLabel: 'due any time' })}
+            </div>
+          )}
+          {isOptimalBuild && isPastGw && (
+            <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
+              Closed gameweek — squad locked in{backfilled ? ' · backfilled from later data' : ''}
+            </div>
+          )}
+          <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6 }}>Squad Score</div>
+        </div>
+        <ScoreRing score={squadScore} />
+      </div>
+
+      {isOptimalBuild && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button
+            className="fpl-btn"
+            style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}
+            onClick={handleDownloadSquadJson}
+          >
+            <Download size={14} /> Download JSON
+          </button>
+          <button
+            className="fpl-btn"
+            style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}
+            onClick={handleCopySquadJson}
+          >
+            {copyState === 'copied' ? <Check size={14} /> : <Clipboard size={14} />}
+            {copyState === 'copied' ? 'Copied!' : copyState === 'failed' ? "Couldn't copy" : 'Copy to clipboard'}
+          </button>
+        </div>
+      )}
+
+      {!isPastGw && (
+        <>
+          <div className="fpl-section-title fpl-inline"><Zap size={14} /> How would a chip affect this squad?</div>
+          <div className="fpl-block" style={{ padding: 12, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>No chip</button>
+              {Object.entries(CHIP_INFO).map(([key, info]) => (
+                <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{info.label}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.5, marginBottom: 10 }}>
+              {chipPreview ? CHIP_INFO[chipPreview].desc : 'No chip active — normal scoring (starting XI only, captain at 2x).'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--lime)' }}>{fmtPts(chipPreviewTotal)}</span>
+              <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>PREDICTED PTS THIS GAMEWEEK{chipPreview ? ' WITH THIS CHIP' : ''}</span>
+            </div>
+            {chipPreview && (
+              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>vs {fmtPts(normalTotal)}pts with no chip</div>
+            )}
+          </div>
+        </>
+      )}
+
+      {!isPastGw && (
+        <ResultsActions
+          squad={squad}
+          teamName={entryMeta && entryMeta.teamName ? entryMeta.teamName : (isOptimalBuild ? 'Optimal squad' : 'My squad')}
+          gwName={targetEvent ? targetEvent.name : ''}
+          total={xiTotal}
+          teamsById={teamsById}
+          deadline={targetEvent ? targetEvent.deadline_time : null}
+        />
+      )}
+
+      {!isOptimalBuild && (
+        <button
+          className={`fpl-btn ${editMode ? 'fpl-btn-solid' : ''}`}
+          style={{ width: '100%', marginBottom: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+          onClick={() => { setEditMode(m => !m); setEditSlotId(null); setEditQuery(''); }}
+        >
+          <Edit3 size={16} /> {editMode ? 'Done editing' : 'Edit squad'}
+        </button>
+      )}
+
+      {!isOptimalBuild && editMode && (
+        <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
+          Tap any player below to swap them, or set captain/vice-captain.
+        </div>
+      )}
+
+      {captainSuggestion && !isOptimalBuild && (
+        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--sky)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+            {showCaptainSuggestion ? (
+              <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
+            ) : (
+              <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
+            )}
+          </div>
+        </div>
+      )}
+
+      {grouped.map(g => (
+        <div key={g.posId} style={{ marginBottom: 14 }}>
+          <div className="fpl-section-title">{g.label}</div>
+          <div className="fpl-block" style={{ borderTop: 'none' }}>
+            {g.players.map(slot => (
+              <Fragment key={slot.player.id}>
+                <PlayerRow
+                  slot={slot}
+                  teamsById={teamsById}
+                  fixturesByTeam={fixturesByTeam}
+                  editable={editMode}
+                  isOpen={editSlotId === slot.player.id}
+                  onToggle={() => toggleRowEdit(slot.player.id)}
+                  isPastGw={isPastGw}
+                />
+                {editMode && editSlotId === slot.player.id && (
+                  <>
+                    <CaptaincyPicker
+                      slot={slot}
+                      onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
+                      onSetVice={(id) => applyCaptainChange(id, 'vice')}
+                    />
+                    <InlineSwapSearch
+                      outSlot={slot}
+                      squad={squad}
+                      allPlayers={allPlayers}
+                      predictionsById={predictionsById}
+                      teamsById={teamsById}
+                      bankTenths={bankTenths}
+                      query={editQuery}
+                      setQuery={setEditQuery}
+                      onSwap={applySwap}
+                    />
+                  </>
+                )}
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {bench.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div className="fpl-section-title">Bench</div>
+          <div className="fpl-block" style={{ borderTop: 'none' }}>
+            {bench.map(slot => (
+              <Fragment key={slot.player.id}>
+                <PlayerRow
+                  slot={slot}
+                  teamsById={teamsById}
+                  fixturesByTeam={fixturesByTeam}
+                  editable={editMode}
+                  isOpen={editSlotId === slot.player.id}
+                  onToggle={() => toggleRowEdit(slot.player.id)}
+                  isPastGw={isPastGw}
+                />
+                {editMode && editSlotId === slot.player.id && (
+                  <>
+                    <CaptaincyPicker
+                      slot={slot}
+                      onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
+                      onSetVice={(id) => applyCaptainChange(id, 'vice')}
+                    />
+                    <InlineSwapSearch
+                      outSlot={slot}
+                      squad={squad}
+                      allPlayers={allPlayers}
+                      predictionsById={predictionsById}
+                      teamsById={teamsById}
+                      bankTenths={bankTenths}
+                      query={editQuery}
+                      setQuery={setEditQuery}
+                      onSwap={applySwap}
+                    />
+                  </>
+                )}
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {chipTiming && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Chip timing</div>
+          {chipTiming.bestTripleCaptain && (
+            <div className="fpl-block" style={{ padding: 12, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <Trophy size={18} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                Best upcoming week for <strong>Triple Captain</strong>: <strong>{chipTiming.bestTripleCaptain.gwName}</strong> — captaining {chipTiming.bestTripleCaptain.bestCaptain.player.webName}{chipTiming.bestTripleCaptain.bestCaptain.fixtureCount > 1 ? ' (double gameweek)' : ''}.
+                <div className="fpl-mono" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>~{fmtPts(chipTiming.bestTripleCaptain.tripleXi)} pts</span>
+                  <span className="fpl-dim"> expected total with the chip — vs ~{fmtPts(chipTiming.bestTripleCaptain.normalXi)} pts that week with no chip.</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {chipTiming.bestBenchBoost && (
+            <div className="fpl-block" style={{ padding: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <ShieldAlert size={18} style={{ color: 'var(--sky)', flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                Best upcoming week for <strong>Bench Boost</strong>: <strong>{chipTiming.bestBenchBoost.gwName}</strong> — full 15-man squad in action.
+                <div className="fpl-mono" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>~{fmtPts(chipTiming.bestBenchBoost.benchBoostXi)} pts</span>
+                  <span className="fpl-dim"> expected total with the chip — vs ~{fmtPts(chipTiming.bestBenchBoost.normalXi)} pts that week with no chip.</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <p className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginTop: 6, lineHeight: 1.5 }}>
+            Estimated from currently scheduled fixtures for your squad as it stands now — this will shift as gameweeks pass, your squad changes, and FPL confirms any blank/double gameweeks.
+          </p>
+        </div>
+      )}
+
+      {!isOptimalBuild && (
+        <div style={{ marginBottom: 8 }}>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Transfer suggestions</div>
+          {suggestions.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              <span className="fpl-mono fpl-meta">Free transfers available:</span>
+              {[0, 1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  className={`fpl-chip-btn ${freeTransfers === n ? 'active' : ''}`}
+                  onClick={() => setFreeTransfers(n)}
+                  style={{ minWidth: 28, padding: '4px 8px' }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
+          {visibleSuggestions.length === 0 && (
+            <div className="fpl-block" style={{ padding: 14, fontSize: '0.85rem', color: 'var(--ink-dim)', display: 'flex', gap: 10, alignItems: 'center' }}>
+              <CheckCircle2 size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
+              {suggestions.length === 0
+                ? "Your squad's in good shape — no changes look necessary this week."
+                : "Nothing worth a -4 hit right now — check back once you've got a free transfer, or increase the count above if you already do."}
+            </div>
+          )}
+          {visibleSuggestions.map((s, i) => (
+            <TransferCard key={i} suggestion={s} teamsById={teamsById} fixturesByTeam={fixturesByTeam} onApply={editMode ? applySwap : null} />
+          ))}
+          {visibleSuggestions.length > 0 && !editMode && (
+            <button className="fpl-mono" onClick={() => setEditMode(true)} style={{ background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid var(--line)', borderRadius: 4, color: 'var(--lime)', fontSize: '0.72rem', padding: '8px 10px', marginTop: 2, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+              Switch to edit mode to accept a suggestion
+            </button>
+          )}
+        </div>
+      )}
+
+      {!data.isOptimalBuild && (
+        <SaveTeamSection
+          data={data}
+          session={session}
+          onSaveTeamId={onSaveTeamId}
+          onSaveCustomSquad={onSaveCustomSquad}
+          onRequestLoginToSave={onRequestLoginToSave}
+        />
+      )}
+
+      <details className="fpl-details">
+        <summary className="fpl-inline"><Info size={14} /> How these predictions work</summary>
+        <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.6, paddingBottom: 10 }}>
+          Predicted points blend FPL's own expected-points model, season scoring averages, recent form, and upcoming fixture difficulty. Transfer suggestions assume your sell price is close to the player's current price — FPL's 50% profit rule means your real sell value could be slightly lower if that player has risen in price since you bought them. These are estimates to guide your thinking, not guarantees — always check the latest injury news before your deadline.
+        </div>
+      </details>
+
+      <button className="fpl-btn" style={{ width: '100%', marginTop: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={onStartOver}>
+        <RotateCcw size={16} /> Check another squad
+      </button>
+    </div>
+  );
+}
+
+// Handles both save actions (Team ID, and the exact current squad) from
+// whichever results view is showing — Team-ID lookup, custom build, or a
+// uploaded-screenshot squad. Shows one shared inline status line for
+// whichever button was last pressed.
+export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
+  const [status, setStatus] = useState(null); // { kind: 'saving'|'ok'|'error', message }
+  const teamId = data.entryMeta && data.entryMeta.teamId;
+  // Prefer the gameweek this squad/team was actually fetched/built for
+  // (entryMeta.gwId); fall back to whatever gameweek is currently showing
+  // in the header if that's somehow missing.
+  const gwId = (data.entryMeta && data.entryMeta.gwId) || (data.targetEvent && data.targetEvent.id) || null;
+  const defaultLabel = (data.entryMeta && data.entryMeta.teamName) || (teamId ? `Team ${teamId}` : 'My squad');
+  const [label, setLabel] = useState(defaultLabel);
+
+  async function handleSaveTeamId() {
+    setStatus({ kind: 'saving' });
+    const result = await onSaveTeamId(teamId, label.trim() || defaultLabel, gwId);
+    setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
+  }
+
+  async function handleSaveSquad() {
+    setStatus({ kind: 'saving' });
+    const result = await onSaveCustomSquad(data.squad, label.trim() || defaultLabel, gwId);
+    setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
+  }
+
+  if (!session) {
+    return (
+      <button
+        onClick={onRequestLoginToSave}
+        className="fpl-btn"
+        style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+      >
+        <Bookmark size={16} /> Log in to save this team
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <input
+        value={label}
+        onChange={e => setLabel(e.target.value)}
+        placeholder="Name this squad"
+        maxLength={40}
+        className="fpl-mono"
+        style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '9px 10px', fontSize: '0.85rem', marginBottom: 8 }}
+      />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {teamId && (
+          <button onClick={handleSaveTeamId} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <Bookmark size={14} /> Save this Team ID
+          </button>
+        )}
+        {!data.isPastGw && (
+          <button onClick={handleSaveSquad} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <Bookmark size={14} /> Save this squad
+          </button>
+        )}
+      </div>
+      {status && status.kind !== 'saving' && (
+        <div className="fpl-mono" style={{ fontSize: '0.7rem', marginTop: 6, color: status.kind === 'ok' ? 'var(--lime)' : 'var(--red)' }}>
+          {status.message}
+        </div>
+      )}
+    </div>
+  );
+}

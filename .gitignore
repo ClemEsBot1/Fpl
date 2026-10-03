@@ -27,3 +27,6 @@ dist-ssr
 
 # Copied from node_modules by scripts/copy-tesseract.mjs
 public/tesseract
+
+# Downloaded by scripts/download-screenshot-reports.mjs
+screenshot-reports

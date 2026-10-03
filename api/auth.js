@@ -1,10 +1,23 @@
 import { getRedis, getJSON, setJSON } from '../src/lib/redis.js';
+import { clientIp, getCount, bump, reset } from '../src/lib/rateLimit.js';
 import {
   validateUsername, validatePassword,
   hashPassword, verifyPassword, signSessionToken,
   buildSessionCookie, buildClearedSessionCookie, getSessionFromRequest,
-  userKeyFor,
+  userKeyFor, normalizeUsername,
 } from '../src/lib/auth.js';
+
+// Without a cap, anyone could keep guessing a user's password forever.
+// Failed logins are counted per username (protects one account from a
+// distributed attack) and per IP (stops one client trying many accounts);
+// a successful login clears that username's counter.
+export const LOGIN_WINDOW_SECONDS = 15 * 60;
+export const MAX_FAILED_LOGINS_PER_USER = 10;
+export const MAX_FAILED_LOGINS_PER_IP = 30;
+export const REGISTER_WINDOW_SECONDS = 60 * 60;
+export const MAX_REGISTRATIONS_PER_IP = 5;
+
+const TOO_MANY = 'Too many attempts. Please wait 15 minutes and try again.';
 
 function requireSecret() {
   const secret = process.env.JWT_SECRET;
@@ -55,6 +68,13 @@ export default async function handler(req, res, redisOverride) {
 
   if (action === 'register') {
     const { username, password } = body;
+    const registerKey = `ratelimit:register:ip:${clientIp(req)}`;
+    try {
+      if (await getCount(redis, registerKey) >= MAX_REGISTRATIONS_PER_IP) {
+        res.status(429).json({ error: 'Too many new accounts from this network. Please try again later.' });
+        return;
+      }
+    } catch { /* limiter unavailable — don't block sign-ups */ }
     const usernameCheck = validateUsername(username);
     if (!usernameCheck.ok) { res.status(400).json({ error: usernameCheck.error }); return; }
     const passwordCheck = validatePassword(password);
@@ -68,6 +88,7 @@ export default async function handler(req, res, redisOverride) {
       const passwordHash = await hashPassword(password);
       const record = { username, passwordHash, teams: [] };
       await setJSON(redis, key, record);
+      try { await bump(redis, registerKey, REGISTER_WINDOW_SECONDS); } catch { /* best-effort */ }
 
       const token = signSessionToken(username, secret);
       res.setHeader('Set-Cookie', buildSessionCookie(token));
@@ -84,10 +105,26 @@ export default async function handler(req, res, redisOverride) {
       res.status(400).json({ error: 'Username and password are required.' });
       return;
     }
+    const userLimitKey = `ratelimit:login:user:${normalizeUsername(username)}`;
+    const ipLimitKey = `ratelimit:login:ip:${clientIp(req)}`;
     try {
+      const [userFails, ipFails] = await Promise.all([getCount(redis, userLimitKey), getCount(redis, ipLimitKey)]);
+      if (userFails >= MAX_FAILED_LOGINS_PER_USER || ipFails >= MAX_FAILED_LOGINS_PER_IP) {
+        res.status(429).json({ error: TOO_MANY });
+        return;
+      }
+
       const record = await getJSON(redis, userKeyFor(username));
       const match = record ? await verifyPassword(password, record.passwordHash) : false;
-      if (!match) { res.status(401).json({ error: 'Incorrect username or password.' }); return; }
+      if (!match) {
+        await Promise.all([
+          bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS),
+          bump(redis, ipLimitKey, LOGIN_WINDOW_SECONDS),
+        ]);
+        res.status(401).json({ error: 'Incorrect username or password.' });
+        return;
+      }
+      await reset(redis, userLimitKey);
 
       const token = signSessionToken(record.username, secret);
       res.setHeader('Set-Cookie', buildSessionCookie(token));

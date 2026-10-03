@@ -190,20 +190,54 @@ function cropLabel(source, b) {
 // Two kinds of reading: the whole page (both prepared images), and each
 // name label on its own. Returns { pageLines, labelLines }, each an array
 // of lines of { text, bbox, confidence } words in page coordinates.
+// One OCR worker for the whole visit. Loading it means downloading the
+// engine and English data (~9 MB the first time, then from the browser
+// cache) and starting WebAssembly, which takes a few seconds — so it's
+// started as soon as someone opens the upload screen (warmUpOcr) and
+// reused for every screenshot after that, instead of being created and
+// thrown away per read.
+let workerPromise = null;
+let reportProgress = null; // the logger below forwards to whichever read is running
+
+function getOcrWorker() {
+  if (!workerPromise) {
+    workerPromise = createWorker('eng', 1, {
+      workerPath: `${TESSERACT_BASE}/worker.min.js`,
+      corePath: TESSERACT_BASE,
+      langPath: TESSERACT_BASE,
+      gzip: false,
+      // A blob: worker would be blocked by our Content-Security-Policy.
+      workerBlobURL: false,
+      logger: m => { if (reportProgress) reportProgress(m); },
+    }).catch(err => {
+      workerPromise = null; // let the next attempt retry
+      throw err;
+    });
+  }
+  return workerPromise;
+}
+
+// Starts loading the OCR engine in the background. Safe to call repeatedly.
+export function warmUpOcr() {
+  getOcrWorker().catch(() => { /* surfaced when a read actually runs */ });
+}
+
+// Reads run one at a time on the shared worker.
+let queue = Promise.resolve();
+
 async function ocrWords(canvases, onProgress, labelBoxes = [], source = null) {
+  const run = queue.then(() => runOcr(canvases, onProgress, labelBoxes, source));
+  queue = run.catch(() => {});
+  return run;
+}
+
+async function runOcr(canvases, onProgress, labelBoxes, source) {
   let pass = 0;
   const totalPasses = canvases.length + (labelBoxes.length ? 1 : 0);
-  const worker = await createWorker('eng', 1, {
-    workerPath: `${TESSERACT_BASE}/worker.min.js`,
-    corePath: TESSERACT_BASE,
-    langPath: TESSERACT_BASE,
-    gzip: false,
-    // A blob: worker would be blocked by our Content-Security-Policy.
-    workerBlobURL: false,
-    logger: m => {
-      if (onProgress && m.status === 'recognizing text' && pass < canvases.length) onProgress((pass + m.progress) / totalPasses);
-    },
-  });
+  const worker = await getOcrWorker();
+  reportProgress = m => {
+    if (onProgress && m.status === 'recognizing text' && pass < canvases.length) onProgress((pass + m.progress) / totalPasses);
+  };
   try {
     // "Sparse text": names are scattered labels, not paragraphs.
     await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
@@ -222,7 +256,7 @@ async function ocrWords(canvases, onProgress, labelBoxes = [], source = null) {
     }
     return { pageLines, labelLines };
   } finally {
-    await worker.terminate();
+    reportProgress = null;
   }
 }
 
@@ -892,11 +926,20 @@ function insideAnyBox(word, boxes) {
   return boxes.some(b => cx >= b.x0 && cx <= b.x1 && cy >= b.y0 && cy <= b.y1);
 }
 
-export async function readSquadFromScreenshot(img, allPlayers, onProgress, context = {}) {
+// Everything the browser has to produce from the image: the OCR'd text
+// (whole page and per label), where the labels are, and the armband
+// badges. Plain data, so it can be saved and replayed in tests.
+export async function readScreenshotRaw(img, onProgress) {
   const prepared = prepareCanvases(img);
   const { pageLines, labelLines } = await ocrWords(prepared.canvases, onProgress, prepared.labelBoxes, prepared.source);
+  const badges = findArmbandBadges(prepared.light, prepared.dark, prepared.width, prepared.height, [...pageLines, ...labelLines]);
+  return { pageLines, labelLines, labelBoxes: prepared.labelBoxes, badges };
+}
+
+// The pure half: OCR output → squad. No DOM needed.
+export function squadFromRaw(raw, allPlayers, context = {}) {
+  const { pageLines, labelLines, labelBoxes: boxes, badges } = raw;
   const allLines = [...pageLines, ...labelLines];
-  const boxes = prepared.labelBoxes;
   // With most labels found, text outside them (shirt sponsors, banners)
   // only counts as a name on a near-exact match; fuzzy matches must come
   // from inside a label.
@@ -905,6 +948,9 @@ export async function readSquadFromScreenshot(img, allPlayers, onProgress, conte
     .filter(w => !strictOutside || insideAnyBox(w, boxes) || (w.confidence >= STRICT_MIN_CONFIDENCE && w.text.length >= 4))
     .map(w => ({ ...w, minScore: strictOutside && !insideAnyBox(w, boxes) ? STRICT_NAME_SCORE : undefined })))
     .filter(line => line.length);
-  const badges = findArmbandBadges(prepared.light, prepared.dark, prepared.width, prepared.height, allLines);
   return extractSquadFromOcrLines(allLines, allPlayers, badges, nameLines, context);
+}
+
+export async function readSquadFromScreenshot(img, allPlayers, onProgress, context = {}) {
+  return squadFromRaw(await readScreenshotRaw(img, onProgress), allPlayers, context);
 }

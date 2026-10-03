@@ -9,7 +9,8 @@
     "prebuild": "node scripts/copy-tesseract.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test 'test/*.test.js'"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",
