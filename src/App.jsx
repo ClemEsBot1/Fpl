@@ -1838,6 +1838,11 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
           {bankTenths !== null && bankTenths !== undefined && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
           )}
+          {entryMeta && entryMeta.picksFromGwId && (
+            <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>
+              Your Gameweek {entryMeta.picksFromGwId} team — this gameweek's picks are hidden until the deadline, so transfers made since won't show.
+            </div>
+          )}
           {isOptimalBuild && !isPastGw && nextRefreshAt && (
             <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
               Next refresh: {formatCountdown(nextRefreshAt, { suffix: '', passedLabel: 'due any time' })}
@@ -2939,28 +2944,60 @@ export default function FPLSquadChecker() {
       setLoadingMessage('Fetching your team…');
       const gwId = selectedGw || (staticData.targetEvent ? staticData.targetEvent.id : 1);
 
-      let picks;
+      const targetId = staticData.targetEvent ? staticData.targetEvent.id : 1;
+      const isPastGwView = gwId < targetId;
+      const hasPicks = p => p && !p.detail && Array.isArray(p.picks) && p.picks.length > 0;
+
+      let picks = null;
       try {
         picks = await fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`);
       } catch (e) {
-        const notReady = e && e.message === 'status 404';
-        throw { code: notReady ? 'ERR_GW_LOCKED' : 'ERR_PICKS_FETCH' };
-      }
-      if (!picks || picks.detail === 'Not found.' || !Array.isArray(picks.picks) || picks.picks.length === 0) {
-        throw { code: 'ERR_TEAM_NOT_FOUND' };
+        // A 404 here means either a bad Team ID or picks FPL hides until
+        // the deadline passes — the entry lookup below tells them apart.
+        if (!(e && e.message === 'status 404')) throw { code: 'ERR_PICKS_FETCH' };
       }
 
-      let entryMeta = { teamId: Number(teamId), gwId };
+      let entry = null;
       try {
-        const entry = await fetchFplJson(`entry/${teamId}/`);
-        if (entry && !entry.detail) {
-          entryMeta = { teamId: Number(teamId), gwId, teamName: entry.name || 'Your Squad' };
+        entry = await fetchFplJson(`entry/${teamId}/`);
+      } catch (e) {
+        if (!hasPicks(picks) && e && e.message === 'status 404') throw { code: 'ERR_TEAM_NOT_FOUND' };
+        /* otherwise non-critical — it only supplies the team name */
+      }
+      let entryMeta = { teamId: Number(teamId), gwId };
+      if (entry && !entry.detail) entryMeta.teamName = entry.name || 'Your Squad';
+
+      // FPL hides a team's picks for a gameweek until its deadline passes.
+      // Rather than give up, load the most recent gameweek we *can* see —
+      // the squad is the same unless they've made transfers since — and
+      // score it for the gameweek that was asked for. Only for the
+      // upcoming gameweek: a missing past gameweek means the team didn't
+      // exist yet, and borrowing a later squad there would be wrong.
+      let picksGwId = gwId;
+      if (!hasPicks(picks) && !isPastGwView && entry && !entry.detail) {
+        setLoadingMessage("This gameweek's picks are hidden until the deadline — loading your latest team…");
+        const earliest = entry.started_event || 1;
+        let candidate = Math.min(gwId - 1, entry.current_event || gwId - 1);
+        // A few steps is plenty: one for the hidden gameweek, one more to
+        // skip a Free Hit week (that squad reverts afterwards).
+        for (let tries = 0; candidate >= earliest && tries < 4; tries++, candidate--) {
+          let prev = null;
+          try {
+            prev = await fetchFplJson(`entry/${teamId}/event/${candidate}/picks/`);
+          } catch (e) { /* not visible either — keep walking back */ }
+          if (!hasPicks(prev)) continue;
+          if (prev.active_chip === 'freehit') continue;
+          picks = prev;
+          picksGwId = candidate;
+          break;
         }
-      } catch (e) { /* non-critical */ }
+      }
+      if (!hasPicks(picks)) {
+        throw { code: entry && !entry.detail ? 'ERR_GW_LOCKED' : 'ERR_TEAM_NOT_FOUND' };
+      }
+      if (picksGwId !== gwId) entryMeta.picksFromGwId = picksGwId;
 
       setLoadingMessage('Checking fixtures and working out predictions…');
-      const targetId = staticData.targetEvent ? staticData.targetEvent.id : 1;
-      const isPastGwView = gwId < targetId;
 
       let liveById = {};
       if (isPastGwView) {
@@ -2991,7 +3028,8 @@ export default function FPLSquadChecker() {
       const squad = isPastGwView ? applyAutomaticSubs(rawSquad, picks.automatic_subs) : rawSquad;
 
       const bankTenths = picks.entry_history ? picks.entry_history.bank : 0;
-      const activeChip = picks.active_chip || null;
+      // A chip played in an earlier gameweek doesn't carry over.
+      const activeChip = picksGwId === gwId ? (picks.active_chip || null) : null;
 
       finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, false, { isPastGw: isPastGwView, gwId });
     } catch (e) {
@@ -3000,7 +3038,7 @@ export default function FPLSquadChecker() {
       const messages = {
         ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead.",
         ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
-        ERR_GW_LOCKED: "FPL hasn't published picks for this gameweek yet (they're hidden until the deadline passes). Try again after the deadline, or upload a screenshot for now.",
+        ERR_GW_LOCKED: "FPL hasn't published any picks for this team yet (a new team's picks are hidden until its first deadline passes). Try again after the deadline, or upload a screenshot for now.",
         ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
         ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
       };
