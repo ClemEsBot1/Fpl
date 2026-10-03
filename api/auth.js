@@ -1,7 +1,7 @@
 import { getRedis, getJSON, setJSON } from '../src/lib/redis.js';
 import { clientIp, getCount, bump, reset } from '../src/lib/rateLimit.js';
 import {
-  validateUsername, validatePassword,
+  validateUsername, validatePassword, normalizeEmail,
   hashPassword, verifyPassword, signSessionToken,
   buildSessionCookie, buildClearedSessionCookie, getSessionFromRequest,
   userKeyFor, normalizeUsername,
@@ -40,7 +40,14 @@ export default async function handler(req, res, redisOverride) {
   if (req.method === 'GET') {
     const session = getSessionFromRequest(req, secret);
     if (!session) { res.status(401).json({ error: 'not_logged_in' }); return; }
-    res.status(200).json({ ok: true, username: session.username });
+    // The email lives in the user record, not the token; if storage is
+    // down, still report the session (just without the email).
+    let email = '';
+    try {
+      const record = await getJSON(redisOverride || getRedis(), userKeyFor(session.username));
+      email = (record && record.email) || '';
+    } catch { /* best-effort */ }
+    res.status(200).json({ ok: true, username: session.username, email });
     return;
   }
 
@@ -79,6 +86,8 @@ export default async function handler(req, res, redisOverride) {
     if (!usernameCheck.ok) { res.status(400).json({ error: usernameCheck.error }); return; }
     const passwordCheck = validatePassword(password);
     if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
+    const emailCheck = normalizeEmail(body.email);
+    if (!emailCheck.ok) { res.status(400).json({ error: emailCheck.error }); return; }
 
     const key = userKeyFor(username);
     try {
@@ -87,12 +96,13 @@ export default async function handler(req, res, redisOverride) {
 
       const passwordHash = await hashPassword(password);
       const record = { username, passwordHash, teams: [] };
+      if (emailCheck.email) record.email = emailCheck.email;
       await setJSON(redis, key, record);
       try { await bump(redis, registerKey, REGISTER_WINDOW_SECONDS); } catch { /* best-effort */ }
 
       const token = signSessionToken(username, secret);
       res.setHeader('Set-Cookie', buildSessionCookie(token));
-      res.status(200).json({ ok: true, username });
+      res.status(200).json({ ok: true, username, email: emailCheck.email });
     } catch (e) {
       res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
     }
@@ -128,7 +138,27 @@ export default async function handler(req, res, redisOverride) {
 
       const token = signSessionToken(record.username, secret);
       res.setHeader('Set-Cookie', buildSessionCookie(token));
-      res.status(200).json({ ok: true, username: record.username });
+      res.status(200).json({ ok: true, username: record.username, email: record.email || '' });
+    } catch (e) {
+      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+    }
+    return;
+  }
+
+  // Add, change or (with an empty email) remove the logged-in user's email.
+  if (action === 'set_email') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: 'Please log in again.' }); return; }
+    const emailCheck = normalizeEmail(body.email);
+    if (!emailCheck.ok) { res.status(400).json({ error: emailCheck.error }); return; }
+    try {
+      const key = userKeyFor(session.username);
+      const record = await getJSON(redis, key);
+      if (!record) { res.status(401).json({ error: 'Please log in again.' }); return; }
+      if (emailCheck.email) record.email = emailCheck.email;
+      else delete record.email;
+      await setJSON(redis, key, record);
+      res.status(200).json({ ok: true, username: record.username, email: emailCheck.email });
     } catch (e) {
       res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
     }

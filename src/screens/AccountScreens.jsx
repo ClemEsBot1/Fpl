@@ -1,86 +1,145 @@
-// Log in / sign up and the saved-teams list.
-import { useState } from 'react';
-import { AlertTriangle, ArrowRight, Bookmark, Loader2, RotateCcw, Trash2 } from 'lucide-react';
+// Log in / sign up (a pop-up over the current screen) and the saved-teams list.
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, ArrowRight, Bookmark, Loader2, RotateCcw, Trash2, X } from 'lucide-react';
 
 /* ----------------------------------------------------------------------------
    ACCOUNTS: LOGIN / REGISTER + SAVED TEAMS
-   Username + password only, no email — matches this app's low-stakes,
-   convenience-only use case (saving a team ID / squad, nothing sensitive).
+   Username + password, with an optional email (stored only — logins are
+   still by username). Matches this app's low-stakes, convenience-only use
+   case (saving a team ID / squad, nothing sensitive).
 ---------------------------------------------------------------------------- */
-export function AuthScreen({ onSubmit, error, loading, onCancel }) {
-  const [mode, setMode] = useState('login');
+const labelStyle = { display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' };
+const inputStyle = { width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '10px 10px', fontSize: '0.9rem', marginBottom: 14 };
+const hintStyle = { fontSize: '0.66rem', color: 'var(--ink-dim)', margin: '-10px 0 14px' };
+const linkStyle = { width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--blue)', padding: '14px 0 0', cursor: 'pointer', fontSize: '0.78rem' };
+
+const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email' };
+
+// mode: 'login' | 'register' | 'email' (add or change the logged-in
+// user's email). Uses a native <dialog> opened with showModal(), which
+// gives focus trapping, Escape-to-close and an inert page behind it.
+export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit, onSetEmail, error, loading, onClose }) {
+  const dialogRef = useRef(null);
+  const [mode, setMode] = useState(initialMode);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(initialMode === 'email' ? currentEmail : '');
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    // showModal() focuses the first focusable element (the close button);
+    // start in the first field instead.
+    const firstField = dialog && dialog.querySelector('input');
+    if (firstField) firstField.focus();
+    return () => { if (dialog && dialog.open) dialog.close(); };
+  }, []);
 
   function handleSubmit(e) {
     e.preventDefault();
-    onSubmit(mode, username, password);
+    if (mode === 'email') onSetEmail(email);
+    else onSubmit(mode, { username, password, email: mode === 'register' ? email : undefined });
   }
 
+  const canSubmit = mode === 'email' ? email.trim() !== '' : (username && password);
+
   return (
-    <div style={{ padding: '32px 16px 60px', maxWidth: 380, margin: '0 auto' }}>
-      <h1 className="fpl-display" style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 4, textAlign: 'center' }}>
-        {mode === 'login' ? 'Log in' : 'Create an account'}
-      </h1>
-      <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', textAlign: 'center', marginBottom: 24 }}>
-        Save your Team ID(s) or squads so you don't have to re-enter them.
+    <dialog
+      ref={dialogRef}
+      className="fpl-dialog"
+      aria-labelledby="auth-title"
+      onCancel={e => { e.preventDefault(); onClose(); }}
+      // A click on the dialog element itself (not its contents) is a click
+      // on the dimmed backdrop around the card.
+      onClick={e => { if (e.target === dialogRef.current) onClose(); }}
+    >
+      <div className="fpl-dialog-card">
+        <button type="button" onClick={onClose} aria-label="Close" className="fpl-dialog-close"><X size={18} /></button>
+        <h2 id="auth-title" className="fpl-display" style={{ fontSize: '1.3rem', fontWeight: 700, margin: '0 0 4px', textAlign: 'center' }}>
+          {TITLES[mode]}
+        </h2>
+        <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', textAlign: 'center', marginBottom: 22 }}>
+          {mode === 'email'
+            ? (currentEmail ? 'Change the email on your account.' : 'Add an email address to your account.')
+            : "Save your Team ID(s) or squads so you don't have to re-enter them."}
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {mode !== 'email' && (
+            <>
+              <label htmlFor="auth-username" className="fpl-mono" style={labelStyle}>USERNAME</label>
+              <input
+                id="auth-username"
+                className="fpl-mono"
+                autoComplete="username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                autoCapitalize="none"
+                autoCorrect="off"
+                style={inputStyle}
+              />
+              <label htmlFor="auth-password" className="fpl-mono" style={labelStyle}>PASSWORD</label>
+              <input
+                id="auth-password"
+                type="password"
+                className="fpl-mono"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                minLength={mode === 'login' ? undefined : 8}
+                aria-describedby={mode === 'login' ? undefined : 'auth-password-hint'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={inputStyle}
+              />
+              {mode === 'register' && (
+                <div id="auth-password-hint" className="fpl-mono" style={hintStyle}>At least 8 characters.</div>
+              )}
+            </>
+          )}
+
+          {mode !== 'login' && (
+            <>
+              <label htmlFor="auth-email" className="fpl-mono" style={labelStyle}>
+                EMAIL{mode === 'register' && <span style={{ textTransform: 'none' }}> (optional)</span>}
+              </label>
+              <input
+                id="auth-email"
+                type="email"
+                className="fpl-mono"
+                autoComplete="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                placeholder="you@example.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                style={inputStyle}
+              />
+            </>
+          )}
+
+          {error && (
+            <div role="alert" style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 14, color: 'var(--red)', fontSize: '0.8rem' }}>
+              <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {error}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading || !canSubmit} className="fpl-btn fpl-btn-solid" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
+            {loading ? <Loader2 size={16} className="fpl-spin" /> : ({ login: 'Log in', register: 'Create account', email: 'Save email' })[mode]}
+          </button>
+        </form>
+
+        {mode === 'email' && currentEmail && (
+          <button type="button" onClick={() => onSetEmail('')} disabled={loading} className="fpl-mono" style={{ ...linkStyle, color: 'var(--ink-dim)' }}>
+            Remove email
+          </button>
+        )}
+        {mode !== 'email' && (
+          <button type="button" onClick={() => setMode(m => (m === 'login' ? 'register' : 'login'))} className="fpl-mono" style={linkStyle}>
+            {mode === 'login' ? "Don't have an account? Create one" : 'Already have an account? Log in'}
+          </button>
+        )}
       </div>
-
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="auth-username" className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' }}>USERNAME</label>
-        <input
-          id="auth-username"
-          className="fpl-mono"
-          autoComplete="username"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          autoCapitalize="none"
-          autoCorrect="off"
-          style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '10px 10px', fontSize: '0.9rem', marginBottom: 14 }}
-        />
-        <label htmlFor="auth-password" className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' }}>PASSWORD</label>
-        <input
-          id="auth-password"
-          type="password"
-          className="fpl-mono"
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          minLength={mode === 'login' ? undefined : 8}
-          aria-describedby={mode === 'login' ? undefined : 'auth-password-hint'}
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '10px 10px', fontSize: '0.9rem', marginBottom: mode === 'login' ? 14 : 4 }}
-        />
-        {mode !== 'login' && (
-          <div id="auth-password-hint" className="fpl-mono" style={{ fontSize: '0.66rem', color: 'var(--ink-dim)', marginBottom: 14 }}>At least 8 characters.</div>
-        )}
-
-        {error && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 14, color: 'var(--red)', fontSize: '0.8rem' }}>
-            <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {error}
-          </div>
-        )}
-
-        <button type="submit" disabled={loading || !username || !password} className="fpl-btn fpl-btn-solid" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
-          {loading ? <Loader2 size={16} className="fpl-spin" /> : (mode === 'login' ? 'Log in' : 'Create account')}
-        </button>
-      </form>
-
-      <button
-        onClick={() => setMode(m => (m === 'login' ? 'register' : 'login'))}
-        className="fpl-mono"
-        style={{ width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--blue)', padding: '14px 0 0', cursor: 'pointer', fontSize: '0.78rem' }}
-      >
-        {mode === 'login' ? "Don't have an account? Create one" : 'Already have an account? Log in'}
-      </button>
-
-      <button
-        onClick={onCancel}
-        className="fpl-mono"
-        style={{ width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--ink-dim)', padding: '10px 0 0', cursor: 'pointer', fontSize: '0.78rem' }}
-      >
-        Cancel
-      </button>
-    </div>
+    </dialog>
   );
 }
 
