@@ -103,7 +103,8 @@ Everything happens in the browser; the screenshot never leaves the device.
 2. Tesseract reads both and returns each word with its position.
 3. Every 1–3 word phrase is compared with all FPL player names (accents and punctuation ignored, a couple of misread letters allowed, and names FPL cuts short with "…" matched by prefix). Matches are capped at a real squad's 2/5/5/3 per position.
 4. The bottom four players on the screen are the bench. Prices printed next to or under a name, and the bank figure, are picked up too.
-5. The review screen shows every match with its live FPL price, the squad's total cost and team value, and lets you fix any player or set the captain (the armband isn't detected).
+5. Captain and vice-captain come from the armband badges (a white "C" or "V" on a black disc), found without OCR: light letter-sized blobs that aren't part of a word and are surrounded by near-black pixels are classified by shape (a "C" is open on its right at mid-height; a "V" has two top arms and its point at the bottom) and attached to the nearest player name.
+6. The review screen shows every match with its live FPL price, the squad's total cost and team value, and lets you fix any player or change the captaincy.
 
 ## Security headers
 

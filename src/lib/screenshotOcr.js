@@ -66,6 +66,10 @@ function prepareCanvases(img) {
 
   const labels = new Uint8ClampedArray(w * h);
   const inverted = new Uint8ClampedArray(w * h);
+  // Near-black and near-white colourless pixels: the captain/vice armband
+  // badges are a white letter on a black disc (see findArmbandBadges).
+  const dark = new Uint8Array(w * h);
+  const light = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2];
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -74,8 +78,10 @@ function prepareCanvases(img) {
     // Near-black stays (text, even when slightly tinted by anti-aliasing).
     labels[i] = saturation > 0.3 && max > 70 ? 255 : lum;
     inverted[i] = 255 - lum;
+    dark[i] = lum < 90 && max - min < 50 ? 1 : 0;
+    light[i] = lum > 170 && max - min < 60 ? 1 : 0;
   }
-  return [toCanvas(labels, w, h), toCanvas(inverted, w, h)];
+  return { canvases: [toCanvas(labels, w, h), toCanvas(inverted, w, h)], dark, light, width: w, height: h };
 }
 
 /* ---------------------------------------------------------------------------
@@ -216,6 +222,10 @@ function findNamesInLine(words, index) {
   for (let i = 0; i < words.length; i++) {
     for (let len = 1; len <= 3 && i + len <= words.length; len++) {
       const span = words.slice(i, i + len);
+      // Don't let a stray symbol (an armband badge read as "©") ride along
+      // at either end of a multi-word name.
+      const alnum = w => w.text.replace(/[^\p{L}\p{N}]/gu, '').length;
+      if (len > 1 && (alnum(span[0]) < 2 || alnum(span[len - 1]) < 2)) continue;
       const text = span.map(w => w.text).join(' ');
       if (len === 1 && UI_WORDS.has(compactKey(text))) continue;
       const key = compactKey(text);
@@ -309,8 +319,158 @@ function splitStartersAndBench(detections) {
   return { starters: ordered.slice(0, ordered.length - BENCH_SIZE), bench: ordered.slice(-BENCH_SIZE) };
 }
 
+/* ---------------------------------------------------------------------------
+   Captain / vice-captain armbands
+--------------------------------------------------------------------------- */
+
+// FPL marks the captain and vice-captain with a small black circle holding
+// a white "C" or "V", next to the player's shirt (Pitch View) or name
+// (List View). We find them with plain image analysis, by looking for the
+// white letter rather than the black disc (the disc merges into dark
+// shirts, the letter doesn't):
+//
+// 1. Group light, colourless pixels into connected blobs (single letters)
+//    of roughly text height.
+// 2. Skip any blob that is one letter of a longer word Tesseract read, so
+//    the "V" in "Virgil" or a "C" in a fixture never counts.
+// 3. Keep blobs whose surroundings are almost entirely near-black — the
+//    badge's disc.
+// 4. Tell C from V by shape: a "C" is solid on its left and open on its
+//    right at mid-height; a "V" has two top arms, an empty top-centre and
+//    its point at the bottom.
+export function findArmbandBadges(light, dark, w, h, lines) {
+  const words = [];
+  lines.forEach(ws => ws.forEach(word => words.push(word)));
+  if (!words.length) return [];
+  const heights = words.map(word => word.bbox.y1 - word.bbox.y0).sort((a, b) => a - b);
+  const textH = heights[heights.length >> 1];
+  const minH = Math.max(7, textH * 0.35);
+  const maxH = textH * 1.8;
+
+  const seen = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  const badges = [];
+  for (let start = 0; start < w * h; start++) {
+    if (!light[start] || seen[start]) continue;
+    // Flood-fill one blob (8-connected so thin diagonal strokes hold
+    // together), tracking its bounding box.
+    let top = 0;
+    let x0 = w, y0 = h, x1 = 0, y1 = 0;
+    stack[top++] = start; seen[start] = 1;
+    while (top) {
+      const i = stack[--top];
+      const x = i % w, y = (i - x) / w;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= h) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= w) continue;
+          const j = ny * w + nx;
+          if (light[j] && !seen[j]) { seen[j] = 1; stack[top++] = j; }
+        }
+      }
+    }
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    if (bh < minH || bh > maxH || bw < bh * 0.4 || bw > bh * 1.4) continue;
+    const box = { x0, y0, x1, y1 };
+    // A letter inside a longer line of text: the word's box is about one
+    // letter tall but much wider. Tesseract also returns junk "words" over
+    // shirts and reads the badge itself as e.g. "o" — those are far taller
+    // than a letter or only one character, so they don't count.
+    const inWord = words.some(word => {
+      if (word.text.replace(/[^A-Za-z0-9]/g, '').length < 2) return false;
+      const b = word.bbox;
+      const inside = b.x0 <= x0 + 1 && b.x1 >= x1 - 1 && b.y0 <= y0 + 2 && b.y1 >= y1 - 2;
+      return inside && (b.y1 - b.y0) < bh * 1.5 && (b.x1 - b.x0) > bw * 1.8;
+    });
+    if (inWord) continue;
+    if (surroundDarkness(dark, w, h, box) < 0.8) continue;
+    const letter = classifyLetter(light, w, box);
+    if (letter) badges.push({ letter, bbox: box });
+  }
+  return badges;
+}
+
+// Fraction of near-black pixels in a frame around the box (the badge disc
+// around its letter), excluding the box itself.
+function surroundDarkness(dark, w, h, box) {
+  const pad = Math.max(2, Math.round((box.y1 - box.y0 + 1) * 0.3));
+  const xa = Math.max(0, box.x0 - pad), xb = Math.min(w - 1, box.x1 + pad);
+  const ya = Math.max(0, box.y0 - pad), yb = Math.min(h - 1, box.y1 + pad);
+  let n = 0, total = 0;
+  for (let y = ya; y <= yb; y++) {
+    for (let x = xa; x <= xb; x++) {
+      if (x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1) continue;
+      n += dark[y * w + x]; total++;
+    }
+  }
+  return total ? n / total : 0;
+}
+
+// Fraction of mask pixels in a sub-rectangle given in 0–1 box coordinates.
+function maskFraction(mask, w, box, fx0, fy0, fx1, fy1) {
+  const bw = box.x1 - box.x0 + 1, bh = box.y1 - box.y0 + 1;
+  const xa = box.x0 + Math.floor(fx0 * bw), xb = box.x0 + Math.max(Math.floor(fx0 * bw) + 1, Math.ceil(fx1 * bw));
+  const ya = box.y0 + Math.floor(fy0 * bh), yb = box.y0 + Math.max(Math.floor(fy0 * bh) + 1, Math.ceil(fy1 * bh));
+  let n = 0, total = 0;
+  for (let y = ya; y < yb; y++) {
+    for (let x = xa; x < xb; x++) { n += mask[y * w + x]; total++; }
+  }
+  return total ? n / total : 0;
+}
+
+function classifyLetter(light, w, box) {
+  const f = (a, b, c, d) => maskFraction(light, w, box, a, b, c, d);
+  const midLeft = f(0, 0.35, 0.3, 0.65);
+  const midRight = f(0.65, 0.35, 1, 0.65);
+  const topBand = f(0.3, 0, 0.7, 0.2);
+  const bottomBand = f(0.3, 0.8, 0.7, 1);
+  if (midLeft > 0.4 && midRight < midLeft * 0.4 && topBand > 0.25 && bottomBand > 0.25) return 'C';
+  const topLeft = f(0, 0, 0.3, 0.3);
+  const topRight = f(0.7, 0, 1, 0.3);
+  const topCentre = f(0.38, 0, 0.62, 0.3);
+  const bottomCentre = f(0.3, 0.75, 0.7, 1);
+  if (topLeft > 0.25 && topRight > 0.25 && topCentre < 0.2 && bottomCentre > 0.3) return 'V';
+  return null;
+}
+
+// Each badge belongs to the closest player label (it sits beside or just
+// above the name), within a few text-heights.
+function assignArmbands(badges, squad) {
+  const result = { captain: null, viceCaptain: null };
+  if (!badges.length || !squad.length) return result;
+  const nearest = badge => {
+    const bx = (badge.bbox.x0 + badge.bbox.x1) / 2, by = (badge.bbox.y0 + badge.bbox.y1) / 2;
+    let best = null, bestDist = Infinity;
+    squad.forEach(d => {
+      const textH = d.bbox.y1 - d.bbox.y0;
+      const nx = Math.max(d.bbox.x0, Math.min(bx, d.bbox.x1));
+      const ny = Math.max(d.bbox.y0, Math.min(by, d.bbox.y1));
+      const dist = Math.hypot(bx - nx, by - ny);
+      if (by > d.bbox.y1 + textH) return; // badges never sit below the name
+      if (dist < textH * 8 && dist < bestDist) { bestDist = dist; best = d; }
+    });
+    return best ? { det: best, dist: bestDist } : null;
+  };
+  let bestC = null, bestV = null;
+  badges.forEach(b => {
+    const hit = nearest(b);
+    if (!hit) return;
+    if (b.letter === 'C' && (!bestC || hit.dist < bestC.dist)) bestC = hit;
+    if (b.letter === 'V' && (!bestV || hit.dist < bestV.dist)) bestV = hit;
+  });
+  result.captain = bestC ? bestC.det : null;
+  result.viceCaptain = bestV && (!bestC || bestV.det !== bestC.det) ? bestV.det : null;
+  return result;
+}
+
 // Pure text → squad step, separate from OCR so it can be tested directly.
-export function extractSquadFromOcrLines(lines, allPlayers) {
+export function extractSquadFromOcrLines(lines, allPlayers, badges = []) {
   const index = buildNameIndex(allPlayers);
   const prices = findPrices(lines);
   const detections = [];
@@ -329,6 +489,7 @@ export function extractSquadFromOcrLines(lines, allPlayers) {
   const { starters, bench } = splitStartersAndBench(squad);
 
   const toEntry = d => ({ id: d.player.id, ambiguous: d.ambiguous, name: d.text, club: null, price_millions: d.price });
+  const armbands = assignArmbands(badges, squad);
   const startingXi = { goalkeepers: [], defenders: [], midfielders: [], forwards: [] };
   starters.forEach(d => startingXi[POS_KEYS[d.player.positionId]].push(toEntry(d)));
 
@@ -336,8 +497,8 @@ export function extractSquadFromOcrLines(lines, allPlayers) {
     not_fpl_screenshot: squad.length < 3,
     starting_xi: startingXi,
     bench: bench.map(toEntry),
-    captain: null,
-    vice_captain: null,
+    captain: armbands.captain ? armbands.captain.text : null,
+    vice_captain: armbands.viceCaptain ? armbands.viceCaptain.text : null,
     bank_millions: findBank(lines),
   };
 }
@@ -345,10 +506,12 @@ export function extractSquadFromOcrLines(lines, allPlayers) {
 // Raw OCR lines (arrays of { text, bbox, confidence }), useful on its own
 // for debugging what Tesseract saw.
 export async function readScreenshotText(img, onProgress) {
-  return ocrWords(prepareCanvases(img), onProgress);
+  return ocrWords(prepareCanvases(img).canvases, onProgress);
 }
 
 export async function readSquadFromScreenshot(img, allPlayers, onProgress) {
-  const lines = await readScreenshotText(img, onProgress);
-  return extractSquadFromOcrLines(lines, allPlayers);
+  const prepared = prepareCanvases(img);
+  const lines = await ocrWords(prepared.canvases, onProgress);
+  const badges = findArmbandBadges(prepared.light, prepared.dark, prepared.width, prepared.height, lines);
+  return extractSquadFromOcrLines(lines, allPlayers, badges);
 }
