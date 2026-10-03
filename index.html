@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Check your Fantasy Premier League squad, see point predictions and transfer suggestions, or build a data-driven optimal squad for any gameweek." />
-    <title>FPL Squad Check</title>
+    <title>FPL Squad Check — FPL points predictor and squad checker</title>
+    <link rel="canonical" href="https://fplchecker.vercel.app/" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" />
@@ -26,9 +27,32 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="FPL Squad Check: check your squad, predict your points." />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Describes the site to search engines as a free web app -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "FPL Squad Check",
+        "url": "https://fplchecker.vercel.app/",
+        "description": "Free Fantasy Premier League tool: predicted points for every player, captain and transfer suggestions for your squad from your FPL Team ID or a screenshot, and a data-driven optimal squad builder.",
+        "applicationCategory": "SportsApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "image": "https://fplchecker.vercel.app/og-image.png",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" }
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- What search engines (and anyone without JavaScript) see before the
+           app loads. React replaces all of this on start-up; it's styled to
+           match the home screen so the swap isn't noticeable. -->
+      <main style="min-height:100vh; padding:76px 16px 40px; color:#FBFAFF; font-family:'Inter',sans-serif; background:linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%) fixed; box-sizing:border-box;">
+        <h1 style="font-family:'Space Grotesk',sans-serif; font-size:1.6rem; line-height:1.2; margin:0 0 10px;">Check your squad.<br />Predict your points.</h1>
+        <p style="font-size:0.92rem; line-height:1.5; margin:0; color:rgba(251,250,255,0.72);">FPL Squad Check is a free Fantasy Premier League tool. Enter your FPL Team ID or upload a screenshot of your team to see predicted points for every player, the best captain and transfer suggestions for the next gameweek, or build a data-driven optimal squad within the £100m budget.</p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
 
   </body>
