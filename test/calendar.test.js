@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildDeadlineIcs, squadWarnings } from '../src/lib/calendar.js';
 
 test('deadline event with a 3-hour alert', () => {
-  const ics = buildDeadlineIcs({ gwName: 'Gameweek 8', deadline: '2026-10-17T10:00:00Z', notes: ['Your captain Haaland is flagged: 75% chance of playing.'], url: 'https://fpl-virid-psi.vercel.app', now: new Date('2026-10-03T12:00:00Z') });
+  const ics = buildDeadlineIcs({ gwName: 'Gameweek 8', deadline: '2026-10-17T10:00:00Z', notes: ['Your captain Haaland is flagged: 75% chance of playing.'], url: 'https://fplchecker.vercel.app', now: new Date('2026-10-03T12:00:00Z') });
   assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
   assert.match(ics, /DTSTART:20261017T100000Z/);
   assert.match(ics, /TRIGGER:-PT3H/);

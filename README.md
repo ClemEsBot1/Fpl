@@ -2,7 +2,7 @@
 
 A Fantasy Premier League (FPL) squad checker and optimiser. Load your squad, see point predictions for every player, get transfer and captain suggestions, or generate a data-driven "optimal" squad for any gameweek.
 
-**Live app:** https://fpl-virid-psi.vercel.app
+**Live app:** https://fplchecker.vercel.app
 
 ## Features
 

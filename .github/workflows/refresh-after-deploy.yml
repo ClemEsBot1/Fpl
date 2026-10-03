@@ -23,5 +23,5 @@ jobs:
 
       - name: Trigger refresh-optimal
         run: |
-          curl -sf -X POST https://fpl-virid-psi.vercel.app/api/refresh-optimal \
+          curl -sf -X POST https://fplchecker.vercel.app/api/refresh-optimal \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
