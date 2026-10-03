@@ -1,6 +1,7 @@
 import { put, get } from '@vercel/blob';
 import { buildStaticDataFromRaw, buildOptimalTeam, SQUAD_BUDGET } from '../src/lib/predictions.js';
 import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
+import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 // The Odds API (the-odds-api.com) — free tier (500 requests/month) is
@@ -128,6 +129,21 @@ export default async function handler(req, res) {
       contentType: 'application/json',
       allowOverwrite: true,
     });
+
+    // Every player's prediction for this gameweek, for /api/accuracy to
+    // score once it's been played. Like the squad snapshot, it's rewritten
+    // on each run until the deadline passes and then left as it was —
+    // never rewritten for a backfill, which would use today's data.
+    if (!forceGwId) {
+      try {
+        const predictedById = Object.fromEntries(
+          Object.entries(staticData.predictionsById).map(([id, pred]) => [id, pred.nextMatchPredicted]),
+        );
+        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, savedAt: snapshot.builtAt, predictedById }), {
+          access: 'public', contentType: 'application/json', allowOverwrite: true,
+        });
+      } catch { /* non-fatal — accuracy tracking just skips this gameweek */ }
+    }
 
     res.status(200).json({ ok: true, gwId, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData, usedOdds: !!(oddsData && oddsData.length), matchedFixtureCount: oddsData ? oddsData.length : 0 });
   } catch (e) {

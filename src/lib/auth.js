@@ -17,9 +17,13 @@ export function validateUsername(username) {
   return { ok: true };
 }
 
+// Applies to new accounts only — login never re-validates, so anyone who
+// signed up under the old 6-character minimum can still log in.
+export const MIN_PASSWORD_LENGTH = 8;
+
 export function validatePassword(password) {
-  if (typeof password !== 'string' || password.length < 6) {
-    return { ok: false, error: 'Password must be at least 6 characters.' };
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+    return { ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
   }
   if (password.length > 200) {
     return { ok: false, error: 'Password is too long.' };

@@ -16,6 +16,9 @@ A Fantasy Premier League (FPL) squad checker and optimiser. Load your squad, see
 - **Chip timing analysis** for planning Wildcard, Free Hit, Bench Boost and Triple Captain.
 - **Accounts** (username and password) for saving squads, plus JSON export of the optimal squad.
 - **Last-season stats** shown at GW1 (marked "LS") when there's no current-season data yet.
+- **Prediction accuracy** on the home page: last gameweek's predictions against what players actually scored.
+- **Share** a squad's predicted points as an image, and add a **deadline reminder** (calendar event with a 3-hour alert and any injury/captain warnings) from the results page.
+- **"Did we misread something?"** — an opt-in button on the screenshot review screen that sends the screenshot to the site owner so misreads can be fixed and added as tests.
 
 ## How predictions work
 
@@ -45,27 +48,50 @@ The prediction logic is a set of pure functions shared by the browser and the se
 
 ```
 api/
-  auth.js               Login, signup, session
+  auth.js               Login, signup, session (rate-limited)
   teams.js              Saved squads for logged-in users
-  fpl.js                Proxy for the FPL API
+  fpl.js                Cached proxy for the FPL endpoints the app uses (allow-listed)
   optimal-squad.js      Serves the latest optimal-squad snapshot
-  refresh-optimal.js    Cron job: builds and saves the snapshot (needs CRON_SECRET)
+  refresh-optimal.js    Cron job: builds and saves the snapshot and this gameweek's predictions (needs CRON_SECRET)
+  accuracy.js           Last gameweek's predictions vs. actual points
+  screenshot-report.js  Stores opt-in screenshot reports in Blob
   odds.js               Serves cached bookmaker odds
   player-history.js     Serves imported historical player data
 src/
-  App.jsx               Main UI
+  App.jsx               App shell: state, data loading, which screen is shown
+  styles.css            App-wide styles
+  screens/              One file per screen (intro, screenshot import, results, squad builder, hindsight, accounts)
+  components/common.jsx Header, loading/error states, player search, fixture chips
   lib/
     predictions.js      Prediction and squad-building logic (shared with the server)
-    screenshotOcr.js    Screenshot OCR and player-name detection
-    playerHistory.js    Turns past-season data into a career baseline
-    oddsAdjustment.js   Bookmaker-odds maths and fixture matching
-    auth.js, redis.js, teams.js
+    screenshotOcr.js    Screenshot OCR, player/club/armband detection
+    squadLogic.js       Formations, captaincy, transfer suggestions, chip timing
+    format.js           Name matching and number formatting
+    fplClient.js        Browser-side data loading
+    accuracy.js, calendar.js, shareCard.js, fplProxy.js, rateLimit.js
+    playerHistory.js, oddsAdjustment.js, auth.js, redis.js, teams.js
+test/                   node:test suites (npm test) and fixtures, incl. a real screenshot's OCR output
 scripts/
-  import-player-history.mjs   One-time import of 10 seasons of history into Blob
-  calibrate-weights.mjs       Grid-search of formula weights via walk-forward backtest
+  import-player-history.mjs        One-time import of 10 seasons of history into Blob
+  calibrate-weights.mjs            Grid-search of formula weights via walk-forward backtest
+  copy-tesseract.mjs               Copies the OCR engine into public/tesseract (runs before dev/build)
+  download-screenshot-reports.mjs  Downloads screenshots people reported as misread
 .github/workflows/
-  refresh-after-deploy.yml    Rebuilds the optimal squad after each push to main
+  ci.yml                       Lint, test and build on every pull request
+  refresh-after-deploy.yml     Rebuilds the optimal squad after each push to main
 ```
+
+## Development
+
+```bash
+npm install
+npm run dev     # local app (the /api functions need `vercel dev` and env vars)
+npm test        # unit tests: screenshot reading, predictions, login limits, proxy rules, …
+npm run lint
+npm run build
+```
+
+`test/fixtures/README.md` explains how to turn a screenshot that was read wrongly into a regression test.
 
 ## Setup
 
@@ -105,6 +131,12 @@ Everything happens in the browser; the screenshot never leaves the device.
 4. Each player's club comes from the fixture printed under their name: "CRY (A)" means their team plays away at Crystal Palace, and in that gameweek's real fixture list only one team does (the gameweek is whichever one fits most of the fixtures on screen). Names are then matched within that club's squad, which tells apart players who share a name (two "Muñoz") and resolves names FPL cuts short ("B.Fernan…"). Where fixtures aren't shown, the Pitch View rows still give each starter's position (goalkeeper, then defenders, midfielders, forwards), and a name shared across positions takes whichever position still has room in a 2/5/5/3 squad. The bottom four players on the screen are the bench. Prices printed next to or under a name, and the bank figure, are picked up too.
 5. Captain and vice-captain come from the armband badges (a white "C" or "V" on a dark purple or black disc), found without OCR: light letter-sized blobs that aren't part of a word, sit alone, and are surrounded by very dark pixels are classified by shape (a "C" is open on its right at mid-height; a "V" has two top arms and its point at the bottom) and attached to the player whose card they're on.
 6. The review screen shows every match with its live FPL price, the squad's total cost and team value, and lets you fix any player or change the captaincy.
+
+## Server-side protections
+
+- `/api/fpl` only forwards the FPL endpoints the app uses, and caches successful responses at Vercel's edge (5 minutes for player and fixture data), so most visitors never wait on FPL's servers.
+- Logins are limited to 10 failed attempts per username and 30 per IP address in 15 minutes; sign-ups to 5 per IP per hour. New passwords need at least 8 characters.
+- Screenshot reports are limited to 10 per IP per hour and only store a fixed set of fields.
 
 ## Security headers
 

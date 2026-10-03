@@ -1,0 +1,23 @@
+name: CI
+
+# Lint, test and build every pull request (and main), so a change that
+# breaks screenshot reading, predictions, login limits or the build shows
+# up as a red check before it's merged and deployed.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
