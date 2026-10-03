@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/read-screenshot.js": { "maxDuration": 60 }
+  },
   "crons": [
     { "path": "/api/refresh-optimal", "schedule": "0 6 * * *" }
   ],

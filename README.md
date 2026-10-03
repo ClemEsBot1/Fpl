@@ -6,7 +6,7 @@ A Fantasy Premier League (FPL) squad checker and optimiser. Load your squad, see
 
 ## Features
 
-- **Three ways to load a squad** — enter an FPL team ID, paste a squad read from a screenshot (via a Claude-generated JSON), or build one from scratch.
+- **Three ways to load a squad** — enter an FPL team ID, upload a screenshot of your team (players are read automatically and priced from live FPL data), or build one from scratch.
 - **Point predictions** for every player, with a per-player **"Why?"** breakdown showing exactly which inputs drove the number (FPL's own model, form, set pieces, xG/xA, bookmaker odds, fixture difficulty, availability, rest days).
 - **Optimal squad builder** — picks the best 15 within a £100m budget, aware of who actually starts vs. sits on the bench so budget isn't wasted on players who won't play.
 - **Transfer suggestions** that account for free transfers vs. the -4 point hit, so a marginal swap isn't recommended if it costs you points.
@@ -37,6 +37,7 @@ The prediction logic is a set of pure functions shared by the browser and the se
 - **Backend:** Vercel serverless functions in `api/`
 - **Storage:** Vercel Blob (shared snapshots, historical data, cached odds) and Redis (user accounts and saved squads)
 - **Auth:** bcrypt password hashing, JWT session cookies
+- **Screenshot reading:** Claude vision via the Anthropic SDK (`@anthropic-ai/sdk`)
 - **Data:** the public FPL API, a community archive of past seasons ([vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)), and [The Odds API](https://the-odds-api.com) for bookmaker odds
 - **Tooling:** Oxlint
 
@@ -47,6 +48,7 @@ api/
   auth.js               Login, signup, session
   teams.js              Saved squads for logged-in users
   fpl.js                Proxy for the FPL API
+  read-screenshot.js    Reads player names from an uploaded squad screenshot (Claude vision)
   optimal-squad.js      Serves the latest optimal-squad snapshot
   refresh-optimal.js    Cron job: builds and saves the snapshot (needs CRON_SECRET)
   odds.js               Serves cached bookmaker odds
@@ -80,7 +82,8 @@ scripts/
    | `CRON_SECRET` | Bearer token protecting `/api/refresh-optimal` (Vercel generates one for the cron) |
    | `REDIS_URL` | Redis connection string for accounts and saved squads |
    | `JWT_SECRET` | Secret used to sign session cookies |
-   | `ODDS_API_KEY` | Optional. Free key from the-odds-api.com; without it the odds adjustment is skipped |
+   | `ANTHROPIC_API_KEY` | Needed for screenshot upload. Each upload is one Claude API call; limited to 20 per IP per hour when Redis is configured |
+| `ODDS_API_KEY` | Optional. Free key from the-odds-api.com; without it the odds adjustment is skipped |
 
 3. **Import historical data (optional, once):** run `node scripts/import-player-history.mjs` to upload past seasons to Blob. Without it, predictions fall back to the position-average baseline.
 

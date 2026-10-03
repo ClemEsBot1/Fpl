@@ -72,12 +72,23 @@ function similarity(a, b) {
   return Math.max(0, 1 - dist / Math.max(na.length, nb.length));
 }
 
-function findTopMatches(extractedName, candidates, topN = 3) {
+// `hints` (club abbreviation / price read off the screenshot) only nudge
+// the score, so they break ties between same-named players (two "Gomes",
+// a "Wilson" at two clubs) without overriding a clearly better name match.
+function findTopMatches(extractedName, candidates, topN = 3, hints = {}) {
+  const { club, price, teamsById } = hints;
+  const clubNorm = club ? normalize(club) : null;
   const scored = candidates.map(p => {
     const s1 = similarity(extractedName, p.webName);
     const s2 = similarity(extractedName, p.secondName);
     const s3 = similarity(extractedName, `${p.firstName} ${p.secondName}`);
-    return { player: p, score: Math.max(s1, s2, s3) };
+    let score = Math.max(s1, s2, s3);
+    const team = teamsById && teamsById[p.team];
+    if (clubNorm && team && normalize(team.short_name) === clubNorm) score += 0.06;
+    // A screenshot shows the selling price, which can sit a little under
+    // the current price after a rise — so allow some slack either way.
+    if (typeof price === 'number' && Math.abs(price - p.price) <= 0.3) score += 0.04;
+    return { player: p, score: Math.min(1, score) };
   });
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, topN);
@@ -301,27 +312,34 @@ function suggestTransfers(squad, allPlayers, predictionsById, bankTenths) {
    SCREENSHOT MATCHING
 ============================================================================ */
 
-function matchExtractedSquad(extracted, playersByPosition, allPlayers) {
+// Each read player is either a bare name string (older JSON shape) or
+// { name, club, price_millions } from the screenshot reader.
+function readPlayerEntry(entry) {
+  if (typeof entry === 'string') return { name: entry, club: null, price: null };
+  return {
+    name: (entry && entry.name) || '',
+    club: (entry && entry.club) || null,
+    price: entry && typeof entry.price_millions === 'number' ? entry.price_millions : null,
+  };
+}
+
+function matchExtractedSquad(extracted, playersByPosition, allPlayers, teamsById) {
   const slots = [];
   const posMap = { goalkeepers: 1, defenders: 2, midfielders: 3, forwards: 4 };
-  Object.entries(posMap).forEach(([key, posId]) => {
-    (extracted.starting_xi && extracted.starting_xi[key] || []).forEach(name => {
-      const top = findTopMatches(name, playersByPosition[posId] || [], 3);
-      slots.push({
-        extractedName: name, posId, isStarting: true,
-        top, matched: (top[0] && top[0].score > 0.72) ? top[0].player : null,
-        isCaptain: false, isViceCaptain: false,
-      });
-    });
-  });
-  (extracted.bench || []).forEach(name => {
-    const top = findTopMatches(name, allPlayers, 3);
+  function addSlot(entry, posId, candidates, isStarting) {
+    const read = readPlayerEntry(entry);
+    if (!read.name) return;
+    const top = findTopMatches(read.name, candidates, 3, { club: read.club, price: read.price, teamsById });
     slots.push({
-      extractedName: name, posId: null, isStarting: false,
+      extractedName: read.name, extractedClub: read.club, extractedPrice: read.price, posId, isStarting,
       top, matched: (top[0] && top[0].score > 0.72) ? top[0].player : null,
       isCaptain: false, isViceCaptain: false,
     });
+  }
+  Object.entries(posMap).forEach(([key, posId]) => {
+    (extracted.starting_xi && extracted.starting_xi[key] || []).forEach(entry => addSlot(entry, posId, playersByPosition[posId] || [], true));
   });
+  (extracted.bench || []).forEach(entry => addSlot(entry, null, allPlayers, false));
 
   function markByName(name, field) {
     if (!name) return;
@@ -578,11 +596,11 @@ function IntroScreen({ onChoose, showHindsight, showMyTeams }) {
             <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>Exact data, straight from the FPL API</span>
           </span>
         </button>
-        <button className="fpl-btn" onClick={() => onChoose('paste')} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Info size={22} />
+        <button className="fpl-btn" onClick={() => onChoose('screenshot')} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Camera size={22} />
           <span>
-            <span style={{ display: 'block', fontSize: '1rem' }}>Paste from Claude chat</span>
-            <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>Free — read your screenshot in a normal chat</span>
+            <span style={{ display: 'block', fontSize: '1rem' }}>Upload a screenshot</span>
+            <span className="fpl-mono" style={{ display: 'block', fontSize: '0.7rem', fontWeight: 400, marginTop: 2, opacity: 0.75 }}>We read the players and work out their prices</span>
           </span>
         </button>
         <button className="fpl-btn" onClick={() => onChoose('build')} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -662,96 +680,114 @@ function TeamIdForm({ value, onChange, onSubmit, onBack }) {
   );
 }
 
-const CLAUDE_CHAT_PROMPT = `You are looking at a screenshot of a Fantasy Premier League (FPL) squad screen (the "Pitch View" of a manager's 15-player team).
+// Phone screenshots are often 1170×2532 or bigger. Scaling the long side
+// down keeps names legible for the vision model while keeping the upload
+// well under the serverless request-size limit.
+const SCREENSHOT_MAX_SIDE = 2000;
 
-Read the player names as displayed under each shirt icon, and the captain (C badge) and vice-captain (V badge) armbands.
-
-Respond with ONLY a raw JSON object — no markdown code fences, no explanation, no preamble. Use exactly this shape:
-
-{
-  "starting_xi": {
-    "goalkeepers": ["surname as shown"],
-    "defenders": ["surname as shown", "..."],
-    "midfielders": ["surname as shown", "..."],
-    "forwards": ["surname as shown", "..."]
-  },
-  "bench": ["surname as shown", "surname as shown", "surname as shown", "surname as shown"],
-  "captain": "surname of the player with the C badge, or null",
-  "vice_captain": "surname of the player with the V badge, or null",
-  "bank_millions": 0.0,
-  "not_fpl_screenshot": false
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("That file doesn't look like an image."));
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
-Rules:
-- Group starting XI players by the row/position they appear in on the pitch (goalkeeper row, defender row, midfielder row, forward row).
-- "bench" holds the 4 substitute players shown below or separate from the pitch, in the order shown.
-- Use the exact short surname/display name printed under the shirt. If you cannot read a name confidently, omit that player rather than guessing.
-- "bank_millions" is the money in the bank / ITB figure if visible anywhere on screen (e.g. "£0.3"), otherwise null.
-- If this image does not look like an FPL squad/pitch view at all, respond with exactly {"not_fpl_screenshot": true} and nothing else.`;
+async function prepareScreenshot(file) {
+  const img = await loadImageFromFile(file);
+  const scale = Math.min(1, SCREENSHOT_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  return { dataUrl, mediaType: 'image/jpeg', base64: dataUrl.slice(dataUrl.indexOf(',') + 1) };
+}
 
-function PasteJsonForm({ onSubmit, onBack }) {
-  const [text, setText] = useState('');
-  const [copied, setCopied] = useState(false);
+function ScreenshotForm({ onSubmit, onBack }) {
+  const [shot, setShot] = useState(null);
+  const [error, setError] = useState('');
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
 
-  function copyPrompt() {
-    navigator.clipboard.writeText(CLAUDE_CHAT_PROMPT).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    });
+  async function acceptFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setError('That isn\'t an image. Pick a screenshot (PNG or JPEG).'); return; }
+    setError('');
+    try {
+      setShot(await prepareScreenshot(file));
+    } catch (e) {
+      setError(e.message || "Couldn't load that image.");
+    }
   }
 
-  function handleFilePick(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setText(String(reader.result || ''));
-    reader.readAsText(file);
-    e.target.value = ''; // allow picking the same file again later
-  }
+  // Lets people paste a screenshot straight from the clipboard (Ctrl/Cmd+V)
+  // instead of saving it to a file first.
+  useEffect(() => {
+    function onPaste(e) {
+      const items = (e.clipboardData && e.clipboardData.items) || [];
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          acceptFile(item.getAsFile());
+          return;
+        }
+      }
+    }
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
 
   return (
     <div style={{ padding: '20px 16px 40px' }}>
       <button onClick={onBack} className="fpl-mono" style={{ background: 'none', border: 'none', color: 'var(--ink-dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', marginBottom: 18, cursor: 'pointer', padding: 0 }}>
         <ChevronLeft size={14} /> BACK
       </button>
-      <h2 className="fpl-display" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 6 }}>Paste from a Claude chat</h2>
+      <h2 className="fpl-display" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 6 }}>Upload a screenshot</h2>
       <p style={{ color: 'var(--ink-dim)', fontSize: '0.85rem', marginBottom: 14, lineHeight: 1.5 }}>
-        Free — no API key needed. Open a normal chat at <span className="fpl-mono">claude.ai</span>, attach your Pitch View screenshot, paste the prompt below, then paste (or upload) Claude's JSON reply.
+        Screenshot your Pick Team or Points page in the FPL app (Pitch View or List View). We'll read every player, match them to live FPL data and work out their prices.
       </p>
+
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { acceptFile(e.target.files && e.target.files[0]); e.target.value = ''; }} />
+      <button
+        type="button"
+        className="fpl-block"
+        onClick={() => fileInputRef.current && fileInputRef.current.click()}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); acceptFile(e.dataTransfer.files && e.dataTransfer.files[0]); }}
+        style={{ width: '100%', padding: shot ? 8 : 28, marginBottom: 14, cursor: 'pointer', color: 'var(--ink)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, borderStyle: 'dashed', borderWidth: 2, borderColor: dragging ? 'var(--blue)' : 'var(--line)' }}
+      >
+        {shot ? (
+          <>
+            <img src={shot.dataUrl} alt="Your squad screenshot" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
+            <span className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)' }}>Tap to choose a different screenshot</span>
+          </>
+        ) : (
+          <>
+            <Camera size={28} />
+            <span className="fpl-display" style={{ fontWeight: 600 }}>Choose a screenshot</span>
+            <span className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)' }}>or drag it here, or paste it with Ctrl/Cmd+V</span>
+          </>
+        )}
+      </button>
+
+      {error && <div className="fpl-availnote" style={{ marginBottom: 12 }}>{error}</div>}
 
       <button
         className="fpl-btn fpl-btn-solid"
-        style={{ width: '100%', marginBottom: 14, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-        disabled={!text.trim()}
-        onClick={() => onSubmit(text)}
+        style={{ width: '100%', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+        disabled={!shot}
+        onClick={() => onSubmit(shot)}
       >
-        Check my squad <ArrowRight size={16} />
+        Read my squad <ArrowRight size={16} />
       </button>
-
-      <div className="fpl-block" style={{ padding: 10, marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)' }}>PROMPT TO SEND CLAUDE (not your squad — copy this into a separate Claude chat)</span>
-          <button className="fpl-chip-btn" onClick={copyPrompt}>{copied ? 'Copied!' : 'Copy prompt'}</button>
-        </div>
-        <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', maxHeight: 80, overflow: 'hidden', lineHeight: 1.5 }}>
-          {CLAUDE_CHAT_PROMPT.slice(0, 160)}…
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <span className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)' }}>YOUR SQUAD JSON</span>
-        <button className="fpl-chip-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()}>Upload .json file</button>
-      </div>
-      <input ref={fileInputRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={handleFilePick} />
-
-      <textarea
-        className="fpl-input"
-        style={{ minHeight: 160, resize: 'vertical', fontSize: '0.78rem' }}
-        placeholder={'Paste Claude\'s JSON reply here, or upload it as a file above, e.g. { "starting_xi": { ... }, "bench": [...] }'}
-        value={text}
-        onChange={e => setText(e.target.value)}
-      />
     </div>
   );
 }
@@ -1102,7 +1138,7 @@ function PlayerSearchPicker({ allPlayers, onPick }) {
   );
 }
 
-function ReviewSlot({ slot, index, onFix, allPlayers, onSetCaptain, onSetViceCaptain }) {
+function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCaptain, onSetViceCaptain }) {
   const [showSearch, setShowSearch] = useState(false);
   const confident = slot.matched && slot.top[0] && slot.top[0].score > 0.72 && !slot.manuallyFixed === false ? true : (slot.matched && slot.top[0] && slot.top[0].score > 0.72);
   const needsReview = !slot.matched || (slot.top[0] && slot.top[0].score <= 0.72);
@@ -1117,13 +1153,19 @@ function ReviewSlot({ slot, index, onFix, allPlayers, onSetCaptain, onSetViceCap
           <div className="fpl-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
             {slot.matched ? slot.matched.webName : <span style={{ color: 'var(--amber)' }}>Not matched</span>}
           </div>
+          {slot.matched && (
+            <div className="fpl-row-sub">
+              {POSITION_LABELS[slot.matched.positionId]} · {teamsById[slot.matched.team] ? teamsById[slot.matched.team].short_name : '—'} · {fmtPrice(slot.matched.price)}
+              {slot.extractedPrice != null && Math.abs(slot.extractedPrice - slot.matched.price) >= 0.05 && ` (screenshot ${fmtPrice(slot.extractedPrice)})`}
+            </div>
+          )}
         </div>
         {needsReview
           ? <ShieldAlert size={18} style={{ color: 'var(--amber)', flexShrink: 0 }} />
           : <CheckCircle2 size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />}
       </div>
 
-      {/* Captaincy is read from the pasted JSON's captain/vice_captain names
+      {/* Captaincy is read from the screenshot's captain/vice_captain names
           when they matched cleanly, but that match can miss (typo, a name
           that reads ambiguously, etc.) with no other way to fix it — so
           these checkboxes let the person set/correct it directly, the same
@@ -1169,7 +1211,54 @@ function ReviewSlot({ slot, index, onFix, allPlayers, onSetCaptain, onSetViceCap
   );
 }
 
-function ReviewScreen({ slots, allPlayers, onFix, onSetCaptain, onSetViceCaptain, onConfirm, onBack }) {
+// Prices come from live FPL data (now_cost) once each name is matched. The
+// FPL app shows a selling price, which can be a little lower than the
+// current price after a rise, so when the screenshot showed every player's
+// price we total that too.
+function SquadPriceSummary({ slots, bank, onBankChange }) {
+  const matched = slots.filter(s => s.matched);
+  const squadCost = matched.reduce((sum, s) => sum + s.matched.price, 0);
+  const allShown = matched.length > 0 && matched.every(s => s.extractedPrice != null);
+  const sellingValue = allShown ? matched.reduce((sum, s) => sum + s.extractedPrice, 0) : null;
+  const bankNum = bank != null && !Number.isNaN(bank) ? bank : 0;
+  const row = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '4px 0' };
+  return (
+    <div className="fpl-block" style={{ padding: 12, marginBottom: 14 }}>
+      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.03em' }}>SQUAD PRICES</div>
+      <div style={row}>
+        <span style={{ color: 'var(--ink-dim)' }}>{matched.length} matched players at current prices</span>
+        <span className="fpl-mono">{fmtPrice(squadCost)}</span>
+      </div>
+      {sellingValue != null && Math.abs(sellingValue - squadCost) >= 0.05 && (
+        <div style={row}>
+          <span style={{ color: 'var(--ink-dim)' }}>Selling value shown in screenshot</span>
+          <span className="fpl-mono">{fmtPrice(sellingValue)}</span>
+        </div>
+      )}
+      <div style={row}>
+        <label htmlFor="review-bank" style={{ color: 'var(--ink-dim)' }}>In the bank (£m)</label>
+        <input
+          id="review-bank"
+          className="fpl-input"
+          type="number"
+          inputMode="decimal"
+          step="0.1"
+          min="0"
+          value={bank == null ? '' : bank}
+          placeholder="0.0"
+          onChange={e => onBankChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+          style={{ width: 90, padding: '4px 8px', fontSize: '0.82rem', textAlign: 'right' }}
+        />
+      </div>
+      <div style={{ ...row, borderTop: '1px solid var(--line)', marginTop: 4, paddingTop: 8, fontWeight: 600 }}>
+        <span>Team value</span>
+        <span className="fpl-mono">{fmtPrice((sellingValue != null ? sellingValue : squadCost) + bankNum)}</span>
+      </div>
+    </div>
+  );
+}
+
+function ReviewScreen({ slots, allPlayers, teamsById, bank, onBankChange, onFix, onSetCaptain, onSetViceCaptain, onConfirm, onBack }) {
   const unresolved = slots.filter(s => !s.matched).length;
   return (
     <div style={{ padding: '20px 16px 100px' }}>
@@ -1181,8 +1270,10 @@ function ReviewScreen({ slots, allPlayers, onFix, onSetCaptain, onSetViceCaptain
         We read these names from your screenshot. Fix anything that's wrong before we crunch the numbers.
       </p>
 
+      <SquadPriceSummary slots={slots} bank={bank} onBankChange={onBankChange} />
+
       {slots.map((slot, i) => (
-        <ReviewSlot key={i} slot={slot} index={i} onFix={onFix} allPlayers={allPlayers} onSetCaptain={onSetCaptain} onSetViceCaptain={onSetViceCaptain} />
+        <ReviewSlot key={i} slot={slot} index={i} onFix={onFix} allPlayers={allPlayers} teamsById={teamsById} onSetCaptain={onSetCaptain} onSetViceCaptain={onSetViceCaptain} />
       ))}
 
       <button
@@ -1329,9 +1420,9 @@ function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle
 // builder, rather than only being reachable via a form at the top.
 // Shown inside the same expand-on-click panel as the swap search, when a
 // row is open in edit mode — lets you (re)assign captain/vice-captain
-// directly on an already-confirmed squad, the same way the paste-a-squad
+// directly on an already-confirmed squad, the same way the screenshot
 // review screen lets you do it before confirming. Works for every way a
-// squad can reach this screen (paste, custom build, team ID) since they
+// squad can reach this screen (screenshot, custom build, team ID) since they
 // all render through this one ResultsScreen.
 function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
   return (
@@ -1694,7 +1785,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
     setEditQuery('');
   }
 
-  // Same mutual-exclusivity rules as the paste-a-squad review screen: only
+  // Same mutual-exclusivity rules as the screenshot review screen: only
   // one captain and one vice-captain at a time, never the same player as
   // both, and re-checking an already-checked box clears it. `multiplier`
   // has to be kept in lockstep with isCaptain here (unlike the review
@@ -2014,7 +2105,7 @@ function ResultsScreen({ data, onStartOver, onSquadUpdate, session, onSaveTeamId
 
 // Handles both save actions (Team ID, and the exact current squad) from
 // whichever results view is showing — Team-ID lookup, custom build, or a
-// pasted-screenshot squad. Shows one shared inline status line for
+// uploaded-screenshot squad. Shows one shared inline status line for
 // whichever button was last pressed.
 function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
   const [status, setStatus] = useState(null); // { kind: 'saving'|'ok'|'error', message }
@@ -2908,26 +2999,26 @@ export default function FPLSquadChecker() {
       setStage('error');
       const code = (e && e.code) || 'ERR_UNKNOWN';
       const messages = {
-        ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or use Paste from Claude chat instead.",
-        ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or use Paste from Claude chat instead.",
-        ERR_GW_LOCKED: "FPL hasn't published picks for this gameweek yet (they're hidden until the deadline passes). Try again after the deadline, or use Paste from Claude chat for now.",
+        ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead.",
+        ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
+        ERR_GW_LOCKED: "FPL hasn't published picks for this gameweek yet (they're hidden until the deadline passes). Try again after the deadline, or upload a screenshot for now.",
         ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
-        ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or use Paste from Claude chat instead.',
+        ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
       };
       setErrorMessage(`${messages[code] || messages.ERR_UNKNOWN} [${code}]`);
     }
   }
 
-  // Used by the paste-JSON path — matches the extracted shape to real players.
+  // Used by the screenshot path — matches the extracted shape to real players.
   async function processExtractedSquad(extracted, staticDataPromise) {
     if (extracted.not_fpl_screenshot) {
-      setErrorMessage("That doesn't look like an FPL squad. Re-check the JSON and try again. [ERR_NOT_FPL_SCREENSHOT]");
+      setErrorMessage("That doesn't look like an FPL squad. Screenshot your Pick Team or Points page and try again. [ERR_NOT_FPL_SCREENSHOT]");
       setStage('error');
       return;
     }
     setLoadingMessage('Matching players…');
     const staticData = await staticDataPromise;
-    const slots = matchExtractedSquad(extracted, staticData.playersByPosition, staticData.allPlayers);
+    const slots = matchExtractedSquad(extracted, staticData.playersByPosition, staticData.allPlayers, staticData.teamsById);
 
     setReviewSlots(slots);
     setReviewBank(typeof extracted.bank_millions === 'number' ? extracted.bank_millions : null);
@@ -2935,19 +3026,46 @@ export default function FPLSquadChecker() {
     setStage('review');
   }
 
-  // FREE path: no Claude API key needed. The user pastes their screenshot into
-  // a normal Claude.ai chat, asks for the JSON, and pastes the JSON here.
-  async function handlePastedJson(rawText) {
+  // Sends the (already downsized) screenshot to /api/read-screenshot, which
+  // reads the names with Claude's vision; matching and pricing then run
+  // locally against live FPL data, same as every other squad source.
+  async function handleScreenshot(shot) {
     setStage('loading');
-    setLoadingMessage('Matching players…');
+    setLoadingMessage('Reading your screenshot…');
+    const staticDataPromise = ensureStaticData();
+    staticDataPromise.catch(() => {}); // surfaced below via processExtractedSquad
+    let extracted;
     try {
-      let cleaned = (rawText || '').trim();
-      cleaned = cleaned.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-      const extracted = JSON.parse(cleaned);
-      const staticDataPromise = ensureStaticData();
+      const r = await fetch('/api/read-screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: shot.base64, mediaType: shot.mediaType }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const code = body.error || `http_${r.status}`;
+        const messages = {
+          rate_limited: "You've read a lot of screenshots in the last hour. Try again later, or enter your Team ID instead.",
+          upstream_busy: 'The screenshot reader is busy right now. Try again in a moment.',
+          image_too_large: 'That screenshot is too large. Try a smaller one.',
+          bad_image: "That file couldn't be read as an image. Try a PNG or JPEG screenshot.",
+          refused: "We couldn't read that image. Try a clearer screenshot of your squad.",
+          server_misconfigured: "Screenshot reading isn't set up on this server yet. Enter your Team ID instead.",
+        };
+        setErrorMessage(`${messages[code] || "Something went wrong reading your screenshot. Try again, or enter your Team ID instead."} [ERR_SCREENSHOT_${code.toUpperCase()}]`);
+        setStage('error');
+        return;
+      }
+      extracted = body;
+    } catch (e) {
+      setErrorMessage("Couldn't reach the screenshot reader. Check your connection and try again. [ERR_SCREENSHOT_NETWORK]");
+      setStage('error');
+      return;
+    }
+    try {
       await processExtractedSquad(extracted, staticDataPromise);
     } catch (e) {
-      setErrorMessage(`That didn't parse as valid JSON (${e.message || 'parse error'}). Make sure you copied Claude's whole reply, starting with { and ending with }. [ERR_JSON_PARSE]`);
+      setErrorMessage("Couldn't load live FPL player data right now. Try again in a moment. [ERR_STATIC_DATA]");
       setStage('error');
     }
   }
@@ -3020,7 +3138,7 @@ export default function FPLSquadChecker() {
       };
     }).filter(Boolean);
 
-    const bankTenths = reviewBank != null ? Math.round(reviewBank * 10) : 0;
+    const bankTenths = reviewBank != null && !Number.isNaN(reviewBank) ? Math.max(0, Math.round(reviewBank * 10)) : 0;
     finalizeResults(ensureCaptaincy(squad), staticData, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
   }
 
@@ -3057,7 +3175,7 @@ export default function FPLSquadChecker() {
               if (m === 'custom') { handleStartCustomBuild(); return; }
               if (m === 'hindsight') { handleViewHindsight(); return; }
               if (m === 'myTeams') { setStage('myTeams'); return; }
-              setStage(m === 'id' ? 'teamIdForm' : 'pasteForm');
+              setStage(m === 'id' ? 'teamIdForm' : 'screenshotForm');
             }}
           />
         )}
@@ -3069,8 +3187,8 @@ export default function FPLSquadChecker() {
             onBack={() => setStage('intro')}
           />
         )}
-        {stage === 'pasteForm' && (
-          <PasteJsonForm onSubmit={handlePastedJson} onBack={() => setStage('intro')} />
+        {stage === 'screenshotForm' && (
+          <ScreenshotForm onSubmit={handleScreenshot} onBack={() => setStage('intro')} />
         )}
         {stage === 'customBuild' && customStaticData && (
           <CustomSquadBuilder staticData={customStaticData} onSubmit={handleCustomSquadSubmit} onBack={() => setStage('intro')} />
@@ -3080,11 +3198,14 @@ export default function FPLSquadChecker() {
           <ReviewScreen
             slots={reviewSlots}
             allPlayers={pendingStaticData ? pendingStaticData.allPlayers : []}
+            teamsById={pendingStaticData ? pendingStaticData.teamsById : {}}
+            bank={reviewBank}
+            onBankChange={setReviewBank}
             onFix={updateSlotMatch}
             onSetCaptain={updateSlotCaptain}
             onSetViceCaptain={updateSlotViceCaptain}
             onConfirm={handleConfirmReview}
-            onBack={() => setStage('pasteForm')}
+            onBack={() => setStage('screenshotForm')}
           />
         )}
         {stage === 'results' && resultsData && (
