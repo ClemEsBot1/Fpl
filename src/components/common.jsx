@@ -1,6 +1,6 @@
 // Pieces shared across screens: header, loading/error states, player
 // search and fixture-difficulty chips.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Bookmark, LogOut, Menu, RotateCcw, Search, User, X } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, normalize } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
@@ -24,10 +24,30 @@ export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
 }
 
 export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onMyTeamsClick, onLogoutClick }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  // One panel open at a time: opening the account panel closes the
+  // gameweek panel and vice versa (they share the same corner of the
+  // screen and used to stack on top of each other).
+  const [openPanel, setOpenPanel] = useState(null); // null | 'account' | 'gameweek'
+  const menuOpen = openPanel === 'gameweek';
+  const accountMenuOpen = openPanel === 'account';
+  const toggle = panel => setOpenPanel(current => (current === panel ? null : panel));
+  const headerRef = useRef(null);
+
+  // Close whichever panel is open on Escape or a click/tap outside the header.
+  useEffect(() => {
+    if (!openPanel) return undefined;
+    const onKey = e => { if (e.key === 'Escape') setOpenPanel(null); };
+    const onPointer = e => { if (headerRef.current && !headerRef.current.contains(e.target)) setOpenPanel(null); };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, [openPanel]);
+
   return (
-    <header style={{ borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100, background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
+    <header ref={headerRef} style={{ borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100, background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 10, height: 10, background: 'var(--lime)', borderRadius: 2, flexShrink: 0 }} />
         <button
@@ -39,7 +59,7 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
           <button
-            onClick={() => { if (session) setAccountMenuOpen(o => !o); else onLoginClick(); }}
+            onClick={() => { if (session) toggle('account'); else { setOpenPanel(null); onLoginClick(); } }}
             aria-label="Account"
             aria-expanded={session ? accountMenuOpen : undefined}
             className="fpl-mono"
@@ -51,13 +71,13 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
           {accountMenuOpen && session && (
             <div className="fpl-block" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 20, padding: 6, minWidth: 160 }}>
               <button
-                onClick={() => { setAccountMenuOpen(false); onMyTeamsClick(); }}
+                onClick={() => { setOpenPanel(null); onMyTeamsClick(); }}
                 style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
               >
                 <Bookmark size={14} /> My Teams
               </button>
               <button
-                onClick={() => { setAccountMenuOpen(false); onLogoutClick(); }}
+                onClick={() => { setOpenPanel(null); onLogoutClick(); }}
                 style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
               >
                 <LogOut size={14} /> Log out
@@ -66,7 +86,7 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
           )}
           {gwOptions && gwOptions.length > 0 && (
             <button
-              onClick={() => setMenuOpen(o => !o)}
+              onClick={() => toggle('gameweek')}
               aria-label="Menu"
               aria-expanded={menuOpen}
               style={{ background: menuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
@@ -85,7 +105,7 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
             aria-label="Gameweek"
             className="fpl-mono"
             value={selectedGw || ''}
-            onChange={e => { onSelectGw(Number(e.target.value)); setMenuOpen(false); }}
+            onChange={e => { onSelectGw(Number(e.target.value)); setOpenPanel(null); }}
             style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '8px 8px', fontSize: '0.8rem' }}
           >
             {gwOptions.map(e => (

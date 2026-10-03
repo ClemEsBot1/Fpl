@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC } from './lib/format.js';
-import { fetchFplJson, loadStaticData } from './lib/fplClient.js';
+import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked } from './lib/predictions.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
 import { AuthScreen, MyTeamsScreen } from './screens/AccountScreens.jsx';
@@ -39,7 +39,11 @@ export default function FPLSquadChecker() {
   const [authReturnStage, setAuthReturnStage] = useState(null);
 
   const staticPromiseRef = useRef(null);
-  const optimalXiTotalRef = useRef(null);
+  // The optimal XI's predicted total, per static-data set (the current one,
+  // or a past gameweek rebuilt "as of" its deadline).
+  const optimalXiTotalRef = useRef(new WeakMap());
+  // Past gameweeks' "as of" static data, by gameweek id (promises).
+  const asOfCacheRef = useRef(new Map());
   const currentStaticDataRef = useRef(null);
 
   // Check for an existing logged-in session once on load, and pull in
@@ -185,10 +189,85 @@ export default function FPLSquadChecker() {
   }
 
   function getOptimalXiTotal(staticData) {
-    if (optimalXiTotalRef.current === null) {
-      optimalXiTotalRef.current = computeOptimalXiTotal(staticData);
+    if (!optimalXiTotalRef.current.has(staticData)) {
+      optimalXiTotalRef.current.set(staticData, computeOptimalXiTotal(staticData));
     }
-    return optimalXiTotalRef.current;
+    return optimalXiTotalRef.current.get(staticData);
+  }
+
+  // Static data to predict `gwId` with. The current/upcoming gameweek uses
+  // today's data; a past gameweek is rebuilt from only the gameweeks before
+  // it (see src/lib/asOf.js), so its predictions can't see what happened
+  // since. If that can't be loaded, falls back to today's data and says so.
+  async function staticDataForGw(gwId) {
+    const base = await ensureStaticData();
+    const targetId = base.targetEvent ? base.targetEvent.id : 1;
+    if (!gwId || gwId >= targetId) return base;
+    if (!asOfCacheRef.current.has(gwId)) {
+      asOfCacheRef.current.set(gwId, loadStaticDataAsOf(base, gwId).catch(err => {
+        asOfCacheRef.current.delete(gwId);
+        throw err;
+      }));
+    }
+    try {
+      return await asOfCacheRef.current.get(gwId);
+    } catch {
+      return { ...base, asOfFailedGwId: gwId };
+    }
+  }
+
+  // Predictions and (for a finished gameweek) actual points for each squad
+  // slot, from the given static data.
+  function scoreSlots(slots, staticData, liveById, isPastGw) {
+    return slots.map(slot => {
+      const player = staticData.playersById[slot.playerId];
+      if (!player) return null;
+      const pred = staticData.predictionsById[slot.playerId];
+      const live = liveById[slot.playerId];
+      return {
+        player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote, breakdown: pred.breakdown,
+        isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
+        multiplier: slot.multiplier,
+        ...(isPastGw ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false } : {}),
+      };
+    }).filter(Boolean);
+  }
+
+  async function fetchLiveById(gwId) {
+    const liveById = {};
+    try {
+      const live = await fetchFplJson(`event/${gwId}/live/`);
+      (live.elements || []).forEach(el => {
+        liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
+      });
+    } catch { /* actual points unavailable — still show predicted-only */ }
+    return liveById;
+  }
+
+  // Re-scores the squad on screen for another gameweek — for squads that
+  // aren't tied to an FPL team (screenshot, custom or saved squads), which
+  // keep the same players. Team ID squads reload that gameweek's picks.
+  async function rescoreSquadForGw(gwId) {
+    const prev = resultsData;
+    if (!prev) return;
+    setStage('loading');
+    setLoadingMessage('Re-scoring your squad for that gameweek…');
+    try {
+      const base = await ensureStaticData();
+      const targetId = base.targetEvent ? base.targetEvent.id : 1;
+      const isPastGw = gwId < targetId;
+      const gwStatic = await staticDataForGw(gwId);
+      const liveById = isPastGw ? await fetchLiveById(gwId) : {};
+      const slots = prev.squad.map(s => ({
+        playerId: s.player.id, isStarting: s.isStarting, isCaptain: s.isCaptain, isViceCaptain: s.isViceCaptain,
+        multiplier: s.isCaptain ? 2 : 1,
+      }));
+      const squad = scoreSlots(slots, gwStatic, liveById, isPastGw);
+      finalizeResults(squad, gwStatic, prev.bankTenths, { ...prev.entryMeta, gwId }, null, false, { isPastGw, gwId });
+    } catch {
+      setErrorMessage("Couldn't load that gameweek right now. Try again in a moment.");
+      setStage('error');
+    }
   }
 
   useEffect(() => {
@@ -212,6 +291,11 @@ export default function FPLSquadChecker() {
     if (selectedGw === null) return;
     if (stage === 'results' && resultsData && resultsData.isOptimalBuild && resultsData.gwId !== selectedGw) {
       loadOptimalSquadForGw(selectedGw);
+    } else if (stage === 'results' && resultsData && !resultsData.isOptimalBuild && resultsData.gwId !== selectedGw) {
+      // Your own team: a Team ID reloads that gameweek's actual picks;
+      // other squads keep their players and are re-scored.
+      if (resultsData.entryMeta && resultsData.entryMeta.teamId) handleTeamIdSubmit(String(resultsData.entryMeta.teamId));
+      else rescoreSquadForGw(selectedGw);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGw]);
@@ -240,6 +324,7 @@ export default function FPLSquadChecker() {
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
       allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById,
+      asOfGwId: staticData.asOfGwId || null, asOfFailedGwId: staticData.asOfFailedGwId || null,
     };
   }
 
@@ -591,29 +676,16 @@ export default function FPLSquadChecker() {
 
       setLoadingMessage('Checking fixtures and working out predictions…');
 
-      let liveById = {};
-      if (isPastGwView) {
-        setLoadingMessage('Fetching gameweek results…');
-        try {
-          const live = await fetchFplJson(`event/${gwId}/live/`);
-          (live.elements || []).forEach(el => {
-            liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
-          });
-        } catch (e) { /* actual points unavailable — still show predicted-only */ }
-      }
+      // A past gameweek is predicted from what was known before its deadline.
+      if (isPastGwView) setLoadingMessage('Rebuilding player data from before that deadline…');
+      const gwStatic = isPastGwView ? await staticDataForGw(gwId) : staticData;
+      if (isPastGwView) setLoadingMessage('Fetching gameweek results…');
+      const liveById = isPastGwView ? await fetchLiveById(gwId) : {};
 
-      const rawSquad = picks.picks.map(pk => {
-        const player = staticData.playersById[pk.element];
-        if (!player) return null;
-        const pred = staticData.predictionsById[pk.element];
-        const live = liveById[pk.element];
-        return {
-          player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote, breakdown: pred.breakdown,
-          isStarting: pk.position <= 11, isCaptain: !!pk.is_captain, isViceCaptain: !!pk.is_vice_captain,
-          multiplier: pk.multiplier,
-          ...(isPastGwView ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false } : {}),
-        };
-      }).filter(Boolean);
+      const rawSquad = scoreSlots(picks.picks.map(pk => ({
+        playerId: pk.element, isStarting: pk.position <= 11, isCaptain: !!pk.is_captain, isViceCaptain: !!pk.is_vice_captain,
+        multiplier: pk.multiplier,
+      })), gwStatic, liveById, isPastGwView);
       // Only meaningful once the gameweek is closed — automatic_subs is
       // empty for a gameweek still in progress (there's nothing final to
       // apply yet), so this is a no-op for the live/current-gw view.
@@ -623,7 +695,7 @@ export default function FPLSquadChecker() {
       // A chip played in an earlier gameweek doesn't carry over.
       const activeChip = picksGwId === gwId ? (picks.active_chip || null) : null;
 
-      finalizeResults(squad, staticData, bankTenths, entryMeta, activeChip, false, { isPastGw: isPastGwView, gwId });
+      finalizeResults(squad, gwStatic, bankTenths, entryMeta, activeChip, false, { isPastGw: isPastGwView, gwId });
     } catch (e) {
       setStage('error');
       const code = (e && e.code) || 'ERR_UNKNOWN';
@@ -729,33 +801,21 @@ export default function FPLSquadChecker() {
     const gwId = selectedGw || targetId;
     const isPastGwView = targetId != null && gwId < targetId;
 
-    let liveById = {};
     if (isPastGwView) {
       setStage('loading');
-      setLoadingMessage('Fetching gameweek results…');
-      try {
-        const live = await fetchFplJson(`event/${gwId}/live/`);
-        (live.elements || []).forEach(el => {
-          liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
-        });
-      } catch (e) { /* actual points unavailable — still show predicted-only */ }
+      setLoadingMessage('Rebuilding player data from before that deadline…');
     }
+    // A past gameweek is predicted from what was known before its deadline.
+    const gwStatic = isPastGwView ? await staticDataForGw(gwId) : staticData;
+    const liveById = isPastGwView ? await fetchLiveById(gwId) : {};
 
-    const squad = reviewSlots.map(slot => {
-      const player = slot.matched;
-      if (!player) return null;
-      const pred = staticData.predictionsById[player.id];
-      const live = liveById[player.id];
-      return {
-        player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote, breakdown: pred.breakdown,
-        isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
-        multiplier: slot.isCaptain ? 2 : 1,
-        ...(isPastGwView ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false } : {}),
-      };
-    }).filter(Boolean);
+    const squad = scoreSlots(reviewSlots.filter(slot => slot.matched).map(slot => ({
+      playerId: slot.matched.id, isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
+      multiplier: slot.isCaptain ? 2 : 1,
+    })), gwStatic, liveById, isPastGwView);
 
     const bankTenths = reviewBank != null && !Number.isNaN(reviewBank) ? Math.max(0, Math.round(reviewBank * 10)) : 0;
-    finalizeResults(ensureCaptaincy(squad), staticData, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
+    finalizeResults(ensureCaptaincy(squad), gwStatic, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
   }
 
   const headerSummary = (stage === 'results' && resultsData) ? {

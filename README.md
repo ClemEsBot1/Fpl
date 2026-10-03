@@ -13,6 +13,7 @@ A Fantasy Premier League (FPL) squad checker and optimiser. Load your squad, see
 - **Captain and vice-captain suggestions**, plus click-to-edit captaincy on any squad.
 - **Blank and double gameweek handling** in next-gameweek predictions.
 - **Past gameweek hindsight view** with FPL's real automatic substitutions and captain-to-vice fallback applied, so completed gameweeks score correctly.
+- **Switch gameweek on your team** from the header menu: a Team ID reloads that gameweek's picks, other squads are re-scored, and a past gameweek is predicted using only data from before its deadline (`/api/as-of` sums FPL's per-gameweek stats for the earlier weeks; prices and set-piece takers stay at today's values, which FPL doesn't publish historically).
 - **Chip timing analysis** for planning Wildcard, Free Hit, Bench Boost and Triple Captain.
 - **Accounts** (username and password) for saving squads, plus JSON export of the optimal squad.
 - **Last-season stats** shown at GW1 (marked "LS") when there's no current-season data yet.
@@ -54,6 +55,7 @@ api/
   optimal-squad.js      Serves the latest optimal-squad snapshot
   refresh-optimal.js    Cron job: builds and saves the snapshot and this gameweek's predictions (needs CRON_SECRET)
   accuracy.js           Last gameweek's predictions vs. actual points
+  as-of.js              Player stats from before a past gameweek's deadline
   screenshot-report.js  Stores opt-in screenshot reports in Blob
   odds.js               Serves cached bookmaker odds
   player-history.js     Serves imported historical player data
