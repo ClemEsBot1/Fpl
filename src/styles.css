@@ -100,3 +100,51 @@
 button.fpl-search-item { display:block; width:100%; text-align:left; background:none; border:none;
   border-bottom:1px solid var(--line); color:inherit; font:inherit; font-size:0.85rem; }
 button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:2px solid var(--blue); outline-offset:-2px; }
+
+/* ---------------------------------------------------------------------------
+   Liquid glass buttons: a frosted, slightly saturated pane with a light
+   top edge and a soft sheen, so buttons read as glass floating over the
+   gradient. Kept subtle; colours and hover behaviour are unchanged.
+--------------------------------------------------------------------------- */
+.fpl-btn, .fpl-chip-btn {
+  position:relative; isolation:isolate; overflow:hidden;
+  background:linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04)), rgba(10,8,30,0.20);
+  -webkit-backdrop-filter:blur(12px) saturate(160%); backdrop-filter:blur(12px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(255,255,255,0.10), 0 6px 18px rgba(10,8,30,0.18);
+  transition:background .15s, color .15s, box-shadow .15s, transform .1s;
+}
+/* The sheen: a soft highlight across the top half, behind the label. */
+.fpl-btn::before, .fpl-chip-btn::before {
+  content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; border-radius:inherit;
+  background:linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 60%);
+}
+.fpl-btn:hover, .fpl-btn:focus-visible {
+  background:linear-gradient(145deg, rgba(255,255,255,0.30), rgba(255,255,255,0.06)), var(--blue);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.70), inset 0 -1px 0 rgba(255,255,255,0.15), 0 8px 22px rgba(4,249,252,0.28);
+}
+.fpl-btn-solid {
+  background:linear-gradient(145deg, rgba(255,255,255,0.32), rgba(255,255,255,0.04)), var(--blue);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(3,19,43,0.12), 0 8px 22px rgba(4,249,252,0.25);
+}
+.fpl-btn-solid:hover {
+  background:linear-gradient(145deg, rgba(255,255,255,0.32), rgba(255,255,255,0.04)), var(--lime);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(3,19,43,0.12), 0 8px 22px rgba(206,255,16,0.28);
+}
+.fpl-chip-btn:hover, .fpl-chip-btn:focus-visible {
+  background:linear-gradient(145deg, rgba(255,255,255,0.24), rgba(255,255,255,0.06)), rgba(10,8,30,0.20);
+}
+.fpl-btn:active:not(:disabled), .fpl-chip-btn:active:not(:disabled) { transform:scale(0.98); }
+.fpl-btn:disabled { box-shadow:inset 0 1px 0 rgba(255,255,255,0.25); }
+
+/* Without backdrop blur the pane would look washed out; use the plain panel. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  .fpl-btn:not(.fpl-btn-solid):not(:hover), .fpl-chip-btn { background:var(--panel-alt); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .fpl-btn, .fpl-chip-btn { -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .fpl-btn:not(.fpl-btn-solid):not(:hover), .fpl-chip-btn { background:var(--panel-alt); }
+  .fpl-btn::before, .fpl-chip-btn::before { display:none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fpl-btn:active:not(:disabled), .fpl-chip-btn:active:not(:disabled) { transform:none; }
+}
