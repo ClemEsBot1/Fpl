@@ -164,15 +164,26 @@ test('forgot password by username or email sends a one-time link that sets a new
   assert.equal(reused.status, 400, 'a link only works once');
 });
 
-test('forgot password gives the same answer for unknown accounts and accounts without an email', async () => {
+test('forgot password says when no account matches or it has no email', async () => {
   const unknown = await call(redis, { action: 'forgot_password', identifier: 'nobody' });
-  const noEmail = await call(redis, { action: 'forgot_password', identifier: 'clem' });
+  assert.equal(unknown.status, 404);
+  assert.match(unknown.body.error, /No account found/);
+
   const unknownEmail = await call(redis, { action: 'forgot_password', identifier: 'who@example.com' });
-  for (const r of [unknown, noEmail, unknownEmail]) {
-    assert.equal(r.status, 200);
-    assert.equal(r.body.message, unknown.body.message);
-  }
+  assert.equal(unknownEmail.status, 404);
+
+  const noEmail = await call(redis, { action: 'forgot_password', identifier: 'clem' });
+  assert.equal(noEmail.status, 400);
+  assert.match(noEmail.body.error, /doesn't have an email/);
   assert.equal(sent.length, 0);
+});
+
+test('the reset confirmation shows a masked address', async () => {
+  await call(redis, { action: 'register', username: 'masked', password: 'correct-horse', email: 'masked@example.com' });
+  const r = await call(redis, { action: 'forgot_password', identifier: 'masked' });
+  assert.equal(r.status, 200);
+  assert.match(r.body.message, /m\*\*\*@example\.com/);
+  assert.ok(!r.body.message.includes('masked@example.com'));
 });
 
 test('reset links expire and made-up tokens are rejected', async () => {
@@ -191,7 +202,7 @@ test('reset emails per account are capped', async () => {
   await call(redis, { action: 'register', username: 'spammed', password: 'old-password', email: 'spammed@example.com' });
   for (let i = 0; i < MAX_RESET_EMAILS_PER_USER + 2; i++) {
     const r = await call(redis, { action: 'forgot_password', identifier: 'spammed' }, `192.0.2.${i}`);
-    assert.equal(r.status, 200);
+    assert.equal(r.status, i < MAX_RESET_EMAILS_PER_USER ? 200 : 429);
   }
   assert.equal(sent.length, MAX_RESET_EMAILS_PER_USER);
 });

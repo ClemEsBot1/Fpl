@@ -29,7 +29,16 @@ export const MAX_RESET_EMAILS_PER_USER = 3;
 const APP_URL = (process.env.APP_URL || 'https://fplchecker.vercel.app').replace(/\/+$/, '');
 
 const EMAIL_TAKEN = 'That email is already used by another account.';
-const RESET_SENT = "If that account has an email address, we've sent it a link to reset the password. It expires in 30 minutes.";
+const NO_ACCOUNT = 'No account found with that username or email.';
+const NO_EMAIL = "That account doesn't have an email address, so its password can't be reset by email.";
+
+// "clem@example.com" -> "c***@example.com": enough for someone to recognise
+// their own address without showing the whole thing to whoever typed the
+// username.
+export function maskEmail(email) {
+  const [local, domain] = String(email).split('@');
+  return `${local.slice(0, 1)}***@${domain}`;
+}
 const RESET_INVALID = 'This reset link is invalid or has expired. Ask for a new one.';
 
 const TOO_MANY = 'Too many attempts. Please wait 15 minutes and try again.';
@@ -224,8 +233,10 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   }
 
   // Step 1 of a reset: email a one-time link to the account's address.
-  // The reply is the same whether or not the account exists or has an
-  // email, so this can't be used to find out who has an account.
+  // Says plainly when no account matches or it has no email, so people
+  // aren't left waiting for an email that will never come. (That does let
+  // someone check whether a username or email has an account; the per-IP
+  // limit keeps that slow.)
   if (action === 'forgot_password') {
     const identifier = typeof body.identifier === 'string' ? body.identifier.trim() : '';
     if (!identifier) { res.status(400).json({ error: 'Enter your username or email.' }); return; }
@@ -251,18 +262,21 @@ export default async function handler(req, res, redisOverride, mailOverride) {
         record = await getJSON(redis, userKeyFor(identifier));
       }
 
-      if (record && record.email) {
-        const userKey = `ratelimit:reset:user:${normalizeUsername(record.username)}`;
-        if (await getCount(redis, userKey) < MAX_RESET_EMAILS_PER_USER) {
-          await bump(redis, userKey, RESET_WINDOW_SECONDS);
-          const token = createResetToken();
-          const entry = { username: normalizeUsername(record.username), expiresAt: Date.now() + RESET_TOKEN_TTL_SECONDS * 1000 };
-          await redis.set(resetKeyFor(token), JSON.stringify(entry), 'EX', RESET_TOKEN_TTL_SECONDS);
-          const link = `${APP_URL}/?reset=${encodeURIComponent(token)}`;
-          await send({ to: record.email, ...resetEmail(record.username, link) });
-        }
+      if (!record) { res.status(404).json({ error: NO_ACCOUNT }); return; }
+      if (!record.email) { res.status(400).json({ error: NO_EMAIL }); return; }
+
+      const userKey = `ratelimit:reset:user:${normalizeUsername(record.username)}`;
+      if (await getCount(redis, userKey) >= MAX_RESET_EMAILS_PER_USER) {
+        res.status(429).json({ error: "We've already sent several reset emails to this account. Check your inbox and spam folder, or try again in an hour." });
+        return;
       }
-      res.status(200).json({ ok: true, message: RESET_SENT });
+      await bump(redis, userKey, RESET_WINDOW_SECONDS);
+      const token = createResetToken();
+      const entry = { username: normalizeUsername(record.username), expiresAt: Date.now() + RESET_TOKEN_TTL_SECONDS * 1000 };
+      await redis.set(resetKeyFor(token), JSON.stringify(entry), 'EX', RESET_TOKEN_TTL_SECONDS);
+      const link = `${APP_URL}/?reset=${encodeURIComponent(token)}`;
+      await send({ to: record.email, ...resetEmail(record.username, link) });
+      res.status(200).json({ ok: true, message: `We've sent a reset link to ${maskEmail(record.email)}. It expires in 30 minutes; check your spam folder if it doesn't arrive.` });
     } catch (e) {
       console.error('forgot_password failed:', e && e.message);
       res.status(502).json({ error: "Couldn't send the reset email right now. Please try again later." });
