@@ -313,10 +313,13 @@ function suggestTransfers(squad, allPlayers, predictionsById, bankTenths) {
 ============================================================================ */
 
 // Each read player is either a bare name string (older JSON shape) or
-// { name, club, price_millions } from the screenshot reader.
+// { id, name, club, price_millions } from the screenshot reader, where
+// `id` is the FPL player it already resolved the name to.
 function readPlayerEntry(entry) {
-  if (typeof entry === 'string') return { name: entry, club: null, price: null };
+  if (typeof entry === 'string') return { id: null, name: entry, club: null, price: null };
   return {
+    id: (entry && entry.id) || null,
+    ambiguous: !!(entry && entry.ambiguous),
     name: (entry && entry.name) || '',
     club: (entry && entry.club) || null,
     price: entry && typeof entry.price_millions === 'number' ? entry.price_millions : null,
@@ -329,10 +332,15 @@ function matchExtractedSquad(extracted, playersByPosition, allPlayers, teamsById
   function addSlot(entry, posId, candidates, isStarting) {
     const read = readPlayerEntry(entry);
     if (!read.name) return;
-    const top = findTopMatches(read.name, candidates, 3, { club: read.club, price: read.price, teamsById });
+    let top = findTopMatches(read.name, candidates, 3, { club: read.club, price: read.price, teamsById });
+    const resolved = read.id ? candidates.find(p => p.id === read.id) : null;
+    // A name shared by several players (two "Gomes") keeps the reader's
+    // guess but scores below the confidence bar, so the review screen
+    // flags it and offers the alternatives.
+    if (resolved) top = [{ player: resolved, score: read.ambiguous ? 0.7 : 1 }, ...top.filter(t => t.player.id !== resolved.id)].slice(0, 3);
     slots.push({
       extractedName: read.name, extractedClub: read.club, extractedPrice: read.price, posId, isStarting,
-      top, matched: (top[0] && top[0].score > 0.72) ? top[0].player : null,
+      top, matched: resolved || ((top[0] && top[0].score > 0.72) ? top[0].player : null),
       isCaptain: false, isViceCaptain: false,
     });
   }
@@ -680,11 +688,6 @@ function TeamIdForm({ value, onChange, onSubmit, onBack }) {
   );
 }
 
-// Phone screenshots are often 1170×2532 or bigger. Scaling the long side
-// down keeps names legible for the vision model while keeping the upload
-// well under the serverless request-size limit.
-const SCREENSHOT_MAX_SIDE = 2000;
-
 function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -699,15 +702,11 @@ function loadImageFromFile(file) {
   });
 }
 
+// The image stays at full resolution: small UI text is what OCR finds
+// hardest, so we never downscale before reading it.
 async function prepareScreenshot(file) {
   const img = await loadImageFromFile(file);
-  const scale = Math.min(1, SCREENSHOT_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(img.naturalWidth * scale);
-  canvas.height = Math.round(img.naturalHeight * scale);
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-  return { dataUrl, mediaType: 'image/jpeg', base64: dataUrl.slice(dataUrl.indexOf(',') + 1) };
+  return { img, dataUrl: img.src };
 }
 
 function ScreenshotForm({ onSubmit, onBack }) {
@@ -751,7 +750,7 @@ function ScreenshotForm({ onSubmit, onBack }) {
       </button>
       <h2 className="fpl-display" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 6 }}>Upload a screenshot</h2>
       <p style={{ color: 'var(--ink-dim)', fontSize: '0.85rem', marginBottom: 14, lineHeight: 1.5 }}>
-        Screenshot your Pick Team or Points page in the FPL app (Pitch View or List View). We'll read every player, match them to live FPL data and work out their prices.
+        Screenshot your Pick Team or Points page in the FPL app (Pitch View or List View). Your screenshot is read on this device — it's never uploaded — then every player is matched to live FPL data and priced.
       </p>
 
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { acceptFile(e.target.files && e.target.files[0]); e.target.value = ''; }} />
@@ -3012,7 +3011,7 @@ export default function FPLSquadChecker() {
   // Used by the screenshot path — matches the extracted shape to real players.
   async function processExtractedSquad(extracted, staticDataPromise) {
     if (extracted.not_fpl_screenshot) {
-      setErrorMessage("That doesn't look like an FPL squad. Screenshot your Pick Team or Points page and try again. [ERR_NOT_FPL_SCREENSHOT]");
+      setErrorMessage("We couldn't find any FPL players in that image. Use a clear, uncropped screenshot of your Pick Team or Points page and try again. [ERR_NOT_FPL_SCREENSHOT]");
       setStage('error');
       return;
     }
@@ -3026,48 +3025,34 @@ export default function FPLSquadChecker() {
     setStage('review');
   }
 
-  // Sends the (already downsized) screenshot to /api/read-screenshot, which
-  // reads the names with Claude's vision; matching and pricing then run
-  // locally against live FPL data, same as every other squad source.
+  // Reads the screenshot with OCR in the browser (no server, no AI
+  // service), finds FPL player names in the text, then hands off to the
+  // same review screen as every other squad source. Prices come from live
+  // FPL data once each player is matched.
   async function handleScreenshot(shot) {
     setStage('loading');
-    setLoadingMessage('Reading your screenshot…');
-    const staticDataPromise = ensureStaticData();
-    staticDataPromise.catch(() => {}); // surfaced below via processExtractedSquad
-    let extracted;
+    setLoadingMessage('Loading player data…');
+    let staticData;
     try {
-      const r = await fetch('/api/read-screenshot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: shot.base64, mediaType: shot.mediaType }),
-      });
-      const body = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        const code = body.error || `http_${r.status}`;
-        const messages = {
-          rate_limited: "You've read a lot of screenshots in the last hour. Try again later, or enter your Team ID instead.",
-          upstream_busy: 'The screenshot reader is busy right now. Try again in a moment.',
-          image_too_large: 'That screenshot is too large. Try a smaller one.',
-          bad_image: "That file couldn't be read as an image. Try a PNG or JPEG screenshot.",
-          refused: "We couldn't read that image. Try a clearer screenshot of your squad.",
-          server_misconfigured: "Screenshot reading isn't set up on this server yet. Enter your Team ID instead.",
-        };
-        setErrorMessage(`${messages[code] || "Something went wrong reading your screenshot. Try again, or enter your Team ID instead."} [ERR_SCREENSHOT_${code.toUpperCase()}]`);
-        setStage('error');
-        return;
-      }
-      extracted = body;
-    } catch (e) {
-      setErrorMessage("Couldn't reach the screenshot reader. Check your connection and try again. [ERR_SCREENSHOT_NETWORK]");
-      setStage('error');
-      return;
-    }
-    try {
-      await processExtractedSquad(extracted, staticDataPromise);
+      staticData = await ensureStaticData();
     } catch (e) {
       setErrorMessage("Couldn't load live FPL player data right now. Try again in a moment. [ERR_STATIC_DATA]");
       setStage('error');
+      return;
     }
+    let extracted;
+    try {
+      setLoadingMessage('Reading your screenshot…');
+      const { readSquadFromScreenshot } = await import('./lib/screenshotOcr.js');
+      extracted = await readSquadFromScreenshot(shot.img, staticData.allPlayers, p => {
+        setLoadingMessage(`Reading your screenshot… ${Math.round(p * 100)}%`);
+      });
+    } catch (e) {
+      setErrorMessage(`Couldn't read that screenshot (${(e && e.message) || 'OCR failed'}). Try again, or enter your Team ID instead. [ERR_OCR]`);
+      setStage('error');
+      return;
+    }
+    await processExtractedSquad(extracted, Promise.resolve(staticData));
   }
 
   function updateSlotMatch(index, player) {
