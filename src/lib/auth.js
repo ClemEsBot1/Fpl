@@ -2,9 +2,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 export const SESSION_COOKIE_NAME = 'fpl_session';
-// Long-lived on purpose: there's no email/password-reset flow (usernames
-// only), so forcing frequent re-logins would just be friction with no real
-// security upside for this app.
+// Long-lived on purpose: there's no password-reset flow (emails are
+// optional and only stored), so forcing frequent re-logins would just be
+// friction with no real security upside for this app.
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
@@ -29,6 +29,22 @@ export function validatePassword(password) {
     return { ok: false, error: 'Password is too long.' };
   }
   return { ok: true };
+}
+
+// Email is optional (sign-up and later from the account menu). It's only
+// stored for now — logins are still by username. A loose shape check is
+// enough; anything stricter rejects real addresses.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Returns { ok, email } with the address trimmed and lower-cased, or '' for
+// "no email". Missing/blank input is fine: email is optional.
+export function normalizeEmail(email) {
+  if (email == null) return { ok: true, email: '' };
+  if (typeof email !== 'string') return { ok: false, error: 'Enter a valid email address.' };
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) return { ok: true, email: '' };
+  if (trimmed.length > 254 || !EMAIL_RE.test(trimmed)) return { ok: false, error: 'Enter a valid email address.' };
+  return { ok: true, email: trimmed };
 }
 
 // Usernames are stored case-insensitively (so "Clem" and "clem" collide),

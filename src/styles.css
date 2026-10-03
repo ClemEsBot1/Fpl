@@ -148,3 +148,16 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (prefers-reduced-motion: reduce) {
   .fpl-btn:active:not(:disabled), .fpl-chip-btn:active:not(:disabled) { transform:none; }
 }
+
+/* Pop-up dialogs (log in / sign up / email). Native <dialog> in the top
+   layer; the card reuses the panel look over a dimmed, blurred page. */
+.fpl-dialog, .fpl-dialog * { box-sizing:border-box; }
+.fpl-dialog { padding:0; border:none; background:transparent; color:var(--ink); max-width:min(400px, calc(100vw - 32px)); width:100%; overflow:visible; }
+.fpl-dialog::backdrop { background:rgba(10,8,30,0.55); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+.fpl-dialog-card { position:relative; padding:28px 20px 20px; border-radius:12px; border:1px solid var(--line);
+  background:linear-gradient(160deg, rgba(40,30,110,0.92), rgba(10,8,30,0.94)); box-shadow:0 20px 60px rgba(10,8,30,0.5); font-family:'Inter',sans-serif; }
+.fpl-dialog-close { position:absolute; top:10px; right:10px; background:none; border:none; color:var(--ink-dim); padding:6px; cursor:pointer; display:flex; border-radius:6px; }
+.fpl-dialog-close:hover, .fpl-dialog-close:focus-visible { color:var(--ink); background:var(--panel-alt); }
+.fpl-dialog[open] { animation:fplDialogIn .16s ease-out; }
+@keyframes fplDialogIn { from { opacity:0; transform:translateY(8px) scale(0.98); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .fpl-dialog[open] { animation:none; } }

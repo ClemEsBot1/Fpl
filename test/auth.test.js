@@ -17,7 +17,7 @@ function fakeRedis() {
   };
 }
 
-function call(redis, body, ip = '203.0.113.1') {
+function call(redis, body, ip = '203.0.113.1', extraHeaders = {}, method = 'POST') {
   return new Promise(resolve => {
     const res = {
       headers: {},
@@ -26,7 +26,7 @@ function call(redis, body, ip = '203.0.113.1') {
       status(c) { this.statusCode = c; return this; },
       json(b) { resolve({ status: this.statusCode, body: b, headers: this.headers }); },
     };
-    handler({ method: 'POST', body, headers: { 'x-forwarded-for': ip } }, res, redis);
+    handler({ method, body, headers: { 'x-forwarded-for': ip, ...extraHeaders } }, res, redis);
   });
 }
 
@@ -81,4 +81,47 @@ test('sign-ups per IP are capped', async () => {
     assert.equal((await call(redis, { action: 'register', username: `new${i}`, password: 'password123' }, '203.0.113.77')).status, 200);
   }
   assert.equal((await call(redis, { action: 'register', username: 'onemore', password: 'password123' }, '203.0.113.77')).status, 429);
+});
+
+// The session cookie from a Set-Cookie header, ready to send back.
+const cookieFrom = r => ({ cookie: r.headers['Set-Cookie'].split(';')[0] });
+
+test('email is optional at sign-up, and stored trimmed and lower-cased', async () => {
+  const withEmail = await call(redis, { action: 'register', username: 'mailer', password: 'correct-horse', email: '  Mailer@Example.COM ' });
+  assert.equal(withEmail.status, 200);
+  assert.equal(withEmail.body.email, 'mailer@example.com');
+  const me = await call(redis, undefined, undefined, cookieFrom(withEmail), 'GET');
+  assert.equal(me.body.email, 'mailer@example.com');
+
+  const login = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' });
+  assert.equal(login.body.email, '', 'accounts without one still work');
+});
+
+test('a malformed email is rejected at sign-up', async () => {
+  const r = await call(redis, { action: 'register', username: 'badmail', password: 'correct-horse', email: 'not-an-email' });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /valid email/);
+});
+
+test('a logged-in user can add, change and remove their email', async () => {
+  const login = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' });
+  const cookie = cookieFrom(login);
+  const added = await call(redis, { action: 'set_email', email: 'clem@example.com' }, undefined, cookie);
+  assert.equal(added.status, 200);
+  assert.equal((await call(redis, undefined, undefined, cookie, 'GET')).body.email, 'clem@example.com');
+
+  const bad = await call(redis, { action: 'set_email', email: 'clem@' }, undefined, cookie);
+  assert.equal(bad.status, 400);
+
+  const removed = await call(redis, { action: 'set_email', email: '' }, undefined, cookie);
+  assert.equal(removed.status, 200);
+  assert.equal((await call(redis, undefined, undefined, cookie, 'GET')).body.email, '');
+
+  // Changing the email never touches the password.
+  assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' })).status, 200);
+});
+
+test('setting an email needs a session', async () => {
+  const r = await call(redis, { action: 'set_email', email: 'x@example.com' });
+  assert.equal(r.status, 401);
 });

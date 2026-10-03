@@ -1,7 +1,7 @@
 // Pieces shared across screens: header, loading/error states, player
 // search and fixture-difficulty chips.
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Bookmark, LogOut, Menu, RotateCcw, Search, User, X } from 'lucide-react';
+import { AlertTriangle, Bookmark, LogOut, Mail, Menu, RotateCcw, Search, User, X } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, normalize } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
 
@@ -23,7 +23,7 @@ export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   );
 }
 
-export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onMyTeamsClick, onLogoutClick }) {
+export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onEmailClick, onMyTeamsClick, onLogoutClick }) {
   // One panel open at a time: opening the account panel closes the
   // gameweek panel and vice versa (they share the same corner of the
   // screen and used to stack on top of each other).
@@ -75,6 +75,12 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
                 style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
               >
                 <Bookmark size={14} /> My Teams
+              </button>
+              <button
+                onClick={() => { setOpenPanel(null); onEmailClick(); }}
+                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
+              >
+                <Mail size={14} /> {session.email ? 'Change email' : 'Add email'}
               </button>
               <button
                 onClick={() => { setOpenPanel(null); onLogoutClick(); }}

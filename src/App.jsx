@@ -8,7 +8,7 @@ import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC } from 
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked } from './lib/predictions.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { AuthScreen, MyTeamsScreen } from './screens/AccountScreens.jsx';
+import { AuthDialog, MyTeamsScreen } from './screens/AccountScreens.jsx';
 import { CustomSquadBuilder } from './screens/CustomSquadBuilder.jsx';
 import { HindsightScreen } from './screens/HindsightScreen.jsx';
 import { IntroScreen, TeamIdForm } from './screens/IntroScreen.jsx';
@@ -32,11 +32,13 @@ export default function FPLSquadChecker() {
   const [customStaticData, setCustomStaticData] = useState(null);
   const [hindsightData, setHindsightData] = useState(null);
   const [hindsightCompare, setHindsightCompare] = useState(null); // { loading, entry, label, squad?, score?, error? }
-  const [session, setSession] = useState(null); // { username } | null
+  const [session, setSession] = useState(null); // { username, email } | null
   const [savedTeams, setSavedTeams] = useState([]);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const [authReturnStage, setAuthReturnStage] = useState(null);
+  // The log-in pop-up: null (closed), 'login' (log in / sign up) or
+  // 'email' (add or change the logged-in user's email).
+  const [authDialog, setAuthDialog] = useState(null);
 
   const staticPromiseRef = useRef(null);
   // The optimal XI's predicted total, per static-data set (the current one,
@@ -55,7 +57,7 @@ export default function FPLSquadChecker() {
         const res = await fetch('/api/auth', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          setSession({ username: data.username });
+          setSession({ username: data.username, email: data.email || '' });
           fetchSavedTeams();
         }
       } catch (e) { /* not logged in / API unreachable — treat as logged out */ }
@@ -91,19 +93,38 @@ export default function FPLSquadChecker() {
     // non-critical — list just stays empty/stale on failure
   }
 
-  async function handleAuthSubmit(mode, username, password) {
+  function openAuthDialog(mode) {
+    setAuthError('');
+    setAuthDialog(mode);
+  }
+
+  // Logging in happens in a pop-up over whatever screen is showing, so on
+  // success the user is simply back where they were.
+  async function handleAuthSubmit(mode, { username, password, email }) {
     setAuthError('');
     setAuthLoading(true);
     const result = await fetchJson('/api/auth', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: mode, username, password }),
+      body: JSON.stringify({ action: mode, username, password, email }),
     });
     setAuthLoading(false);
     if (!result.ok) { setAuthError(result.error); return; }
-    setSession({ username: result.data.username });
+    setSession({ username: result.data.username, email: result.data.email || '' });
     fetchSavedTeams();
-    if (authReturnStage) { setStage(authReturnStage); setAuthReturnStage(null); }
-    else setStage('intro');
+    setAuthDialog(null);
+  }
+
+  async function handleSetEmail(email) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await fetchJson('/api/auth', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_email', email }),
+    });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return; }
+    setSession(s => (s ? { ...s, email: result.data.email || '' } : s));
+    setAuthDialog(null);
   }
 
   async function handleLogout() {
@@ -168,9 +189,7 @@ export default function FPLSquadChecker() {
   }
 
   function handleRequestLoginToSave() {
-    setAuthReturnStage('results');
-    setAuthError('');
-    setStage('auth');
+    openAuthDialog('login');
   }
 
   // Every screen is a fresh "page" — reset scroll position whenever we
@@ -836,7 +855,8 @@ export default function FPLSquadChecker() {
         onSelectGw={setSelectedGw}
         onGoHome={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); setHindsightData(null); setHindsightCompare(null); }}
         session={session}
-        onLoginClick={() => { setAuthReturnStage(null); setAuthError(''); setStage('auth'); }}
+        onLoginClick={() => openAuthDialog('login')}
+        onEmailClick={() => openAuthDialog('email')}
         onMyTeamsClick={() => setStage('myTeams')}
         onLogoutClick={handleLogout}
       />
@@ -904,14 +924,6 @@ export default function FPLSquadChecker() {
             onBack={() => { setStage('intro'); setHindsightData(null); setHindsightCompare(null); }}
           />
         )}
-        {stage === 'auth' && (
-          <AuthScreen
-            onSubmit={handleAuthSubmit}
-            error={authError}
-            loading={authLoading}
-            onCancel={() => { setAuthError(''); setStage(authReturnStage || 'intro'); setAuthReturnStage(null); }}
-          />
-        )}
         {stage === 'myTeams' && (
           <MyTeamsScreen
             teams={savedTeams}
@@ -924,6 +936,19 @@ export default function FPLSquadChecker() {
           <ErrorScreen message={errorMessage} onRetry={() => setStage('intro')} />
         )}
       </main>
+      {authDialog && (
+        <AuthDialog
+          // Remount when switching between log-in and email so the fields start fresh.
+          key={authDialog}
+          initialMode={authDialog}
+          currentEmail={session ? session.email : ''}
+          onSubmit={handleAuthSubmit}
+          onSetEmail={handleSetEmail}
+          error={authError}
+          loading={authLoading}
+          onClose={() => { setAuthError(''); setAuthDialog(null); }}
+        />
+      )}
       <Analytics />
     </div>
   );
