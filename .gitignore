@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .vercel
 .env*
+
+# Copied from node_modules by scripts/copy-tesseract.mjs
+public/tesseract

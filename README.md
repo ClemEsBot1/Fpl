@@ -6,7 +6,7 @@ A Fantasy Premier League (FPL) squad checker and optimiser. Load your squad, see
 
 ## Features
 
-- **Three ways to load a squad** — enter an FPL team ID, paste a squad read from a screenshot (via a Claude-generated JSON), or build one from scratch.
+- **Three ways to load a squad** — enter an FPL team ID, upload a screenshot of your team (read on your device with OCR — no AI service or upload — then matched to FPL players and priced from live FPL data), or build one from scratch.
 - **Point predictions** for every player, with a per-player **"Why?"** breakdown showing exactly which inputs drove the number (FPL's own model, form, set pieces, xG/xA, bookmaker odds, fixture difficulty, availability, rest days).
 - **Optimal squad builder** — picks the best 15 within a £100m budget, aware of who actually starts vs. sits on the bench so budget isn't wasted on players who won't play.
 - **Transfer suggestions** that account for free transfers vs. the -4 point hit, so a marginal swap isn't recommended if it costs you points.
@@ -37,6 +37,7 @@ The prediction logic is a set of pure functions shared by the browser and the se
 - **Backend:** Vercel serverless functions in `api/`
 - **Storage:** Vercel Blob (shared snapshots, historical data, cached odds) and Redis (user accounts and saved squads)
 - **Auth:** bcrypt password hashing, JWT session cookies
+- **Screenshot reading:** [Tesseract.js](https://github.com/naptha/tesseract.js) OCR running in the browser, self-hosted from `public/tesseract/` (copied there by `scripts/copy-tesseract.mjs` before `dev`/`build`)
 - **Data:** the public FPL API, a community archive of past seasons ([vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)), and [The Odds API](https://the-odds-api.com) for bookmaker odds
 - **Tooling:** Oxlint
 
@@ -55,6 +56,7 @@ src/
   App.jsx               Main UI
   lib/
     predictions.js      Prediction and squad-building logic (shared with the server)
+    screenshotOcr.js    Screenshot OCR and player-name detection
     playerHistory.js    Turns past-season data into a career baseline
     oddsAdjustment.js   Bookmaker-odds maths and fixture matching
     auth.js, redis.js, teams.js
@@ -93,6 +95,17 @@ The optimal squad is computed once, server-side, and shared by every visitor via
 - A **daily cron** in `vercel.json` refreshes the snapshot at 06:00 UTC (Vercel's Hobby plan only allows once-daily crons).
 - `.github/workflows/refresh-after-deploy.yml` also triggers a refresh about 90 seconds after every push to `main`. It needs a `CRON_SECRET` repository secret in GitHub Actions, matching the value in Vercel.
 
+## How screenshot reading works
+
+Everything happens in the browser; the screenshot never leaves the device.
+
+1. The image is scaled so text is large enough for OCR, then turned into two greyscale versions: one with every strongly coloured pixel painted white (leaving the dark-on-white name labels on a clean page, since the pitch and shirts are coloured) and one inverted (for light text on dark panels).
+2. Tesseract reads both and returns each word with its position.
+3. Every 1–3 word phrase is compared with all FPL player names (accents and punctuation ignored, a couple of misread letters allowed, and names FPL cuts short with "…" matched by prefix). Matches are capped at a real squad's 2/5/5/3 per position.
+4. The bottom four players on the screen are the bench. Prices printed next to or under a name, and the bank figure, are picked up too.
+5. Captain and vice-captain come from the armband badges (a white "C" or "V" on a black disc), found without OCR: light letter-sized blobs that aren't part of a word and are surrounded by near-black pixels are classified by shape (a "C" is open on its right at mid-height; a "V" has two top arms and its point at the bottom) and attached to the nearest player name.
+6. The review screen shows every match with its live FPL price, the squad's total cost and team value, and lets you fix any player or change the captaincy.
+
 ## Security headers
 
-`vercel.json` sets a Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy and Permissions-Policy on every route.
+`vercel.json` sets a Content-Security-Policy (with `'wasm-unsafe-eval'` so the OCR engine's WebAssembly can run), X-Frame-Options, X-Content-Type-Options, Referrer-Policy and Permissions-Policy on every route.
