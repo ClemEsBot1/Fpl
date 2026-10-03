@@ -3085,7 +3085,7 @@ export default function FPLSquadChecker() {
       const { readSquadFromScreenshot } = await import('./lib/screenshotOcr.js');
       extracted = await readSquadFromScreenshot(shot.img, staticData.allPlayers, p => {
         setLoadingMessage(`Reading your screenshot… ${Math.round(p * 100)}%`);
-      });
+      }, { teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam });
     } catch (e) {
       setErrorMessage(`Couldn't read that screenshot (${(e && e.message) || 'OCR failed'}). Try again, or enter your Team ID instead. [ERR_OCR]`);
       setStage('error');

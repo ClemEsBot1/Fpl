@@ -401,12 +401,23 @@ function trimToSquadShape(detections) {
     const id = d.player.id;
     if (!byPlayer.has(id) || byPlayer.get(id).score < d.score) byPlayer.set(id, d);
   });
-  const sorted = [...byPlayer.values()].sort((a, b) => b.score - a.score);
+  // Names whose possible players are all in one position take their
+  // places first; a name shared by players in different positions then
+  // takes whichever of them fits a position that still has room, rather
+  // than pushing someone else out (two "Munoz": a midfielder and a
+  // defender).
+  const flexibility = d => new Set(d.candidates.map(p => p.positionId)).size;
+  const sorted = [...byPlayer.values()].sort((a, b) =>
+    flexibility(a) - flexibility(b) || b.score - a.score);
   const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const hasRoom = p => counts[p.positionId] < SQUAD_SHAPE[p.positionId];
   return sorted.filter(d => {
-    const pos = d.player.positionId;
-    if (counts[pos] >= SQUAD_SHAPE[pos]) return false;
-    counts[pos]++;
+    if (!hasRoom(d.player)) {
+      const fits = d.candidates.filter(hasRoom).sort((a, b) => b.price - a.price);
+      if (!fits.length) return false;
+      d.player = fits[0];
+    }
+    counts[d.player.positionId]++;
     return true;
   });
 }
@@ -646,33 +657,202 @@ function pitchRowPositions(unique) {
   };
 }
 
+/* ---------------------------------------------------------------------------
+   Team detection from fixtures
+--------------------------------------------------------------------------- */
+
+// Under every name FPL prints that player's next fixture, e.g. "CRY (A)":
+// the opponent's short code and whether the player's team is (H)ome or
+// (A)way. Within one gameweek only one team plays away at Crystal Palace,
+// so with the real fixture list each label tells us exactly which club the
+// player is at — no shirt recognition needed. That separates players who
+// share a name (two "Muñoz", two "Gomez") and lets a cut-off name
+// ("B.Fernan...") be matched against just that club's squad.
+
+// Finds fixture tokens ("CRY (A)", "MCI(H)") in OCR lines. Returns
+// { oppId, home, bbox }: home is true when the player's team is at home.
+function findFixtureTokens(lines, codeToId) {
+  const tokens = [];
+  lines.forEach(words => {
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      const m = w.text.match(/^([A-Za-z]{3})\(?([HA])?\)?$/);
+      if (!m) continue;
+      const oppId = codeToId.get(m[1].toUpperCase());
+      if (!oppId) continue;
+      let venue = m[2];
+      let bbox = w.bbox;
+      if (!venue && words[i + 1]) {
+        const v = words[i + 1].text.match(/^\(?([HA])\)?$/);
+        if (v) { venue = v[1]; bbox = unionBox([w, words[i + 1]]); }
+      }
+      if (!venue) continue;
+      tokens.push({ oppId, home: venue === 'H', bbox });
+    }
+  });
+  return tokens;
+}
+
+// The team that plays `oppId` in `event`, at home if `home`, or null.
+function teamForFixture(fixturesByTeam, event, oppId, home) {
+  const theirs = (fixturesByTeam[oppId] || []).filter(f => f.event === event && f.isHome === !home);
+  return theirs.length === 1 ? theirs[0].opponent : null;
+}
+
+// Works out which gameweek the screenshot's fixtures belong to (the one
+// that explains the most of them) and resolves each token to a team id.
+function resolveFixtureTeams(tokens, fixturesByTeam) {
+  if (!tokens.length || !fixturesByTeam) return [];
+  const events = new Set();
+  Object.values(fixturesByTeam).forEach(list => list.forEach(f => events.add(f.event)));
+  let bestEvent = null, bestCount = 0;
+  [...events].sort((a, b) => a - b).forEach(event => {
+    const count = tokens.filter(t => teamForFixture(fixturesByTeam, event, t.oppId, t.home)).length;
+    if (count > bestCount) { bestCount = count; bestEvent = event; }
+  });
+  // Most fixtures on a real squad screen fit one gameweek; if they don't,
+  // these probably aren't fixtures (or are misread) — don't guess teams.
+  if (bestEvent === null || bestCount < Math.max(2, tokens.length * 0.5)) return [];
+  return tokens
+    .map(t => ({ ...t, teamId: teamForFixture(fixturesByTeam, bestEvent, t.oppId, t.home) }))
+    .filter(t => t.teamId);
+}
+
+// The fixture token belonging to a name: directly under it (Pitch View)
+// or further along the same row (List View).
+function fixtureFor(nameBox, tokens) {
+  const h = nameBox.y1 - nameBox.y0;
+  const cx = (nameBox.x0 + nameBox.x1) / 2, cy = (nameBox.y0 + nameBox.y1) / 2;
+  let best = null, bestDist = Infinity;
+  tokens.forEach(t => {
+    const tcx = (t.bbox.x0 + t.bbox.x1) / 2, tcy = (t.bbox.y0 + t.bbox.y1) / 2;
+    const below = t.bbox.y0 >= cy && t.bbox.y0 - nameBox.y1 < h * 2.5
+      && Math.abs(tcx - cx) < Math.max(nameBox.x1 - nameBox.x0, t.bbox.x1 - t.bbox.x0, h * 4);
+    const sameRow = Math.abs(tcy - cy) < h && t.bbox.x0 >= nameBox.x1 - 2 && t.bbox.x0 - nameBox.x1 < h * 25;
+    if (!below && !sameRow) return;
+    const dist = Math.hypot(tcx - cx, tcy - cy);
+    if (dist < bestDist) { bestDist = dist; best = t; }
+  });
+  return best;
+}
+
+const TEAM_MATCH_CONFIDENT = 0.75;
+
+// Best player at `teamId` for a read name — a looser match than across
+// the whole league, since a club has only ~30 players to choose from.
+function bestTeamPlayer(text, teamPlayers) {
+  const key = compactKey(text);
+  if (key.length < 3) return null;
+  const truncated = ELLIPSIS_RE.test(text);
+  let best = null;
+  teamPlayers.forEach(p => {
+    [p.webName, p.secondName].forEach(name => {
+      const nameKey = compactKey(name);
+      if (!nameKey) return;
+      let score;
+      if (nameKey === key) score = 1;
+      else if (truncated && key.length >= 4 && nameKey.startsWith(key)) score = 0.97;
+      else score = 1 - levenshtein(key, nameKey) / Math.max(key.length, nameKey.length);
+      if (!best || score > best.score) best = { player: p, score };
+    });
+  });
+  return best && best.score >= 0.55 ? best : null;
+}
+
+// Name read from the lines just above a fixture token: the words sitting
+// over it on the label (Pitch View) or before it on the row (List View).
+function nameTextsFor(token, lines) {
+  const h = token.bbox.y1 - token.bbox.y0;
+  const tcx = (token.bbox.x0 + token.bbox.x1) / 2;
+  const texts = [];
+  lines.forEach(words => {
+    const above = words.filter(w => {
+      const wcx = (w.bbox.x0 + w.bbox.x1) / 2;
+      return w.bbox.y1 <= token.bbox.y0 + h * 0.3 && token.bbox.y0 - w.bbox.y1 < h * 2
+        && Math.abs(wcx - tcx) < (token.bbox.x1 - token.bbox.x0) * 1.5 + h * 3;
+    });
+    const before = words.filter(w => Math.abs((w.bbox.y0 + w.bbox.y1) / 2 - (token.bbox.y0 + token.bbox.y1) / 2) < h * 0.8
+      && w.bbox.x1 <= token.bbox.x0 + 2 && token.bbox.x0 - w.bbox.x1 < h * 25);
+    [above, before].forEach(group => {
+      const named = group.filter(w => /\p{L}{2,}/u.test(w.text));
+      if (named.length) texts.push({ text: named.map(w => w.text).join(' ').replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}.…]+$/u, ''), bbox: unionBox(named) });
+    });
+  });
+  return texts;
+}
+
 // Pure text → squad step, separate from OCR so it can be tested directly.
 // `nameLines` (default: all lines) are the ones player names are looked
 // for in; prices and the bank figure can come from anywhere.
-export function extractSquadFromOcrLines(lines, allPlayers, badges = [], nameLines = lines) {
+//
+// `context` ({ teamsById, fixturesByTeam }, optional) enables team
+// detection from the fixture printed under each name.
+export function extractSquadFromOcrLines(lines, allPlayers, badges = [], nameLines = lines, context = {}) {
   const index = buildNameIndex(allPlayers);
   const prices = findPrices(lines);
   const found = [];
   nameLines.forEach(words => found.push(...findNamesInLine(words, index)));
-  const hints = pitchRowPositions(dedupeByPlace(found));
 
-  const detections = found.map(f => {
-    // Several players can share a printed name (two "Gomez"). In Pitch
-    // View the row says which position it is; otherwise (and to break any
-    // remaining tie) pick the priciest — usually the one people actually
-    // own. The review screen still flags the name and offers the others.
+  // Team detection: resolve every fixture token to the player's club.
+  const codeToId = new Map(Object.values(context.teamsById || {}).map(t => [String(t.short_name).toUpperCase(), t.id]));
+  const teamTokens = resolveFixtureTeams(findFixtureTokens(lines, codeToId), context.fixturesByTeam);
+  const playersByTeam = new Map();
+  allPlayers.forEach(p => {
+    if (!playersByTeam.has(p.team)) playersByTeam.set(p.team, []);
+    playersByTeam.get(p.team).push(p);
+  });
+
+  // Names read straight above (or beside) each fixture are matched within
+  // that club only. This also catches names the league-wide search missed
+  // or got wrong, and they take priority over league-wide guesses.
+  teamTokens.forEach(t => {
+    const teamPlayers = playersByTeam.get(t.teamId) || [];
+    let best = null;
+    nameTextsFor(t, nameLines).forEach(({ text, bbox }) => {
+      const hit = bestTeamPlayer(text, teamPlayers);
+      if (hit && (!best || hit.score > best.score)) best = { ...hit, text, bbox };
+    });
+    if (best) {
+      const sameName = teamPlayers.filter(p => compactKey(p.webName) === compactKey(best.player.webName));
+      // A clear match within the club outranks any league-wide guess for
+      // the same spot; a weak one only competes on equal terms.
+      const score = best.score >= TEAM_MATCH_CONFIDENT ? 1 + best.score : best.score;
+      found.push({ text: best.text, bbox: best.bbox, score, players: sameName.length ? sameName : [best.player], teamId: t.teamId });
+    }
+  });
+
+  const unique = dedupeByPlace(found);
+  const hints = pitchRowPositions(unique);
+
+  const detections = unique.map(f => {
+    // Several players can share a printed name (two "Gomez"). The club
+    // from the fixture underneath narrows it first; in Pitch View the row
+    // says which position it is; any remaining tie goes to the priciest —
+    // usually the one people actually own. The review screen still flags
+    // a name it couldn't pin down and offers the others.
+    let candidates = f.players;
+    const token = f.teamId ? null : fixtureFor(f.bbox, teamTokens);
+    const teamId = f.teamId || (token && token.teamId);
+    if (teamId) {
+      const atTeam = candidates.filter(p => p.team === teamId);
+      if (atTeam.length) candidates = atTeam;
+    }
     const hint = hints.get(f);
-    const inPosition = hint ? f.players.filter(p => p.positionId === hint) : [];
-    const candidates = inPosition.length ? inPosition : f.players;
+    const inPosition = hint ? candidates.filter(p => p.positionId === hint) : [];
+    if (inPosition.length) candidates = inPosition;
     const player = [...candidates].sort((a, b) => b.price - a.price)[0];
-    return { ...f, player, ambiguous: candidates.length > 1 };
+    return { ...f, player, candidates, ambiguous: candidates.length > 1 };
   });
 
   const squad = trimToSquadShape(detections);
   squad.forEach(d => { d.price = nearestPrice(d, prices); });
   const { starters, bench } = splitStartersAndBench(squad);
 
-  const toEntry = d => ({ id: d.player.id, ambiguous: d.ambiguous, name: d.text, club: null, price_millions: d.price });
+  const clubOf = d => {
+    const team = (context.teamsById || {})[d.player.team];
+    return team ? team.short_name : null;
+  };
+  const toEntry = d => ({ id: d.player.id, ambiguous: d.ambiguous, name: d.text, club: clubOf(d), price_millions: d.price });
   const armbands = assignArmbands(badges, squad);
   const startingXi = { goalkeepers: [], defenders: [], midfielders: [], forwards: [] };
   starters.forEach(d => startingXi[POS_KEYS[d.player.positionId]].push(toEntry(d)));
@@ -712,7 +892,7 @@ function insideAnyBox(word, boxes) {
   return boxes.some(b => cx >= b.x0 && cx <= b.x1 && cy >= b.y0 && cy <= b.y1);
 }
 
-export async function readSquadFromScreenshot(img, allPlayers, onProgress) {
+export async function readSquadFromScreenshot(img, allPlayers, onProgress, context = {}) {
   const prepared = prepareCanvases(img);
   const { pageLines, labelLines } = await ocrWords(prepared.canvases, onProgress, prepared.labelBoxes, prepared.source);
   const allLines = [...pageLines, ...labelLines];
@@ -726,5 +906,5 @@ export async function readSquadFromScreenshot(img, allPlayers, onProgress) {
     .map(w => ({ ...w, minScore: strictOutside && !insideAnyBox(w, boxes) ? STRICT_NAME_SCORE : undefined })))
     .filter(line => line.length);
   const badges = findArmbandBadges(prepared.light, prepared.dark, prepared.width, prepared.height, allLines);
-  return extractSquadFromOcrLines(allLines, allPlayers, badges, nameLines);
+  return extractSquadFromOcrLines(allLines, allPlayers, badges, nameLines, context);
 }
