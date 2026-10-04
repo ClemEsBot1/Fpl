@@ -42,3 +42,17 @@ test('bootstrap players get their pre-deadline numbers, nothing from today', () 
   assert.equal(p2.total_points, 0, 'a player with no earlier games starts from zero');
   assert.equal(p2.minutes, 0);
 });
+
+test('a double gameweek counts each match a player appeared in', () => {
+  const minutesIn = (...perMatch) => perMatch.map((value, i) => ({ fixture: i + 1, stats: [{ identifier: 'minutes', points: value ? 1 : 0, value }] }));
+  const liveByEvent = {
+    1: [{ id: 9, stats: { total_points: 10, minutes: 180 }, explain: minutesIn(90, 90) }],
+    2: [{ id: 9, stats: { total_points: 2, minutes: 90 }, explain: minutesIn(90, 0) }],
+    3: [{ id: 9, stats: { total_points: 2, minutes: 70 } }], // no breakdown: one match
+    4: [{ id: 9, stats: { total_points: 0, minutes: 0 }, explain: minutesIn(0) }],
+  };
+  const [points, minutes, appearances] = aggregateLiveStats(liveByEvent, 5).players[9];
+  assert.equal(points, 14);
+  assert.equal(minutes, 340);
+  assert.equal(appearances, 4);
+});

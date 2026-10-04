@@ -105,7 +105,9 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
     ctx.textAlign = 'right';
     ctx.fillStyle = '#FBFAFF';
     ctx.font = `700 32px ${mono}`;
-    ctx.fillText(fmt(s.nextMatchPredicted * (s.isCaptain ? 2 : 1)), W - 116, y - 6);
+    // Starters at their multiplier (captain 2x, or 3x under Triple
+    // Captain), the bench as is — matching the total at the top.
+    ctx.fillText(fmt(s.nextMatchPredicted * (s.isStarting ? (s.multiplier || 1) : 1)), W - 116, y - 6);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
     y += rowH;

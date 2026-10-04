@@ -88,3 +88,52 @@ test('not an FPL screenshot', () => {
   const squad = extractSquadFromOcrLines([line('Hello', 0), line('world', 100)], tiny);
   assert.equal(squad.not_fpl_screenshot, true);
 });
+
+test('real screenshot: the armbands say which player wears them', () => {
+  const squad = squadFromRaw(raw, pool.players, { teamsById, fixturesByTeam });
+  assert.equal(byId[squad.captain_id].webName, 'Haaland');
+  assert.equal(byId[squad.vice_captain_id].webName, 'B.Fernandes');
+});
+
+// One word per line at (x, y), as Tesseract reports a Pitch View.
+const at = (text, x, y) => [{ text, confidence: 90, bbox: { x0: x, y0: y, x1: x + 120, y1: y + 30 } }];
+const idOf = name => pool.players.find(p => p.webName === name).id;
+
+test('an initial starts the name: "M. Fernandes" is not B.Fernandes', () => {
+  const lines = [[...at('M.', 100, 0), ...at('Fernandes', 140, 0)], at('Haaland', 100, 400), at('Virgil', 100, 800)];
+  const squad = extractSquadFromOcrLines(lines, pool.players);
+  const all = [...Object.values(squad.starting_xi).flat(), ...squad.bench];
+  assert.ok(all.some(e => e.id === idOf('M.Fernandes')));
+  assert.ok(!all.some(e => e.id === idOf('B.Fernandes')));
+});
+
+test('two squad players with the same printed name are both kept', () => {
+  const names = ['A.Becker', 'Gomez', 'De Cuyper', 'Virgil', 'Giles', 'Gomez', 'B.Fernandes', 'Szoboszlai', 'Scott', 'Haaland', 'João Pedro', 'Dubravka', 'Barry', 'Konsa', 'Muñoz'];
+  const squad = extractSquadFromOcrLines(names.map((n, i) => at(n, 100, i * 100)), pool.players);
+  const all = [...Object.values(squad.starting_xi).flat(), ...squad.bench];
+  assert.equal(all.length, 15);
+  assert.equal(new Set(all.map(e => e.id)).size, 15, 'nobody twice');
+  const gomez = all.filter(e => byId[e.id].webName === 'Gomez');
+  assert.equal(gomez.length, 2);
+  assert.ok(gomez.every(e => e.ambiguous), 'without fixtures, the review screen asks which Gomez is which');
+});
+
+test('a bench player the reader missed does not push a starter onto the bench', () => {
+  const rows = [
+    [400, ['Pickford']],
+    [100, ['Gabriel', 'Saliba', 'Cucurella', 'Tarkowski']],
+    [100, ['Palmer', 'Marmoush', 'Semenyo', 'Rogers']],
+    [250, ['Haaland', 'Watkins']],
+    [100, ['Donnarumma', 'Robertson', 'Gordon']], // the fourth bench player wasn't read
+  ];
+  const lines = rows.flatMap(([x0, names], row) => names.map((n, i) => at(n, x0 + i * 250, row * 300 + (row === 4 ? 100 : 0))));
+  const squad = extractSquadFromOcrLines(lines, pool.players);
+  assert.deepEqual(squad.starting_xi.forwards.map(e => e.id), [idOf('Haaland'), idOf('Watkins')]);
+  assert.deepEqual(squad.bench.map(e => e.id), ['Donnarumma', 'Robertson', 'Gordon'].map(idOf));
+});
+
+test('special letters match however they were read', () => {
+  const gross = { id: 9, webName: 'Groß', secondName: 'Groß', positionId: 3, price: 6, team: 4 };
+  const squad = extractSquadFromOcrLines([line('Gross', 0), line('Saka', 100), line('Son', 200)], [...tiny, gross]);
+  assert.ok(Object.values(squad.starting_xi).flat().some(e => e.id === 9));
+});

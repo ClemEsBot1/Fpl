@@ -25,39 +25,84 @@ export const DIFF_COLORS = {
   5: { bg: '#E14545', text: '#2B0505' },
 };
 
+// Letters that Unicode doesn't split into a base letter plus an accent, so
+// the accent-stripping below would otherwise delete them ("\u00d8degaard" ->
+// "degaard", "Gro\u00df" -> "gro").
+const LETTER_FOLDS = { '\u00f8': 'o', '\u00e6': 'ae', '\u0153': 'oe', '\u00df': 'ss', '\u0142': 'l', '\u0111': 'd', '\u00f0': 'd', '\u00fe': 'th', '\u0131': 'i' };
+
 export function normalize(str) {
   return (str || '')
     .toLowerCase()
+    .replace(/[\u00f8\u00e6\u0153\u00df\u0142\u0111\u00f0\u00fe\u0131]/g, ch => LETTER_FOLDS[ch])
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9 ]/g, '')
     .trim();
 }
 
+// For "does this name contain what was typed": also ignores spaces, so
+// "alexander arnold" finds "Alexander-Arnold".
+export function searchKey(str) {
+  return normalize(str).replace(/ /g, '');
+}
+
+// Each player's names, normalised once and reused by every search and
+// fuzzy match (instead of re-normalising ~800 players per keystroke).
+const playerKeyCache = new WeakMap();
+export function playerKeys(p) {
+  let keys = playerKeyCache.get(p);
+  if (!keys) {
+    keys = {
+      web: normalize(p.webName),
+      second: normalize(p.secondName),
+      full: normalize(`${p.firstName} ${p.secondName}`),
+      webSearch: searchKey(p.webName),
+      secondSearch: searchKey(p.secondName),
+    };
+    playerKeyCache.set(p, keys);
+  }
+  return keys;
+}
+
+// Whether a player's name matches a search box's text.
+export function playerMatchesSearch(p, query) {
+  const q = searchKey(query);
+  if (!q) return true;
+  const k = playerKeys(p);
+  return k.webSearch.includes(q) || k.secondSearch.includes(q);
+}
+
+// Two rows instead of a full matrix: same result, far less allocation.
 export function levenshtein(a, b) {
   const m = a.length, n = b.length;
   if (!m) return n;
   if (!n) return m;
-  const dp = [];
-  for (let i = 0; i <= m; i++) dp.push(new Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  let prev = new Array(n + 1);
+  let cur = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
   for (let i = 1; i <= m; i++) {
+    cur[0] = i;
+    const ai = a.charCodeAt(i - 1);
     for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+      cur[j] = ai === b.charCodeAt(j - 1)
+        ? prev[j - 1]
+        : 1 + Math.min(prev[j - 1], prev[j], cur[j - 1]);
     }
+    [prev, cur] = [cur, prev];
   }
-  return dp[m][n];
+  return prev[n];
 }
 
-export function similarity(a, b) {
-  const na = normalize(a), nb = normalize(b);
+// Similarity of two already-normalised strings, 0..1.
+function similarityOfNormalized(na, nb) {
   if (!na.length || !nb.length) return 0;
   if (na === nb) return 1;
   if (na.includes(nb) || nb.includes(na)) return 0.9;
   const dist = levenshtein(na, nb);
   return Math.max(0, 1 - dist / Math.max(na.length, nb.length));
+}
+
+export function similarity(a, b) {
+  return similarityOfNormalized(normalize(a), normalize(b));
 }
 
 // `hints` (club abbreviation / price read off the screenshot) only nudge
@@ -66,10 +111,12 @@ export function similarity(a, b) {
 export function findTopMatches(extractedName, candidates, topN = 3, hints = {}) {
   const { club, price, teamsById } = hints;
   const clubNorm = club ? normalize(club) : null;
+  const name = normalize(extractedName);
   const scored = candidates.map(p => {
-    const s1 = similarity(extractedName, p.webName);
-    const s2 = similarity(extractedName, p.secondName);
-    const s3 = similarity(extractedName, `${p.firstName} ${p.secondName}`);
+    const k = playerKeys(p);
+    const s1 = similarityOfNormalized(name, k.web);
+    const s2 = s1 === 1 ? 1 : similarityOfNormalized(name, k.second);
+    const s3 = s2 === 1 ? 1 : similarityOfNormalized(name, k.full);
     let score = Math.max(s1, s2, s3);
     const team = teamsById && teamsById[p.team];
     if (clubNorm && team && normalize(team.short_name) === clubNorm) score += 0.06;

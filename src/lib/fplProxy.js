@@ -23,7 +23,9 @@ export function fplPathRule(path) {
 // a few minutes of caching costs nothing in freshness. Stale copies are
 // served for a while longer while a fresh one is fetched in the background.
 // Errors are never cached, so a temporary FPL outage clears immediately.
+// Browsers keep their own copy for up to a minute too, so moving between
+// screens (or reopening the app) doesn't download the same data again.
 export function fplCacheControl(rule, status) {
   if (!rule || status !== 200) return 'no-store';
-  return `public, s-maxage=${rule.maxAge}, stale-while-revalidate=${rule.maxAge * 4}`;
+  return `public, max-age=${Math.min(60, rule.maxAge)}, s-maxage=${rule.maxAge}, stale-while-revalidate=${rule.maxAge * 4}`;
 }

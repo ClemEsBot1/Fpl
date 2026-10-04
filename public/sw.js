@@ -7,7 +7,7 @@
 //   /api/*, other sites, Tesseract files: never touched — always live
 //
 // Bump VERSION to drop every cached file on the next visit.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `shell-${VERSION}`;
 const ASSETS = `assets-${VERSION}`;
 const MAX_ASSETS = 60; // old deploys' bundles pile up otherwise
@@ -21,6 +21,8 @@ self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keep = new Set([SHELL, ASSETS]);
     for (const key of await caches.keys()) if (!keep.has(key)) await caches.delete(key);
+    // Lets page requests start while this worker is still starting up.
+    if (self.registration.navigationPreload) await self.registration.navigationPreload.enable();
     await self.clients.claim();
   })());
 });
@@ -41,8 +43,14 @@ self.addEventListener('fetch', event => {
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const res = await fetch(req);
-        if (res.ok) (await caches.open(SHELL)).put('/', res.clone());
+        const res = (await event.preloadResponse) || await fetch(req);
+        // Only the app's own page is kept as the offline copy — not, say,
+        // /sitemap.xml opened in a tab, which would then load in its place.
+        const isAppPage = url.pathname === '/' || url.pathname === '/index.html';
+        if (res.ok && isAppPage && (res.headers.get('content-type') || '').includes('text/html')) {
+          const copy = res.clone();
+          event.waitUntil(caches.open(SHELL).then(cache => cache.put('/', copy)));
+        }
         return res;
       } catch {
         return (await caches.match('/')) || Response.error();

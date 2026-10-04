@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     res
       .status(200)
       .setHeader('Content-Type', 'application/json')
-      .setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400')
+      .setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400')
       .send(text);
   } catch (e) {
     // Covers "cron hasn't run yet" as well as any transient storage error —

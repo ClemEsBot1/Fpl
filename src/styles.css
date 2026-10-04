@@ -161,3 +161,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-dialog[open] { animation:fplDialogIn .16s ease-out; }
 @keyframes fplDialogIn { from { opacity:0; transform:translateY(8px) scale(0.98); } to { opacity:1; transform:none; } }
 @media (prefers-reduced-motion: reduce) { .fpl-dialog[open] { animation:none; } }
+
+/* The main area takes focus on each screen change (for keyboard and
+   screen-reader users); it isn't something to click, so no ring. */
+.fpl-main:focus { outline: none; }
+.fpl-error-overlay { position:fixed; left:16px; right:16px; bottom:16px; z-index:50; max-width:400px; margin:0 auto; }

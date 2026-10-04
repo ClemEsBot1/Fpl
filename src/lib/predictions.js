@@ -10,7 +10,7 @@
 ============================================================================ */
 
 import { buildCareerBaselineByCode, buildLastSeasonStatsByCode } from './playerHistory.js';
-import { buildOddsByTeamForEvent, computeOddsAdjustment } from './oddsAdjustment.js';
+import { buildOddsByTeamForEvent, oddsAdjustmentForMatches } from './oddsAdjustment.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
@@ -389,10 +389,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       expectedGoals: parseFloat(e.expected_goals) || 0,
       expectedAssists: parseFloat(e.expected_assists) || 0,
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
-      oddsAdjustment: (() => {
-        const info = oddsByTeamForTargetEvent[e.team];
-        return info ? computeOddsAdjustment({ probs: info.probs, isHome: info.isHome, positionId: e.element_type }) : 0;
-      })(),
+      oddsAdjustment: oddsAdjustmentForMatches(oddsByTeamForTargetEvent[e.team], e.element_type),
     };
   });
 
@@ -459,7 +456,34 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     pred.nextMatchSelectionValue = weights.selectionShrinkage * pred.nextMatchPredicted + (1 - weights.selectionShrinkage) * avgNextMatchByPosition[p.positionId];
   });
 
-  return { teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById };
+  return {
+    teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById,
+    seasonId: seasonIdFor(bootstrap.events),
+  };
+}
+
+// The season a set of gameweeks belongs to, e.g. "2026-27", from the first
+// gameweek's deadline. Saved snapshots carry it, because FPL reuses
+// gameweek numbers (and player ids) every season.
+export function seasonIdFor(events) {
+  const first = (events || []).reduce((a, e) => (!a || e.id < a.id ? e : a), null);
+  if (!first || !first.deadline_time) return null;
+  const year = new Date(first.deadline_time).getUTCFullYear();
+  if (!Number.isFinite(year)) return null;
+  return `${year}-${String((year + 1) % 100).padStart(2, '0')}`;
+}
+
+// Whether a saved snapshot (optimal squad or predictions) belongs to the
+// season `staticData` is for. Snapshots written before seasons were
+// recorded count if they were built within this season (from a couple of
+// months before its first deadline).
+export function snapshotIsForSeason(snapshot, seasonId, events) {
+  if (!snapshot) return false;
+  if (snapshot.season) return snapshot.season === seasonId;
+  const first = (events || []).reduce((a, e) => (!a || e.id < a.id ? e : a), null);
+  const builtAt = Date.parse(snapshot.builtAt || snapshot.savedAt || '');
+  if (!first || !Number.isFinite(builtAt)) return true; // nothing to judge by
+  return builtAt >= Date.parse(first.deadline_time) - 60 * 864e5;
 }
 
 /* ----------------------------------------------------------------------------
@@ -546,8 +570,11 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
     teamCounts[out.team] -= 1;
     teamCounts[bestSwap.inP.team] = (teamCounts[bestSwap.inP.team] || 0) + 1;
     squad[bestSwap.idx] = bestSwap.inP;
+    // Re-pick the XI after every swap. The incoming player isn't in the old
+    // set, so without this a starter's replacement is weighted as a bench
+    // player on the next pass and gets downgraded again and again.
+    startingIds = startingIdsFor(squad);
   }
-  startingIds = startingIdsFor(squad); // prices changed in Step 2 — refresh who'd actually start now
 
   // Step 3: minimize bench cost. Unconditional — run this BEFORE spending
   // leftover budget on starters, not paired with a specific starter upgrade.
@@ -751,27 +778,34 @@ export function buildHindsightSquad(allPlayers, liveEventPointsById, budget = SQ
 // subbed in and scored real points still shows as benched and doesn't
 // count at all.
 export function applyAutomaticSubs(squad, automaticSubs) {
-  if (!Array.isArray(automaticSubs) || automaticSubs.length === 0) return squad;
-  const outIds = new Set(automaticSubs.map(s => s.element_out));
-  const inIds = new Set(automaticSubs.map(s => s.element_in));
-  let next = squad.map(s => {
-    if (outIds.has(s.player.id)) return { ...s, isStarting: false };
-    if (inIds.has(s.player.id)) return { ...s, isStarting: true };
+  const subs = Array.isArray(automaticSubs) ? automaticSubs : [];
+  const outIds = new Set(subs.map(s => s.element_out));
+  const inIds = new Set(subs.map(s => s.element_in));
+  // FPL gives bench picks a multiplier of 0, so a player who came on has to
+  // be raised to 1 or their points don't count; the player they replaced
+  // drops to 0.
+  let next = subs.length === 0 ? squad : squad.map(s => {
+    if (outIds.has(s.player.id)) return { ...s, isStarting: false, multiplier: 0 };
+    if (inIds.has(s.player.id)) return { ...s, isStarting: true, multiplier: Math.max(1, s.multiplier || 0) };
     return s;
   });
 
   // Captain-to-vice-captain fallback is a separate FPL rule from the
   // substitution itself: if the captain got 0 minutes, the armband's
   // multiplier passes to the vice-captain (whether or not the captain
-  // personally had a valid formation-preserving autosub available).
+  // personally had a valid formation-preserving autosub available, and
+  // also in weeks with no substitutions at all, e.g. under Bench Boost).
   const captainSlot = next.find(s => s.isCaptain);
   if (captainSlot && captainSlot.played === false) {
     const viceSlot = next.find(s => s.isViceCaptain);
-    if (viceSlot && viceSlot.played) {
-      const capMultiplier = captainSlot.multiplier;
+    if (viceSlot && viceSlot.played && viceSlot.isStarting) {
+      // Read the armband's value (2, or 3 under Triple Captain) from the
+      // original pick: a captain who was subbed off is already at 0 above.
+      const original = squad.find(s => s.isCaptain);
+      const armband = Math.max(2, (original && original.multiplier) || 0);
       next = next.map(s => {
-        if (s === captainSlot) return { ...s, multiplier: 1 };
-        if (s === viceSlot) return { ...s, multiplier: capMultiplier };
+        if (s === captainSlot) return { ...s, multiplier: s.isStarting ? 1 : 0 };
+        if (s === viceSlot) return { ...s, multiplier: armband };
         return s;
       });
     }
@@ -802,7 +836,7 @@ export function buildSavedSquadActualPerformance(playerIds, captainId, viceCapta
   let startersSet;
   try {
     startersSet = pickBestFormation(players, predictionsById);
-  } catch (e) {
+  } catch {
     return null; // saved squad doesn't have a legal formation (shouldn't happen for a squad built through this app, but data can go stale)
   }
 
@@ -878,7 +912,7 @@ export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
 // pass null/undefined if that hasn't been fetched.
 export function hydrateFrozenSquadSnapshot(snapshot, staticData, liveEventPointsById) {
   if (!snapshot || !Array.isArray(snapshot.playerIds)) return null;
-  const players = snapshot.playerIds.map(pid => staticData.playersById[pid] || staticData.allPlayers.find(p => p.id === pid)).filter(Boolean);
+  const players = snapshot.playerIds.map(pid => staticData.playersById[pid]).filter(Boolean);
   if (players.length !== 15) return null;
 
   const startingIds = new Set(Array.isArray(snapshot.startingIds) ? snapshot.startingIds : []);
@@ -903,18 +937,61 @@ export function hydrateFrozenSquadSnapshot(snapshot, staticData, liveEventPoints
   return { squad, bankTenths };
 }
 
+// Whether `ids` is a legal starting XI for these 15 players: 11 of them,
+// one goalkeeper, and a 3-5 / 2-5 / 1-3 outfield split.
+export function isLegalStartingXi(ids, players) {
+  if (!Array.isArray(ids) || ids.length !== 11) return false;
+  const byId = new Map(players.map(p => [p.id, p]));
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (const id of new Set(ids)) {
+    const p = byId.get(id);
+    if (!p) return false;
+    counts[p.positionId]++;
+  }
+  return counts[1] === 1 && counts[2] >= 3 && counts[2] <= 5 && counts[3] >= 2 && counts[3] <= 5
+    && counts[4] >= 1 && counts[4] <= 3 && counts[1] + counts[2] + counts[3] + counts[4] === 11;
+}
+
+// Keeps both armbands on starters. A captain or vice-captain who isn't in
+// the XI (the XI was re-picked against today's predictions, or saved data
+// disagrees with itself) hands the armband on: the captaincy to the vice
+// if they start, otherwise to the best starter; the vice to the next best.
+function keepArmbandsOnStarters(squad, nextValueOf) {
+  const starters = squad.filter(s => s.isStarting).sort((a, b) => nextValueOf(b) - nextValueOf(a));
+  let captain = squad.find(s => s.isCaptain && s.isStarting) || null;
+  let vice = squad.find(s => s.isViceCaptain && s.isStarting && s !== captain) || null;
+  if (!captain) {
+    captain = vice || starters[0] || null;
+    if (captain === vice) vice = null;
+  }
+  if (!vice) vice = starters.find(s => s !== captain) || null;
+  return squad.map(s => {
+    const isCaptain = !!captain && s.player.id === captain.player.id;
+    const isViceCaptain = !!vice && s.player.id === vice.player.id;
+    return { ...s, isCaptain, isViceCaptain, multiplier: isCaptain ? 2 : 1 };
+  });
+}
+
 // Rebuilds full squad-slot objects (predicted points, starting/bench,
 // captaincy) from a compact saved snapshot ({playerIds, captainId,
-// viceCaptainId}) against a fresh staticData — used both for the browser's
-// localStorage cache and for the server-computed snapshot, so prices and
+// viceCaptainId, and optionally startingIds/bankTenths}) against a fresh
+// staticData — used for the browser's localStorage cache, the
+// server-computed optimal squad and squads people saved, so prices and
 // predictions are always re-hydrated against current live data rather than
 // frozen at whenever the snapshot was built.
-export function hydrateSquadSnapshot(snapshot, staticData) {
+//
+// options.keepStartingXi: use the snapshot's own XI (a squad someone saved,
+// with the formation they picked) when it's still a legal one; otherwise
+// the XI is re-picked from today's predictions, which is right for the
+// optimal squad (a player injured since the build drops to the bench).
+export function hydrateSquadSnapshot(snapshot, staticData, options = {}) {
   if (!snapshot || !Array.isArray(snapshot.playerIds)) return null;
-  const players = snapshot.playerIds.map(pid => staticData.playersById[pid] || staticData.allPlayers.find(p => p.id === pid)).filter(Boolean);
+  const players = snapshot.playerIds.map(pid => staticData.playersById[pid]).filter(Boolean);
   if (players.length !== 15) return null;
 
-  const startersSet = pickBestFormation(players, staticData.predictionsById);
+  const startersSet = options.keepStartingXi && isLegalStartingXi(snapshot.startingIds, players)
+    ? new Set(snapshot.startingIds)
+    : pickBestFormation(players, staticData.predictionsById);
   const squad = players.map(p => {
     const pred = staticData.predictionsById[p.id];
     const isCaptain = p.id === snapshot.captainId;
@@ -926,6 +1003,11 @@ export function hydrateSquadSnapshot(snapshot, staticData) {
       multiplier: isCaptain ? 2 : 1,
     };
   });
-  const bankTenths = Math.round((SQUAD_BUDGET - players.reduce((s, p) => s + p.price, 0)) * 10);
-  return { squad, bankTenths };
+  const nextValueOf = s => staticData.predictionsById[s.player.id].nextMatchSelectionValue ?? s.nextMatchPredicted;
+  // A saved squad keeps the bank it was saved with (a Team ID squad worth
+  // more than £100m would otherwise show a negative bank).
+  const bankTenths = Number.isInteger(snapshot.bankTenths)
+    ? snapshot.bankTenths
+    : Math.round((SQUAD_BUDGET - players.reduce((s, p) => s + p.price, 0)) * 10);
+  return { squad: keepArmbandsOnStarters(squad, nextValueOf), bankTenths };
 }

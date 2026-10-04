@@ -33,11 +33,42 @@ export async function getJSON(redis, key) {
   if (raw === null || raw === undefined) return null;
   try {
     return JSON.parse(raw);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
 
 export async function setJSON(redis, key, value) {
   await redis.set(key, JSON.stringify(value));
+}
+
+// Stores `value` only if nothing is stored under `key` yet. Returns whether
+// it was stored (two sign-ups racing for the same username can't both win).
+export async function createJSON(redis, key, value) {
+  return (await redis.set(key, JSON.stringify(value), 'NX')) === 'OK';
+}
+
+// Replaces a value only if it still holds what we read, in one step on the
+// Redis server.
+export const COMPARE_AND_SET_SCRIPT =
+  "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('SET', KEYS[1], ARGV[2]) return 1 end return 0";
+
+// Read-modify-write of a JSON record that can't lose a concurrent update
+// (say, a team saved on one device while the password is reset on
+// another): `change(current)` returns the new value, or null/undefined to
+// leave it as it is, and is re-run against the fresh value if something
+// else wrote in between. Keep it synchronous and quick — do slow work
+// (hashing) before calling this. Returns the value now stored, or
+// undefined when there's nothing stored under `key`.
+export async function updateJSON(redis, key, change, attempts = 5) {
+  for (let i = 0; i < attempts; i++) {
+    const raw = await redis.get(key);
+    if (raw === null || raw === undefined) return undefined;
+    const current = JSON.parse(raw);
+    const next = change(current);
+    if (next === null || next === undefined) return current;
+    const nextRaw = JSON.stringify(next);
+    if (Number(await redis.eval(COMPARE_AND_SET_SCRIPT, 1, key, raw, nextRaw)) === 1) return next;
+  }
+  throw new Error('Too many simultaneous updates. Please try again.');
 }

@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return;
   }
   try {
-    const r = await fetch('https://fantasy.premierleague.com/api/' + path);
+    const r = await fetch('https://fantasy.premierleague.com/api/' + path, { signal: AbortSignal.timeout(10_000) });
     const text = await r.text();
     res
       .status(r.status)

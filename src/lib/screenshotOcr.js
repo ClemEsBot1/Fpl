@@ -51,9 +51,14 @@ function toCanvas(lum, w, h) {
 //    can't cope with small white labels scattered over a green pitch.
 // 2. "Inverted": the plain greyscale image inverted, for light text on
 //    dark panels (some screens and the List View header rows).
+// Phone screenshots are at most ~3200px tall, so this only shrinks things
+// like full-resolution photos, which would otherwise need hundreds of MB
+// for the working copies below (and are past the canvas size iOS allows).
+const MAX_WORKING_SIDE = 3200;
+
 function prepareCanvases(img) {
   const longSide = Math.max(img.naturalWidth, img.naturalHeight);
-  const scale = Math.min(3, Math.max(1, 2400 / longSide));
+  const scale = Math.min(3, Math.max(1, 2400 / longSide), MAX_WORKING_SIDE / longSide);
   const w = Math.round(img.naturalWidth * scale);
   const h = Math.round(img.naturalHeight * scale);
 
@@ -93,11 +98,19 @@ function prepareCanvases(img) {
   };
 }
 
+// Working buffers for the flood fills below, shared rather than allocated
+// per call (each is as big as the image: 4 bytes a pixel for the stack).
+let scratch = null;
+function floodBuffers(n) {
+  if (!scratch || scratch.seen.length < n) scratch = { seen: new Uint8Array(n), stack: new Int32Array(n) };
+  scratch.seen.fill(0, 0, n);
+  return scratch;
+}
+
 // Visits each 4-connected blob of set pixels in `mask`, calling
 // visit(box, pixelCount) with its bounding box.
 function forEachBlob(mask, w, h, visit) {
-  const seen = new Uint8Array(w * h);
-  const stack = new Int32Array(w * h);
+  const { seen, stack } = floodBuffers(w * h);
   for (let start = 0; start < w * h; start++) {
     if (!mask[start] || seen[start]) continue;
     let top = 0, count = 0;
@@ -209,6 +222,9 @@ function getOcrWorker() {
       // A blob: worker would be blocked by our Content-Security-Policy.
       workerBlobURL: false,
       logger: m => { if (reportProgress) reportProgress(m); },
+      // Failed reads already reject their promise; without this tesseract.js
+      // also throws each error again as an uncaught one.
+      errorHandler: () => {},
     }).catch(err => {
       workerPromise = null; // let the next attempt retry
       throw err;
@@ -255,6 +271,13 @@ async function runOcr(canvases, onProgress, labelBoxes, source) {
       if (onProgress) onProgress((canvases.length + (i + 1) / labelBoxes.length) / totalPasses);
     }
     return { pageLines, labelLines };
+  } catch (err) {
+    // A failed read (say, out of memory on a huge image) can leave the
+    // worker unusable; start a fresh one next time rather than failing
+    // every read until the page is reloaded.
+    workerPromise = null;
+    worker.terminate().catch(() => {});
+    throw err;
   } finally {
     reportProgress = null;
   }
@@ -274,18 +297,46 @@ export function compactKey(str) {
     .replace(/[^a-z]/g, '');
 }
 
-function levenshtein(a, b) {
+// Letters Unicode doesn't split into base letter + accent. compactKey drops
+// them (OCR reads FPL's "Ø" as "@", so "Ødegaard" and "@degaard" agree),
+// but OCR can also read them as plain letters ("Gross" for "Groß", which
+// compactKey makes "gro" — too short to match anything), so names are
+// indexed under this spelling as well.
+const LETTER_FOLDS = { 'ø': 'o', 'æ': 'ae', 'œ': 'oe', 'ß': 'ss', 'ł': 'l', 'đ': 'd', 'ð': 'd', 'þ': 'th', 'ı': 'i' };
+function foldedKey(str) {
+  return compactKey((str || '').toLowerCase().replace(/[øæœßłđðþı]/g, ch => LETTER_FOLDS[ch]));
+}
+
+// Every key a printed name can be read as.
+function nameKeys(name) {
+  const plain = compactKey(name);
+  const folded = foldedKey(name);
+  return folded === plain ? [plain] : [plain, folded];
+}
+
+// Edit distance between a and b, giving up as soon as it must exceed
+// `max` (then returns max + 1): matching only cares whether two names are
+// within a couple of letters, and most pairs aren't remotely close. One
+// reusable row instead of a new array per call.
+let levRow = new Int32Array(64);
+function levenshtein(a, b, max = Infinity) {
   if (a === b) return 0;
-  const prev = Array.from({ length: b.length + 1 });
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  if (levRow.length <= b.length) levRow = new Int32Array(b.length * 2);
+  const prev = levRow;
   for (let j = 0; j <= b.length; j++) prev[j] = j;
   for (let i = 1; i <= a.length; i++) {
     let diag = prev[0];
     prev[0] = i;
+    let rowMin = i;
+    const ai = a.charCodeAt(i - 1);
     for (let j = 1; j <= b.length; j++) {
       const tmp = prev[j];
-      prev[j] = a[i - 1] === b[j - 1] ? diag : 1 + Math.min(diag, prev[j], prev[j - 1]);
+      prev[j] = ai === b.charCodeAt(j - 1) ? diag : 1 + Math.min(diag, prev[j], prev[j - 1]);
       diag = tmp;
+      if (prev[j] < rowMin) rowMin = prev[j];
     }
+    if (rowMin > max) return max + 1;
   }
   return prev[b.length];
 }
@@ -297,8 +348,8 @@ function keyScore(ocrKey, nameKey) {
   if (ocrKey === nameKey) return 1;
   const len = Math.max(ocrKey.length, nameKey.length);
   if (Math.min(ocrKey.length, nameKey.length) < 5) return 0;
-  const dist = levenshtein(ocrKey, nameKey);
   const allowed = len >= 6 ? 2 : 1;
+  const dist = levenshtein(ocrKey, nameKey, allowed);
   return dist <= allowed ? 1 - dist / len : 0;
 }
 
@@ -306,7 +357,18 @@ function keyScore(ocrKey, nameKey) {
 // truncated read matches any name it is the start of.
 const ELLIPSIS_RE = /(\.{2,}|…)$/;
 
+// The index only depends on the player list, so it's built once per list
+// (the same list is used for every screenshot in a visit).
+const nameIndexCache = new WeakMap();
 function buildNameIndex(allPlayers) {
+  const cached = nameIndexCache.get(allPlayers);
+  if (cached) return cached;
+  const index = buildNameIndexUncached(allPlayers);
+  nameIndexCache.set(allPlayers, index);
+  return index;
+}
+
+function buildNameIndexUncached(allPlayers) {
   const byKey = new Map();
   const add = (key, player) => {
     if (key.length < 3) return;
@@ -315,15 +377,27 @@ function buildNameIndex(allPlayers) {
     if (!list.includes(player)) list.push(player);
   };
   allPlayers.forEach(p => {
-    add(compactKey(p.webName), p);
+    nameKeys(p.webName).forEach(key => add(key, p));
     // web_name is what FPL prints, but some screens use the surname.
-    add(compactKey(p.secondName), p);
+    nameKeys(p.secondName).forEach(key => add(key, p));
   });
   return byKey;
 }
 
-function bestPlayersForKey(key, index, truncated) {
-  if (key.length < 3) return { score: 0, players: [] };
+const NO_MATCH = { score: 0, players: [] };
+
+// `cache` (a Map, one per read) remembers answers: the same text is looked
+// up many times (every phrase of every line, from several OCR passes).
+function bestPlayersForKey(key, index, truncated, cache) {
+  if (key.length < 3) return NO_MATCH;
+  const cacheKey = truncated ? `…${key}` : key;
+  if (cache && cache.has(cacheKey)) return cache.get(cacheKey);
+  const result = lookUpKey(key, index, truncated);
+  if (cache) cache.set(cacheKey, result);
+  return result;
+}
+
+function lookUpKey(key, index, truncated) {
   if (truncated && key.length >= 5) {
     const players = [];
     for (const [nameKey, list] of index) {
@@ -333,11 +407,18 @@ function bestPlayersForKey(key, index, truncated) {
   }
   const exact = index.get(key);
   if (exact) return { score: 1, players: exact };
-  let best = { score: 0, players: [] };
+  // Fuzzy matching only ever accepts names of 5+ letters (see keyScore).
+  if (key.length < 5) return NO_MATCH;
+  let best = NO_MATCH;
   for (const [nameKey, players] of index) {
     if (Math.abs(nameKey.length - key.length) > 2) continue;
     const score = keyScore(key, nameKey);
+    if (score <= 0) continue;
     if (score > best.score) best = { score, players };
+    // Equally good matches to different names (OCR read "Ramsey" as
+    // "Ramsay", matching two players equally) are kept together, so the
+    // result is flagged as ambiguous rather than silently picking one.
+    else if (score === best.score) best = { score, players: [...best.players, ...players.filter(p => !best.players.includes(p))] };
   }
   return best;
 }
@@ -353,15 +434,18 @@ function unionBox(words) {
 
 // Finds player-name phrases (1–3 adjacent words) in one OCR line,
 // greedily keeping the best-scoring non-overlapping ones.
-function findNamesInLine(words, index) {
+// An initial OCR split off from the surname ("M." in "M. Fernandes").
+const INITIAL_RE = /^\p{L}\.$/u;
+
+function findNamesInLine(words, index, cache) {
   const found = [];
   for (let i = 0; i < words.length; i++) {
     for (let len = 1; len <= 3 && i + len <= words.length; len++) {
       const span = words.slice(i, i + len);
       // Don't let a stray symbol (an armband badge read as "©") ride along
-      // at either end of a multi-word name.
+      // at either end of a multi-word name — but an initial can start one.
       const alnum = w => w.text.replace(/[^\p{L}\p{N}]/gu, '').length;
-      if (len > 1 && (alnum(span[0]) < 2 || alnum(span[len - 1]) < 2)) continue;
+      if (len > 1 && ((alnum(span[0]) < 2 && !INITIAL_RE.test(span[0].text)) || alnum(span[len - 1]) < 2)) continue;
       // Drop stray OCR punctuation at the edges ('"De Cuyper'), keeping a
       // trailing ellipsis, which marks a truncated name.
       const text = span.map(w => w.text).join(' ')
@@ -369,7 +453,7 @@ function findNamesInLine(words, index) {
         .replace(/[^\p{L}\p{N}.…]+$/u, '');
       if (len === 1 && UI_WORDS.has(compactKey(text))) continue;
       const key = compactKey(text);
-      const { score, players } = bestPlayersForKey(key, index, ELLIPSIS_RE.test(text));
+      const { score, players } = bestPlayersForKey(key, index, ELLIPSIS_RE.test(text), cache);
       const minScore = Math.max(0.65, ...span.map(w => w.minScore || 0));
       if (score >= minScore && players.length) {
         found.push({ start: i, end: i + len, text, score, players, bbox: unionBox(span) });
@@ -428,38 +512,43 @@ function findBank(lines) {
 }
 
 // Keeps at most a real squad's worth of players per position (2/5/5/3),
-// dropping the weakest matches first, and at most one detection per player.
+// dropping the weakest matches first, and each player at most once.
 function trimToSquadShape(detections) {
-  const byPlayer = new Map();
-  detections.forEach(d => {
-    const id = d.player.id;
-    if (!byPlayer.has(id) || byPlayer.get(id).score < d.score) byPlayer.set(id, d);
-  });
   // Names whose possible players are all in one position take their
   // places first; a name shared by players in different positions then
   // takes whichever of them fits a position that still has room, rather
   // than pushing someone else out (two "Munoz": a midfielder and a
   // defender).
   const flexibility = d => new Set(d.candidates.map(p => p.positionId)).size;
-  const sorted = [...byPlayer.values()].sort((a, b) =>
+  const sorted = [...detections].sort((a, b) =>
     flexibility(a) - flexibility(b) || b.score - a.score);
   const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
-  const hasRoom = p => counts[p.positionId] < SQUAD_SHAPE[p.positionId];
-  return sorted.filter(d => {
-    if (!hasRoom(d.player)) {
-      const fits = d.candidates.filter(hasRoom).sort((a, b) => b.price - a.price);
-      if (!fits.length) return false;
-      d.player = fits[0];
+  const taken = new Set();
+  const usable = p => !taken.has(p.id) && counts[p.positionId] < SQUAD_SHAPE[p.positionId];
+  const kept = [];
+  for (const d of sorted) {
+    // Two labels can carry the same printed name (two "Gomez" in one
+    // squad): once one has taken a player, the other gets the next
+    // candidate, and is flagged for the review screen to confirm.
+    let player = usable(d.player) ? d.player : null;
+    if (!player) {
+      player = d.candidates.filter(usable).sort((a, b) => b.price - a.price)[0] || null;
+      if (!player) continue; // the same name read twice, or no room left
     }
-    counts[d.player.positionId]++;
-    return true;
-  });
+    taken.add(player.id);
+    counts[player.positionId]++;
+    kept.push(player === d.player ? d : { ...d, player, ambiguous: true });
+  }
+  return kept;
 }
 
-// Pitch View puts the four substitutes in their own row at the bottom;
-// List View lists them last. Either way the bench is the bottom-most
-// players, so once we've found (nearly) the whole squad, the last four in
-// reading order are the bench.
+// Pitch View puts the four substitutes in their own row below the XI's
+// four rows, so when the names fall into that shape, everything past the
+// fourth row is the bench — however many names were missed. Otherwise
+// (List View lists the substitutes last) the last four in reading order
+// are the bench once (nearly) the whole squad was found; with fewer
+// names than that, the first 11 start (never more), and the review
+// screen lets people move anyone the other way.
 function splitStartersAndBench(detections) {
   const ordered = [...detections].sort((a, b) => {
     const ay = (a.bbox.y0 + a.bbox.y1) / 2, by = (b.bbox.y0 + b.bbox.y1) / 2;
@@ -467,8 +556,13 @@ function splitStartersAndBench(detections) {
     if (Math.abs(ay - by) > rowH) return ay - by;
     return a.bbox.x0 - b.bbox.x0;
   });
-  if (ordered.length < 14) return { starters: ordered, bench: [] };
-  return { starters: ordered.slice(0, ordered.length - BENCH_SIZE), bench: ordered.slice(-BENCH_SIZE) };
+  const rows = pitchRows(ordered);
+  if (rows) {
+    const xi = new Set(rows.slice(0, 4).flatMap(r => r.items));
+    return { starters: ordered.filter(d => xi.has(d)), bench: ordered.filter(d => !xi.has(d)) };
+  }
+  if (ordered.length >= 14) return { starters: ordered.slice(0, ordered.length - BENCH_SIZE), bench: ordered.slice(-BENCH_SIZE) };
+  return { starters: ordered.slice(0, 11), bench: ordered.slice(11) };
 }
 
 /* ---------------------------------------------------------------------------
@@ -499,8 +593,7 @@ export function findArmbandBadges(light, dark, w, h, lines) {
   const minH = Math.max(7, textH * 0.35);
   const maxH = textH * 1.8;
 
-  const seen = new Uint8Array(w * h);
-  const stack = new Int32Array(w * h);
+  const { seen, stack } = floodBuffers(w * h);
   const badges = [];
   for (let start = 0; start < w * h; start++) {
     if (!light[start] || seen[start]) continue;
@@ -666,10 +759,11 @@ function dedupeByPlace(found) {
 // When the detected names fall into rows of that shape, each of the first
 // four rows tells us the position of every name in it. Returns a Map from
 // each detection in `found` (duplicates included) to a position id.
-function pitchRowPositions(unique) {
-  const hints = new Map();
-  if (unique.length < 8) return hints;
-  const byY = [...unique].sort((a, b) => a.bbox.y0 - b.bbox.y0);
+// The detected names grouped into rows from the top, if they have the
+// starting XI's shape (one goalkeeper, then three rows of 2-5); else null.
+function pitchRows(items) {
+  if (items.length < 8) return null;
+  const byY = [...items].sort((a, b) => a.bbox.y0 - b.bbox.y0);
   const rows = [];
   byY.forEach(f => {
     const h = f.bbox.y1 - f.bbox.y0;
@@ -678,8 +772,15 @@ function pitchRowPositions(unique) {
     if (row && Math.abs(row.cy - cy) < h * 2) row.items.push(f);
     else rows.push({ cy, items: [f] });
   });
-  if (rows.length < 4 || rows[0].items.length !== 1) return hints;
-  if (!rows.slice(1, 4).every(r => r.items.length >= 2 && r.items.length <= 5)) return hints;
+  if (rows.length < 4 || rows[0].items.length !== 1) return null;
+  if (!rows.slice(1, 4).every(r => r.items.length >= 2 && r.items.length <= 5)) return null;
+  return rows;
+}
+
+function pitchRowPositions(unique) {
+  const hints = new Map();
+  const rows = pitchRows(unique);
+  if (!rows) return hints;
   const rowBands = rows.slice(0, 4).map((r, i) => ({ cy: r.cy, position: i + 1 }));
   return {
     get(f) {
@@ -774,23 +875,38 @@ const TEAM_MATCH_CONFIDENT = 0.75;
 
 // Best player at `teamId` for a read name — a looser match than across
 // the whole league, since a club has only ~30 players to choose from.
+const TEAM_MATCH_MIN = 0.55;
+// Each player's name keys, worked out once.
+const playerNameKeyCache = new WeakMap();
+function playerNameKeys(p) {
+  let keys = playerNameKeyCache.get(p);
+  if (!keys) {
+    keys = [...new Set([...nameKeys(p.webName), ...nameKeys(p.secondName)])].filter(Boolean);
+    playerNameKeyCache.set(p, keys);
+  }
+  return keys;
+}
+
 function bestTeamPlayer(text, teamPlayers) {
   const key = compactKey(text);
   if (key.length < 3) return null;
   const truncated = ELLIPSIS_RE.test(text);
   let best = null;
   teamPlayers.forEach(p => {
-    [p.webName, p.secondName].forEach(name => {
-      const nameKey = compactKey(name);
-      if (!nameKey) return;
+    playerNameKeys(p).forEach(nameKey => {
       let score;
       if (nameKey === key) score = 1;
       else if (truncated && key.length >= 4 && nameKey.startsWith(key)) score = 0.97;
-      else score = 1 - levenshtein(key, nameKey) / Math.max(key.length, nameKey.length);
+      else {
+        // Only distances that could still clear TEAM_MATCH_MIN matter.
+        const len = Math.max(key.length, nameKey.length);
+        const max = Math.floor(len * (1 - TEAM_MATCH_MIN));
+        score = 1 - levenshtein(key, nameKey, max) / len;
+      }
       if (!best || score > best.score) best = { player: p, score };
     });
   });
-  return best && best.score >= 0.55 ? best : null;
+  return best && best.score >= TEAM_MATCH_MIN ? best : null;
 }
 
 // Name read from the lines just above a fixture token: the words sitting
@@ -825,7 +941,8 @@ export function extractSquadFromOcrLines(lines, allPlayers, badges = [], nameLin
   const index = buildNameIndex(allPlayers);
   const prices = findPrices(lines);
   const found = [];
-  nameLines.forEach(words => found.push(...findNamesInLine(words, index)));
+  const lookups = new Map();
+  nameLines.forEach(words => found.push(...findNamesInLine(words, index, lookups)));
 
   // Team detection: resolve every fixture token to the player's club.
   const codeToId = new Map(Object.values(context.teamsById || {}).map(t => [String(t.short_name).toUpperCase(), t.id]));
@@ -897,6 +1014,9 @@ export function extractSquadFromOcrLines(lines, allPlayers, badges = [], nameLin
     bench: bench.map(toEntry),
     captain: armbands.captain ? armbands.captain.text : null,
     vice_captain: armbands.viceCaptain ? armbands.viceCaptain.text : null,
+    // Which players those are: two squad players can share a printed name.
+    captain_id: armbands.captain ? armbands.captain.player.id : null,
+    vice_captain_id: armbands.viceCaptain ? armbands.viceCaptain.player.id : null,
     bank_millions: findBank(lines),
   };
 }

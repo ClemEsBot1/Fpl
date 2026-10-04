@@ -1,23 +1,34 @@
 import { get } from '@vercel/blob';
+import { compactPlayerHistory } from '../src/lib/playerHistory.js';
 
-// Serves the player-history.json blob written (once, or once a season) by
-// scripts/import-player-history.mjs. This is a static, read-mostly resource
-// — nothing about it changes between deploys — so a long
-// stale-while-revalidate is fine; it only ever changes when someone reruns
-// the import script.
+// Serves what the app needs from the player-history.json blob written (once,
+// or once a season) by scripts/import-player-history.mjs: each player's
+// career baseline and last-season totals, worked out here once rather than
+// in every browser. The full archive is ~2 MB; this is about a tenth of
+// that. It only changes when someone reruns the import script, so it's
+// cached hard (and in this function instance's memory between requests).
+let compactCache = null;
+
 export default async function handler(req, res) {
   try {
-    const result = await get('player-history.json', { access: 'public', useCache: false });
-    if (!result) {
-      res.status(404).json({ error: 'not_imported_yet' });
-      return;
+    if (!compactCache) {
+      const result = await get('player-history.json', { access: 'public', useCache: false });
+      if (!result) {
+        res.status(404).json({ error: 'not_imported_yet' });
+        return;
+      }
+      const compact = compactPlayerHistory(JSON.parse(await new Response(result.stream).text()));
+      if (!compact) {
+        res.status(404).json({ error: 'not_imported_yet' });
+        return;
+      }
+      compactCache = JSON.stringify(compact);
     }
-    const text = await new Response(result.stream).text();
     res
       .status(200)
       .setHeader('Content-Type', 'application/json')
-      .setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400')
-      .send(text);
+      .setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800')
+      .send(compactCache);
   } catch (e) {
     // Covers "import script hasn't been run yet" as well as any transient
     // storage error — the frontend treats a non-200 here as "no historical

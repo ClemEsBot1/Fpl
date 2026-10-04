@@ -23,6 +23,7 @@ const SUBMIT_LABELS = { login: 'Log in', register: 'Create account', email: 'Sav
 // page behind it.
 export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit, onSetEmail, onForgot, onReset, onClearError, error, loading, onClose }) {
   const dialogRef = useRef(null);
+  const pressedOnBackdropRef = useRef(false);
   const [mode, setModeState] = useState(initialMode);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -74,8 +75,14 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
       aria-labelledby="auth-title"
       onCancel={e => { e.preventDefault(); onClose(); }}
       // A click on the dialog element itself (not its contents) is a click
-      // on the dimmed backdrop around the card.
-      onClick={e => { if (e.target === dialogRef.current) onClose(); }}
+      // on the dimmed backdrop around the card. It has to start there too:
+      // selecting text in a field and letting go over the backdrop also
+      // ends with a click on it, and shouldn't throw away what was typed.
+      onMouseDown={e => { pressedOnBackdropRef.current = e.target === dialogRef.current; }}
+      onClick={e => {
+        if (e.target === dialogRef.current && pressedOnBackdropRef.current) onClose();
+        pressedOnBackdropRef.current = false;
+      }}
     >
       <div className="fpl-dialog-card">
         <button type="button" onClick={onClose} aria-label="Close" className="fpl-dialog-close"><X size={18} /></button>

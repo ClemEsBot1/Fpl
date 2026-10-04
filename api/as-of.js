@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   try {
     const gws = Array.from({ length: gwId - 1 }, (_, i) => i + 1);
     const lives = await Promise.all(gws.map(async gw => {
-      const r = await fetch(`${FPL_BASE}event/${gw}/live/`);
+      const r = await fetch(`${FPL_BASE}event/${gw}/live/`, { signal: AbortSignal.timeout(15_000) });
       if (!r.ok) throw new Error(`event/${gw}/live: ${r.status}`);
       const data = await r.json();
       return [gw, data.elements || []];
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const result = aggregateLiveStats(Object.fromEntries(lives), gwId);
     res
       .status(200)
-      .setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800')
+      .setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800')
       .json(result);
   } catch (e) {
     res.status(502).setHeader('Cache-Control', 'no-store').json({ error: 'as_of_failed', detail: String((e && e.message) || e) });
