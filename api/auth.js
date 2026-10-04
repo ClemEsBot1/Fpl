@@ -137,7 +137,9 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   }
 
   if (action === 'register') {
-    const { username, password } = body;
+    const { password } = body;
+    // A stray space (a phone keyboard, a paste) isn't part of the name.
+    const username = typeof body.username === 'string' ? body.username.trim() : body.username;
     const usernameCheck = validateUsername(username);
     if (!usernameCheck.ok) { res.status(400).json({ error: usernameCheck.error }); return; }
     const passwordCheck = validatePassword(password);
@@ -189,26 +191,29 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   }
 
   if (action === 'login') {
-    const { username, password } = body;
-    if (typeof username !== 'string' || typeof password !== 'string') {
+    const { password } = body;
+    if (typeof body.username !== 'string' || typeof password !== 'string') {
       res.status(400).json({ error: 'Username and password are required.' });
       return;
     }
+    const username = body.username.trim();
     const ipLimitKey = `ratelimit:login:ip:${clientIp(req)}`;
     try {
-      // A name no account could have can't match; counting it only against
-      // the IP also stops huge made-up "usernames" becoming Redis keys.
+      // The network is checked first: once it's blocked, its guesses don't
+      // count against (and so can't lock out) the accounts it targets.
+      if (await bump(redis, ipLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_IP) {
+        res.status(429).json({ error: TOO_MANY });
+        return;
+      }
+      // A name no account could have can't match; it only counts against
+      // the network, which also stops huge made-up "usernames" becoming
+      // Redis keys.
       if (!validateUsername(username).ok) {
-        const ipCount = await bump(redis, ipLimitKey, LOGIN_WINDOW_SECONDS);
-        res.status(ipCount > MAX_FAILED_LOGINS_PER_IP ? 429 : 401).json({ error: ipCount > MAX_FAILED_LOGINS_PER_IP ? TOO_MANY : BAD_LOGIN });
+        res.status(401).json({ error: BAD_LOGIN });
         return;
       }
       const userLimitKey = `ratelimit:login:user:${normalizeUsername(username)}`;
-      const [userCount, ipCount] = await Promise.all([
-        bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS),
-        bump(redis, ipLimitKey, LOGIN_WINDOW_SECONDS),
-      ]);
-      if (userCount > MAX_FAILED_LOGINS_PER_USER || ipCount > MAX_FAILED_LOGINS_PER_IP) {
+      if (await bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_USER) {
         res.status(429).json({ error: TOO_MANY });
         return;
       }

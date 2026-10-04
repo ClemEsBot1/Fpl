@@ -31,7 +31,9 @@ export default async function handler(req, res) {
       gwName = event.name;
     }
 
-    const saved = await get(predictionsPathnameFor(gwId), { access: 'public', useCache: false }).catch(() => null);
+    // null means there's no file; a storage failure throws, and is answered
+    // below without being cached.
+    const saved = await get(predictionsPathnameFor(gwId), { access: 'public', useCache: false });
     if (!saved) { notAvailable(res, { error: 'no_saved_predictions', gwId }); return; }
     const savedJson = JSON.parse(await new Response(saved.stream).text());
     // The file for this gameweek number may be from last season.

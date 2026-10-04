@@ -777,7 +777,11 @@ export function buildHindsightSquad(allPlayers, liveEventPointsById, budget = SQ
 // "started" with their (usually 0) points, while whoever was actually
 // subbed in and scored real points still shows as benched and doesn't
 // count at all.
-export function applyAutomaticSubs(squad, automaticSubs) {
+//
+// `finished`: whether the gameweek is over. Until it is, a captain with no
+// minutes may simply not have kicked off yet, so the armband stays put —
+// FPL only hands it to the vice-captain once every match has been played.
+export function applyAutomaticSubs(squad, automaticSubs, { finished = false } = {}) {
   const subs = Array.isArray(automaticSubs) ? automaticSubs : [];
   const outIds = new Set(subs.map(s => s.element_out));
   const inIds = new Set(subs.map(s => s.element_in));
@@ -795,7 +799,7 @@ export function applyAutomaticSubs(squad, automaticSubs) {
   // multiplier passes to the vice-captain (whether or not the captain
   // personally had a valid formation-preserving autosub available, and
   // also in weeks with no substitutions at all, e.g. under Bench Boost).
-  const captainSlot = next.find(s => s.isCaptain);
+  const captainSlot = finished ? next.find(s => s.isCaptain) : null;
   if (captainSlot && captainSlot.played === false) {
     const viceSlot = next.find(s => s.isViceCaptain);
     if (viceSlot && viceSlot.played && viceSlot.isStarting) {

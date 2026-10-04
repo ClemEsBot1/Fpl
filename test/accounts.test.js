@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import authHandler, { MAX_FAILED_LOGINS_PER_USER, MAX_REGISTRATIONS_PER_IP } from '../api/auth.js';
+import authHandler, { MAX_FAILED_LOGINS_PER_IP, MAX_FAILED_LOGINS_PER_USER, MAX_REGISTRATIONS_PER_IP } from '../api/auth.js';
 import teamsHandler from '../api/teams.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
 
@@ -74,6 +74,22 @@ test('made-up usernames are refused without creating anything', async () => {
   const keys = [...(await redis.keys())];
   assert.ok(keys.every(k => k.length < 200), 'no giant keys');
   assert.equal(keys.length, before + 1, 'only the network counter');
+});
+
+test('a stray space around the username still signs in', async () => {
+  assert.equal((await auth({ action: 'login', username: 'clem ', password: 'correct-horse' })).status, 200);
+  assert.equal((await auth({ action: 'login', username: ' Clem', password: 'correct-horse' })).status, 200);
+});
+
+test("a blocked network can't lock other people out of their accounts", async () => {
+  const attacker = '192.0.2.50';
+  for (let i = 0; i < MAX_FAILED_LOGINS_PER_IP; i++) {
+    await auth({ action: 'login', username: `ghost${i}`, password: 'wrong-password' }, { ip: attacker });
+  }
+  for (let i = 0; i < MAX_FAILED_LOGINS_PER_USER + 2; i++) {
+    assert.equal((await auth({ action: 'login', username: 'clem', password: `guess-${i}` }, { ip: attacker })).status, 429);
+  }
+  assert.equal((await auth({ action: 'login', username: 'clem', password: 'correct-horse' }, { ip: '198.51.100.20' })).status, 200);
 });
 
 test('requests that are not JSON are refused', async () => {

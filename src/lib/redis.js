@@ -69,6 +69,9 @@ export async function updateJSON(redis, key, change, attempts = 5) {
     if (next === null || next === undefined) return current;
     const nextRaw = JSON.stringify(next);
     if (Number(await redis.eval(COMPARE_AND_SET_SCRIPT, 1, key, raw, nextRaw)) === 1) return next;
+    // Something else wrote in between. Wait a moment, a different one for
+    // each writer, so writers that collided don't just collide again.
+    if (i < attempts - 1) await new Promise(resolve => setTimeout(resolve, Math.random() * 20 * (i + 1)));
   }
   throw new Error('Too many simultaneous updates. Please try again.');
 }

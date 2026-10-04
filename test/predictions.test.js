@@ -116,7 +116,7 @@ test('a saved squad keeps its own XI, bank and armbands on starters', () => {
 test('automatic subs: who came on scores, who went off does not', () => {
   const s = (id, isStarting, multiplier, extra = {}) => ({ player: { id }, isStarting, multiplier, isCaptain: false, isViceCaptain: false, played: true, ...extra });
   const squad = [s(1, true, 1, { played: false }), s(2, true, 2, { isCaptain: true }), s(3, true, 1, { isViceCaptain: true }), s(12, false, 0)];
-  const subbed = applyAutomaticSubs(squad, [{ element_out: 1, element_in: 12 }]);
+  const subbed = applyAutomaticSubs(squad, [{ element_out: 1, element_in: 12 }], { finished: true });
   assert.deepEqual(subbed.map(x => [x.player.id, x.isStarting, x.multiplier]), [[1, false, 0], [2, true, 2], [3, true, 1], [12, true, 1]]);
 });
 
@@ -124,19 +124,28 @@ test("a captain who didn't play passes the armband on, even with no subs", () =>
   const s = (id, isStarting, multiplier, extra = {}) => ({ player: { id }, isStarting, multiplier, isCaptain: false, isViceCaptain: false, played: true, ...extra });
   // Triple Captain on a player who was then subbed off.
   const tc = [s(1, true, 3, { isCaptain: true, played: false }), s(2, true, 1, { isViceCaptain: true }), s(12, false, 0)];
-  const afterTc = applyAutomaticSubs(tc, [{ element_out: 1, element_in: 12 }]);
+  const afterTc = applyAutomaticSubs(tc, [{ element_out: 1, element_in: 12 }], { finished: true });
   assert.equal(afterTc.find(x => x.player.id === 2).multiplier, 3);
   assert.equal(afterTc.find(x => x.player.id === 1).multiplier, 0);
 
   // Bench Boost: nobody is subbed, but the vice still takes over.
   const bb = [s(1, true, 2, { isCaptain: true, played: false }), s(2, true, 1, { isViceCaptain: true }), s(12, false, 1)];
-  const afterBb = applyAutomaticSubs(bb, []);
+  const afterBb = applyAutomaticSubs(bb, [], { finished: true });
   assert.equal(afterBb.find(x => x.player.id === 2).multiplier, 2);
   assert.equal(afterBb.find(x => x.player.id === 1).multiplier, 1);
 
   // A vice who is on the bench can't take it.
   const benchVice = [s(1, true, 2, { isCaptain: true, played: false }), s(12, false, 0, { isViceCaptain: true })];
-  assert.equal(applyAutomaticSubs(benchVice, []).find(x => x.player.id === 12).multiplier, 0);
+  assert.equal(applyAutomaticSubs(benchVice, [], { finished: true }).find(x => x.player.id === 12).multiplier, 0);
+});
+
+test('while a gameweek is being played, a captain yet to play keeps the armband', () => {
+  const s = (id, isStarting, multiplier, extra = {}) => ({ player: { id }, isStarting, multiplier, isCaptain: false, isViceCaptain: false, played: true, ...extra });
+  // The captain plays on Sunday; the vice already scored on Saturday.
+  const squad = [s(1, true, 2, { isCaptain: true, played: false }), s(2, true, 1, { isViceCaptain: true })];
+  const now = applyAutomaticSubs(squad, [], { finished: false });
+  assert.deepEqual(now.map(x => x.multiplier), [2, 1]);
+  assert.deepEqual(applyAutomaticSubs(squad, []).map(x => x.multiplier), [2, 1], 'not finished unless told so');
 });
 
 test('saved files from an earlier season are recognised', () => {

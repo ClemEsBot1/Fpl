@@ -156,14 +156,22 @@ export function LoadingScreen({ message }) {
   );
 }
 
-export function ErrorScreen({ message, onRetry, retryLabel = 'Start over' }) {
+// `action` ({ label, run }) offers a way forward besides starting over.
+export function ErrorScreen({ message, onRetry, retryLabel = 'Start over', action }) {
   return (
     <div role="alert" style={{ padding: '40px 16px', textAlign: 'center' }}>
       <AlertTriangle size={32} aria-hidden="true" style={{ color: 'var(--red)', margin: '0 auto 14px' }} />
       <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 22, color: 'var(--ink)' }}>{message}</p>
-      <button className="fpl-btn fpl-btn-solid" onClick={onRetry} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <RotateCcw size={16} /> {retryLabel}
-      </button>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {action && (
+          <button className="fpl-btn fpl-btn-solid" onClick={action.run} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {action.label}
+          </button>
+        )}
+        <button className={action ? 'fpl-btn' : 'fpl-btn fpl-btn-solid'} onClick={onRetry} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <RotateCcw size={16} /> {retryLabel}
+        </button>
+      </div>
     </div>
   );
 }

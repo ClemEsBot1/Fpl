@@ -90,6 +90,8 @@ export default function FPLSquadChecker() {
   const [stage, setStageRaw] = useState('intro');
   const [loadingMessage, setLoadingMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  // An optional way forward offered on the error screen: { label, run }.
+  const [errorAction, setErrorAction] = useState(null);
   const [teamIdInput, setTeamIdInput] = useState('');
   const [reviewSlots, setReviewSlots] = useState([]);
   // The screenshot behind the current review, for the optional report.
@@ -116,6 +118,8 @@ export default function FPLSquadChecker() {
   // The most recently loaded static data (to tell when its gameweek has
   // closed and it needs loading again).
   const staticDataRef = useRef(null);
+  // A reload of that data in progress (see ensureStaticData).
+  const refreshPromiseRef = useRef(null);
   // The optimal XI's predicted total, per static-data set (the current one,
   // or a past gameweek rebuilt "as of" its deadline).
   const optimalXiTotalRef = useRef(new WeakMap());
@@ -147,9 +151,10 @@ export default function FPLSquadChecker() {
     setLoadingMessage(message);
     setStageRaw('loading');
   }
-  function showError(ticket, message) {
+  function showError(ticket, message, action = null) {
     if (!isCurrent(ticket)) return;
     setErrorMessage(message);
+    setErrorAction(action);
     setStageRaw('error');
   }
 
@@ -366,23 +371,31 @@ export default function FPLSquadChecker() {
 
   const currentGwId = staticData => (staticData.targetEvent ? staticData.targetEvent.id : 1);
 
-  // Loads (once) the FPL data everything else needs. A failed load isn't
-  // kept, so the next attempt tries again, and once the gameweek it was
+  // Loads (once) the FPL data everything else needs. A failed first load
+  // isn't kept, so the next attempt tries again. Once the gameweek it was
   // planning for has closed (the app was left open past a deadline) it's
-  // loaded afresh for the next one.
+  // loaded afresh for the next one. FPL is often unavailable for a while
+  // just after a deadline, so if that fails the old data is used until the
+  // next attempt works.
   function ensureStaticData() {
     const loaded = staticDataRef.current;
-    if (loaded && loaded.targetEvent && isEventLocked(loaded.targetEvent)
-      && loaded.allEvents.some(e => e.id > loaded.targetEvent.id)) {
-      staticPromiseRef.current = null;
-      staticDataRef.current = null;
-      asOfCacheRef.current.clear();
+    const outdated = loaded && loaded.targetEvent && isEventLocked(loaded.targetEvent)
+      && loaded.allEvents.some(e => e.id > loaded.targetEvent.id);
+    if (outdated && !refreshPromiseRef.current) {
+      const refresh = loadStaticData().then(data => {
+        staticDataRef.current = data;
+        staticPromiseRef.current = refresh;
+        asOfCacheRef.current.clear();
+        applyGameweekOptions(data, loaded.targetEvent.id);
+        return data;
+      }, () => loaded).finally(() => { refreshPromiseRef.current = null; });
+      refreshPromiseRef.current = refresh;
     }
+    if (refreshPromiseRef.current) return refreshPromiseRef.current;
     if (!staticPromiseRef.current) {
       const promise = loadStaticData().then(data => {
-        const previousTargetId = loaded && loaded.targetEvent ? loaded.targetEvent.id : null;
         staticDataRef.current = data;
-        applyGameweekOptions(data, previousTargetId);
+        applyGameweekOptions(data, null);
         return data;
       }).catch(err => {
         if (staticPromiseRef.current === promise) staticPromiseRef.current = null;
@@ -796,11 +809,11 @@ export default function FPLSquadChecker() {
             played: live ? live.minutes > 0 : false,
           };
         }).filter(Boolean);
-        // This gameweek is closed by definition here (hindsight comparison
-        // only runs against a past gw), so FPL's own automatic_subs for it
-        // are final — apply them so the squad/score reflect what actually
-        // happened, not the manager's original pre-autosub picks.
-        const squad = applyAutomaticSubs(rawSquad, picks.automatic_subs);
+        // FPL's own automatic subs, so the squad and score reflect what
+        // actually happened rather than the manager's original picks. The
+        // gameweek may still be being played: then there are none yet and
+        // the captain keeps the armband.
+        const squad = applyAutomaticSubs(rawSquad, picks.automatic_subs, { finished: isGwFinished(staticData, gwId) });
         // FPL's multipliers already say who counts: 0 for the bench (1 for
         // everyone under Bench Boost), 2 or 3 for the captain.
         const totalScore = squad.reduce((s, slot) => s + slot.actualPoints * (slot.multiplier || 0), 0);
@@ -824,7 +837,8 @@ export default function FPLSquadChecker() {
     }
   }
 
-  async function handleTeamIdSubmit(rawId) {
+  // `gwOverride` loads that gameweek instead of the selected one.
+  async function handleTeamIdSubmit(rawId, gwOverride) {
     const ticket = newTicket();
     const teamId = (rawId || '').trim();
     if (!/^\d+$/.test(teamId)) {
@@ -843,7 +857,7 @@ export default function FPLSquadChecker() {
       if (!isCurrent(ticket)) return;
       showLoading(ticket, 'Fetching your team…');
       const targetId = currentGwId(staticData);
-      const gwId = selectedGw || targetId;
+      const gwId = gwOverride || selectedGw || targetId;
       const isPastGwView = gwId < targetId;
       const hasPicks = p => p && !p.detail && Array.isArray(p.picks) && p.picks.length > 0;
 
@@ -922,7 +936,7 @@ export default function FPLSquadChecker() {
       // Only meaningful once the gameweek is closed — automatic_subs is
       // empty for a gameweek still in progress (there's nothing final to
       // apply yet), so this is a no-op for the live/current-gw view.
-      const squad = isPastGwView ? applyAutomaticSubs(rawSquad, picks.automatic_subs) : rawSquad;
+      const squad = isPastGwView ? applyAutomaticSubs(rawSquad, picks.automatic_subs, { finished: isGwFinished(staticData, gwId) }) : rawSquad;
 
       const bankTenths = picks.entry_history ? picks.entry_history.bank : 0;
       // A chip played in an earlier gameweek doesn't carry over.
@@ -936,10 +950,14 @@ export default function FPLSquadChecker() {
         ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
         ERR_GW_LOCKED: "FPL hasn't published any picks for this team yet (a new team's picks are hidden until its first deadline passes). Try again after the deadline, or upload a screenshot for now.",
         ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
-        ERR_TEAM_NOT_STARTED: `This team started in Gameweek ${e && e.startedEvent}, so it has no squad for Gameweek ${e && e.gwId}. Pick a later gameweek from the menu.`,
+        ERR_TEAM_NOT_STARTED: `This team started in Gameweek ${e && e.startedEvent}, so it has no squad for Gameweek ${e && e.gwId}.`,
         ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
       };
-      showError(ticket, `${messages[code] || messages.ERR_UNKNOWN} [${code}]`);
+      const action = code === 'ERR_TEAM_NOT_STARTED' ? {
+        label: `Show Gameweek ${e.startedEvent}`,
+        run: () => { setSelectedGw(e.startedEvent); handleTeamIdSubmit(teamId, e.startedEvent); },
+      } : null;
+      showError(ticket, `${messages[code] || messages.ERR_UNKNOWN} [${code}]`, action);
     }
   }
 
@@ -1024,8 +1042,7 @@ export default function FPLSquadChecker() {
 
   async function handleConfirmReview() {
     const ticket = newTicket();
-    const staticData = pendingStaticData;
-    if (!staticData) { showError(ticket, 'Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
+    if (!pendingStaticData) { showError(ticket, 'Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
 
     const matched = reviewSlots.filter(slot => slot.matched);
     if (matched.length < 11 || matched.length !== reviewSlots.length) {
@@ -1038,25 +1055,32 @@ export default function FPLSquadChecker() {
       return;
     }
 
-    const targetId = currentGwId(staticData);
-    const gwId = selectedGw || targetId;
-    const isPastGwView = gwId < targetId;
+    try {
+      // Current data, in case a deadline passed while the squad was checked.
+      const staticData = await ensureStaticData();
+      if (!isCurrent(ticket)) return;
+      const targetId = currentGwId(staticData);
+      const gwId = selectedGw || targetId;
+      const isPastGwView = gwId < targetId;
 
-    // A past gameweek is predicted from what was known before its deadline.
-    if (isPastGwView) showLoading(ticket, 'Rebuilding player data from before that deadline…');
-    const [gwStatic, liveById] = await Promise.all([
-      isPastGwView ? staticDataForGw(gwId) : Promise.resolve(staticData),
-      isPastGwView ? liveForGw(gwId, isGwFinished(staticData, gwId)) : Promise.resolve({}),
-    ]);
-    if (!isCurrent(ticket)) return;
+      // A past gameweek is predicted from what was known before its deadline.
+      if (isPastGwView) showLoading(ticket, 'Rebuilding player data from before that deadline…');
+      const [gwStatic, liveById] = await Promise.all([
+        isPastGwView ? staticDataForGw(gwId) : Promise.resolve(staticData),
+        isPastGwView ? liveForGw(gwId, isGwFinished(staticData, gwId)) : Promise.resolve({}),
+      ]);
+      if (!isCurrent(ticket)) return;
 
-    const squad = scoreSlots(matched.map(slot => ({
-      playerId: slot.matched.id, isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
-      multiplier: slot.isCaptain ? 2 : (slot.isStarting ? 1 : 0),
-    })), gwStatic, liveById, isPastGwView);
+      const squad = scoreSlots(matched.map(slot => ({
+        playerId: slot.matched.id, isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
+        multiplier: slot.isCaptain ? 2 : (slot.isStarting ? 1 : 0),
+      })), gwStatic, liveById, isPastGwView);
 
-    const bankTenths = reviewBank != null && !Number.isNaN(reviewBank) ? Math.max(0, Math.round(reviewBank * 10)) : 0;
-    finalizeResults(ticket, ensureCaptaincy(squad), gwStatic, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
+      const bankTenths = reviewBank != null && !Number.isNaN(reviewBank) ? Math.max(0, Math.round(reviewBank * 10)) : 0;
+      finalizeResults(ticket, ensureCaptaincy(squad), gwStatic, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
+    } catch {
+      showError(ticket, "Couldn't load live FPL player data right now. Try again in a moment. [ERR_STATIC_DATA]");
+    }
   }
 
   function goHome() {
@@ -1166,7 +1190,7 @@ export default function FPLSquadChecker() {
               />
             )}
             {stage === 'error' && (
-              <ErrorScreen message={errorMessage} onRetry={() => setStage('intro')} />
+              <ErrorScreen message={errorMessage} action={errorAction} onRetry={() => setStage('intro')} />
             )}
           </Suspense>
         </ScreenErrorBoundary>
