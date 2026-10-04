@@ -2,7 +2,7 @@
 // transfer suggestions, chip timing, squad scoring/export, and matching a
 // screenshot's read names to real players for the review screen.
 import { POSITION_LABELS, findTopMatches, similarity } from './format.js';
-import { POSITION_ORDER, SQUAD_BUDGET, buildOptimalTeam } from './predictions.js';
+import { MAX_PER_REAL_TEAM, POSITION_ORDER, SQUAD_BUDGET, SQUAD_SLOTS, buildOptimalTeam } from './predictions.js';
 
 export function suggestCaptain(starters) {
   if (!starters.length) return null;
@@ -41,13 +41,15 @@ export function pickFormationStarters(squad15, formation, predictionsById) {
 
 // Swaps a single player out of an existing squad-slot array for a new one,
 // carrying over the slot's starting/bench status but clearing captaincy on
-// the replaced slot (a brand-new player shouldn't inherit an old armband).
+// the replaced slot (a brand-new player shouldn't inherit an old armband)
+// and anything the old player actually scored.
 export function swapPlayerInSquad(squad, outPlayerId, inPlayer, predictionsById) {
   const pred = predictionsById[inPlayer.id];
   return squad.map(s => {
     if (s.player.id !== outPlayerId) return s;
+    const { actualPoints: _actualPoints, played: _played, ...rest } = s;
     return {
-      ...s,
+      ...rest,
       player: inPlayer,
       predicted: pred.predicted,
       nextMatchPredicted: pred.nextMatchPredicted,
@@ -55,20 +57,75 @@ export function swapPlayerInSquad(squad, outPlayerId, inPlayer, predictionsById)
       breakdown: pred.breakdown,
       isCaptain: false,
       isViceCaptain: false,
-      multiplier: 1,
+      multiplier: s.isStarting ? 1 : 0,
     };
   });
 }
 
-// If a swap removed the captain, promote the vice-captain (or, failing
-// that, the highest-predicted starter) so the squad is never captain-less.
-export function ensureCaptaincy(squad) {
-  if (squad.some(s => s.isCaptain)) return squad;
-  const vice = squad.find(s => s.isViceCaptain);
+// Whether `inPlayer` can replace `outSlot` without breaking FPL's rules:
+// affordable with the bank, and no fourth player from one club (the
+// outgoing player frees a place at their own club). Prices are compared in
+// tenths, as FPL stores them.
+export function swapBlocker(outSlot, inPlayer, squad, bankTenths) {
+  const tenths = price => Math.round(price * 10);
+  if (tenths(inPlayer.price) > tenths(outSlot.player.price) + (bankTenths || 0)) return 'Over budget';
+  const fromClub = squad.filter(s => s.player.team === inPlayer.team && s.player.id !== outSlot.player.id).length;
+  if (fromClub >= MAX_PER_REAL_TEAM) return `${MAX_PER_REAL_TEAM} from club already`;
+  return null;
+}
+
+// Keeps the squad's captain on a starter. If the captain was swapped out
+// or isn't in the XI, the starting vice-captain takes the armband (and
+// stops being vice), or failing that the highest-predicted starter.
+// `armband` is the captain's multiplier: 2, or 3 under Triple Captain.
+export function ensureCaptaincy(squad, armband = 2) {
+  if (squad.some(s => s.isCaptain && s.isStarting)) return squad;
   const starters = squad.filter(s => s.isStarting);
-  const promote = vice || suggestCaptain(starters);
+  const promote = starters.find(s => s.isViceCaptain) || suggestCaptain(starters);
   if (!promote) return squad;
-  return squad.map(s => s.player.id === promote.player.id ? { ...s, isCaptain: true, multiplier: 2 } : s);
+  return squad.map(s => {
+    if (s.player.id === promote.player.id) return { ...s, isCaptain: true, isViceCaptain: false, multiplier: armband };
+    if (s.isCaptain) return { ...s, isCaptain: false, multiplier: s.isStarting ? 1 : 0 };
+    return s;
+  });
+}
+
+// Problems that make a squad unplayable, for the screenshot review screen
+// (a misread can match the same player twice or put a forward in goal).
+// `players` is every matched player, `starters` the ones in the XI.
+// Returns a list of plain-language problems (empty when it's fine). A
+// squad that was only partly read (fewer than 15) is checked for what's
+// there: nothing over the position or club limits, no duplicates, and a
+// starting XI that could still be legal.
+export function squadProblems(players, starters) {
+  const problems = [];
+  const seen = new Set();
+  const dupes = new Set();
+  players.forEach(p => { if (seen.has(p.id)) dupes.add(p.webName); seen.add(p.id); });
+  if (dupes.size) problems.push(`${[...dupes].join(', ')} ${dupes.size === 1 ? 'is' : 'are'} in the squad twice.`);
+
+  const posCount = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  players.forEach(p => { posCount[p.positionId]++; });
+  POSITION_ORDER.forEach(pos => {
+    if (posCount[pos] > SQUAD_SLOTS[pos]) problems.push(`${posCount[pos]} ${POSITION_LABELS[pos]}s — a squad has ${SQUAD_SLOTS[pos]}.`);
+  });
+
+  const clubCount = {};
+  players.forEach(p => { clubCount[p.team] = (clubCount[p.team] || 0) + 1; });
+  if (Object.values(clubCount).some(n => n > MAX_PER_REAL_TEAM)) problems.push(`More than ${MAX_PER_REAL_TEAM} players from one club.`);
+
+  const xi = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  starters.forEach(p => { xi[p.positionId]++; });
+  const startCount = starters.length;
+  if (startCount > 11) problems.push(`${startCount} players in the starting XI — move ${startCount - 11} to the bench.`);
+  // With 11 or more players read, there's always enough to fill the XI.
+  if (startCount < 11 && players.length >= 11) problems.push(`Only ${startCount} players in the starting XI — move ${11 - startCount} from the bench.`);
+  if (xi[1] > 1) problems.push('Only one goalkeeper can start.');
+  if (xi[2] > 5 || xi[3] > 5 || xi[4] > 3) problems.push('The starting XI needs 3-5 DEF, 2-5 MID and 1-3 FWD.');
+  if (startCount === 11 && (xi[1] !== 1 || xi[2] < 3 || xi[3] < 2 || xi[4] < 1)) {
+    problems.push('The starting XI needs 1 GKP, at least 3 DEF, 2 MID and 1 FWD.');
+  }
+  return problems;
 }
 
 // buildOptimalTeam now lives in ./lib/predictions.js (imported above)
@@ -92,28 +149,42 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
   const teamCounts = {};
   squad.forEach(s => { teamCounts[s.player.team] = (teamCounts[s.player.team] || 0) + 1; });
 
+  // Suggestions are meant to work together, so each one only spends what
+  // the earlier ones left in the bank, and nobody is suggested twice. Prices
+  // are compared in tenths, as FPL stores them.
+  const tenths = price => Math.round(price * 10);
+  let bankLeft = bankTenths || 0;
+  const suggestedIds = new Set();
   const suggestions = [];
   for (const out of candidates) {
     if (suggestions.length >= MAX_TRANSFER_SUGGESTIONS) break;
-    const budget = out.player.price + bankTenths / 10;
+    const budgetTenths = tenths(out.player.price) + bankLeft;
     const pool = allPlayers.filter(p =>
       p.positionId === out.player.positionId &&
       !squadIds.has(p.id) &&
-      p.price <= budget + 0.05 &&
+      !suggestedIds.has(p.id) &&
+      tenths(p.price) <= budgetTenths &&
       p.status === 'a' &&
-      (teamCounts[p.team] || 0) < 3
+      // The outgoing player frees a place in their own club's quota.
+      (teamCounts[p.team] || 0) - (p.team === out.player.team ? 1 : 0) < MAX_PER_REAL_TEAM
     );
-    pool.sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted);
-    const top = pool[0];
+    let top = null;
+    for (const p of pool) {
+      if (!top || predictionsById[p.id].predicted > predictionsById[top.id].predicted) top = p;
+    }
     if (top) {
       const gain = predictionsById[top.id].predicted - out.predicted;
       if (gain > 0.3) {
+        suggestedIds.add(top.id);
+        bankLeft -= tenths(top.price) - tenths(out.player.price);
+        teamCounts[out.player.team] -= 1;
+        teamCounts[top.team] = (teamCounts[top.team] || 0) + 1;
         suggestions.push({
           out,
           inPlayer: top,
           inPredicted: predictionsById[top.id].predicted,
           gain: Math.round(gain * 10) / 10,
-          costDelta: Math.round((top.price - out.player.price) * 10) / 10,
+          costDelta: (tenths(top.price) - tenths(out.player.price)) / 10,
           reason: out.availNote || 'Below-average returns for the position',
         });
       }
@@ -160,17 +231,25 @@ export function matchExtractedSquad(extracted, playersByPosition, allPlayers, te
   });
   (extracted.bench || []).forEach(entry => addSlot(entry, null, allPlayers, false));
 
-  function markByName(name, field) {
-    if (!name) return;
-    let best = null, bestScore = 0;
-    slots.forEach(s => {
-      const score = similarity(name, s.extractedName);
-      if (score > bestScore) { bestScore = score; best = s; }
-    });
-    if (best && bestScore > 0.5) best[field] = true;
+  // The reader says which player wears each armband (two squad players
+  // can share a printed name); older JSON only has the name. Only a
+  // starter can wear one, and nobody wears both.
+  function markArmband(id, name, field) {
+    const starters = slots.filter(s => s.isStarting);
+    let best = null;
+    if (id) {
+      best = starters.find(s => s.matched && s.matched.id === id) || null;
+    } else if (name) {
+      let bestScore = 0.5;
+      starters.forEach(s => {
+        const score = similarity(name, s.extractedName);
+        if (score > bestScore) { bestScore = score; best = s; }
+      });
+    }
+    if (best && !best.isCaptain && !best.isViceCaptain) best[field] = true;
   }
-  markByName(extracted.captain, 'isCaptain');
-  markByName(extracted.vice_captain, 'isViceCaptain');
+  markArmband(extracted.captain_id, extracted.captain, 'isCaptain');
+  markArmband(extracted.vice_captain_id, extracted.vice_captain, 'isViceCaptain');
 
   return slots;
 }

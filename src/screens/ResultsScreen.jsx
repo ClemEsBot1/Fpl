@@ -1,11 +1,11 @@
 // Results for a squad: predicted points per player, captaincy, transfer
 // suggestions, chip timing, editing, saving, sharing and reminders.
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { ArrowRight, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Crown, Download, Edit3, Info, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Trophy, Zap } from 'lucide-react';
 import { DifficultyChips } from '../components/common.jsx';
-import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, normalize } from '../lib/format.js';
+import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
-import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, swapPlayerInSquad } from '../lib/squadLogic.js';
+import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
 // — see computePlayerPrediction in src/lib/predictions.js for where each
@@ -91,7 +91,9 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
           tabIndex: 0,
           'aria-expanded': !!isOpen,
           'aria-label': `${player.webName}: change player or captaincy`,
-          onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } },
+          // Only the row itself: Enter on the "Why?" button inside it should
+          // open the explanation, not the edit panel.
+          onKeyDown: e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle(); } },
         } : {})}
       >
         <div className="fpl-row-pos">{POSITION_LABELS[player.positionId]}</div>
@@ -108,7 +110,9 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
           {availNote && <div className="fpl-availnote">{availNote}</div>}
           {slot.breakdown && (
             <button
+              type="button"
               className="fpl-mono"
+              aria-expanded={showWhy}
               onClick={(e) => { e.stopPropagation(); setShowWhy(v => !v); }}
               style={{ background: 'none', border: 'none', color: 'var(--ink-dim)', textDecoration: 'underline', fontSize: '0.62rem', padding: 0, marginTop: 3, cursor: 'pointer' }}
             >
@@ -168,25 +172,48 @@ export function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
   );
 }
 
-export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, teamsById, bankTenths, query, setQuery, onSwap }) {
+// Each position's players, best first, worked out once per player list
+// rather than on every keystroke.
+const sortedPositionCache = new WeakMap();
+function playersByPositionSorted(allPlayers, predictionsById, posId) {
+  let byPos = sortedPositionCache.get(allPlayers);
+  if (!byPos || byPos.predictionsById !== predictionsById) {
+    byPos = { predictionsById };
+    sortedPositionCache.set(allPlayers, byPos);
+  }
+  if (!byPos[posId]) {
+    byPos[posId] = allPlayers
+      .filter(p => p.positionId === posId)
+      .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted);
+  }
+  return byPos[posId];
+}
+
+export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, teamsById, bankTenths, onSwap }) {
+  const [query, setQuery] = useState('');
   const posId = outSlot.player.positionId;
-  const squadIds = new Set(squad.map(s => s.player.id));
-  const nq = normalize(query);
-  const candidates = allPlayers
-    .filter(p => p.positionId === posId && !squadIds.has(p.id))
-    .filter(p => nq.length < 2 || normalize(p.webName).includes(nq) || normalize(p.secondName).includes(nq))
-    .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted)
-    .slice(0, 8);
+  const searching = searchKey(query).length >= 2;
+  const candidates = useMemo(() => {
+    const squadIds = new Set(squad.map(s => s.player.id));
+    const list = [];
+    for (const p of playersByPositionSorted(allPlayers, predictionsById, posId)) {
+      if (squadIds.has(p.id) || (searching && !playerMatchesSearch(p, query))) continue;
+      list.push(p);
+      if (list.length === 8) break;
+    }
+    return list;
+  }, [squad, allPlayers, predictionsById, posId, query, searching]);
   const remaining = (bankTenths || 0) / 10 + outSlot.player.price;
 
   return (
     <div style={{ padding: 10, borderBottom: '1px solid var(--line)' }} onClick={e => e.stopPropagation()}>
       <div style={{ position: 'relative', marginBottom: 8 }}>
-        <Search size={14} style={{ position: 'absolute', left: 9, top: 11, color: 'var(--ink-dim)' }} />
+        <Search size={14} aria-hidden="true" style={{ position: 'absolute', left: 9, top: 11, color: 'var(--ink-dim)' }} />
         <input
           className="fpl-input"
           style={{ paddingLeft: 30, fontSize: '0.85rem' }}
           placeholder={`Search a replacement ${POSITION_LABELS[posId]}…`}
+          aria-label={`Search a replacement ${POSITION_LABELS[posId]}`}
           value={query}
           onChange={e => setQuery(e.target.value)}
           autoFocus
@@ -201,29 +228,33 @@ export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, 
       {candidates.map(p => {
         const team = teamsById[p.team];
         const priceDelta = Math.round((p.price - outSlot.player.price) * 10) / 10;
+        const blocker = swapBlocker(outSlot, p, squad, bankTenths);
         return (
-          <div
+          <button
+            type="button"
             key={p.id}
             className="fpl-search-item"
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
-            onClick={() => onSwap(outSlot.player.id, p)}
+            disabled={!!blocker}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, width: '100%', opacity: blocker ? 0.55 : 1, cursor: blocker ? 'not-allowed' : 'pointer' }}
+            onClick={() => { if (!blocker) onSwap(outSlot.player.id, p); }}
           >
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
               <strong>{p.webName}</strong>{' '}
               <span className="fpl-dim">· {team ? team.short_name : '—'} · {fmtPrice(p.price)}</span>
+              {blocker && <span className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--amber)' }}>{blocker}</span>}
             </span>
             <span className="fpl-mono" style={{ flexShrink: 0, fontSize: '0.72rem', display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ color: 'var(--green)' }}>{fmtPts(predictionsById[p.id].predicted)}pts</span>
               <span style={{ color: priceDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{priceDelta >= 0 ? '+' : ''}{priceDelta.toFixed(1)}m</span>
             </span>
-          </div>
+          </button>
         );
       })}
     </div>
   );
 }
 
-export function TransferCard({ suggestion, teamsById, fixturesByTeam, onApply }) {
+export function TransferCard({ suggestion, onApply }) {
   const { out, inPlayer, inPredicted, gain, costDelta, reason, isFree, hitCost, netGain } = suggestion;
   return (
     <div className="fpl-block" style={{ padding: 12, marginBottom: 10 }}>
@@ -295,7 +326,7 @@ export function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
 
 // Deadline reminder (.ics with a 3-hour alert) and a shareable image of
 // the squad's predicted points.
-export function ResultsActions({ squad, teamName, gwName, total, teamsById, deadline }) {
+export function ResultsActions({ squad, teamName, gwName, teamsById, deadline }) {
   const [shareState, setShareState] = useState('');
   const deadlineAhead = deadline && new Date(deadline).getTime() > Date.now();
 
@@ -316,6 +347,9 @@ export function ResultsActions({ squad, teamName, gwName, total, teamsById, dead
     setShareState('Preparing…');
     try {
       const { drawShareCard, shareCard } = await import('../lib/shareCard.js');
+      // The card's rows show this gameweek's prediction, so its total is
+      // the same figure: the XI at their multipliers (captain 2x, or 3x).
+      const total = squad.filter(s => s.isStarting).reduce((sum, s) => sum + s.nextMatchPredicted * (s.multiplier || 1), 0);
       const canvas = await drawShareCard({ teamName, gwName, total, slots: squad, teamsById, siteUrl: window.location.host });
       const result = await shareCard(canvas, { title: `${teamName} · ${gwName}`, fileName: 'fpl-squad.png' });
       setShareState(result === 'downloaded' ? 'Image downloaded' : '');
@@ -365,11 +399,15 @@ function GameweekUnavailable({ data, onStartOver }) {
 }
 
 function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
-  const { squad, starters, bench, xiTotal, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById } = data;
+  const { squad, starters, bench, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById, activeChip } = data;
   const [editMode, setEditMode] = useState(false);
   const [editSlotId, setEditSlotId] = useState(null);
-  const [editQuery, setEditQuery] = useState('');
   const [chipPreview, setChipPreview] = useState(null);
+  // A finished gameweek is a record of what happened: no editing, chip
+  // planning or transfers.
+  const canEdit = !isOptimalBuild && !isPastGw;
+  // The captain's multiplier: 3 while Triple Captain is active, else 2.
+  const armband = activeChip === '3xc' ? 3 : 2;
   // Purely a UI input — suggestTransfers itself has no idea how many free
   // transfers the person actually has, so this only affects which
   // suggestions get shown as free vs. costing a hit (applyFreeTransferEconomics
@@ -379,7 +417,12 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   const [freeTransfers, setFreeTransfers] = useState(1);
   const visibleSuggestions = applyFreeTransferEconomics(suggestions, freeTransfers);
 
-  const chipTiming = isOptimalBuild ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById);
+  // Scans the rest of the season, so only redone when the squad changes
+  // (not on every keystroke in the swap search).
+  const chipTiming = useMemo(
+    () => (isOptimalBuild || isPastGw ? null : analyzeChipTiming(squad, fixturesByTeam, allEvents, predictionsById)),
+    [isOptimalBuild, isPastGw, squad, fixturesByTeam, allEvents, predictionsById],
+  );
   const [copyState, setCopyState] = useState('idle'); // 'idle' | 'copied' | 'failed'
 
   function handleDownloadSquadJson() {
@@ -420,13 +463,15 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   if (chipPreview === '3xc') chipPreviewTotal = normalTotal + captainPred;
 
   function applySwap(outId, inPlayer) {
-    const swapped = ensureCaptaincy(swapPlayerInSquad(squad, outId, inPlayer, predictionsById));
-    const outPlayer = squad.find(s => s.player.id === outId);
-    const priceDelta = outPlayer ? inPlayer.price - outPlayer.player.price : 0;
-    const newBankTenths = Math.round((bankTenths || 0) - priceDelta * 10);
+    const outSlot = squad.find(s => s.player.id === outId);
+    if (!outSlot || swapBlocker(outSlot, inPlayer, squad, bankTenths)) return;
+    const swapped = ensureCaptaincy(swapPlayerInSquad(squad, outId, inPlayer, predictionsById), armband);
+    const newBankTenths = (bankTenths || 0) - (Math.round(inPlayer.price * 10) - Math.round(outSlot.player.price * 10));
     onSquadUpdate(swapped, newBankTenths);
     setEditSlotId(null);
-    setEditQuery('');
+    // A transfer uses up a free one, so the next suggestion is judged on
+    // what's left.
+    setFreeTransfers(n => Math.max(0, n - 1));
   }
 
   // Same mutual-exclusivity rules as the screenshot review screen: only
@@ -437,6 +482,9 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   // buildResultsData reads slot.multiplier directly for scoring, it
   // doesn't re-derive it from isCaptain.
   function applyCaptainChange(playerId, role) {
+    const target = squad.find(s => s.player.id === playerId);
+    if (!target || !target.isStarting) return; // armbands are for starters only
+    const plain = s => (s.isStarting ? 1 : 0);
     const newSquad = squad.map(s => {
       const isTarget = s.player.id === playerId;
       if (role === 'captain') {
@@ -444,7 +492,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         return {
           ...s,
           isCaptain: nowCaptain,
-          multiplier: nowCaptain ? 2 : 1,
+          multiplier: nowCaptain ? armband : plain(s),
           isViceCaptain: nowCaptain ? false : s.isViceCaptain,
         };
       }
@@ -453,7 +501,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         ...s,
         isViceCaptain: nowVice,
         isCaptain: nowVice ? false : s.isCaptain,
-        multiplier: nowVice && s.isCaptain ? 1 : s.multiplier,
+        multiplier: nowVice && s.isCaptain ? plain(s) : s.multiplier,
       };
     });
     onSquadUpdate(newSquad, bankTenths);
@@ -461,7 +509,6 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
 
   function toggleRowEdit(playerId) {
     setEditSlotId(current => (current === playerId ? null : playerId));
-    setEditQuery('');
   }
 
   const grouped = POSITION_ORDER.map(posId => ({
@@ -562,23 +609,22 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           squad={squad}
           teamName={entryMeta && entryMeta.teamName ? entryMeta.teamName : (isOptimalBuild ? 'Optimal squad' : 'My squad')}
           gwName={targetEvent ? targetEvent.name : ''}
-          total={xiTotal}
           teamsById={teamsById}
           deadline={targetEvent ? targetEvent.deadline_time : null}
         />
       )}
 
-      {!isOptimalBuild && (
+      {canEdit && (
         <button
           className={`fpl-btn ${editMode ? 'fpl-btn-solid' : ''}`}
           style={{ width: '100%', marginBottom: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-          onClick={() => { setEditMode(m => !m); setEditSlotId(null); setEditQuery(''); }}
+          onClick={() => { setEditMode(m => !m); setEditSlotId(null); }}
         >
           <Edit3 size={16} /> {editMode ? 'Done editing' : 'Edit squad'}
         </button>
       )}
 
-      {!isOptimalBuild && editMode && (
+      {canEdit && editMode && (
         <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
           Tap any player below to swap them, or set captain/vice-captain.
         </div>
@@ -607,27 +653,30 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                   slot={slot}
                   teamsById={teamsById}
                   fixturesByTeam={fixturesByTeam}
-                  editable={editMode}
+                  editable={canEdit && editMode}
                   isOpen={editSlotId === slot.player.id}
                   onToggle={() => toggleRowEdit(slot.player.id)}
                   isPastGw={isPastGw}
                 />
-                {editMode && editSlotId === slot.player.id && (
+                {canEdit && editMode && editSlotId === slot.player.id && (
                   <>
-                    <CaptaincyPicker
-                      slot={slot}
-                      onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
-                      onSetVice={(id) => applyCaptainChange(id, 'vice')}
-                    />
+                    {slot.isStarting ? (
+                      <CaptaincyPicker
+                        slot={slot}
+                        onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
+                        onSetVice={(id) => applyCaptainChange(id, 'vice')}
+                      />
+                    ) : (
+                      <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>Bench players can't wear the armband.</div>
+                    )}
                     <InlineSwapSearch
+                      key={slot.player.id}
                       outSlot={slot}
                       squad={squad}
                       allPlayers={allPlayers}
                       predictionsById={predictionsById}
                       teamsById={teamsById}
                       bankTenths={bankTenths}
-                      query={editQuery}
-                      setQuery={setEditQuery}
                       onSwap={applySwap}
                     />
                   </>
@@ -648,27 +697,30 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                   slot={slot}
                   teamsById={teamsById}
                   fixturesByTeam={fixturesByTeam}
-                  editable={editMode}
+                  editable={canEdit && editMode}
                   isOpen={editSlotId === slot.player.id}
                   onToggle={() => toggleRowEdit(slot.player.id)}
                   isPastGw={isPastGw}
                 />
-                {editMode && editSlotId === slot.player.id && (
+                {canEdit && editMode && editSlotId === slot.player.id && (
                   <>
-                    <CaptaincyPicker
-                      slot={slot}
-                      onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
-                      onSetVice={(id) => applyCaptainChange(id, 'vice')}
-                    />
+                    {slot.isStarting ? (
+                      <CaptaincyPicker
+                        slot={slot}
+                        onSetCaptain={(id) => applyCaptainChange(id, 'captain')}
+                        onSetVice={(id) => applyCaptainChange(id, 'vice')}
+                      />
+                    ) : (
+                      <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>Bench players can't wear the armband.</div>
+                    )}
                     <InlineSwapSearch
+                      key={slot.player.id}
                       outSlot={slot}
                       squad={squad}
                       allPlayers={allPlayers}
                       predictionsById={predictionsById}
                       teamsById={teamsById}
                       bankTenths={bankTenths}
-                      query={editQuery}
-                      setQuery={setEditQuery}
                       onSwap={applySwap}
                     />
                   </>
@@ -712,7 +764,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         </div>
       )}
 
-      {!isOptimalBuild && (
+      {canEdit && (
         <div style={{ marginBottom: 8 }}>
           <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Transfer suggestions</div>
           {suggestions.length > 0 && (
@@ -739,7 +791,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             </div>
           )}
           {visibleSuggestions.map((s, i) => (
-            <TransferCard key={i} suggestion={s} teamsById={teamsById} fixturesByTeam={fixturesByTeam} onApply={editMode ? applySwap : null} />
+            <TransferCard key={i} suggestion={s} onApply={editMode ? applySwap : null} />
           ))}
           {visibleSuggestions.length > 0 && !editMode && (
             <button className="fpl-mono" onClick={() => setEditMode(true)} style={{ background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid var(--line)', borderRadius: 4, color: 'var(--lime)', fontSize: '0.72rem', padding: '8px 10px', marginTop: 2, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
@@ -795,7 +847,7 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
 
   async function handleSaveSquad() {
     setStatus({ kind: 'saving' });
-    const result = await onSaveCustomSquad(data.squad, label.trim() || defaultLabel, gwId);
+    const result = await onSaveCustomSquad(data.squad, label.trim() || defaultLabel, gwId, data.bankTenths);
     setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
   }
 

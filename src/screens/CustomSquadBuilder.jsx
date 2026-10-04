@@ -1,9 +1,9 @@
 // "Pick your own squad": build 15 players within budget and preview chips.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronLeft, Crown, Layers, Plus, Search, X, Zap } from 'lucide-react';
-import { POSITION_LABELS, fmtPrice, fmtPts, normalize } from '../lib/format.js';
+import { POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { MAX_PER_REAL_TEAM, POSITION_ORDER, SQUAD_BUDGET, SQUAD_SLOTS } from '../lib/predictions.js';
-import { CHIP_INFO, getValidFormations, pickFormationStarters, suggestCaptain } from '../lib/squadLogic.js';
+import { CHIP_INFO, getValidFormations, pickFormationStarters } from '../lib/squadLogic.js';
 
 export function SquadSlotRow({ posLabel, player, predictionsById, teamsById, isOpen, onOpenPicker, onRemove }) {
   if (!player) {
@@ -29,6 +29,13 @@ export function SquadSlotRow({ posLabel, player, predictionsById, teamsById, isO
   );
 }
 
+// Starters' ids, best captain pick first.
+function suggestCaptainOrder(starters, predictionsById) {
+  return [...starters]
+    .sort((a, b) => predictionsById[b.id].nextMatchPredicted - predictionsById[a.id].nextMatchPredicted)
+    .map(p => p.id);
+}
+
 export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
   const { allPlayers, teamsById, predictionsById } = staticData;
   const [picks, setPicks] = useState({ 1: [null, null], 2: [null, null, null, null, null], 3: [null, null, null, null, null], 4: [null, null, null] });
@@ -43,8 +50,11 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
   const squad15 = POSITION_ORDER.flatMap(pos => picks[pos].filter(Boolean));
   const filledCount = squad15.length;
   const allSelected = filledCount === 15;
-  const totalCost = squad15.reduce((s, p) => s + p.price, 0);
-  const remaining = SQUAD_BUDGET - totalCost;
+  // Money in whole tenths of £1m, as FPL stores prices: adding up decimal
+  // prices can come to 100.00000000000001 for a squad costing exactly £100m.
+  const totalCostTenths = squad15.reduce((s, p) => s + Math.round(p.price * 10), 0);
+  const remainingTenths = Math.round(SQUAD_BUDGET * 10) - totalCostTenths;
+  const remaining = remainingTenths / 10;
   const teamCounts = {};
   squad15.forEach(p => { teamCounts[p.team] = (teamCounts[p.team] || 0) + 1; });
   const overCapTeam = Object.entries(teamCounts).find(([, c]) => c > MAX_PER_REAL_TEAM);
@@ -54,20 +64,22 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
   const starters = squad15.filter(p => startersSet.has(p.id));
   const bench = squad15.filter(p => !startersSet.has(p.id));
 
-  // Keep captain/vice pointed at valid starters as the formation/selection changes.
+  // Keep the armbands on starters whenever the starting XI changes (a new
+  // formation, a player changed or benched): anyone no longer starting
+  // loses theirs, and an empty armband goes to the best starter. While the
+  // squad is still being filled in there's no XI, so choices are left as
+  // they are.
+  const starterKey = starters.map(p => p.id).join(',');
   useEffect(() => {
-    if (captainId && !starters.some(p => p.id === captainId)) setCaptainId(null);
-    if (viceCaptainId && !starters.some(p => p.id === viceCaptainId)) setViceCaptainId(null);
+    if (!allSelected || !starters.length) return;
+    const startingIds = new Set(starters.map(p => p.id));
+    const ranked = suggestCaptainOrder(starters, predictionsById);
+    const captain = startingIds.has(captainId) ? captainId : ranked[0];
+    const vice = startingIds.has(viceCaptainId) && viceCaptainId !== captain ? viceCaptainId : ranked.find(id => id !== captain);
+    if (captain !== captainId) setCaptainId(captain);
+    if (vice !== viceCaptainId) setViceCaptainId(vice ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formationKey, filledCount]);
-
-  useEffect(() => {
-    if (allSelected && !captainId && starters.length) {
-      const top = suggestCaptain(starters.map(p => ({ player: p, nextMatchPredicted: predictionsById[p.id].nextMatchPredicted })));
-      if (top) setCaptainId(top.player.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allSelected, formationKey]);
+  }, [allSelected, starterKey]);
 
   const xiTotal = starters.reduce((s, p) => s + predictionsById[p.id].predicted * (p.id === captainId ? 2 : 1), 0);
   const benchTotal = bench.reduce((s, p) => s + predictionsById[p.id].predicted, 0);
@@ -76,13 +88,23 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
   if (chipPreview === 'bboost') previewTotal = xiTotal + benchTotal;
   if (chipPreview === '3xc') previewTotal = xiTotal + captainPred;
 
+  // Each position's players, best first: sorted once, not per keystroke.
+  const sortedByPosition = useMemo(() => {
+    const byPos = { 1: [], 2: [], 3: [], 4: [] };
+    allPlayers.forEach(p => byPos[p.positionId].push(p));
+    POSITION_ORDER.forEach(pos => byPos[pos].sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted));
+    return byPos;
+  }, [allPlayers, predictionsById]);
   const squadIds = new Set(squad15.map(p => p.id));
-  const nq = normalize(query);
-  const candidates = activeSlot ? allPlayers
-    .filter(p => p.positionId === activeSlot.posId && !squadIds.has(p.id))
-    .filter(p => nq.length < 2 || normalize(p.webName).includes(nq) || normalize(p.secondName).includes(nq))
-    .sort((a, b) => predictionsById[b.id].predicted - predictionsById[a.id].predicted)
-    .slice(0, 8) : [];
+  const searching = searchKey(query).length >= 2;
+  const candidates = [];
+  if (activeSlot) {
+    for (const p of sortedByPosition[activeSlot.posId]) {
+      if (squadIds.has(p.id) || (searching && !playerMatchesSearch(p, query))) continue;
+      candidates.push(p);
+      if (candidates.length === 8) break;
+    }
+  }
 
   function pickPlayer(player) {
     if (!activeSlot) return;
@@ -95,15 +117,13 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
     setQuery('');
   }
 
+  // Armbands are re-checked once the squad is full again (see above), so
+  // removing the captain hands the armband on rather than leaving it on a
+  // player who's gone.
   function removePlayer(posId, idx) {
     setPicks(prev => {
       const arr = [...prev[posId]];
-      const removed = arr[idx];
       arr[idx] = null;
-      if (removed) {
-        if (removed.id === captainId) setCaptainId(null);
-        if (removed.id === viceCaptainId) setViceCaptainId(null);
-      }
       return { ...prev, [posId]: arr };
     });
   }
@@ -118,11 +138,11 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
         multiplier: isCaptain ? 2 : 1,
       };
     });
-    const bankTenths = Math.round(remaining * 10);
-    onSubmit(squad, bankTenths);
+    onSubmit(squad, remainingTenths);
   }
 
-  const canContinue = allSelected && !overCapTeam && remaining >= -1e-9 && captainId;
+  const captainStarts = starters.some(p => p.id === captainId);
+  const canContinue = allSelected && !overCapTeam && remainingTenths >= 0 && captainStarts;
 
   return (
     <div style={{ padding: '20px 16px 100px' }}>
@@ -136,8 +156,8 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
 
       <div className="fpl-block" style={{ padding: 10, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <span className="fpl-mono" style={{ fontSize: '0.78rem' }}>{filledCount}/15 selected</span>
-        <span className="fpl-mono" style={{ fontSize: '0.78rem', color: remaining < 0 ? 'var(--red)' : 'var(--ink-dim)' }}>
-          {remaining < 0 ? `Over budget by ${fmtPrice(-remaining)}` : `${fmtPrice(remaining)} left of £${SQUAD_BUDGET.toFixed(1)}m`}
+        <span className="fpl-mono" style={{ fontSize: '0.78rem', color: remainingTenths < 0 ? 'var(--red)' : 'var(--ink-dim)' }}>
+          {remainingTenths < 0 ? `Over budget by ${fmtPrice(-remaining)}` : `${fmtPrice(remaining)} left of £${SQUAD_BUDGET.toFixed(1)}m`}
         </span>
       </div>
       {overCapTeam && (
@@ -275,8 +295,8 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
       >
         {!allSelected ? `Pick ${15 - filledCount} more player${15 - filledCount === 1 ? '' : 's'}`
           : overCapTeam ? 'Fix club limit to continue'
-          : remaining < 0 ? 'Over budget — swap a player'
-          : !captainId ? 'Pick a captain to continue'
+          : remainingTenths < 0 ? 'Over budget — swap a player'
+          : !captainStarts ? 'Pick a captain to continue'
           : 'See full results'} <ArrowRight size={16} />
       </button>
     </div>

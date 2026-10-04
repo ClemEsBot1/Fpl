@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     res
       .status(200)
       .setHeader('Content-Type', 'application/json')
-      .setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
+      .setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300')
       .send(text);
   } catch (e) {
     // Covers "never built yet" as well as any transient storage error — the

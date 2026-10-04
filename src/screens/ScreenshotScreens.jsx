@@ -4,26 +4,26 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Camera, CheckCircle2, ChevronDown, ChevronLeft, Info, ShieldAlert } from 'lucide-react';
 import { PlayerSearchPicker } from '../components/common.jsx';
 import { POSITION_LABELS, fmtPrice } from '../lib/format.js';
+import { squadProblems } from '../lib/squadLogic.js';
 
+// Loads the file through an object URL (a reference to the file, not a
+// multi-megabyte base64 copy of it held in memory as a string).
 export function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Couldn't read that file."));
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("That file doesn't look like an image."));
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => resolve({ img, url });
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file doesn't look like an image.")); };
+    img.src = url;
   });
 }
 
 // The image stays at full resolution: small UI text is what OCR finds
-// hardest, so we never downscale before reading it.
+// hardest, so we never downscale before reading it. `previewUrl` is the
+// object URL behind it, released once the preview is no longer shown.
 export async function prepareScreenshot(file) {
-  const img = await loadImageFromFile(file);
-  return { img, dataUrl: img.src };
+  const { img, url } = await loadImageFromFile(file);
+  return { img, previewUrl: url };
 }
 
 export function ScreenshotForm({ onSubmit, onBack }) {
@@ -42,6 +42,13 @@ export function ScreenshotForm({ onSubmit, onBack }) {
       setError(e.message || "Couldn't load that image.");
     }
   }
+
+  // Release each preview's object URL once it's replaced or the form
+  // closes. (The decoded image itself stays usable for reading.)
+  useEffect(() => {
+    if (!shot) return undefined;
+    return () => URL.revokeObjectURL(shot.previewUrl);
+  }, [shot]);
 
   // Start downloading the OCR engine now, while they pick a screenshot, so
   // reading it afterwards doesn't wait on a first-time download.
@@ -88,7 +95,7 @@ export function ScreenshotForm({ onSubmit, onBack }) {
       >
         {shot ? (
           <>
-            <img src={shot.dataUrl} alt="Your squad screenshot" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
+            <img src={shot.previewUrl} alt="Your squad screenshot" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
             <span className="fpl-mono fpl-meta">Tap to choose a different screenshot</span>
           </>
         ) : (
@@ -114,10 +121,14 @@ export function ScreenshotForm({ onSubmit, onBack }) {
   );
 }
 
-export function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCaptain, onSetViceCaptain }) {
+export function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCaptain, onSetViceCaptain, onToggleStarting, takenIds }) {
   const [showSearch, setShowSearch] = useState(false);
-  const confident = slot.matched && slot.top[0] && slot.top[0].score > 0.72 && !slot.manuallyFixed === false ? true : (slot.matched && slot.top[0] && slot.top[0].score > 0.72);
-  const needsReview = !slot.matched || (slot.top[0] && slot.top[0].score <= 0.72);
+  // A slot the person has fixed themselves is settled, whatever the reader's
+  // confidence was.
+  const needsReview = !slot.matched || (!slot.manuallyFixed && slot.top[0] && slot.top[0].score <= 0.72);
+  const canArmband = !!slot.matched && slot.isStarting;
+  // Everyone else already in the squad (picking them again would be a duplicate).
+  const excludeIds = new Set([...takenIds].filter(id => !(slot.matched && id === slot.matched.id)));
 
   return (
     <div className="fpl-block" style={{ padding: 12, marginBottom: 8, borderLeft: needsReview ? '3px solid var(--amber)' : '3px solid var(--green)' }}>
@@ -148,25 +159,28 @@ export function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCap
           way tapping a player does on the live-squad screens. Disabled
           until the player itself is matched, since toggling captaincy on
           an unresolved slot wouldn't have anywhere to attach to. */}
-      <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: slot.matched ? 'var(--ink)' : 'var(--ink-dim)', cursor: slot.matched ? 'pointer' : 'not-allowed' }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: canArmband ? 'var(--ink)' : 'var(--ink-dim)', cursor: canArmband ? 'pointer' : 'not-allowed' }}>
           <input
             type="checkbox"
             checked={!!slot.isCaptain}
-            disabled={!slot.matched}
+            disabled={!canArmband}
             onChange={() => onSetCaptain(index)}
           />
           Captain
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: slot.matched ? 'var(--ink)' : 'var(--ink-dim)', cursor: slot.matched ? 'pointer' : 'not-allowed' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: canArmband ? 'var(--ink)' : 'var(--ink-dim)', cursor: canArmband ? 'pointer' : 'not-allowed' }}>
           <input
             type="checkbox"
             checked={!!slot.isViceCaptain}
-            disabled={!slot.matched}
+            disabled={!canArmband}
             onChange={() => onSetViceCaptain(index)}
           />
           Vice-captain
         </label>
+        <button type="button" className="fpl-chip-btn" style={{ marginLeft: 'auto' }} onClick={() => onToggleStarting(index)}>
+          {slot.isStarting ? 'Starting XI · move to bench' : 'Bench · move to XI'}
+        </button>
       </div>
 
       {slot.top && slot.top.length > 0 && needsReview && (
@@ -182,7 +196,7 @@ export function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCap
       {!needsReview && (
         <button className="fpl-chip-btn" style={{ marginTop: 8 }} onClick={() => setShowSearch(s => !s)}>Not right? Fix it</button>
       )}
-      {showSearch && <PlayerSearchPicker allPlayers={allPlayers} onPick={p => { onFix(index, p); setShowSearch(false); }} />}
+      {showSearch && <PlayerSearchPicker allPlayers={allPlayers} excludeIds={excludeIds} onPick={p => { onFix(index, p); setShowSearch(false); }} />}
     </div>
   );
 }
@@ -319,8 +333,13 @@ export function ReportScreenshotPanel({ slots, shotImg }) {
   );
 }
 
-export function ReviewScreen({ slots, allPlayers, teamsById, bank, onBankChange, onFix, onSetCaptain, onSetViceCaptain, onConfirm, onBack, shotImg }) {
+export function ReviewScreen({ slots, allPlayers, teamsById, bank, onBankChange, onFix, onSetCaptain, onSetViceCaptain, onToggleStarting, onConfirm, onBack, shotImg }) {
   const unresolved = slots.filter(s => !s.matched).length;
+  const matched = slots.filter(s => s.matched);
+  const takenIds = new Set(matched.map(s => s.matched.id));
+  // Anything that would make the squad unplayable (a player matched twice,
+  // a forward in goal, 12 starters) has to be fixed before carrying on.
+  const problems = squadProblems(matched.map(s => s.matched), matched.filter(s => s.isStarting).map(s => s.matched));
   return (
     <div style={{ padding: '20px 16px 100px' }}>
       <button onClick={onBack} className="fpl-mono fpl-back-btn">
@@ -334,16 +353,25 @@ export function ReviewScreen({ slots, allPlayers, teamsById, bank, onBankChange,
       <SquadPriceSummary slots={slots} bank={bank} onBankChange={onBankChange} />
 
       {slots.map((slot, i) => (
-        <ReviewSlot key={i} slot={slot} index={i} onFix={onFix} allPlayers={allPlayers} teamsById={teamsById} onSetCaptain={onSetCaptain} onSetViceCaptain={onSetViceCaptain} />
+        <ReviewSlot key={i} slot={slot} index={i} onFix={onFix} allPlayers={allPlayers} teamsById={teamsById} onSetCaptain={onSetCaptain} onSetViceCaptain={onSetViceCaptain} onToggleStarting={onToggleStarting} takenIds={takenIds} />
       ))}
+
+      {problems.length > 0 && (
+        <div role="alert" className="fpl-block" style={{ padding: 12, marginTop: 8, borderLeft: '3px solid var(--amber)', fontSize: '0.8rem', lineHeight: 1.5 }}>
+          {problems.map(p => <div key={p}>{p}</div>)}
+        </div>
+      )}
 
       <button
         className="fpl-btn fpl-btn-solid"
         style={{ width: '100%', marginTop: 8, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-        disabled={unresolved > 0}
+        disabled={unresolved > 0 || problems.length > 0 || matched.length < 11}
         onClick={onConfirm}
       >
-        {unresolved > 0 ? `Fix ${unresolved} more to continue` : 'Looks good — show my results'} <ArrowRight size={16} />
+        {unresolved > 0 ? `Fix ${unresolved} more to continue`
+          : problems.length > 0 ? 'Fix the squad to continue'
+          : matched.length < 11 ? 'Fewer than 11 players read'
+          : 'Looks good — show my results'} <ArrowRight size={16} />
       </button>
 
       <ReportScreenshotPanel slots={slots} shotImg={shotImg} />

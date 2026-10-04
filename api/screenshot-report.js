@@ -66,12 +66,14 @@ export default async function handler(req, res) {
 
   try {
     const id = `${report.receivedAt.replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 8)}`;
-    await put(`screenshot-reports/${id}.jpg`, Buffer.from(image, 'base64'), {
-      access: 'public', contentType: 'image/jpeg', addRandomSuffix: true,
-    });
-    await put(`screenshot-reports/${id}.json`, reportJson, {
-      access: 'public', contentType: 'application/json', addRandomSuffix: true,
-    });
+    await Promise.all([
+      put(`screenshot-reports/${id}.jpg`, Buffer.from(image, 'base64'), {
+        access: 'public', contentType: 'image/jpeg', addRandomSuffix: true,
+      }),
+      put(`screenshot-reports/${id}.json`, reportJson, {
+        access: 'public', contentType: 'application/json', addRandomSuffix: true,
+      }),
+    ]);
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });

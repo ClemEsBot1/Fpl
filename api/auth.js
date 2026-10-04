@@ -1,9 +1,10 @@
-import { getRedis, getJSON, setJSON } from '../src/lib/redis.js';
-import { clientIp, getCount, bump, reset } from '../src/lib/rateLimit.js';
+import { getRedis, getJSON, createJSON, updateJSON } from '../src/lib/redis.js';
+import { clientIp, bump, release, reset } from '../src/lib/rateLimit.js';
 import {
   validateUsername, validatePassword, normalizeEmail,
   hashPassword, verifyPassword, signSessionToken,
   buildSessionCookie, buildClearedSessionCookie, getSessionFromRequest,
+  sessionMatchesRecord, isJsonRequest,
   userKeyFor, normalizeUsername, emailKeyFor,
   createResetToken, resetKeyFor, RESET_TOKEN_TTL_SECONDS,
 } from '../src/lib/auth.js';
@@ -13,7 +14,9 @@ import { resetPasswordEmail } from '../src/lib/emails.js';
 // Without a cap, anyone could keep guessing a user's password forever.
 // Failed logins are counted per username (protects one account from a
 // distributed attack) and per IP (stops one client trying many accounts);
-// a successful login clears that username's counter.
+// a successful login clears that username's counter. Every attempt is
+// counted before the password is checked, so a burst of parallel guesses
+// can't all get in under the limit.
 export const LOGIN_WINDOW_SECONDS = 15 * 60;
 export const MAX_FAILED_LOGINS_PER_USER = 10;
 export const MAX_FAILED_LOGINS_PER_IP = 30;
@@ -32,6 +35,10 @@ const APP_URL = (process.env.APP_URL || 'https://fplchecker.vercel.app').replace
 const EMAIL_TAKEN = 'That email is already used by another account.';
 const NO_ACCOUNT = 'No account found with that username or email.';
 const NO_EMAIL = "That account doesn't have an email address, so its password can't be reset by email.";
+const RESET_INVALID = 'This reset link is invalid or has expired. Ask for a new one.';
+const TOO_MANY = 'Too many attempts. Please wait 15 minutes and try again.';
+const BAD_LOGIN = 'Incorrect username or password.';
+const LOG_IN_AGAIN = 'Please log in again.';
 
 // "clem@example.com" -> "c***@example.com": enough for someone to recognise
 // their own address without showing the whole thing to whoever typed the
@@ -40,9 +47,6 @@ export function maskEmail(email) {
   const [local, domain] = String(email).split('@');
   return `${local.slice(0, 1)}***@${domain}`;
 }
-const RESET_INVALID = 'This reset link is invalid or has expired. Ask for a new one.';
-
-const TOO_MANY = 'Too many attempts. Please wait 15 minutes and try again.';
 
 function requireSecret() {
   const secret = process.env.JWT_SECRET;
@@ -56,6 +60,21 @@ async function emailAvailable(redis, email, username) {
   return !owner || owner === normalizeUsername(username);
 }
 
+// What every signed-in response carries: the account and its saved teams,
+// so the app doesn't need a second request for the teams.
+function account(record) {
+  return { ok: true, username: record.username, email: record.email || '', teams: Array.isArray(record.teams) ? record.teams : [] };
+}
+
+function signIn(res, record, secret) {
+  res.setHeader('Set-Cookie', buildSessionCookie(signSessionToken(record.username, secret, record.sessionVersion || 0)));
+  res.status(200).json(account(record));
+}
+
+function storageFailed(res, e) {
+  res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+}
+
 // `redisOverride` and `mailOverride` are never passed in production
 // (Vercel always calls `handler(req, res)`) — they exist purely so tests
 // can inject an in-memory Redis and capture emails instead of sending them.
@@ -63,7 +82,7 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   let secret;
   try {
     secret = requireSecret();
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: 'server_misconfigured', detail: 'JWT_SECRET is not set' });
     return;
   }
@@ -71,19 +90,32 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   if (req.method === 'GET') {
     const session = getSessionFromRequest(req, secret);
     if (!session) { res.status(401).json({ error: 'not_logged_in' }); return; }
-    // The email lives in the user record, not the token; if storage is
-    // down, still report the session (just without the email).
-    let email = '';
+    let record;
     try {
-      const record = await getJSON(redisOverride || getRedis(), userKeyFor(session.username));
-      email = (record && record.email) || '';
-    } catch { /* best-effort */ }
-    res.status(200).json({ ok: true, username: session.username, email });
+      record = await getJSON(redisOverride || getRedis(), userKeyFor(session.username));
+    } catch {
+      // Storage is down: still report the session (without the extras).
+      res.status(200).json({ ok: true, username: session.username, email: '' });
+      return;
+    }
+    if (!sessionMatchesRecord(session, record)) {
+      // The account is gone, or its password was reset since this session
+      // started.
+      res.setHeader('Set-Cookie', buildClearedSessionCookie());
+      res.status(401).json({ error: 'not_logged_in' });
+      return;
+    }
+    res.status(200).json(account(record));
     return;
   }
 
   if (req.method !== 'POST') {
+    res.setHeader('Allow', 'GET, POST');
     res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+  if (!isJsonRequest(req)) {
+    res.status(415).json({ error: 'Send this request as JSON.' });
     return;
   }
 
@@ -99,20 +131,15 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   let redis;
   try {
     redis = redisOverride || getRedis();
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: 'server_misconfigured', detail: 'REDIS_URL is not set' });
     return;
   }
 
   if (action === 'register') {
-    const { username, password } = body;
-    const registerKey = `ratelimit:register:ip:${clientIp(req)}`;
-    try {
-      if (await getCount(redis, registerKey) >= MAX_REGISTRATIONS_PER_IP) {
-        res.status(429).json({ error: 'Too many new accounts from this network. Please try again later.' });
-        return;
-      }
-    } catch { /* limiter unavailable — don't block sign-ups */ }
+    const { password } = body;
+    // A stray space (a phone keyboard, a paste) isn't part of the name.
+    const username = typeof body.username === 'string' ? body.username.trim() : body.username;
     const usernameCheck = validateUsername(username);
     if (!usernameCheck.ok) { res.status(400).json({ error: usernameCheck.error }); return; }
     const passwordCheck = validatePassword(password);
@@ -120,42 +147,73 @@ export default async function handler(req, res, redisOverride, mailOverride) {
     const emailCheck = normalizeEmail(body.email);
     if (!emailCheck.ok) { res.status(400).json({ error: emailCheck.error }); return; }
 
+    // Only accounts actually created count towards the per-network limit:
+    // an attempt that fails below hands its place back.
+    const registerKey = `ratelimit:register:ip:${clientIp(req)}`;
+    let counted = false;
+    try {
+      counted = true;
+      if (await bump(redis, registerKey, REGISTER_WINDOW_SECONDS) > MAX_REGISTRATIONS_PER_IP) {
+        res.status(429).json({ error: 'Too many new accounts from this network. Please try again later.' });
+        return;
+      }
+    } catch { counted = false; /* limiter unavailable — don't block sign-ups */ }
+    const giveBack = () => (counted ? release(redis, registerKey, REGISTER_WINDOW_SECONDS).catch(() => {}) : null);
+
     const key = userKeyFor(username);
     try {
-      const existing = await getJSON(redis, key);
-      if (existing) { res.status(409).json({ error: 'That username is already taken.' }); return; }
+      if (await redis.get(key)) {
+        await giveBack();
+        res.status(409).json({ error: 'That username is already taken.' });
+        return;
+      }
       if (emailCheck.email && !(await emailAvailable(redis, emailCheck.email, username))) {
+        await giveBack();
         res.status(409).json({ error: EMAIL_TAKEN });
         return;
       }
-
-      const passwordHash = await hashPassword(password);
-      const record = { username, passwordHash, teams: [] };
+      const record = { username, passwordHash: await hashPassword(password), teams: [], sessionVersion: 0 };
       if (emailCheck.email) record.email = emailCheck.email;
-      await setJSON(redis, key, record);
+      // Created only if the username is still free: two sign-ups racing
+      // for the same name can't overwrite one another.
+      if (!(await createJSON(redis, key, record))) {
+        await giveBack();
+        res.status(409).json({ error: 'That username is already taken.' });
+        return;
+      }
       if (emailCheck.email) await redis.set(emailKeyFor(emailCheck.email), normalizeUsername(username));
-      try { await bump(redis, registerKey, REGISTER_WINDOW_SECONDS); } catch { /* best-effort */ }
-
-      const token = signSessionToken(username, secret);
-      res.setHeader('Set-Cookie', buildSessionCookie(token));
-      res.status(200).json({ ok: true, username, email: emailCheck.email });
+      signIn(res, record, secret);
     } catch (e) {
-      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+      await giveBack();
+      storageFailed(res, e);
     }
     return;
   }
 
   if (action === 'login') {
-    const { username, password } = body;
-    if (typeof username !== 'string' || typeof password !== 'string') {
+    const { password } = body;
+    if (typeof body.username !== 'string' || typeof password !== 'string') {
       res.status(400).json({ error: 'Username and password are required.' });
       return;
     }
-    const userLimitKey = `ratelimit:login:user:${normalizeUsername(username)}`;
+    const username = body.username.trim();
     const ipLimitKey = `ratelimit:login:ip:${clientIp(req)}`;
     try {
-      const [userFails, ipFails] = await Promise.all([getCount(redis, userLimitKey), getCount(redis, ipLimitKey)]);
-      if (userFails >= MAX_FAILED_LOGINS_PER_USER || ipFails >= MAX_FAILED_LOGINS_PER_IP) {
+      // The network is checked first: once it's blocked, its guesses don't
+      // count against (and so can't lock out) the accounts it targets.
+      if (await bump(redis, ipLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_IP) {
+        res.status(429).json({ error: TOO_MANY });
+        return;
+      }
+      // A name no account could have can't match; it only counts against
+      // the network, which also stops huge made-up "usernames" becoming
+      // Redis keys.
+      if (!validateUsername(username).ok) {
+        res.status(401).json({ error: BAD_LOGIN });
+        return;
+      }
+      const userLimitKey = `ratelimit:login:user:${normalizeUsername(username)}`;
+      if (await bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_USER) {
         res.status(429).json({ error: TOO_MANY });
         return;
       }
@@ -163,27 +221,20 @@ export default async function handler(req, res, redisOverride, mailOverride) {
       const record = await getJSON(redis, userKeyFor(username));
       const match = record ? await verifyPassword(password, record.passwordHash) : false;
       if (!match) {
-        await Promise.all([
-          bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS),
-          bump(redis, ipLimitKey, LOGIN_WINDOW_SECONDS),
-        ]);
-        res.status(401).json({ error: 'Incorrect username or password.' });
+        res.status(401).json({ error: BAD_LOGIN });
         return;
       }
-      await reset(redis, userLimitKey);
+      // A successful login wipes the account's failures and doesn't count
+      // against the network.
+      await Promise.all([reset(redis, userLimitKey), release(redis, ipLimitKey, LOGIN_WINDOW_SECONDS)]);
       // Accounts that added an email before resets existed have no lookup
       // entry yet; add it so "forgot password" works by email too.
       if (record.email) {
-        try {
-          if (!(await redis.get(emailKeyFor(record.email)))) await redis.set(emailKeyFor(record.email), normalizeUsername(record.username));
-        } catch { /* best-effort */ }
+        try { await redis.set(emailKeyFor(record.email), normalizeUsername(record.username), 'NX'); } catch { /* best-effort */ }
       }
-
-      const token = signSessionToken(record.username, secret);
-      res.setHeader('Set-Cookie', buildSessionCookie(token));
-      res.status(200).json({ ok: true, username: record.username, email: record.email || '' });
+      signIn(res, record, secret);
     } catch (e) {
-      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+      storageFailed(res, e);
     }
     return;
   }
@@ -191,28 +242,33 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   // Add, change or (with an empty email) remove the logged-in user's email.
   if (action === 'set_email') {
     const session = getSessionFromRequest(req, secret);
-    if (!session) { res.status(401).json({ error: 'Please log in again.' }); return; }
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
     const emailCheck = normalizeEmail(body.email);
     if (!emailCheck.ok) { res.status(400).json({ error: emailCheck.error }); return; }
+    const key = userKeyFor(session.username);
     try {
-      const key = userKeyFor(session.username);
-      const record = await getJSON(redis, key);
-      if (!record) { res.status(401).json({ error: 'Please log in again.' }); return; }
-      if (emailCheck.email && !(await emailAvailable(redis, emailCheck.email, record.username))) {
+      if (emailCheck.email && !(await emailAvailable(redis, emailCheck.email, session.username))) {
         res.status(409).json({ error: EMAIL_TAKEN });
         return;
       }
-      const oldEmail = record.email;
-      if (emailCheck.email) record.email = emailCheck.email;
-      else delete record.email;
-      await setJSON(redis, key, record);
-      if (oldEmail && oldEmail !== emailCheck.email && (await emailAvailable(redis, oldEmail, record.username))) {
+      let signedOut = false;
+      let oldEmail;
+      const updated = await updateJSON(redis, key, record => {
+        if (!sessionMatchesRecord(session, record)) { signedOut = true; return null; }
+        oldEmail = record.email;
+        const next = { ...record };
+        if (emailCheck.email) next.email = emailCheck.email;
+        else delete next.email;
+        return next;
+      });
+      if (updated === undefined || signedOut) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      if (oldEmail && oldEmail !== emailCheck.email && (await emailAvailable(redis, oldEmail, updated.username))) {
         await redis.del(emailKeyFor(oldEmail));
       }
-      if (emailCheck.email) await redis.set(emailKeyFor(emailCheck.email), normalizeUsername(record.username));
-      res.status(200).json({ ok: true, username: record.username, email: emailCheck.email });
+      if (emailCheck.email) await redis.set(emailKeyFor(emailCheck.email), normalizeUsername(updated.username));
+      res.status(200).json(account(updated));
     } catch (e) {
-      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+      storageFailed(res, e);
     }
     return;
   }
@@ -230,32 +286,29 @@ export default async function handler(req, res, redisOverride, mailOverride) {
       res.status(503).json({ error: "Password reset by email isn't set up on this site yet." });
       return;
     }
-    const ipKey = `ratelimit:reset:ip:${clientIp(req)}`;
     try {
-      if (await getCount(redis, ipKey) >= MAX_RESET_REQUESTS_PER_IP) {
+      if (await bump(redis, `ratelimit:reset:ip:${clientIp(req)}`, RESET_WINDOW_SECONDS) > MAX_RESET_REQUESTS_PER_IP) {
         res.status(429).json({ error: 'Too many reset requests. Please try again in an hour.' });
         return;
       }
-      await bump(redis, ipKey, RESET_WINDOW_SECONDS);
 
       let record = null;
       if (identifier.includes('@')) {
-        const owner = await redis.get(emailKeyFor(identifier));
+        const email = normalizeEmail(identifier);
+        const owner = email.ok && email.email ? await redis.get(emailKeyFor(email.email)) : null;
         if (owner) record = await getJSON(redis, userKeyFor(owner));
-        if (record && record.email !== identifier.toLowerCase()) record = null;
-      } else {
+        if (record && record.email !== email.email) record = null;
+      } else if (validateUsername(identifier).ok) {
         record = await getJSON(redis, userKeyFor(identifier));
       }
 
       if (!record) { res.status(404).json({ error: NO_ACCOUNT }); return; }
       if (!record.email) { res.status(400).json({ error: NO_EMAIL }); return; }
 
-      const userKey = `ratelimit:reset:user:${normalizeUsername(record.username)}`;
-      if (await getCount(redis, userKey) >= MAX_RESET_EMAILS_PER_USER) {
+      if (await bump(redis, `ratelimit:reset:user:${normalizeUsername(record.username)}`, RESET_WINDOW_SECONDS) > MAX_RESET_EMAILS_PER_USER) {
         res.status(429).json({ error: "We've already sent several reset emails to this account. Check your inbox and spam folder, or try again in an hour." });
         return;
       }
-      await bump(redis, userKey, RESET_WINDOW_SECONDS);
       const token = createResetToken();
       const entry = { username: normalizeUsername(record.username), expiresAt: Date.now() + RESET_TOKEN_TTL_SECONDS * 1000 };
       await redis.set(resetKeyFor(token), JSON.stringify(entry), 'EX', RESET_TOKEN_TTL_SECONDS);
@@ -269,31 +322,35 @@ export default async function handler(req, res, redisOverride, mailOverride) {
     return;
   }
 
-  // Step 2: the link's token plus a new password. The token works once.
+  // Step 2: the link's token plus a new password. The token works once, and
+  // every session from before the reset is signed out.
   if (action === 'reset_password') {
     const { token, password } = body;
-    if (typeof token !== 'string' || !token) { res.status(400).json({ error: RESET_INVALID }); return; }
+    if (typeof token !== 'string' || !token || token.length > 200) { res.status(400).json({ error: RESET_INVALID }); return; }
     const passwordCheck = validatePassword(password);
     if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
     try {
+      // Read and delete in one step, so the same link can't be used twice
+      // even by two requests at once.
       const resetKey = resetKeyFor(token);
-      const entry = await getJSON(redis, resetKey);
+      const [[, raw]] = await redis.multi().get(resetKey).del(resetKey).exec();
+      let entry = null;
+      try { entry = raw ? JSON.parse(raw) : null; } catch { entry = null; }
       if (!entry || !(entry.expiresAt > Date.now())) { res.status(400).json({ error: RESET_INVALID }); return; }
-      await redis.del(resetKey);
-      const key = userKeyFor(entry.username);
-      const record = await getJSON(redis, key);
-      if (!record) { res.status(400).json({ error: RESET_INVALID }); return; }
-      record.passwordHash = await hashPassword(password);
-      await setJSON(redis, key, record);
+
+      // Hash before touching the record, so the read-modify-write below is
+      // quick.
+      const passwordHash = await hashPassword(password);
+      const updated = await updateJSON(redis, userKeyFor(entry.username), record => ({
+        ...record, passwordHash, sessionVersion: (record.sessionVersion || 0) + 1,
+      }));
+      if (updated === undefined) { res.status(400).json({ error: RESET_INVALID }); return; }
       // A forgotten password often comes after failed guesses; don't leave
       // the account locked now that it has a new one.
       await reset(redis, `ratelimit:login:user:${entry.username}`);
-
-      const sessionToken = signSessionToken(record.username, secret);
-      res.setHeader('Set-Cookie', buildSessionCookie(sessionToken));
-      res.status(200).json({ ok: true, username: record.username, email: record.email || '' });
+      signIn(res, updated, secret);
     } catch (e) {
-      res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+      storageFailed(res, e);
     }
     return;
   }

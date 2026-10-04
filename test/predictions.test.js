@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStaticDataFromRaw, buildOptimalTeam, SQUAD_BUDGET, MAX_PER_REAL_TEAM } from '../src/lib/predictions.js';
+import {
+  buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
+  seasonIdFor, snapshotIsForSeason, SQUAD_BUDGET, MAX_PER_REAL_TEAM,
+} from '../src/lib/predictions.js';
 
 // A deterministic synthetic league: 20 clubs × 25 players, with prices and
 // FPL expected points that vary so the optimiser has real choices to make.
@@ -72,4 +75,111 @@ test('injured players are predicted near zero and never start', () => {
   injuredIds.forEach(id => assert.ok(staticData.predictionsById[id].nextMatchPredicted < 0.5, `player ${id}`));
   const { squad } = buildOptimalTeam(staticData, SQUAD_BUDGET);
   assert.ok(!squad.some(s => s.isStarting && injuredIds.has(s.player.id)));
+});
+
+test('a saved squad keeps its own XI, bank and armbands on starters', () => {
+  const { bootstrap, fixtures } = league();
+  const staticData = buildStaticDataFromRaw(bootstrap, fixtures);
+  const { squad } = buildOptimalTeam(staticData, SQUAD_BUDGET);
+  const playerIds = squad.map(s => s.player.id);
+  const players = squad.map(s => s.player);
+  const bench = squad.filter(s => !s.isStarting);
+  const starters = squad.filter(s => s.isStarting);
+
+  // Swap one starting outfielder with a bench player of the same position.
+  const benchOutfielder = bench.find(s => s.player.positionId !== 1);
+  const starterOut = starters.find(s => s.player.positionId === benchOutfielder.player.positionId);
+  const startingIds = starters.map(s => s.player.id).filter(id => id !== starterOut.player.id).concat(benchOutfielder.player.id);
+  assert.ok(isLegalStartingXi(startingIds, players));
+
+  // The captain was saved on a player who is now on the bench.
+  const snapshot = { playerIds, captainId: starterOut.player.id, viceCaptainId: null, startingIds, bankTenths: 7 };
+  const kept = hydrateSquadSnapshot(snapshot, staticData, { keepStartingXi: true });
+  assert.deepEqual(kept.squad.filter(s => s.isStarting).map(s => s.player.id).sort(), [...startingIds].sort());
+  assert.equal(kept.bankTenths, 7);
+  const captain = kept.squad.find(s => s.isCaptain);
+  const vice = kept.squad.find(s => s.isViceCaptain);
+  assert.ok(captain.isStarting && vice.isStarting && captain !== vice);
+  assert.equal(captain.multiplier, 2);
+
+  // The optimal squad's XI is re-picked from today's predictions instead.
+  const repicked = hydrateSquadSnapshot(snapshot, staticData);
+  assert.notDeepEqual(repicked.squad.filter(s => s.isStarting).map(s => s.player.id).sort(), [...startingIds].sort());
+
+  // An illegal saved XI (two keepers) falls back to the best formation.
+  const keepers = players.filter(p => p.positionId === 1).map(p => p.id);
+  const illegal = [...keepers, ...startingIds.filter(id => !keepers.includes(id)).slice(0, 9)];
+  const fixed = hydrateSquadSnapshot({ ...snapshot, startingIds: illegal }, staticData, { keepStartingXi: true });
+  assert.equal(fixed.squad.filter(s => s.isStarting && s.player.positionId === 1).length, 1);
+});
+
+test('automatic subs: who came on scores, who went off does not', () => {
+  const s = (id, isStarting, multiplier, extra = {}) => ({ player: { id }, isStarting, multiplier, isCaptain: false, isViceCaptain: false, played: true, ...extra });
+  const squad = [s(1, true, 1, { played: false }), s(2, true, 2, { isCaptain: true }), s(3, true, 1, { isViceCaptain: true }), s(12, false, 0)];
+  const subbed = applyAutomaticSubs(squad, [{ element_out: 1, element_in: 12 }], { finished: true });
+  assert.deepEqual(subbed.map(x => [x.player.id, x.isStarting, x.multiplier]), [[1, false, 0], [2, true, 2], [3, true, 1], [12, true, 1]]);
+});
+
+test("a captain who didn't play passes the armband on, even with no subs", () => {
+  const s = (id, isStarting, multiplier, extra = {}) => ({ player: { id }, isStarting, multiplier, isCaptain: false, isViceCaptain: false, played: true, ...extra });
+  // Triple Captain on a player who was then subbed off.
+  const tc = [s(1, true, 3, { isCaptain: true, played: false }), s(2, true, 1, { isViceCaptain: true }), s(12, false, 0)];
+  const afterTc = applyAutomaticSubs(tc, [{ element_out: 1, element_in: 12 }], { finished: true });
+  assert.equal(afterTc.find(x => x.player.id === 2).multiplier, 3);
+  assert.equal(afterTc.find(x => x.player.id === 1).multiplier, 0);
+
+  // Bench Boost: nobody is subbed, but the vice still takes over.
+  const bb = [s(1, true, 2, { isCaptain: true, played: false }), s(2, true, 1, { isViceCaptain: true }), s(12, false, 1)];
+  const afterBb = applyAutomaticSubs(bb, [], { finished: true });
+  assert.equal(afterBb.find(x => x.player.id === 2).multiplier, 2);
+  assert.equal(afterBb.find(x => x.player.id === 1).multiplier, 1);
+
+  // A vice who is on the bench can't take it.
+  const benchVice = [s(1, true, 2, { isCaptain: true, played: false }), s(12, false, 0, { isViceCaptain: true })];
+  assert.equal(applyAutomaticSubs(benchVice, [], { finished: true }).find(x => x.player.id === 12).multiplier, 0);
+});
+
+test('while a gameweek is being played, a captain yet to play keeps the armband', () => {
+  const s = (id, isStarting, multiplier, extra = {}) => ({ player: { id }, isStarting, multiplier, isCaptain: false, isViceCaptain: false, played: true, ...extra });
+  // The captain plays on Sunday; the vice already scored on Saturday.
+  const squad = [s(1, true, 2, { isCaptain: true, played: false }), s(2, true, 1, { isViceCaptain: true })];
+  const now = applyAutomaticSubs(squad, [], { finished: false });
+  assert.deepEqual(now.map(x => x.multiplier), [2, 1]);
+  assert.deepEqual(applyAutomaticSubs(squad, []).map(x => x.multiplier), [2, 1], 'not finished unless told so');
+});
+
+test('saved files from an earlier season are recognised', () => {
+  const events = [{ id: 2, deadline_time: '2026-08-21T17:30:00Z' }, { id: 1, deadline_time: '2026-08-14T17:30:00Z' }];
+  assert.equal(seasonIdFor(events), '2026-27');
+  assert.equal(seasonIdFor([]), null);
+  assert.equal(snapshotIsForSeason({ season: '2026-27' }, '2026-27', events), true);
+  assert.equal(snapshotIsForSeason({ season: '2025-26' }, '2026-27', events), false);
+  // Files saved before seasons were recorded go by when they were built.
+  assert.equal(snapshotIsForSeason({ builtAt: '2026-04-30T06:00:00Z' }, '2026-27', events), false);
+  assert.equal(snapshotIsForSeason({ savedAt: '2026-08-01T06:00:00Z' }, '2026-27', events), true);
+  assert.equal(snapshotIsForSeason(null, '2026-27', events), false);
+});
+
+test("the optimiser doesn't keep downgrading a starter's replacement", () => {
+  // Only the forwards have alternatives. The best three cost £7m too much.
+  let id = 0;
+  const pool = [];
+  const add = (positionId, price, predicted) => { id++; pool.push({ id, positionId, price, predicted, team: id, status: 'a' }); return id; };
+  [4, 1].forEach(v => add(1, 4, v));
+  [5, 5, 5, 1, 1].forEach(v => add(2, 4, v));
+  [6, 6, 6, 6, 1].forEach(v => add(3, 5, v));
+  const a = add(4, 20, 12);
+  add(4, 18, 11);
+  add(4, 16, 10);
+  const nearlyAsGood = add(4, 14, 9.9);
+  const decent = add(4, 12, 9);
+  add(4, 4, 1);
+  const predictionsById = Object.fromEntries(pool.map(p => [p.id, { predicted: p.predicted }]));
+
+  // The cheap first step (£16m forward for a £14m one, almost as good) puts
+  // a new starter in. Treating them as a bench player afterwards used to
+  // sell them on down to the £4m forward, leaving £5m unspent.
+  const squad = buildOptimalSquad(pool, predictionsById, SQUAD_BUDGET);
+  const forwards = squad.filter(p => p.positionId === 4).map(p => p.id).sort((x, y) => x - y);
+  assert.deepEqual(forwards, [a, nearlyAsGood, decent]);
 });

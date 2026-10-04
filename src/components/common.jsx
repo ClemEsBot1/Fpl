@@ -2,7 +2,7 @@
 // search and fixture-difficulty chips.
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Bookmark, LogOut, Mail, Menu, RotateCcw, Search, User, X } from 'lucide-react';
-import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, normalize } from '../lib/format.js';
+import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
 
 export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
@@ -144,35 +144,43 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
 
 export function LoadingScreen({ message }) {
   return (
-    <div style={{ padding: '60px 16px', textAlign: 'center' }}>
+    <div role="status" aria-live="polite" style={{ padding: '60px 16px', textAlign: 'center' }}>
       <div className="fpl-pulse-wrap" style={{ justifyContent: 'center', marginBottom: 20 }}>
         <div className="fpl-pulse" style={{ animationDelay: '0s' }} />
         <div className="fpl-pulse" style={{ animationDelay: '0.15s' }} />
         <div className="fpl-pulse" style={{ animationDelay: '0.3s' }} />
         <div className="fpl-pulse" style={{ animationDelay: '0.45s' }} />
       </div>
-      <div className="fpl-mono" style={{ fontSize: '0.85rem', color: 'var(--ink-dim)' }}>{message || 'Working…'}</div>
+      <div className="fpl-mono" style={{ fontSize: '0.85rem', color: 'var(--ink-dim)' }}>{message || 'Loading…'}</div>
     </div>
   );
 }
 
-export function ErrorScreen({ message, onRetry }) {
+// `action` ({ label, run }) offers a way forward besides starting over.
+export function ErrorScreen({ message, onRetry, retryLabel = 'Start over', action }) {
   return (
-    <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-      <AlertTriangle size={32} style={{ color: 'var(--red)', margin: '0 auto 14px' }} />
+    <div role="alert" style={{ padding: '40px 16px', textAlign: 'center' }}>
+      <AlertTriangle size={32} aria-hidden="true" style={{ color: 'var(--red)', margin: '0 auto 14px' }} />
       <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 22, color: 'var(--ink)' }}>{message}</p>
-      <button className="fpl-btn fpl-btn-solid" onClick={onRetry} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <RotateCcw size={16} /> Start over
-      </button>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {action && (
+          <button className="fpl-btn fpl-btn-solid" onClick={action.run} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {action.label}
+          </button>
+        )}
+        <button className={action ? 'fpl-btn' : 'fpl-btn fpl-btn-solid'} onClick={onRetry} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <RotateCcw size={16} /> {retryLabel}
+        </button>
+      </div>
     </div>
   );
 }
 
-export function PlayerSearchPicker({ allPlayers, onPick }) {
+// excludeIds: players who can't be picked again (already in the squad).
+export function PlayerSearchPicker({ allPlayers, onPick, excludeIds }) {
   const [q, setQ] = useState('');
-  const nq = normalize(q);
-  const results = nq.length < 2 ? [] : allPlayers.filter(p =>
-    normalize(p.webName).includes(nq) || normalize(p.secondName).includes(nq)
+  const results = searchKey(q).length < 2 ? [] : allPlayers.filter(p =>
+    !(excludeIds && excludeIds.has(p.id)) && playerMatchesSearch(p, q)
   ).slice(0, 8);
   return (
     <div style={{ marginTop: 8 }}>

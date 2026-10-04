@@ -1,5 +1,5 @@
 import { put, get } from '@vercel/blob';
-import { buildStaticDataFromRaw, buildOptimalTeam, SQUAD_BUDGET } from '../src/lib/predictions.js';
+import { buildStaticDataFromRaw, buildOptimalTeam, isEventLocked, SQUAD_BUDGET } from '../src/lib/predictions.js';
 import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 
@@ -22,7 +22,7 @@ export function snapshotPathnameFor(gwId) {
 async function fetchFplJsonServer(path) {
   // Runs server-side — no browser involved, so no CORS restriction and no
   // need for the /api/fpl proxy the client uses. Straight to the source.
-  const r = await fetch(FPL_BASE + path);
+  const r = await fetch(FPL_BASE + path, { signal: AbortSignal.timeout(15_000) });
   if (!r.ok) throw new Error(`FPL fetch failed for ${path}: status ${r.status}`);
   return r.json();
 }
@@ -50,7 +50,7 @@ async function fetchOddsServer() {
   const apiKey = process.env.ODDS_API_KEY;
   if (!apiKey) return null;
   try {
-    const r = await fetch(`${ODDS_API_URL}&apiKey=${apiKey}`);
+    const r = await fetch(`${ODDS_API_URL}&apiKey=${apiKey}`, { signal: AbortSignal.timeout(10_000) });
     if (!r.ok) return null;
     return await r.json();
   } catch {
@@ -81,6 +81,10 @@ export default async function handler(req, res) {
   // passed. The snapshot is flagged `backfilled: true` so the app/you can
   // tell it apart from one saved in real time.
   const forceGwId = req.query && req.query.gw ? Number(req.query.gw) : null;
+  if (forceGwId !== null && (!Number.isInteger(forceGwId) || forceGwId < 1 || forceGwId > 38)) {
+    res.status(400).json({ error: 'invalid_gw' });
+    return;
+  }
 
   try {
     const [bootstrap, fixturesRaw, playerHistoryData, oddsApiEvents] = await Promise.all([
@@ -89,6 +93,10 @@ export default async function handler(req, res) {
       fetchPlayerHistoryServer(),
       fetchOddsServer(),
     ]);
+    if (forceGwId !== null && !bootstrap.events.some(e => e.id === forceGwId)) {
+      res.status(400).json({ error: 'unknown_gw' });
+      return;
+    }
 
     const teamsById = {};
     bootstrap.teams.forEach(t => { teamsById[t.id] = t; });
@@ -112,6 +120,15 @@ export default async function handler(req, res) {
     const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData });
     const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
 
+    // After the last deadline of the season there's no gameweek left to
+    // plan for, and the target stays on the final one. Rewriting its files
+    // now would replace what was predicted before its deadline with
+    // hindsight.
+    if (!forceGwId && staticData.targetEvent && isEventLocked(staticData.targetEvent)) {
+      res.status(200).json({ ok: true, skipped: 'season_over', gwId });
+      return;
+    }
+
     const built = buildOptimalTeam(staticData, SQUAD_BUDGET);
     const snapshot = {
       playerIds: built.squad.map(s => s.player.id),
@@ -120,6 +137,9 @@ export default async function handler(req, res) {
       viceCaptainId: built.viceCaptainId,
       predictedById: Object.fromEntries(built.squad.map(s => [s.player.id, s.nextMatchPredicted])),
       gwId,
+      // FPL reuses gameweek numbers and player ids every season, so readers
+      // check this before trusting a file from an earlier one.
+      season: staticData.seasonId,
       builtAt: new Date().toISOString(),
       backfilled: !!forceGwId,
     };
@@ -139,7 +159,7 @@ export default async function handler(req, res) {
         const predictedById = Object.fromEntries(
           Object.entries(staticData.predictionsById).map(([id, pred]) => [id, pred.nextMatchPredicted]),
         );
-        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, savedAt: snapshot.builtAt, predictedById }), {
+        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, season: staticData.seasonId, savedAt: snapshot.builtAt, predictedById }), {
           access: 'public', contentType: 'application/json', allowOverwrite: true,
         });
       } catch { /* non-fatal — accuracy tracking just skips this gameweek */ }

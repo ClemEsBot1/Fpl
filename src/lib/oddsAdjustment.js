@@ -99,14 +99,21 @@ const TEAM_NAME_ALIASES = {
   'newcastle': 'newcastle united',
   'west ham': 'west ham united',
   'leeds': 'leeds united',
-  'brighton': 'brighton and hove albion', 'brighton & hove albion': 'brighton and hove albion',
+  'brighton': 'brighton and hove albion',
   'sheffield utd': 'sheffield united',
+  'west brom': 'west bromwich albion',
+  'qpr': 'queens park rangers',
 };
 
-function normalizeTeamName(name) {
+// Bookmakers often add a suffix FPL leaves off ("Leicester City" vs FPL's
+// "Leicester", "Ipswich Town" vs "Ipswich"), so it's dropped from both
+// sides after the aliases above have been applied.
+const TEAM_NAME_SUFFIX = / (city|town|county|albion)$/;
+
+export function normalizeTeamName(name) {
   if (!name) return '';
-  const lower = name.toLowerCase().trim().replace(/\bfc\b/g, '').replace(/\s+/g, ' ').trim();
-  return TEAM_NAME_ALIASES[lower] || lower;
+  const lower = name.toLowerCase().replace(/&/g, 'and').replace(/\ba?fc\b/g, '').replace(/\s+/g, ' ').trim();
+  return (TEAM_NAME_ALIASES[lower] || lower).replace(TEAM_NAME_SUFFIX, '');
 }
 
 // oddsApiEvents: raw events from an odds provider, each shaped roughly like
@@ -183,15 +190,25 @@ function extractH2hOdds(evt) {
 // FPL's own fixture-difficulty rating which covers the full 4-game window
 // `predicted` uses. This is why the odds nudge only ever affects
 // nextMatchPredicted-scale decisions in practice, not the longer horizon.
-// Returns { [teamId]: { probs, isHome } } for teams playing that gameweek.
+// Returns { [teamId]: [{ probs, isHome }, ...] } for teams playing that
+// gameweek — one entry per match, so a double gameweek keeps both.
 export function buildOddsByTeamForEvent(oddsData, targetEventId) {
   const byTeam = {};
+  const add = (teamId, entry) => { (byTeam[teamId] || (byTeam[teamId] = [])).push(entry); };
   (oddsData || []).forEach(m => {
     if (m.event !== targetEventId) return;
     const probs = devigMatchOdds(m.homeWinOdds, m.drawOdds, m.awayWinOdds);
     if (!probs) return;
-    byTeam[m.homeTeamId] = { probs, isHome: true };
-    byTeam[m.awayTeamId] = { probs, isHome: false };
+    add(m.homeTeamId, { probs, isHome: true });
+    add(m.awayTeamId, { probs, isHome: false });
   });
   return byTeam;
+}
+
+// A player's odds nudge for the gameweek: the average over their team's
+// matches that week (a double gameweek's two fixtures can point in
+// opposite directions).
+export function oddsAdjustmentForMatches(matches, positionId) {
+  if (!Array.isArray(matches) || !matches.length) return 0;
+  return matches.reduce((sum, m) => sum + computeOddsAdjustment({ probs: m.probs, isHome: m.isHome, positionId }), 0) / matches.length;
 }

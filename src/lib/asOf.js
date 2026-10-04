@@ -18,6 +18,18 @@ const FORM_WINDOW = 4; // FPL's form is a ~30-day average ≈ the last 4 gamewee
 // Column order of each row in the compact table.
 export const AS_OF_FIELDS = ['points', 'minutes', 'appearances', 'goals', 'assists', 'xg', 'xa', 'formPoints'];
 
+// Matches a player appeared in during one gameweek. A double gameweek is two
+// matches, and FPL's points per game is per match, so count the fixtures in
+// `explain` where they got minutes; without that breakdown, any minutes
+// count as one appearance.
+function matchesPlayed(el, minutes) {
+  if (minutes <= 0) return 0;
+  const fromExplain = Array.isArray(el.explain)
+    ? el.explain.filter(fx => (fx.stats || []).some(st => st.identifier === 'minutes' && st.value > 0)).length
+    : 0;
+  return Math.max(1, fromExplain);
+}
+
 // liveByEvent: { [gwId]: elements[] } from event/{gw}/live/, for every
 // gameweek before `gwId`. Returns { gwId, fields, players: { [id]: row } }.
 export function aggregateLiveStats(liveByEvent, gwId) {
@@ -32,7 +44,7 @@ export function aggregateLiveStats(liveByEvent, gwId) {
       const minutes = Number(s.minutes) || 0;
       t[0] += points;
       t[1] += minutes;
-      t[2] += minutes > 0 ? 1 : 0;
+      t[2] += matchesPlayed(el, minutes);
       t[3] += Number(s.goals_scored) || 0;
       t[4] += Number(s.assists) || 0;
       t[5] += parseFloat(s.expected_goals) || 0;

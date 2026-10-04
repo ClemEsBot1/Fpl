@@ -83,22 +83,41 @@ export async function verifyPassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
-export function signSessionToken(username, secret) {
-  return jwt.sign({ username }, secret, { expiresIn: SESSION_MAX_AGE_SECONDS });
+// `sessionVersion` is copied from the user record. Resetting the password
+// bumps the record's version, which signs out every session made before
+// it (sessions are otherwise stateless tokens that nothing can revoke).
+export function signSessionToken(username, secret, sessionVersion = 0) {
+  return jwt.sign({ username, sv: sessionVersion }, secret, { expiresIn: SESSION_MAX_AGE_SECONDS });
 }
 
-// Returns { username } on a valid, unexpired token, or null otherwise —
+// Returns { username, sv } on a valid, unexpired token, or null otherwise —
 // never throws, since an invalid/expired session should just look
 // "logged out" to the caller rather than surfacing as a server error.
+// Tokens from before session versions existed count as version 0.
 export function verifySessionToken(token, secret) {
   if (!token) return null;
   try {
     const payload = jwt.verify(token, secret);
     if (!payload || typeof payload.username !== 'string') return null;
-    return { username: payload.username };
-  } catch (e) {
+    return { username: payload.username, sv: Number.isInteger(payload.sv) ? payload.sv : 0 };
+  } catch {
     return null;
   }
+}
+
+// Whether a session token is still valid for the user's stored record
+// (false once the password has been reset since the token was issued).
+export function sessionMatchesRecord(session, record) {
+  return !!session && !!record && (record.sessionVersion || 0) === (session.sv || 0);
+}
+
+// State-changing requests must be JSON. Browsers only send JSON across
+// sites after a CORS preflight this API never approves, so this stops
+// another site's hidden form from logging someone in or out (form posts
+// arrive as application/x-www-form-urlencoded).
+export function isJsonRequest(req) {
+  const type = (req.headers && req.headers['content-type']) || '';
+  return String(type).toLowerCase().startsWith('application/json');
 }
 
 export function buildSessionCookie(token) {
@@ -136,7 +155,7 @@ function parseCookieHeader(header) {
     const key = pair.slice(0, idx).trim();
     const value = pair.slice(idx + 1).trim();
     if (!key) return;
-    try { out[key] = decodeURIComponent(value); } catch (e) { out[key] = value; }
+    try { out[key] = decodeURIComponent(value); } catch { out[key] = value; }
   });
   return out;
 }

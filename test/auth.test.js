@@ -2,21 +2,9 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import handler, { MAX_FAILED_LOGINS_PER_USER, MAX_FAILED_LOGINS_PER_IP, MAX_REGISTRATIONS_PER_IP, MAX_RESET_EMAILS_PER_USER } from '../api/auth.js';
 import { validatePassword } from '../src/lib/auth.js';
+import { fakeRedis } from './helpers/fakeRedis.js';
 
 process.env.JWT_SECRET = 'test-secret';
-
-// In-memory stand-in for the ioredis calls the handlers use.
-function fakeRedis() {
-  const data = new Map();
-  return {
-    async get(k) { return data.has(k) ? data.get(k) : null; },
-    async set(k, v) { data.set(k, String(v)); },
-    async incr(k) { const n = Number(data.get(k) || 0) + 1; data.set(k, String(n)); return n; },
-    async expire() { return 1; },
-    async del(k) { data.delete(k); },
-    async keys() { return data.keys(); },
-  };
-}
 
 function call(redis, body, ip = '203.0.113.1', extraHeaders = {}, method = 'POST') {
   return new Promise(resolve => {
@@ -27,7 +15,8 @@ function call(redis, body, ip = '203.0.113.1', extraHeaders = {}, method = 'POST
       status(c) { this.statusCode = c; return this; },
       json(b) { resolve({ status: this.statusCode, body: b, headers: this.headers }); },
     };
-    handler({ method, body, headers: { 'x-forwarded-for': ip, ...extraHeaders } }, res, redis, fakeMail);
+    const json = method === 'POST' ? { 'content-type': 'application/json' } : {};
+    handler({ method, body, headers: { 'x-forwarded-for': ip, ...json, ...extraHeaders } }, res, redis, fakeMail);
   });
 }
 

@@ -37,16 +37,40 @@ export function buildEntryFromBody(body) {
     if (!playerIds || playerIds.length !== 15 || playerIds.some(id => !Number.isInteger(id))) {
       return { ok: false, error: 'A custom squad needs exactly 15 valid player ids.' };
     }
+    if (new Set(playerIds).size !== 15) {
+      return { ok: false, error: 'A custom squad needs 15 different players.' };
+    }
     const captainId = Number(squad.captainId);
-    const viceCaptainId = Number(squad.viceCaptainId);
-    if (!playerIds.includes(captainId) || !playerIds.includes(viceCaptainId)) {
-      return { ok: false, error: 'Captain and vice-captain must be part of the squad.' };
+    if (!playerIds.includes(captainId)) {
+      return { ok: false, error: 'The captain must be part of the squad.' };
+    }
+    // The vice-captain is optional (a squad can be saved without one).
+    const viceCaptainId = squad.viceCaptainId == null ? null : Number(squad.viceCaptainId);
+    if (viceCaptainId !== null && (!playerIds.includes(viceCaptainId) || viceCaptainId === captainId)) {
+      return { ok: false, error: 'The vice-captain must be another player in the squad.' };
+    }
+    const saved = { playerIds, captainId, viceCaptainId };
+    // Optional: the XI and bank the squad was saved with, so loading it
+    // back keeps the person's own formation and money in the bank.
+    if (Array.isArray(squad.startingIds)) {
+      const startingIds = squad.startingIds.map(Number);
+      if (startingIds.length !== 11 || new Set(startingIds).size !== 11 || startingIds.some(id => !playerIds.includes(id))) {
+        return { ok: false, error: 'The starting XI must be 11 players from the squad.' };
+      }
+      saved.startingIds = startingIds;
+    }
+    if (squad.bankTenths != null) {
+      const bankTenths = Number(squad.bankTenths);
+      if (!Number.isInteger(bankTenths) || bankTenths < 0 || bankTenths > 1000) {
+        return { ok: false, error: 'The bank must be between £0.0m and £100.0m.' };
+      }
+      saved.bankTenths = bankTenths;
     }
     return {
       ok: true,
       entry: {
         type: 'custom',
-        squad: { playerIds, captainId, viceCaptainId },
+        squad: saved,
         gwId,
         label: sanitizeLabel(body.label, 'My squad'),
       },
@@ -64,7 +88,7 @@ export function buildEntryFromBody(body) {
 // output; real callers omit them and get generateEntryId()/Date.now().
 export function mergeEntry(existingTeams, entry, { makeId, now } = {}) {
   const teams = Array.isArray(existingTeams) ? existingTeams : [];
-  const timestamp = (now ? now() : new Date()).toISOString ? (now ? now() : new Date()).toISOString() : new Date().toISOString();
+  const timestamp = (now ? now() : new Date()).toISOString();
 
   const existingIdx = entry.type === 'teamId'
     ? teams.findIndex(t => t.type === 'teamId' && t.teamId === entry.teamId)
