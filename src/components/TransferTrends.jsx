@@ -1,21 +1,20 @@
-// The home screen's transfer trends: panels you swipe (or step through
-// with the arrows) for the most bought and sold players this gameweek and
-// the price changes to expect. For a gameweek that has started it becomes
-// that week's recap instead (top scorers and FPL's numbers for the week),
-// since FPL only publishes transfer counts for the current gameweek. Sits
-// to the right of the home cards on a wide screen and below them on a
-// phone.
+// The home screen's trends panel: slides you swipe (or step through with
+// the arrows). For the upcoming gameweek: the most bought and sold
+// players (with the price change to expect), then the highest predicted
+// points of all players and of your own team. For a gameweek that has
+// started: the highest actual points of all players and of your team,
+// then FPL's numbers for the week (FPL only publishes transfer counts for
+// the upcoming gameweek). Sits to the right of the home cards on a wide
+// screen and below them on a phone.
 import { useMemo, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Repeat } from 'lucide-react';
-import { fmtPrice } from '../lib/format.js';
-import { buildTransferTrends } from '../lib/transferTrends.js';
+import { fmtPrice, fmtPts } from '../lib/format.js';
+import { buildTransferTrends, topByPoints } from '../lib/transferTrends.js';
 
 const POS = ['', 'GKP', 'DEF', 'MID', 'FWD'];
 const EMPTY = {
   in: 'No transfers yet this gameweek.',
   out: 'No transfers yet this gameweek.',
-  rise: 'No player has enough buyers for a rise yet.',
-  fall: 'No player has enough sellers for a fall yet.',
 };
 
 function fmtCount(n) {
@@ -69,15 +68,29 @@ function ScorerRow({ player, points, teamsById }) {
   );
 }
 
-// The panels for a gameweek that has started: its top scorers, then FPL's
-// own numbers for the week.
-function recapPanels(staticData, event, live) {
+function pointsPanel(id, title, entries, format, teamsById, empty) {
+  const rows = entries && topByPoints(entries);
+  return {
+    id, title,
+    body: !rows ? <p className="fpl-home-hint" role="status">{empty.loading}</p>
+      : rows.length ? (
+        <ol className="fpl-trend-list">
+          {rows.map(r => <ScorerRow key={r.player.id} player={r.player} points={format(r.points)} teamsById={teamsById} />)}
+        </ol>
+      ) : <p className="fpl-home-hint">{empty.none}</p>,
+  };
+}
+
+// Your team's players with their points, or null without a team loaded.
+const teamEntries = (team, pointsFor) => (team ? team.squad.map(s => ({ player: s.player, points: pointsFor(s) })) : null);
+const noTeam = teamPending => (teamPending ? 'Loading your team…' : 'Add your FPL Team ID on Home to see your own players here.');
+
+// The panels for a gameweek that has started: the highest scorers of all
+// players and on your team, then FPL's own numbers for the week.
+function recapPanels(staticData, event, live, team, teamPending) {
   const { playersById, teamsById } = staticData;
   const name = id => (playersById[id] ? playersById[id].webName : '–');
-  const scorers = live
-    ? Object.entries(live).map(([id, l]) => ({ player: playersById[id], points: l.totalPoints })).filter(r => r.player && r.points > 0)
-      .sort((a, b) => b.points - a.points).slice(0, 6)
-    : null;
+  const all = live ? Object.entries(live).map(([id, l]) => ({ player: playersById[id], points: l.totalPoints })) : null;
   const facts = [
     ['Average score', event.average_entry_score],
     ['Highest score', event.highest_score],
@@ -87,12 +100,10 @@ function recapPanels(staticData, event, live) {
     ['Transfers made', event.transfers_made ? event.transfers_made.toLocaleString('en-GB') : null],
   ].filter(([, v]) => v !== null && v !== undefined && v !== 0);
   return [
-    {
-      id: 'scorers', title: `Top scorers in GW${event.id}`,
-      body: !scorers ? <p className="fpl-home-hint" role="status">Loading points…</p>
-        : scorers.length ? <ol className="fpl-trend-list">{scorers.map(r => <ScorerRow key={r.player.id} {...r} teamsById={teamsById} />)}</ol>
-        : <p className="fpl-home-hint">No points scored yet this gameweek.</p>,
-    },
+    pointsPanel('scorers', `Top scorers in GW${event.id}`, all, String, teamsById,
+      { loading: 'Loading points…', none: 'No points scored yet this gameweek.' }),
+    pointsPanel('team-scorers', 'Top scorers on your team', teamEntries(team, s => s.actualPoints || 0), String, teamsById,
+      { loading: noTeam(teamPending), none: 'None of your players has scored yet this gameweek.' }),
     {
       id: 'numbers', title: `Gameweek ${event.id} in numbers`,
       body: facts.length ? (
@@ -102,24 +113,37 @@ function recapPanels(staticData, event, live) {
   ];
 }
 
-function trendPanels(staticData) {
-  return buildTransferTrends(staticData.allPlayers, staticData.totalPlayers).map(panel => ({
+// The panels for the upcoming gameweek: transfers in and out, then the
+// highest predicted points of all players and on your team.
+function upcomingPanels(staticData, team, teamPending) {
+  const { allPlayers, predictionsById, teamsById } = staticData;
+  const transfers = buildTransferTrends(allPlayers, staticData.totalPlayers).map(panel => ({
     id: panel.id, title: panel.title,
     body: panel.rows.length ? (
       <ol className="fpl-trend-list">
-        {panel.rows.map(row => <TrendRow key={row.player.id} row={row} stat={panel.stat} teamsById={staticData.teamsById} />)}
+        {panel.rows.map(row => <TrendRow key={row.player.id} row={row} stat={panel.stat} teamsById={teamsById} />)}
       </ol>
     ) : <p className="fpl-home-hint">{EMPTY[panel.id]}</p>,
   }));
+  const all = allPlayers.map(p => ({ player: p, points: predictionsById[p.id] ? predictionsById[p.id].predicted : 0 }));
+  return [
+    ...transfers,
+    pointsPanel('predicted', 'Highest predicted points', all, fmtPts, teamsById,
+      { loading: '', none: 'No predictions yet.' }),
+    pointsPanel('team-predicted', 'Highest predicted on your team', teamEntries(team, s => s.predicted), fmtPts, teamsById,
+      { loading: noTeam(teamPending), none: 'No predictions for your players yet.' }),
+  ];
 }
 
-export function TransferTrends({ staticData, event, isPast, live }) {
+// team: the remembered team's results data for this gameweek, or null
+// (teamPending while it loads).
+export function TransferTrends({ staticData, event, isPast, live, team, teamPending }) {
   const trackRef = useRef(null);
   const [current, setCurrent] = useState(0);
   const panels = useMemo(() => {
     if (!staticData || !event) return [];
-    return isPast ? recapPanels(staticData, event, live) : trendPanels(staticData);
-  }, [staticData, event, isPast, live]);
+    return isPast ? recapPanels(staticData, event, live, team, teamPending) : upcomingPanels(staticData, team, teamPending);
+  }, [staticData, event, isPast, live, team, teamPending]);
   if (!panels.length) return null;
 
   function onScroll() {
@@ -159,7 +183,7 @@ export function TransferTrends({ staticData, event, isPast, live }) {
         </div>
       </div>
       <p className="fpl-home-hint">{isPast
-        ? "FPL only publishes transfer counts for the upcoming gameweek, so a past one shows its recap."
+        ? "FPL only publishes transfer counts for the upcoming gameweek, so a past one shows its points instead."
         : "Price changes are an estimate from net transfers and ownership; FPL doesn't publish its formula."}</p>
     </section>
   );

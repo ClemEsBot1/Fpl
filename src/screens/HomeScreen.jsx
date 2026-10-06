@@ -220,7 +220,15 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
         </div>
         {/* Keyed by gameweek so a new one starts on its first panel. */}
-        <TransferTrends key={event ? event.id : 0} staticData={staticData} event={event} isPast={isPast} live={live} />
+        <TransferTrends
+          key={event ? event.id : 0}
+          staticData={staticData}
+          event={event}
+          isPast={isPast}
+          live={live}
+          team={homeTeam.status === 'ready' && homeTeam.data && event && homeTeam.data.gwId === event.id ? homeTeam.data : null}
+          teamPending={!!homeTeam.teamId && homeTeam.status !== 'error'}
+        />
       </div>
     </div>
   );
