@@ -1,9 +1,7 @@
-// Home screen (with the prediction-accuracy panel) and the Team ID form.
+// The prediction-accuracy panel (shown on the welcome page) and the Team ID form.
 import { useEffect, useState } from 'react';
-import { ArrowRight, Bookmark, Camera, ChevronLeft, Download, Hash, History, Trophy, Wand2 } from 'lucide-react';
+import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { fmtPts } from '../lib/format.js';
-import { SQUAD_BUDGET } from '../lib/predictions.js';
-import { useInstallPrompt } from '../lib/pwa.js';
 
 // "How accurate were we?" — last gameweek's predictions against what
 // players actually scored (api/accuracy.js). Hidden until there's data.
@@ -30,99 +28,6 @@ export function AccuracyPanel() {
         Compared across {data.playersCompared} players who played, using predictions saved before the deadline.
       </p>
     </section>
-  );
-}
-
-// Shown only where the browser can install the site as an app (Chrome on
-// Android and desktop) and it isn't installed yet.
-function InstallAppButton() {
-  const install = useInstallPrompt();
-  if (!install) return null;
-  return (
-    <>
-      <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '28px 0 10px', color: 'var(--ink-dim)' }}>Use it like an app</div>
-      <button className="fpl-btn" onClick={install} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-        <Download size={22} />
-        <span>
-          <span className="fpl-option-title">Install the app</span>
-          <span className="fpl-mono fpl-option-sub">Adds it to your home screen, opens full screen</span>
-        </span>
-      </button>
-    </>
-  );
-}
-
-export function IntroScreen({ onChoose, showHindsight, showMyTeams }) {
-  return (
-    <div className="fpl-screen">
-      <h1 className="fpl-display" style={{ fontSize: '1.6rem', fontWeight: 700, lineHeight: 1.2, marginBottom: 10 }}>
-        Check your squad.<br />Predict your points.
-      </h1>
-      <p style={{ color: 'var(--ink-dim)', fontSize: '0.92rem', marginBottom: 24, lineHeight: 1.5 }}>
-        Live player data, predicted points per player, and transfer suggestions — pulled straight from the FPL servers.
-      </p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <button className="fpl-btn fpl-btn-solid" onClick={() => onChoose('id')} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Hash size={22} />
-          <span>
-            <span className="fpl-option-title">Enter Team ID</span>
-            <span className="fpl-mono fpl-option-sub">Exact data, straight from the FPL API</span>
-          </span>
-        </button>
-        <button className="fpl-btn" onClick={() => onChoose('screenshot')} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Camera size={22} />
-          <span>
-            <span className="fpl-option-title">Upload a screenshot</span>
-            <span className="fpl-mono fpl-option-sub">We read the players and work out their prices</span>
-          </span>
-        </button>
-        <button className="fpl-btn" onClick={() => onChoose('build')} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Trophy size={22} />
-          <span>
-            <span className="fpl-option-title">Build the best squad</span>
-            <span className="fpl-mono fpl-option-sub">Optimal 15 within £{SQUAD_BUDGET.toFixed(1)}m, not your team</span>
-          </span>
-        </button>
-      </div>
-
-      <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '28px 0 10px', color: 'var(--ink-dim)' }}>Or build it yourself</div>
-      <button className="fpl-btn" onClick={() => onChoose('custom')} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-        <Wand2 size={22} />
-        <span>
-          <span className="fpl-option-title">Pick your own squad</span>
-          <span className="fpl-mono fpl-option-sub">Choose every player, formation & captain, preview chips</span>
-        </span>
-      </button>
-
-      {showMyTeams && (
-        <>
-          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '28px 0 10px', color: 'var(--ink-dim)' }}>Or use a saved team</div>
-          <button className="fpl-btn" onClick={() => onChoose('myTeams')} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-            <Bookmark size={22} />
-            <span>
-              <span className="fpl-option-title">My Teams</span>
-              <span className="fpl-mono fpl-option-sub">Load a Team ID or squad you've saved to your account</span>
-            </span>
-          </button>
-        </>
-      )}
-
-      {showHindsight && (
-        <>
-          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '28px 0 10px', color: 'var(--ink-dim)' }}>Or look back</div>
-          <button className="fpl-btn" onClick={() => onChoose('hindsight')} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-            <History size={22} />
-            <span>
-              <span className="fpl-option-title">Best XI: last gameweek</span>
-              <span className="fpl-mono fpl-option-sub">What was predicted vs. what would've actually scored best</span>
-            </span>
-          </button>
-        </>
-      )}
-      <InstallAppButton />
-      <AccuracyPanel />
-    </div>
   );
 }
 
