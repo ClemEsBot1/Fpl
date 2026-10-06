@@ -530,6 +530,12 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           {bankTenths !== null && bankTenths !== undefined && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
           )}
+          {isPastGw && data.entryHistory && (
+            <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--lime)', marginTop: 2, fontWeight: 600 }}>
+              Scored {data.entryHistory.points} pts{data.entryHistory.event_transfers_cost ? ` (−${data.entryHistory.event_transfers_cost} hit)` : ''}
+              {data.entryHistory.rank ? ` · GW rank ${data.entryHistory.rank.toLocaleString('en-GB')}` : ''}
+            </div>
+          )}
           {data.asOfGwId && (
             <div className="fpl-mono fpl-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
               Predictions use only data from before this gameweek's deadline. Prices and set-piece takers are today's.
