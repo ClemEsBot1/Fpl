@@ -4,8 +4,8 @@ import { AlertTriangle, ArrowRight, Bookmark, Loader2, RotateCcw, Trash2, X } fr
 
 /* ----------------------------------------------------------------------------
    ACCOUNTS: LOGIN / REGISTER + SAVED TEAMS
-   Username + password, with an optional email (stored only — logins are
-   still by username). Matches this app's low-stakes, convenience-only use
+   Username + password, with an optional email (used for password resets,
+   and to log in in place of the username). Matches this app's low-stakes, convenience-only use
    case (saving a team ID / squad, nothing sensitive).
 ---------------------------------------------------------------------------- */
 const labelStyle = { display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' };
@@ -137,7 +137,7 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
 
           {(mode === 'login' || mode === 'register') && (
             <>
-              <label htmlFor="auth-username" className="fpl-mono" style={labelStyle}>USERNAME</label>
+              <label htmlFor="auth-username" className="fpl-mono" style={labelStyle}>{mode === 'login' ? 'USERNAME OR EMAIL' : 'USERNAME'}</label>
               <input
                 id="auth-username"
                 className="fpl-mono"

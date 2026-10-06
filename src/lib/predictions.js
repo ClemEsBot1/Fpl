@@ -380,6 +380,11 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       chanceNext: e.chance_of_playing_next_round,
       news: e.news,
       selectedBy: parseFloat(e.selected_by_percent) || 0,
+      // This gameweek's transfers and price move so far (for the home
+      // screen's transfer trends).
+      transfersInEvent: Number(e.transfers_in_event) || 0,
+      transfersOutEvent: Number(e.transfers_out_event) || 0,
+      costChangeEvent: Number(e.cost_change_event) || 0,
       penaltiesOrder: e.penalties_order === null || e.penalties_order === undefined ? null : Number(e.penalties_order),
       directFreekicksOrder: e.direct_freekicks_order === null || e.direct_freekicks_order === undefined ? null : Number(e.direct_freekicks_order),
       cornersOrder: e.corners_and_indirect_freekicks_order === null || e.corners_and_indirect_freekicks_order === undefined ? null : Number(e.corners_and_indirect_freekicks_order),
@@ -459,6 +464,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   return {
     teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById,
     seasonId: seasonIdFor(bootstrap.events),
+    totalPlayers: Number(bootstrap.total_players) || 0,
   };
 }
 

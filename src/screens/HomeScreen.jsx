@@ -1,10 +1,12 @@
-// Home: a summary of your own team for the coming deadline, then the
-// fixture ticker. Everything else is in the menu (sidebar on a computer,
+// Home: a summary of your own team for the coming deadline and the
+// fixture ticker, with transfer trends beside them (below on a phone).
+// Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
 import { useState } from 'react';
 import { ArrowRight, CalendarRange, RotateCcw, Shirt, TriangleAlert } from 'lucide-react';
 import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
+import { TransferTrends } from '../components/TransferTrends.jsx';
 
 function ScoreRing({ score }) {
   return (
@@ -185,8 +187,13 @@ export function HomeScreen({ staticData, homeTeam, onCheckTeam, onOpenTeam, onCh
         <h1 className="fpl-display">{target ? target.name : 'Home'}</h1>
         {target && <span className="fpl-mono fpl-home-deadline">{formatCountdown(target.deadline_time)}</span>}
       </div>
-      <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
-      <FixtureTicker staticData={staticData} />
+      <div className="fpl-home-layout">
+        <div className="fpl-home-main">
+          <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
+          <FixtureTicker staticData={staticData} />
+        </div>
+        <TransferTrends staticData={staticData} />
+      </div>
     </div>
   );
 }
