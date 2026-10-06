@@ -92,6 +92,9 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
             )}
             <div className="fpl-home-ring-wrap"><ScoreRing score={squadScore} /><span>Squad<br />score</span></div>
           </div>
+          {entryMeta.savedChanges && (
+            <p className="fpl-home-hint">Showing the changes saved to your account, not your team on FPL.</p>
+          )}
           {entryMeta.picksFromGwId && (
             <p className="fpl-home-hint">Using your Gameweek {entryMeta.picksFromGwId} squad: this week's picks stay hidden until the deadline.</p>
           )}
