@@ -54,6 +54,15 @@ test('an account locks after too many wrong passwords, even with the right one',
   assert.equal(blocked.status, 429, 'usernames are case-insensitive, so the limit is too');
 });
 
+test('logging in works with the account email as well as the username', async () => {
+  await call(redis, { action: 'register', username: 'mailer', password: 'correct-horse', email: 'Mailer@Example.com' }, '198.51.100.10');
+  const r = await call(redis, { action: 'login', username: ' mailer@example.COM ', password: 'correct-horse' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.username, 'mailer');
+  assert.equal((await call(redis, { action: 'login', username: 'mailer@example.com', password: 'wrong' })).status, 401);
+  assert.equal((await call(redis, { action: 'login', username: 'nobody@example.com', password: 'correct-horse' })).status, 401);
+});
+
 test('a successful login clears earlier failures', async () => {
   for (let i = 0; i < MAX_FAILED_LOGINS_PER_USER - 1; i++) await call(redis, { action: 'login', username: 'clem', password: 'wrong' });
   assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' })).status, 200);

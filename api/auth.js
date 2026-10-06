@@ -37,7 +37,7 @@ const NO_ACCOUNT = 'No account found with that username or email.';
 const NO_EMAIL = "That account doesn't have an email address, so its password can't be reset by email.";
 const RESET_INVALID = 'This reset link is invalid or has expired. Ask for a new one.';
 const TOO_MANY = 'Too many attempts. Please wait 15 minutes and try again.';
-const BAD_LOGIN = 'Incorrect username or password.';
+const BAD_LOGIN = 'Incorrect username, email or password.';
 const LOG_IN_AGAIN = 'Please log in again.';
 
 // "clem@example.com" -> "c***@example.com": enough for someone to recognise
@@ -193,10 +193,10 @@ export default async function handler(req, res, redisOverride, mailOverride) {
   if (action === 'login') {
     const { password } = body;
     if (typeof body.username !== 'string' || typeof password !== 'string') {
-      res.status(400).json({ error: 'Username and password are required.' });
+      res.status(400).json({ error: 'Username or email and password are required.' });
       return;
     }
-    const username = body.username.trim();
+    const identifier = body.username.trim();
     const ipLimitKey = `ratelimit:login:ip:${clientIp(req)}`;
     try {
       // The network is checked first: once it's blocked, its guesses don't
@@ -205,10 +205,16 @@ export default async function handler(req, res, redisOverride, mailOverride) {
         res.status(429).json({ error: TOO_MANY });
         return;
       }
-      // A name no account could have can't match; it only counts against
-      // the network, which also stops huge made-up "usernames" becoming
-      // Redis keys.
-      if (!validateUsername(username).ok) {
+      // Either a username or the account's email. An email is swapped for
+      // the username that owns it. A name no account could have can't
+      // match; it only counts against the network, which also stops huge
+      // made-up "usernames" becoming Redis keys.
+      let username = identifier;
+      if (identifier.includes('@')) {
+        const email = normalizeEmail(identifier);
+        username = email.ok && email.email ? await redis.get(emailKeyFor(email.email)) : null;
+      }
+      if (!username || !validateUsername(username).ok) {
         res.status(401).json({ error: BAD_LOGIN });
         return;
       }

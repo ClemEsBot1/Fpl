@@ -1,10 +1,12 @@
-// Home: a summary of your own team for the coming deadline, then the
-// fixture ticker. Everything else is in the menu (sidebar on a computer,
+// Home: a summary of your own team for the coming deadline and the
+// fixture ticker, with transfer trends beside them (below on a phone).
+// Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
 import { useState } from 'react';
 import { ArrowRight, CalendarRange, RotateCcw, Shirt, TriangleAlert } from 'lucide-react';
-import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown } from '../lib/format.js';
+import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
+import { TransferTrends } from '../components/TransferTrends.jsx';
 
 function ScoreRing({ score }) {
   return (
@@ -65,10 +67,14 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
     );
   }
 
-  const { entryMeta, xiTotal, squadScore, starters, suggestions, bankTenths, entry } = data;
-  const top = [...starters].sort((a, b) => b.predicted - a.predicted).slice(0, 4);
+  const { entryMeta, xiTotal, squadScore, starters, suggestions, bankTenths, entry, isPastGw, gwId, entryHistory } = data;
+  // A gameweek that has started is about what each player scored; the
+  // upcoming one about what they're predicted to.
+  const shown = s => (isPastGw ? (s.actualPoints || 0) * (s.multiplier || 1) : s.predicted);
+  const top = [...starters].sort((a, b) => shown(b) - shown(a)).slice(0, 4);
   const worries = starters.filter(s => s.availNote).slice(0, 3);
   const best = suggestions && suggestions[0];
+  const gwPoints = isPastGw ? officialGwPoints(data) : null;
 
   return (
     <section className="fpl-glass fpl-home-card fpl-home-team" aria-labelledby="your-gw">
@@ -79,7 +85,11 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
       <div className="fpl-home-team-grid">
         <div className="fpl-home-col">
           <div className="fpl-home-stat-row">
-            <div className="fpl-home-stat">{fmtPts(xiTotal)}<small>predicted XI points</small></div>
+            {isPastGw ? (
+              <div className="fpl-home-stat">{gwPoints ?? '–'}<small>points in GW{gwId} · predicted {fmtPts(xiTotal)}</small></div>
+            ) : (
+              <div className="fpl-home-stat">{fmtPts(xiTotal)}<small>predicted XI points</small></div>
+            )}
             <div className="fpl-home-ring-wrap"><ScoreRing score={squadScore} /><span>Squad<br />score</span></div>
           </div>
           {entryMeta.picksFromGwId && (
@@ -90,7 +100,7 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
               <div key={s.player.id} className="fpl-home-player">
                 <span className="fpl-row-pos">{['', 'GKP', 'DEF', 'MID', 'FWD'][s.player.positionId]}</span>
                 <span className="fpl-home-player-name">{s.player.webName}{s.isCaptain && <span className="fpl-armband">C</span>}{s.isViceCaptain && <span className="fpl-armband fpl-armband-vc">V</span>}</span>
-                <span className="fpl-home-player-pts">{fmtPts(s.predicted)}</span>
+                <span className="fpl-home-player-pts">{isPastGw ? shown(s) : fmtPts(s.predicted)}</span>
               </div>
             ))}
           </div>
@@ -105,29 +115,41 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
             )) : <p className="fpl-home-hint">No injury or suspension worries in your starting XI.</p>}
           </div>
           <div>
-            <h3 className="fpl-home-sub"><ArrowRight size={15} aria-hidden="true" /> Best transfer</h3>
-            {best ? (
+            <h3 className="fpl-home-sub"><ArrowRight size={15} aria-hidden="true" /> {isPastGw ? 'Transfers' : 'Best transfer'}</h3>
+            {isPastGw ? (
+              <p className="fpl-home-hint">{entryHistory && entryHistory.event_transfers
+                ? `${entryHistory.event_transfers} transfer${entryHistory.event_transfers === 1 ? '' : 's'} made this gameweek${entryHistory.event_transfers_cost ? ` (−${entryHistory.event_transfers_cost} hit)` : ''}.`
+                : 'Transfers are only suggested for the upcoming gameweek.'}</p>
+            ) : best ? (
               <p className="fpl-home-transfer">
                 <span><b>{best.out.player.webName}</b> out, <b>{best.inPlayer.webName}</b> in</span>
                 <span className="fpl-mono">+{fmtPts(best.gain)} pts · {best.costDelta >= 0 ? '+' : '−'}{fmtPrice(Math.abs(best.costDelta))}</span>
               </p>
             ) : <p className="fpl-home-hint">No transfer clearly beats your current XI.</p>}
           </div>
-          <div className="fpl-home-facts">
-            <div><b>{fmtPrice((bankTenths || 0) / 10)}</b><span>in the bank</span></div>
-            {entry && entry.summary_overall_rank ? <div><b>{entry.summary_overall_rank.toLocaleString('en-GB')}</b><span>overall rank</span></div> : null}
-            {entry && entry.current_event ? <div><b>{entry.summary_event_points ?? '–'}</b><span>points in GW{entry.current_event}</span></div> : null}
-          </div>
+          {isPastGw ? (
+            <div className="fpl-home-facts">
+              <div><b>{fmtPrice((bankTenths || 0) / 10)}</b><span>in the bank</span></div>
+              {entryHistory && entryHistory.rank ? <div><b>{entryHistory.rank.toLocaleString('en-GB')}</b><span>GW{gwId} rank</span></div> : null}
+              {entryHistory && entryHistory.overall_rank ? <div><b>{entryHistory.overall_rank.toLocaleString('en-GB')}</b><span>overall rank after</span></div> : null}
+            </div>
+          ) : (
+            <div className="fpl-home-facts">
+              <div><b>{fmtPrice((bankTenths || 0) / 10)}</b><span>in the bank</span></div>
+              {entry && entry.summary_overall_rank ? <div><b>{entry.summary_overall_rank.toLocaleString('en-GB')}</b><span>overall rank</span></div> : null}
+              {entry && entry.current_event ? <div><b>{entry.summary_event_points ?? '–'}</b><span>points in GW{entry.current_event}</span></div> : null}
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
 }
 
-function FixtureTicker({ staticData }) {
+function FixtureTicker({ staticData, fromGw }) {
   const [showAll, setShowAll] = useState(false);
-  if (!staticData || !staticData.targetEvent) return null;
-  const { gws, rows } = buildFixtureTicker(staticData.fixturesByTeam, staticData.teamsById, staticData.targetEvent.id);
+  if (!staticData || !fromGw) return null;
+  const { gws, rows } = buildFixtureTicker(staticData.fixturesByTeam, staticData.teamsById, fromGw);
   if (!gws.length) return null;
   const shown = showAll ? rows : rows.slice(0, 8);
   return (
@@ -177,16 +199,37 @@ function FixtureTicker({ staticData }) {
   );
 }
 
-export function HomeScreen({ staticData, homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetryTeam }) {
+export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetryTeam }) {
   const target = staticData && staticData.targetEvent;
+  // Everything on Home is for the gameweek picked in the header.
+  const event = (staticData && staticData.allEvents.find(e => e.id === selectedGw)) || target;
+  const isPast = !!(event && target && event.id < target.id);
   return (
     <div className="fpl-home">
       <div className="fpl-home-top">
-        <h1 className="fpl-display">{target ? target.name : 'Home'}</h1>
-        {target && <span className="fpl-mono fpl-home-deadline">{formatCountdown(target.deadline_time)}</span>}
+        <h1 className="fpl-display">{event ? event.name : 'Home'}</h1>
+        {event && (
+          <span className="fpl-mono fpl-home-deadline">
+            {isPast ? (event.finished ? 'Finished' : 'In progress') : formatCountdown(event.deadline_time)}
+          </span>
+        )}
       </div>
-      <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
-      <FixtureTicker staticData={staticData} />
+      <div className="fpl-home-layout">
+        <div className="fpl-home-main">
+          <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
+          <FixtureTicker staticData={staticData} fromGw={event && event.id} />
+        </div>
+        {/* Keyed by gameweek so a new one starts on its first panel. */}
+        <TransferTrends
+          key={event ? event.id : 0}
+          staticData={staticData}
+          event={event}
+          isPast={isPast}
+          live={live}
+          team={homeTeam.status === 'ready' && homeTeam.data && event && homeTeam.data.gwId === event.id ? homeTeam.data : null}
+          teamPending={!!homeTeam.teamId && homeTeam.status !== 'error'}
+        />
+      </div>
     </div>
   );
 }

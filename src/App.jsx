@@ -4,7 +4,7 @@
 import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
-import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC } from './lib/format.js';
+import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
@@ -115,6 +115,19 @@ function readHomeTeamId() {
   try { return localStorage.getItem(HOME_TEAM_KEY) || null; } catch { return null; }
 }
 
+// The gameweek picked in the header is kept in the address (?gw=7), so a
+// reload or a shared link opens on the same gameweek.
+function readGwParam() {
+  const gw = Number(new URLSearchParams(window.location.search).get('gw'));
+  return Number.isInteger(gw) && gw >= 1 && gw <= 38 ? gw : null;
+}
+function writeGwParam(gw) {
+  const params = new URLSearchParams(window.location.search);
+  if (gw) params.set('gw', String(gw)); else params.delete('gw');
+  const query = params.toString();
+  window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+}
+
 // What went wrong loading a team, in words (codes thrown by loadTeamForGw).
 function teamErrorMessage(e) {
   const messages = {
@@ -146,7 +159,7 @@ export default function FPLSquadChecker() {
   const [reviewBank, setReviewBank] = useState(null);
   const [pendingStaticData, setPendingStaticData] = useState(null);
   const [resultsData, setResultsData] = useState(null);
-  const [selectedGw, setSelectedGw] = useState(null); // null = use current/next gameweek
+  const [selectedGw, setSelectedGw] = useState(readGwParam); // null = use current/next gameweek
   const [gwOptions, setGwOptions] = useState([]);
   const [customStaticData, setCustomStaticData] = useState(null);
   const [hindsightData, setHindsightData] = useState(null);
@@ -483,8 +496,10 @@ export default function FPLSquadChecker() {
     setLiveStatic(data);
     setGwOptions(data.allEvents.filter(e => isEventLocked(e) || (data.targetEvent && e.id === data.targetEvent.id)));
     if (data.targetEvent) {
-      // Follow the target forward if it was what was selected.
-      setSelectedGw(prev => (prev === null || prev === previousTargetId ? data.targetEvent.id : prev));
+      // Follow the target forward if it was what was selected. A gameweek
+      // from the address that can't be picked falls back to the target.
+      const pickable = id => data.allEvents.some(e => e.id === id && (isEventLocked(e) || e.id === data.targetEvent.id));
+      setSelectedGw(prev => (prev === null || prev === previousTargetId || !pickable(prev) ? data.targetEvent.id : prev));
     }
   }
 
@@ -605,8 +620,16 @@ export default function FPLSquadChecker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGw, stage, resultsData]);
 
+  // Look back follows the gameweek menu too, for gameweeks that have closed.
+  useEffect(() => {
+    if (stage !== 'hindsight' || !hindsightData || !selectedGw || hindsightData.gwId === selectedGw) return;
+    const base = staticDataRef.current;
+    if (base && selectedGw < currentGwId(base)) handleViewHindsight();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGw, stage, hindsightData]);
+
   function buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, extra = {}) {
-    const { isPastGw = false, nextRefreshAt = null, builtAt = null, gwUnavailable = false, gwId = null, backfilled = false } = extra;
+    const { isPastGw = false, nextRefreshAt = null, builtAt = null, gwUnavailable = false, gwId = null, backfilled = false, entryHistory = null } = extra;
     const starters = squad.filter(s => s.isStarting);
     const bench = squad.filter(s => !s.isStarting);
 
@@ -627,7 +650,7 @@ export default function FPLSquadChecker() {
     return {
       squad, starters, bench, xiTotal, actualXiTotal: isPastGw ? actualXiTotal : null, captain, captainSuggestion, suggestions,
       entryMeta, bankTenths, activeChip, isOptimalBuild,
-      isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled,
+      isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled, entryHistory,
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
       allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById,
@@ -649,7 +672,7 @@ export default function FPLSquadChecker() {
     setResultsData(prev => {
       if (!prev || !currentStaticDataRef.current) return prev;
       return buildResultsData(newSquad, currentStaticDataRef.current, newBankTenths, prev.entryMeta, prev.activeChip, prev.isOptimalBuild, {
-        isPastGw: prev.isPastGw, nextRefreshAt: prev.nextRefreshAt, builtAt: prev.builtAt, gwId: prev.gwId, backfilled: prev.backfilled,
+        isPastGw: prev.isPastGw, nextRefreshAt: prev.nextRefreshAt, builtAt: prev.builtAt, gwId: prev.gwId, backfilled: prev.backfilled, entryHistory: prev.entryHistory,
       });
     });
   }
@@ -795,7 +818,10 @@ export default function FPLSquadChecker() {
       // Last CLOSED gameweek: the most recent one whose deadline has
       // passed, i.e. one before whatever's currently open for transfers.
       const closed = (staticData.allEvents || []).filter(e => isEventLocked(e) && e.id < targetId);
-      const lastClosed = closed.length ? closed.reduce((a, b) => (b.id > a.id ? b : a)) : null;
+      // The gameweek picked in the header, when it's one that has closed;
+      // otherwise the latest that has.
+      const lastClosed = closed.find(e => e.id === selectedGw)
+        || (closed.length ? closed.reduce((a, b) => (b.id > a.id ? b : a)) : null);
 
       if (!lastClosed) {
         setHindsightData({ gwUnavailable: true, gwId: null, gwName: null });
@@ -994,6 +1020,9 @@ export default function FPLSquadChecker() {
 
     return {
       squad, gwStatic, entry, entryMeta, isPastGwView,
+      // FPL's own record of the week (points, hit, ranks), for a gameweek
+      // whose picks are its own.
+      entryHistory: borrowed ? null : (picks.entry_history || null),
       bankTenths: picks.entry_history ? picks.entry_history.bank : 0,
       // A chip played in an earlier gameweek doesn't carry over.
       activeChip: borrowed ? null : (picks.active_chip || null),
@@ -1027,7 +1056,7 @@ export default function FPLSquadChecker() {
       if (!team) return;
       // The first team someone checks becomes the one Home shows.
       if (!homeTeam.teamId) rememberHomeTeam(teamId);
-      finalizeResults(ticket, team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId });
+      finalizeResults(ticket, team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId, entryHistory: team.entryHistory });
     } catch (e) {
       const code = (e && e.code) || 'ERR_UNKNOWN';
       const action = code === 'ERR_TEAM_NOT_STARTED' ? {
@@ -1064,10 +1093,10 @@ export default function FPLSquadChecker() {
       } catch {
         throw { code: 'ERR_STATIC_DATA' };
       }
-      const gwId = currentGwId(staticData);
+      const gwId = selectedGw || currentGwId(staticData);
       const team = await loadTeamForGw(teamId, gwId, staticData, { isStale });
       if (!team || isStale()) return;
-      const data = buildResultsData(team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { gwId });
+      const data = buildResultsData(team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId, entryHistory: team.entryHistory });
       setHomeTeam({ teamId, status: 'ready', data: { ...data, entry: team.entry }, error: null, loadedAt: Date.now(), staticData: team.gwStatic });
     } catch (e) {
       if (!isStale()) setHomeTeam({ teamId, status: 'error', data: null, error: teamErrorMessage(e) });
@@ -1077,24 +1106,50 @@ export default function FPLSquadChecker() {
   // Shows the summary's squad as full results, without loading it again.
   function openHomeTeam() {
     if (homeTeam.status !== 'ready') { handleTeamIdSubmit(homeTeam.teamId); return; }
-    const targetId = currentGwId(homeTeam.staticData);
-    if (selectedGw && selectedGw !== targetId) { handleTeamIdSubmit(homeTeam.teamId); return; }
+    if (selectedGw && selectedGw !== homeTeam.data.gwId) { handleTeamIdSubmit(homeTeam.teamId); return; }
     newTicket();
     currentStaticDataRef.current = homeTeam.staticData;
     setResultsData(homeTeam.data);
     setStageRaw('results');
   }
 
-  // Load the summary when Home is shown and it's missing, for an earlier
-  // gameweek, or more than ten minutes old.
+  // Load the summary when Home is shown and it's missing, for another
+  // gameweek than the one picked, or more than ten minutes old. Picking a
+  // gameweek also retries after an error.
+  const homeGwRef = useRef(selectedGw);
   useEffect(() => {
-    if (stage !== 'home' || !homeTeam.teamId || homeTeam.status === 'loading' || homeTeam.status === 'error') return;
-    const target = staticDataRef.current ? currentGwId(staticDataRef.current) : null;
+    const gwChanged = homeGwRef.current !== selectedGw;
+    homeGwRef.current = selectedGw;
+    if (stage !== 'home' || !homeTeam.teamId || homeTeam.status === 'loading' || (homeTeam.status === 'error' && !gwChanged)) return;
+    const target = selectedGw || (staticDataRef.current ? currentGwId(staticDataRef.current) : null);
     const fresh = homeTeam.status === 'ready' && homeTeam.data && homeTeam.data.gwId === target
       && Date.now() - homeTeam.loadedAt < 10 * 60 * 1000;
     if (!fresh) loadHomeTeam(homeTeam.teamId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, homeTeam.teamId, homeTeam.status, gwOptions]);
+  }, [stage, homeTeam.teamId, homeTeam.status, gwOptions, selectedGw]);
+
+  // Keep the address in step with the gameweek picked: the upcoming one
+  // needs no ?gw, an earlier one is written in.
+  useEffect(() => {
+    const target = liveStatic && liveStatic.targetEvent ? liveStatic.targetEvent.id : null;
+    if (!target) return;
+    writeGwParam(selectedGw && selectedGw !== target ? selectedGw : null);
+  }, [selectedGw, liveStatic]);
+
+  // Points scored by every player in the picked gameweek, for Home's
+  // recap of a gameweek that has started.
+  const [homeLive, setHomeLive] = useState(null); // { gwId, liveById }
+  useEffect(() => {
+    const target = liveStatic && liveStatic.targetEvent ? liveStatic.targetEvent.id : null;
+    if (stage !== 'home' || !target || !selectedGw || selectedGw >= target) return undefined;
+    if (homeLive && homeLive.gwId === selectedGw) return undefined;
+    let cancelled = false;
+    liveForGw(selectedGw, isGwFinished(liveStatic, selectedGw)).then(liveById => {
+      if (!cancelled) setHomeLive({ gwId: selectedGw, liveById });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, selectedGw, liveStatic]);
 
   // Someone logged in without a team on this device: use their first
   // saved Team ID.
@@ -1257,13 +1312,17 @@ export default function FPLSquadChecker() {
   const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
   lastNavRef.current = activeNav;
 
-  const headerSummary = (stage === 'results' && resultsData && !resultsData.gwUnavailable) ? {
-    gwLabel: resultsData.isPastGw
-      ? ((resultsData.allEvents?.find(e => e.id === resultsData.gwId))?.name || '')
-      : (resultsData.targetEvent ? resultsData.targetEvent.name : ''),
-    countdown: resultsData.isPastGw ? '' : (resultsData.targetEvent ? formatCountdown(resultsData.targetEvent.deadline_time) : ''),
-    xiTotal: resultsData.xiTotal,
-    actualXiTotal: resultsData.isPastGw ? resultsData.actualXiTotal : null,
+  // The summary row under the header: the squad on the results screen, or
+  // on Home the remembered team for the picked gameweek.
+  const summaryData = stage === 'results' ? resultsData
+    : (stage === 'home' && homeTeam.status === 'ready' && homeTeam.data && homeTeam.data.gwId === (selectedGw || homeTeam.data.gwId) ? homeTeam.data : null);
+  const headerSummary = (summaryData && !summaryData.gwUnavailable) ? {
+    gwLabel: summaryData.isPastGw
+      ? ((summaryData.allEvents?.find(e => e.id === summaryData.gwId))?.name || '')
+      : (summaryData.targetEvent ? summaryData.targetEvent.name : ''),
+    countdown: summaryData.isPastGw ? '' : (summaryData.targetEvent ? formatCountdown(summaryData.targetEvent.deadline_time) : ''),
+    xiTotal: summaryData.xiTotal,
+    actualXiTotal: summaryData.isPastGw ? officialGwPoints(summaryData) : null,
   } : null;
 
   return (
@@ -1299,6 +1358,8 @@ export default function FPLSquadChecker() {
             {stage === 'home' && (
               <HomeScreen
                 staticData={liveStatic}
+                selectedGw={selectedGw}
+                live={homeLive && homeLive.gwId === selectedGw ? homeLive.liveById : null}
                 homeTeam={homeTeam}
                 onCheckTeam={id => { rememberHomeTeam(id); }}
                 onOpenTeam={openHomeTeam}

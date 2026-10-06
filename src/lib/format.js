@@ -159,3 +159,11 @@ export function formatCountdown(targetISO, opts = {}) {
   if (days > 0) return `${days}d ${hours}h ${suffix}`;
   return `${hours}h ${mins}m ${suffix}`;
 }
+
+// A team's points for a past gameweek: FPL's own figure when that week's
+// picks were loaded (entryHistory), otherwise the starters' live points
+// added up.
+export function officialGwPoints(data) {
+  const history = data && data.entryHistory;
+  return history && typeof history.points === 'number' ? history.points : (data ? data.actualXiTotal : null);
+}
