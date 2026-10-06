@@ -8,7 +8,11 @@ import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC } from 
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { IntroScreen, TeamIdForm } from './screens/IntroScreen.jsx';
+import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Wand2 } from 'lucide-react';
+import { FooterNav, SideNav } from './components/AppNav.jsx';
+import { useInstallPrompt } from './lib/pwa.js';
+import { HomeScreen } from './screens/HomeScreen.jsx';
+import { TeamIdForm } from './screens/IntroScreen.jsx';
 import './styles.css';
 
 // Everything but the home screen loads on demand, so the first visit only
@@ -48,7 +52,8 @@ const screenshotChunk = chunk(() => import('./screens/ScreenshotScreens.jsx'));
 const accountChunk = chunk(() => import('./screens/AccountScreens.jsx'));
 const builderChunk = chunk(() => import('./screens/CustomSquadBuilder.jsx'));
 const hindsightChunk = chunk(() => import('./screens/HindsightScreen.jsx'));
-const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk];
+const welcomeChunk = chunk(() => import('./screens/WelcomeScreen.jsx'));
+const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk];
 // For fetching a screen ahead of time; a failure shows up when it's opened.
 const preload = source => () => { source.load().catch(() => {}); };
 const loadResultsScreen = preload(resultsChunk);
@@ -60,6 +65,7 @@ const ScreenshotForm = lazyScreen(screenshotChunk, 'ScreenshotForm');
 const ReviewScreen = lazyScreen(screenshotChunk, 'ReviewScreen');
 const CustomSquadBuilder = lazyScreen(builderChunk, 'CustomSquadBuilder');
 const HindsightScreen = lazyScreen(hindsightChunk, 'HindsightScreen');
+const WelcomeScreen = lazyScreen(welcomeChunk, 'WelcomeScreen');
 const MyTeamsScreen = lazyScreen(accountChunk, 'MyTeamsScreen');
 const AuthDialog = lazyScreen(accountChunk, 'AuthDialog');
 
@@ -83,11 +89,52 @@ class ScreenErrorBoundary extends Component {
   }
 }
 
+// Which menu item a screen belongs to (null while loading or on an error,
+// which keep the previous one).
+function navSectionFor(stage, resultsData) {
+  switch (stage) {
+    case 'home': return 'home';
+    case 'welcome': return 'about';
+    case 'teamIdForm': return 'team';
+    case 'screenshotForm': case 'review': return 'screenshot';
+    case 'customBuild': return 'build';
+    case 'hindsight': return 'lookback';
+    case 'myTeams': return 'saved';
+    case 'results':
+      if (!resultsData) return null;
+      if (resultsData.isOptimalBuild) return 'best';
+      if (resultsData.entryMeta && resultsData.entryMeta.teamId) return 'team';
+      return null;
+    default: return null;
+  }
+}
+
+// Where the Team ID shown on Home is remembered.
+const HOME_TEAM_KEY = 'fpl_home_team_id';
+function readHomeTeamId() {
+  try { return localStorage.getItem(HOME_TEAM_KEY) || null; } catch { return null; }
+}
+
+// What went wrong loading a team, in words (codes thrown by loadTeamForGw).
+function teamErrorMessage(e) {
+  const messages = {
+    ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead.",
+    ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
+    ERR_GW_LOCKED: "FPL hasn't published any picks for this team yet (a new team's picks are hidden until its first deadline passes). Try again after the deadline, or upload a screenshot for now.",
+    ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
+    ERR_TEAM_NOT_STARTED: `This team started in Gameweek ${e && e.startedEvent}, so it has no squad for Gameweek ${e && e.gwId}.`,
+    ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
+  };
+  return messages[(e && e.code) || 'ERR_UNKNOWN'] || messages.ERR_UNKNOWN;
+}
+
 // How long live points for a gameweek that's still being played stay fresh.
 const LIVE_IN_PROGRESS_TTL_MS = 60_000;
 
 export default function FPLSquadChecker() {
-  const [stage, setStageRaw] = useState('intro');
+  // 'boot' until we know whether someone is logged in: the welcome page
+  // is for people who aren't, everyone else starts on Home.
+  const [stage, setStageRaw] = useState('boot');
   const [loadingMessage, setLoadingMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   // An optional way forward offered on the error screen: { label, run }.
@@ -106,6 +153,8 @@ export default function FPLSquadChecker() {
   const [hindsightCompare, setHindsightCompare] = useState(null); // { loading, entry, label, squad?, score?, error? }
   const [session, setSession] = useState(null); // { username, email } | null
   const [savedTeams, setSavedTeams] = useState([]);
+  // The team summarised on Home: { teamId, status: 'idle'|'loading'|'ready'|'error', data, error }.
+  const [homeTeam, setHomeTeam] = useState(() => ({ teamId: readHomeTeamId(), status: 'idle', data: null, error: null }));
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   // The log-in pop-up: null (closed), 'login' (log in / sign up), 'email'
@@ -118,6 +167,8 @@ export default function FPLSquadChecker() {
   // The most recently loaded static data (to tell when its gameweek has
   // closed and it needs loading again).
   const staticDataRef = useRef(null);
+  // The current static data, for screens that show it directly (Home).
+  const [liveStatic, setLiveStatic] = useState(null);
   // A reload of that data in progress (see ensureStaticData).
   const refreshPromiseRef = useRef(null);
   // The optimal XI's predicted total, per static-data set (the current one,
@@ -186,12 +237,21 @@ export default function FPLSquadChecker() {
   // includes the saved teams, so returning users skip the login screen
   // entirely on future visits (the session cookie is long-lived).
   useEffect(() => {
+    // Fetched while the account is checked, in case it's needed.
+    preload(welcomeChunk)();
+    const leaveBoot = next => setStageRaw(s => (s === 'boot' ? next : s));
+    // Don't hold the app up for long if the account check is slow.
+    const timer = setTimeout(() => leaveBoot('welcome'), 3000);
     (async () => {
+      let loggedIn = false;
       try {
         const res = await fetch('/api/auth', { credentials: 'include' });
-        if (res.ok) applyAccount(await res.json());
+        if (res.ok) { applyAccount(await res.json()); loggedIn = true; }
       } catch { /* not logged in / API unreachable — treat as logged out */ }
+      clearTimeout(timer);
+      leaveBoot(loggedIn ? 'home' : 'welcome');
     })();
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -264,6 +324,12 @@ export default function FPLSquadChecker() {
     if (!result.ok) { setAuthError(result.error); return; }
     applyAccount(result.data);
     setAuthDialog(null);
+    leaveWelcome();
+  }
+
+  // The welcome page is for people who aren't logged in.
+  function leaveWelcome() {
+    setStageRaw(s => (s === 'welcome' || s === 'boot' ? 'home' : s));
   }
 
   // Returns the "check your inbox" message on success, otherwise null.
@@ -285,6 +351,7 @@ export default function FPLSquadChecker() {
     applyAccount(result.data);
     setResetToken(null);
     setAuthDialog(null);
+    leaveWelcome();
   }
 
   async function handleSetEmail(email) {
@@ -305,6 +372,7 @@ export default function FPLSquadChecker() {
     await postJson('/api/auth', { action: 'logout' });
     setSession(null);
     setSavedTeams([]);
+    setStage('welcome');
   }
 
   async function handleSaveTeamId(teamId, label, gwId) {
@@ -412,6 +480,7 @@ export default function FPLSquadChecker() {
   // passed keep showing as "current" for days, since that FPL flag tracks
   // match-play status rather than transfer deadlines.
   function applyGameweekOptions(data, previousTargetId) {
+    setLiveStatic(data);
     setGwOptions(data.allEvents.filter(e => isEventLocked(e) || (data.targetEvent && e.id === data.targetEvent.id)));
     if (data.targetEvent) {
       // Follow the target forward if it was what was selected.
@@ -837,6 +906,100 @@ export default function FPLSquadChecker() {
     }
   }
 
+  // Loads a team's squad for `gwId`, scored with that gameweek's data.
+  // Shared by the Team ID results and the home screen's summary. Throws
+  // { code } (see TEAM_ERRORS); returns null if `isStale()` says the
+  // answer is no longer wanted.
+  async function loadTeamForGw(teamId, gwId, staticData, { isStale = () => false, onProgress = () => {} } = {}) {
+    const targetId = currentGwId(staticData);
+    const isPastGwView = gwId < targetId;
+    const hasPicks = p => p && !p.detail && Array.isArray(p.picks) && p.picks.length > 0;
+
+    // Everything that only depends on the gameweek starts straight away,
+    // alongside the team's own lookups.
+    const gwStaticPromise = isPastGwView ? staticDataForGw(gwId) : Promise.resolve(staticData);
+    const livePromise = isPastGwView ? liveForGw(gwId, isGwFinished(staticData, gwId)) : Promise.resolve({});
+    const settle = promise => promise.then(value => ({ value }), error => ({ error }));
+    const [picksResult, entryResult] = await Promise.all([
+      settle(fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`)),
+      settle(fetchFplJson(`entry/${teamId}/`)),
+    ]);
+    if (isStale()) return null;
+    const is404 = r => !!(r.error && r.error.message === 'status 404');
+
+    // A 404 for the picks means either a bad Team ID or picks FPL hides
+    // until the deadline passes — the entry lookup tells them apart.
+    if (picksResult.error && !is404(picksResult)) throw { code: 'ERR_PICKS_FETCH' };
+    let picks = picksResult.value || null;
+    const entry = entryResult.value && !entryResult.value.detail ? entryResult.value : null;
+    if (!hasPicks(picks)) {
+      if (is404(entryResult)) throw { code: 'ERR_TEAM_NOT_FOUND' };
+      // FPL couldn't be reached for the team itself: don't claim the ID
+      // is wrong.
+      if (entryResult.error) throw { code: 'ERR_PICKS_FETCH' };
+    }
+    if (entry && entry.started_event && gwId < entry.started_event) {
+      throw { code: 'ERR_TEAM_NOT_STARTED', startedEvent: entry.started_event, gwId };
+    }
+
+    const entryMeta = { teamId: Number(teamId), gwId };
+    if (entry) entryMeta.teamName = entry.name || 'Your Squad';
+
+    // FPL hides a team's picks for a gameweek until its deadline passes.
+    // Rather than give up, load the most recent gameweek we *can* see —
+    // the squad is the same unless they've made transfers since — and
+    // score it for the gameweek that was asked for. Only for the
+    // upcoming gameweek: a missing past gameweek means the team didn't
+    // exist yet, and borrowing a later squad there would be wrong.
+    let picksGwId = gwId;
+    if (!hasPicks(picks) && !isPastGwView && entry) {
+      onProgress("This gameweek's picks are hidden until the deadline — loading your latest team…");
+      const earliest = entry.started_event || 1;
+      let candidate = Math.min(gwId - 1, entry.current_event || gwId - 1);
+      // A few steps is plenty: one for the hidden gameweek, one more to
+      // skip a Free Hit week (that squad reverts afterwards).
+      for (let tries = 0; candidate >= earliest && tries < 4; tries++, candidate--) {
+        let prev = null;
+        try {
+          prev = await fetchFplJson(`entry/${teamId}/event/${candidate}/picks/`);
+        } catch { /* not visible either — keep walking back */ }
+        if (isStale()) return null;
+        if (!hasPicks(prev)) continue;
+        if (prev.active_chip === 'freehit') continue;
+        picks = prev;
+        picksGwId = candidate;
+        break;
+      }
+    }
+    if (!hasPicks(picks)) {
+      throw { code: entry ? 'ERR_GW_LOCKED' : 'ERR_TEAM_NOT_FOUND' };
+    }
+    const borrowed = picksGwId !== gwId;
+    if (borrowed) entryMeta.picksFromGwId = picksGwId;
+
+    onProgress(isPastGwView ? 'Rebuilding player data from before that deadline…' : 'Checking fixtures and working out predictions…');
+    const [gwStatic, liveById] = await Promise.all([gwStaticPromise, livePromise]);
+    if (isStale()) return null;
+
+    const rawSquad = scoreSlots(picks.picks.map(pk => ({
+      playerId: pk.element, isStarting: pk.position <= 11, isCaptain: !!pk.is_captain, isViceCaptain: !!pk.is_vice_captain,
+      // A borrowed week's chips (Triple Captain, Bench Boost) don't carry
+      // over, so its multipliers are reset to a normal week's.
+      multiplier: borrowed ? (pk.is_captain ? 2 : (pk.position <= 11 ? 1 : 0)) : pk.multiplier,
+    })), gwStatic, liveById, isPastGwView);
+    // Only meaningful once the gameweek is closed — automatic_subs is
+    // empty for a gameweek still in progress (there's nothing final to
+    // apply yet), so this is a no-op for the live/current-gw view.
+    const squad = isPastGwView ? applyAutomaticSubs(rawSquad, picks.automatic_subs, { finished: isGwFinished(staticData, gwId) }) : rawSquad;
+
+    return {
+      squad, gwStatic, entry, entryMeta, isPastGwView,
+      bankTenths: picks.entry_history ? picks.entry_history.bank : 0,
+      // A chip played in an earlier gameweek doesn't carry over.
+      activeChip: borrowed ? null : (picks.active_chip || null),
+    };
+  }
+
   // `gwOverride` loads that gameweek instead of the selected one.
   async function handleTeamIdSubmit(rawId, gwOverride) {
     const ticket = newTicket();
@@ -856,110 +1019,91 @@ export default function FPLSquadChecker() {
       }
       if (!isCurrent(ticket)) return;
       showLoading(ticket, 'Fetching your team…');
-      const targetId = currentGwId(staticData);
-      const gwId = gwOverride || selectedGw || targetId;
-      const isPastGwView = gwId < targetId;
-      const hasPicks = p => p && !p.detail && Array.isArray(p.picks) && p.picks.length > 0;
-
-      // Everything that only depends on the gameweek starts straight away,
-      // alongside the team's own lookups.
-      const gwStaticPromise = isPastGwView ? staticDataForGw(gwId) : Promise.resolve(staticData);
-      const livePromise = isPastGwView ? liveForGw(gwId, isGwFinished(staticData, gwId)) : Promise.resolve({});
-      const settle = promise => promise.then(value => ({ value }), error => ({ error }));
-      const [picksResult, entryResult] = await Promise.all([
-        settle(fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`)),
-        settle(fetchFplJson(`entry/${teamId}/`)),
-      ]);
-      if (!isCurrent(ticket)) return;
-      const is404 = r => !!(r.error && r.error.message === 'status 404');
-
-      // A 404 for the picks means either a bad Team ID or picks FPL hides
-      // until the deadline passes — the entry lookup tells them apart.
-      if (picksResult.error && !is404(picksResult)) throw { code: 'ERR_PICKS_FETCH' };
-      let picks = picksResult.value || null;
-      const entry = entryResult.value && !entryResult.value.detail ? entryResult.value : null;
-      if (!hasPicks(picks)) {
-        if (is404(entryResult)) throw { code: 'ERR_TEAM_NOT_FOUND' };
-        // FPL couldn't be reached for the team itself: don't claim the ID
-        // is wrong.
-        if (entryResult.error) throw { code: 'ERR_PICKS_FETCH' };
-      }
-      if (entry && entry.started_event && gwId < entry.started_event) {
-        throw { code: 'ERR_TEAM_NOT_STARTED', startedEvent: entry.started_event, gwId };
-      }
-
-      const entryMeta = { teamId: Number(teamId), gwId };
-      if (entry) entryMeta.teamName = entry.name || 'Your Squad';
-
-      // FPL hides a team's picks for a gameweek until its deadline passes.
-      // Rather than give up, load the most recent gameweek we *can* see —
-      // the squad is the same unless they've made transfers since — and
-      // score it for the gameweek that was asked for. Only for the
-      // upcoming gameweek: a missing past gameweek means the team didn't
-      // exist yet, and borrowing a later squad there would be wrong.
-      let picksGwId = gwId;
-      if (!hasPicks(picks) && !isPastGwView && entry) {
-        showLoading(ticket, "This gameweek's picks are hidden until the deadline — loading your latest team…");
-        const earliest = entry.started_event || 1;
-        let candidate = Math.min(gwId - 1, entry.current_event || gwId - 1);
-        // A few steps is plenty: one for the hidden gameweek, one more to
-        // skip a Free Hit week (that squad reverts afterwards).
-        for (let tries = 0; candidate >= earliest && tries < 4; tries++, candidate--) {
-          let prev = null;
-          try {
-            prev = await fetchFplJson(`entry/${teamId}/event/${candidate}/picks/`);
-          } catch { /* not visible either — keep walking back */ }
-          if (!isCurrent(ticket)) return;
-          if (!hasPicks(prev)) continue;
-          if (prev.active_chip === 'freehit') continue;
-          picks = prev;
-          picksGwId = candidate;
-          break;
-        }
-      }
-      if (!hasPicks(picks)) {
-        throw { code: entry ? 'ERR_GW_LOCKED' : 'ERR_TEAM_NOT_FOUND' };
-      }
-      const borrowed = picksGwId !== gwId;
-      if (borrowed) entryMeta.picksFromGwId = picksGwId;
-
-      showLoading(ticket, isPastGwView ? 'Rebuilding player data from before that deadline…' : 'Checking fixtures and working out predictions…');
-      const [gwStatic, liveById] = await Promise.all([gwStaticPromise, livePromise]);
-      if (!isCurrent(ticket)) return;
-
-      const rawSquad = scoreSlots(picks.picks.map(pk => ({
-        playerId: pk.element, isStarting: pk.position <= 11, isCaptain: !!pk.is_captain, isViceCaptain: !!pk.is_vice_captain,
-        // A borrowed week's chips (Triple Captain, Bench Boost) don't carry
-        // over, so its multipliers are reset to a normal week's.
-        multiplier: borrowed ? (pk.is_captain ? 2 : (pk.position <= 11 ? 1 : 0)) : pk.multiplier,
-      })), gwStatic, liveById, isPastGwView);
-      // Only meaningful once the gameweek is closed — automatic_subs is
-      // empty for a gameweek still in progress (there's nothing final to
-      // apply yet), so this is a no-op for the live/current-gw view.
-      const squad = isPastGwView ? applyAutomaticSubs(rawSquad, picks.automatic_subs, { finished: isGwFinished(staticData, gwId) }) : rawSquad;
-
-      const bankTenths = picks.entry_history ? picks.entry_history.bank : 0;
-      // A chip played in an earlier gameweek doesn't carry over.
-      const activeChip = borrowed ? null : (picks.active_chip || null);
-
-      finalizeResults(ticket, squad, gwStatic, bankTenths, entryMeta, activeChip, false, { isPastGw: isPastGwView, gwId });
+      const gwId = gwOverride || selectedGw || currentGwId(staticData);
+      const team = await loadTeamForGw(teamId, gwId, staticData, {
+        isStale: () => !isCurrent(ticket),
+        onProgress: message => showLoading(ticket, message),
+      });
+      if (!team) return;
+      // The first team someone checks becomes the one Home shows.
+      if (!homeTeam.teamId) rememberHomeTeam(teamId);
+      finalizeResults(ticket, team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId });
     } catch (e) {
       const code = (e && e.code) || 'ERR_UNKNOWN';
-      const messages = {
-        ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead.",
-        ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
-        ERR_GW_LOCKED: "FPL hasn't published any picks for this team yet (a new team's picks are hidden until its first deadline passes). Try again after the deadline, or upload a screenshot for now.",
-        ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
-        ERR_TEAM_NOT_STARTED: `This team started in Gameweek ${e && e.startedEvent}, so it has no squad for Gameweek ${e && e.gwId}.`,
-        ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
-      };
       const action = code === 'ERR_TEAM_NOT_STARTED' ? {
         label: `Show Gameweek ${e.startedEvent}`,
         run: () => { setSelectedGw(e.startedEvent); handleTeamIdSubmit(teamId, e.startedEvent); },
       } : null;
-      showError(ticket, `${messages[code] || messages.ERR_UNKNOWN} [${code}]`, action);
+      showError(ticket, `${teamErrorMessage(e)} [${code}]`, action);
     }
   }
+
+  /* ---------- Home: the remembered team's summary ---------- */
+
+  const homeTicketRef = useRef(0);
+  // The menu item to highlight while loading or on an error.
+  const lastNavRef = useRef('home');
+  function rememberHomeTeam(teamId) {
+    const id = teamId ? String(teamId) : null;
+    try {
+      if (id) localStorage.setItem(HOME_TEAM_KEY, id);
+      else localStorage.removeItem(HOME_TEAM_KEY);
+    } catch { /* storage unavailable: remembered for this visit only */ }
+    homeTicketRef.current += 1;
+    setHomeTeam({ teamId: id, status: 'idle', data: null, error: null });
+  }
+
+  async function loadHomeTeam(teamId) {
+    const ticket = ++homeTicketRef.current;
+    const isStale = () => ticket !== homeTicketRef.current;
+    setHomeTeam(h => ({ ...h, teamId, status: 'loading', error: null }));
+    try {
+      let staticData;
+      try {
+        staticData = await ensureStaticData();
+      } catch {
+        throw { code: 'ERR_STATIC_DATA' };
+      }
+      const gwId = currentGwId(staticData);
+      const team = await loadTeamForGw(teamId, gwId, staticData, { isStale });
+      if (!team || isStale()) return;
+      const data = buildResultsData(team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { gwId });
+      setHomeTeam({ teamId, status: 'ready', data: { ...data, entry: team.entry }, error: null, loadedAt: Date.now(), staticData: team.gwStatic });
+    } catch (e) {
+      if (!isStale()) setHomeTeam({ teamId, status: 'error', data: null, error: teamErrorMessage(e) });
+    }
+  }
+
+  // Shows the summary's squad as full results, without loading it again.
+  function openHomeTeam() {
+    if (homeTeam.status !== 'ready') { handleTeamIdSubmit(homeTeam.teamId); return; }
+    const targetId = currentGwId(homeTeam.staticData);
+    if (selectedGw && selectedGw !== targetId) { handleTeamIdSubmit(homeTeam.teamId); return; }
+    newTicket();
+    currentStaticDataRef.current = homeTeam.staticData;
+    setResultsData(homeTeam.data);
+    setStageRaw('results');
+  }
+
+  // Load the summary when Home is shown and it's missing, for an earlier
+  // gameweek, or more than ten minutes old.
+  useEffect(() => {
+    if (stage !== 'home' || !homeTeam.teamId || homeTeam.status === 'loading' || homeTeam.status === 'error') return;
+    const target = staticDataRef.current ? currentGwId(staticDataRef.current) : null;
+    const fresh = homeTeam.status === 'ready' && homeTeam.data && homeTeam.data.gwId === target
+      && Date.now() - homeTeam.loadedAt < 10 * 60 * 1000;
+    if (!fresh) loadHomeTeam(homeTeam.teamId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, homeTeam.teamId, homeTeam.status, gwOptions]);
+
+  // Someone logged in without a team on this device: use their first
+  // saved Team ID.
+  useEffect(() => {
+    if (homeTeam.teamId) return;
+    const saved = savedTeams.find(t => t.type === 'teamId' && t.teamId);
+    if (saved) rememberHomeTeam(saved.teamId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedTeams]);
 
   // Reads the screenshot with OCR in the browser (no server, no AI
   // service), finds FPL player names in the text, then hands off to the
@@ -1084,12 +1228,34 @@ export default function FPLSquadChecker() {
   }
 
   function goHome() {
-    setStage('intro');
+    setStage('home');
     setResultsData(null);
     setTeamIdInput('');
     setHindsightData(null);
     setHindsightCompare(null);
   }
+
+  // The menu (sidebar on a computer, footer on a phone). Hidden on the
+  // welcome page, which has its own Start button.
+  const install = useInstallPrompt();
+  const navItems = [
+    { id: 'home', label: 'Home', Icon: House, footer: true, run: () => setStage('home') },
+    {
+      id: 'team', label: 'My team', Icon: Shirt, footer: true,
+      run: () => (homeTeam.teamId ? handleTeamIdSubmit(homeTeam.teamId) : setStage('teamIdForm')),
+    },
+    { id: 'screenshot', label: 'Screenshot', Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
+    { id: 'best', label: 'Best squad', Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
+    { id: 'build', label: 'Build a squad', Icon: Wand2, run: handleStartCustomBuild },
+    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', Icon: History, run: handleViewHindsight }] : []),
+    { id: 'saved', label: 'Saved teams', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
+    { id: 'about', label: 'About this app', Icon: Info, run: () => setStage('welcome') },
+    ...(install ? [{ id: 'install', label: 'Install the app', Icon: Download, run: install }] : []),
+  ];
+  const showNav = stage !== 'welcome' && stage !== 'boot';
+  const wideStage = stage === 'home' || stage === 'welcome';
+  const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
+  lastNavRef.current = activeNav;
 
   const headerSummary = (stage === 'results' && resultsData && !resultsData.gwUnavailable) ? {
     gwLabel: resultsData.isPastGw
@@ -1101,33 +1267,43 @@ export default function FPLSquadChecker() {
   } : null;
 
   return (
-    <div className="fpl-root">
-      <Header
-        summary={headerSummary}
-        gwOptions={gwOptions}
-        selectedGw={selectedGw}
-        onSelectGw={setSelectedGw}
-        onGoHome={goHome}
-        session={session}
-        onLoginClick={() => openAuthDialog('login')}
-        onEmailClick={() => openAuthDialog('email')}
-        onMyTeamsClick={() => setStage('myTeams')}
-        onLogoutClick={handleLogout}
-      />
-      <main ref={mainRef} tabIndex={-1} className="fpl-main" style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div className={`fpl-root${showNav ? ' fpl-has-nav' : ''}`}>
+      {showNav && <SideNav items={navItems} active={activeNav} />}
+      <div className="fpl-page">
+      {showNav && (
+        <Header
+          summary={headerSummary}
+          gwOptions={gwOptions}
+          selectedGw={selectedGw}
+          onSelectGw={setSelectedGw}
+          onGoHome={goHome}
+          session={session}
+          onLoginClick={() => openAuthDialog('login')}
+          onEmailClick={() => openAuthDialog('email')}
+          onMyTeamsClick={() => setStage('myTeams')}
+          onLogoutClick={handleLogout}
+        />
+      )}
+      <main ref={mainRef} tabIndex={-1} className={`fpl-main${wideStage ? ' fpl-main-wide' : ''}`}>
         <ScreenErrorBoundary key={stage}>
           <Suspense fallback={<LoadingScreen />}>
-            {stage === 'intro' && (
-              <IntroScreen
-                showHindsight={gwOptions.some(e => isEventLocked(e))}
-                showMyTeams={!!session}
-                onChoose={(m) => {
-                  if (m === 'build') { loadOptimalSquadForGw(selectedGw); return; }
-                  if (m === 'custom') { handleStartCustomBuild(); return; }
-                  if (m === 'hindsight') { handleViewHindsight(); return; }
-                  if (m === 'myTeams') { setStage('myTeams'); return; }
-                  setStage(m === 'id' ? 'teamIdForm' : 'screenshotForm');
-                }}
+            {stage === 'boot' && <LoadingScreen />}
+            {stage === 'welcome' && (
+              <WelcomeScreen
+                loggedIn={!!session}
+                onStart={() => setStage('home')}
+                onSignUp={() => openAuthDialog('register')}
+                onLogIn={() => openAuthDialog('login')}
+              />
+            )}
+            {stage === 'home' && (
+              <HomeScreen
+                staticData={liveStatic}
+                homeTeam={homeTeam}
+                onCheckTeam={id => { rememberHomeTeam(id); }}
+                onOpenTeam={openHomeTeam}
+                onChangeTeam={() => rememberHomeTeam(null)}
+                onRetryTeam={() => loadHomeTeam(homeTeam.teamId)}
               />
             )}
             {stage === 'teamIdForm' && (
@@ -1135,14 +1311,14 @@ export default function FPLSquadChecker() {
                 value={teamIdInput}
                 onChange={setTeamIdInput}
                 onSubmit={() => handleTeamIdSubmit(teamIdInput)}
-                onBack={() => setStage('intro')}
+                onBack={() => setStage('home')}
               />
             )}
             {stage === 'screenshotForm' && (
-              <ScreenshotForm onSubmit={handleScreenshot} onBack={() => setStage('intro')} />
+              <ScreenshotForm onSubmit={handleScreenshot} onBack={() => setStage('home')} />
             )}
             {stage === 'customBuild' && customStaticData && (
-              <CustomSquadBuilder staticData={customStaticData} onSubmit={handleCustomSquadSubmit} onBack={() => setStage('intro')} />
+              <CustomSquadBuilder staticData={customStaticData} onSubmit={handleCustomSquadSubmit} onBack={() => setStage('home')} />
             )}
             {stage === 'loading' && <LoadingScreen message={loadingMessage} />}
             {stage === 'review' && (
@@ -1164,7 +1340,7 @@ export default function FPLSquadChecker() {
             {stage === 'results' && resultsData && (
               <ResultsScreen
                 data={resultsData}
-                onStartOver={() => { setStage('intro'); setResultsData(null); setTeamIdInput(''); }}
+                onStartOver={() => { setStage('home'); setResultsData(null); setTeamIdInput(''); }}
                 onSquadUpdate={handleSquadUpdate}
                 session={session}
                 onSaveTeamId={handleSaveTeamId}
@@ -1178,7 +1354,7 @@ export default function FPLSquadChecker() {
                 savedTeams={savedTeams}
                 compare={hindsightCompare}
                 onSelectCompare={handleCompareSavedInHindsight}
-                onBack={() => { setStage('intro'); setHindsightData(null); setHindsightCompare(null); }}
+                onBack={() => { setStage('home'); setHindsightData(null); setHindsightCompare(null); }}
               />
             )}
             {stage === 'myTeams' && (
@@ -1186,15 +1362,17 @@ export default function FPLSquadChecker() {
                 teams={savedTeams}
                 onLoad={handleLoadSavedTeam}
                 onDelete={handleDeleteSavedTeam}
-                onBack={() => setStage('intro')}
+                onBack={() => setStage('home')}
               />
             )}
             {stage === 'error' && (
-              <ErrorScreen message={errorMessage} action={errorAction} onRetry={() => setStage('intro')} />
+              <ErrorScreen message={errorMessage} action={errorAction} onRetry={() => setStage('home')} />
             )}
           </Suspense>
         </ScreenErrorBoundary>
       </main>
+      </div>
+      {showNav && <FooterNav items={navItems} active={activeNav} />}
       {authDialog && (
         <ScreenErrorBoundary key={authDialog} overlay>
           <Suspense fallback={null}>

@@ -1,7 +1,7 @@
 // Pieces shared across screens: header, loading/error states, player
 // search and fixture-difficulty chips.
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Bookmark, LogOut, Mail, Menu, RotateCcw, Search, User, X } from 'lucide-react';
+import { AlertTriangle, Bookmark, ChevronDown, LogOut, Mail, RotateCcw, Search, User } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
 
@@ -49,10 +49,10 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
   return (
     <header ref={headerRef} style={{ borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100, background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 10, height: 10, background: 'var(--lime)', borderRadius: 2, flexShrink: 0 }} />
+        <div className="fpl-header-brand" style={{ width: 10, height: 10, background: 'var(--lime)', borderRadius: 2, flexShrink: 0 }} />
         <button
           onClick={onGoHome}
-          className="fpl-display"
+          className="fpl-display fpl-header-brand"
           style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '0.02em', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontFamily: 'inherit' }}
         >
           SQUAD CHECK <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>· FPL</span>
@@ -93,11 +93,12 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
           {gwOptions && gwOptions.length > 0 && (
             <button
               onClick={() => toggle('gameweek')}
-              aria-label="Menu"
+              aria-label={`Gameweek ${selectedGw || ''}, change`}
               aria-expanded={menuOpen}
-              style={{ background: menuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              className="fpl-mono"
+              style={{ background: menuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', fontWeight: 600 }}
             >
-              {menuOpen ? <X size={16} /> : <Menu size={16} />}
+              GW{selectedGw || ''} <ChevronDown size={14} aria-hidden="true" style={{ transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
             </button>
           )}
         </div>
