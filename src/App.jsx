@@ -1239,18 +1239,18 @@ export default function FPLSquadChecker() {
   // welcome page, which has its own Start button.
   const install = useInstallPrompt();
   const navItems = [
-    { id: 'home', label: 'Home', Icon: House, footer: true, run: () => setStage('home') },
+    { id: 'home', label: 'Home', desc: 'Your gameweek and the fixture ticker', group: 'Your team', Icon: House, footer: true, run: () => setStage('home') },
     {
-      id: 'team', label: 'My team', Icon: Shirt, footer: true,
+      id: 'team', label: 'My team', desc: 'Every player in your squad, predicted', group: 'Your team', Icon: Shirt, footer: true,
       run: () => (homeTeam.teamId ? handleTeamIdSubmit(homeTeam.teamId) : setStage('teamIdForm')),
     },
-    { id: 'screenshot', label: 'Screenshot', Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
-    { id: 'best', label: 'Best squad', Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
-    { id: 'build', label: 'Build a squad', Icon: Wand2, run: handleStartCustomBuild },
-    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', Icon: History, run: handleViewHindsight }] : []),
-    { id: 'saved', label: 'Saved teams', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
-    { id: 'about', label: 'About this app', Icon: Info, run: () => setStage('welcome') },
-    ...(install ? [{ id: 'install', label: 'Install the app', Icon: Download, run: install }] : []),
+    { id: 'screenshot', label: 'Screenshot', desc: 'Read a squad from a screenshot', group: 'Your team', Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
+    { id: 'best', label: 'Best squad', desc: 'The top-predicted 15 for £100m', group: 'Tools', Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
+    { id: 'build', label: 'Build a squad', desc: 'Pick your own and preview chips', group: 'Tools', Icon: Wand2, run: handleStartCustomBuild },
+    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', desc: 'Past gameweeks against the best XI', group: 'Tools', Icon: History, run: handleViewHindsight }] : []),
+    { id: 'saved', label: 'Saved teams', desc: 'Team IDs and squads on your account', group: 'Tools', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
+    { id: 'about', label: 'About this app', desc: 'What it does and how it predicts', group: 'App', Icon: Info, run: () => setStage('welcome') },
+    ...(install ? [{ id: 'install', label: 'Install the app', desc: 'Open it full screen, like an app', group: 'App', Icon: Download, run: install }] : []),
   ];
   const showNav = stage !== 'welcome' && stage !== 'boot';
   const wideStage = stage === 'home' || stage === 'welcome';
@@ -1268,8 +1268,6 @@ export default function FPLSquadChecker() {
 
   return (
     <div className={`fpl-root${showNav ? ' fpl-has-nav' : ''}`}>
-      {showNav && <SideNav items={navItems} active={activeNav} />}
-      <div className="fpl-page">
       {showNav && (
         <Header
           summary={headerSummary}
@@ -1284,6 +1282,8 @@ export default function FPLSquadChecker() {
           onLogoutClick={handleLogout}
         />
       )}
+      <div className="fpl-shell">
+      {showNav && <SideNav items={navItems} active={activeNav} />}
       <main ref={mainRef} tabIndex={-1} className={`fpl-main${wideStage ? ' fpl-main-wide' : ''}`}>
         <ScreenErrorBoundary key={stage}>
           <Suspense fallback={<LoadingScreen />}>

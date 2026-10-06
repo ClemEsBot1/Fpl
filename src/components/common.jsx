@@ -46,6 +46,16 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
     };
   }, [openPanel]);
 
+  // The sidebar on a computer sits just under the header, which is taller
+  // on screens that show a summary row.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--fpl-header-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <header ref={headerRef} style={{ borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100, background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
       <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>

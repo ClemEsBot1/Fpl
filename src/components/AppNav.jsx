@@ -4,21 +4,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { Ellipsis } from 'lucide-react';
 
-// items: [{ id, label, Icon, run, footer }] — `footer` items get their own
-// button in the phone footer; the rest go under "More".
+// items: [{ id, label, desc, group, Icon, run, footer }] — the sidebar
+// shows them under their group with the description; `footer` items get
+// their own button in the phone footer and the rest go under "More".
 export function SideNav({ items, active }) {
+  const groups = [];
+  items.forEach(item => {
+    const last = groups[groups.length - 1];
+    if (last && last.name === item.group) last.items.push(item);
+    else groups.push({ name: item.group, items: [item] });
+  });
+  const idFor = name => `nav-${name.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <nav className="fpl-sidenav fpl-glass" aria-label="Menu">
-      <div className="fpl-sidenav-brand fpl-display">SQUAD CHECK <span>· FPL</span></div>
-      <ul>
-        {items.map(({ id, label, Icon, run }) => (
-          <li key={id}>
-            <button type="button" onClick={run} aria-current={active === id ? 'page' : undefined}>
-              <Icon size={18} aria-hidden="true" />{label}
-            </button>
-          </li>
-        ))}
-      </ul>
+    <nav className="fpl-sidenav" aria-label="Menu">
+      {groups.map(({ name, items: list }) => (
+        <section key={name} aria-labelledby={idFor(name)}>
+          <h2 id={idFor(name)} className="fpl-sidenav-group">{name}</h2>
+          <ul>
+            {list.map(({ id, label, desc, Icon, run }) => (
+              <li key={id}>
+                <button type="button" onClick={run} aria-current={active === id ? 'page' : undefined}>
+                  <Icon size={24} aria-hidden="true" />
+                  <span className="fpl-sidenav-label">{label}{desc && <small>{desc}</small>}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </nav>
   );
 }
