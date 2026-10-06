@@ -398,7 +398,7 @@ function GameweekUnavailable({ data, onStartOver }) {
   );
 }
 
-function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
+function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onSaveTeamChanges, onResetTeamChanges, onRequestLoginToSave }) {
   const { squad, starters, bench, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById, activeChip } = data;
   const [editMode, setEditMode] = useState(false);
   const [editSlotId, setEditSlotId] = useState(null);
@@ -813,6 +813,8 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           session={session}
           onSaveTeamId={onSaveTeamId}
           onSaveCustomSquad={onSaveCustomSquad}
+          onSaveTeamChanges={onSaveTeamChanges}
+          onResetTeamChanges={onResetTeamChanges}
           onRequestLoginToSave={onRequestLoginToSave}
         />
       )}
@@ -835,7 +837,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
 // whichever results view is showing — Team-ID lookup, custom build, or a
 // uploaded-screenshot squad. Shows one shared inline status line for
 // whichever button was last pressed.
-export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onRequestLoginToSave }) {
+export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad, onSaveTeamChanges, onResetTeamChanges, onRequestLoginToSave }) {
   const [status, setStatus] = useState(null); // { kind: 'saving'|'ok'|'error', message }
   const teamId = data.entryMeta && data.entryMeta.teamId;
   // Prefer the gameweek this squad/team was actually fetched/built for
@@ -851,11 +853,28 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
     setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
   }
 
+  // A Team ID's changes (transfers, armbands, the XI) saved to the account
+  // for this gameweek, so loading the Team ID shows them.
+  async function handleSaveChanges() {
+    setStatus({ kind: 'saving' });
+    const result = await onSaveTeamChanges(data, label.trim() || defaultLabel);
+    setStatus(result.ok ? { kind: 'ok', message: 'Changes saved. Loading this Team ID now shows them.' } : { kind: 'error', message: result.error || 'Could not save.' });
+  }
+
+  async function handleResetChanges() {
+    setStatus({ kind: 'saving' });
+    const result = await onResetTeamChanges(data);
+    if (!result.ok) setStatus({ kind: 'error', message: result.error || 'Could not reset.' });
+  }
+
   async function handleSaveSquad() {
     setStatus({ kind: 'saving' });
     const result = await onSaveCustomSquad(data.squad, label.trim() || defaultLabel, gwId, data.bankTenths);
     setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
   }
+
+  const canSaveChanges = !!teamId && !data.isPastGw;
+  const savedChanges = !!(data.entryMeta && data.entryMeta.savedChanges);
 
   if (!session) {
     return (
@@ -864,13 +883,34 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
         className="fpl-btn"
         style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
       >
-        <Bookmark size={16} /> Log in to save this team
+        <Bookmark size={16} /> {canSaveChanges && data.edited ? 'Log in to save your changes' : 'Log in to save this team'}
       </button>
     );
   }
 
   return (
     <div style={{ marginBottom: 10 }}>
+      {canSaveChanges && (savedChanges || data.edited) && (
+        <div className="fpl-block" role="status" style={{ padding: 12, marginBottom: 10, display: 'grid', gap: 8 }}>
+          <div className="fpl-mono" style={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+            {data.edited
+              ? 'You have changed this team. Save the changes to your account to see them whenever you load this Team ID.'
+              : 'Showing the changes saved to your account, not your team on FPL.'}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {data.edited && (
+              <button onClick={handleSaveChanges} disabled={status && status.kind === 'saving'} className="fpl-btn fpl-btn-solid" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                <Bookmark size={14} /> Save changes
+              </button>
+            )}
+            {savedChanges && (
+              <button onClick={handleResetChanges} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                <RotateCcw size={14} /> Use my FPL team
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <input
         value={label}
         onChange={e => setLabel(e.target.value)}
