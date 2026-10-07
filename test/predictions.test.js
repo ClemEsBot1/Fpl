@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, SQUAD_BUDGET, MAX_PER_REAL_TEAM,
+  seasonIdFor, snapshotIsForSeason, pickBestFormation, SQUAD_BUDGET, MAX_PER_REAL_TEAM,
 } from '../src/lib/predictions.js';
 
 // A deterministic synthetic league: 20 clubs × 25 players, with prices and
@@ -182,4 +182,63 @@ test("the optimiser doesn't keep downgrading a starter's replacement", () => {
   const squad = buildOptimalSquad(pool, predictionsById, SQUAD_BUDGET);
   const forwards = squad.filter(p => p.positionId === 4).map(p => p.id).sort((x, y) => x - y);
   assert.deepEqual(forwards, [a, nearlyAsGood, decent]);
+});
+
+// One player and a fixture list, for checking computePlayerPrediction's
+// arithmetic through buildStaticDataFromRaw.
+function predictionFor(element, extraFixtures = []) {
+  const { bootstrap, fixtures } = league();
+  const target = bootstrap.events.find(e => new Date(e.deadline_time).getTime() > Date.now()).id;
+  const el = { ...bootstrap.elements[3], ...element }; // a team-1 defender
+  bootstrap.elements = [el, ...bootstrap.elements.filter(e => e.id !== el.id)];
+  const sd = buildStaticDataFromRaw(bootstrap, [...fixtures, ...extraFixtures]);
+  return { pred: sd.predictionsById[el.id], target };
+}
+
+test("ep_next isn't scaled for fitness a second time", () => {
+  const fit = predictionFor({ ep_next: '6.0', status: 'a', chance_of_playing_next_round: null }).pred;
+  const doubt = predictionFor({ ep_next: '6.0', status: 'd', chance_of_playing_next_round: 50 }).pred;
+  // FPL already halves ep_next for a 50% player, so only the other inputs
+  // (55% of the base) are halved again here.
+  const epShare = 0.45 * 6.0;
+  const expected = epShare + (fit.nextMatchPredicted - epShare) * 0.5;
+  assert.ok(Math.abs(doubt.nextMatchPredicted - expected) < 0.11, `${doubt.nextMatchPredicted} vs ${expected}`);
+});
+
+test("points per game is scaled by the share of matches played", () => {
+  // 6 team matches before the target gameweek; 3 appearances at 7 ppg.
+  const rotated = predictionFor({ points_per_game: '7.0', total_points: 21 }).pred;
+  assert.equal(rotated.breakdown.appearanceShare, 0.5);
+  assert.equal(rotated.breakdown.ppg, 3.5);
+});
+
+test('a double gameweek counts in the XI and the 4-week average', () => {
+  const { bootstrap, fixtures } = league();
+  const target = bootstrap.events.find(e => new Date(e.deadline_time).getTime() > Date.now()).id;
+  const kickoff = fixtures.find(f => f.event === target).kickoff_time;
+  const extra = [{ id: 9999, event: target, team_h: 1, team_a: 3, team_h_difficulty: 3, team_a_difficulty: 3, kickoff_time: kickoff, finished: false }];
+  const sdSingle = buildStaticDataFromRaw(bootstrap, fixtures);
+  const el = bootstrap.elements.find(e => e.team === 1 && e.status === 'a' && e.element_type === 3);
+  const id = el.id;
+  // FPL's ep_next covers both matches of a double.
+  el.ep_next = String(Number(el.ep_next) * 2);
+  const sd = buildStaticDataFromRaw(bootstrap, [...fixtures, ...extra]);
+  assert.ok(sd.predictionsById[id].isDoubleThisEvent);
+  assert.ok(sd.predictionsById[id].predicted > sdSingle.predictionsById[id].predicted);
+  assert.ok(sd.predictionsById[id].nextMatchPredicted > sd.predictionsById[id].predicted);
+});
+
+test("the XI is picked on this gameweek's figure", () => {
+  const players = [
+    { id: 1, positionId: 1 }, { id: 2, positionId: 1 },
+    ...[3, 4, 5, 6, 7].map(id => ({ id, positionId: 2 })),
+    ...[8, 9, 10, 11, 12].map(id => ({ id, positionId: 3 })),
+    ...[13, 14, 15].map(id => ({ id, positionId: 4 })),
+  ];
+  const preds = Object.fromEntries(players.map(p => [p.id, { predicted: 4, nextMatchPredicted: 4 }]));
+  preds[15] = { predicted: 5, nextMatchPredicted: 0 }; // blank this gameweek
+  preds[7] = { predicted: 3, nextMatchPredicted: 8 }; // double this gameweek
+  const xi = pickBestFormation(players, preds);
+  assert.ok(!xi.has(15));
+  assert.ok(xi.has(7));
 });

@@ -19,10 +19,15 @@ export function PredictionBreakdown({ breakdown }) {
 
   // Absolute-value inputs (not deltas) — no +/- sign.
   const inputRows = [
-    [`FPL's own model (ep_next)${b.epNextShrunk ? ' — shrunk toward position average, early season' : ''}`, fmtPts(b.epNext)],
+    [`FPL's own model (ep_next, already counts this week's fixtures and fitness)${b.epNextShrunk ? ' — shrunk toward position average, early season' : ''}`, fmtPts(b.epNext)],
   ];
   if (b.formEligible) {
-    inputRows.push(['Season points-per-game', fmtPts(b.ppg)]);
+    inputRows.push([
+      b.appearanceShare !== null && b.appearanceShare !== undefined && b.appearanceShare < 1
+        ? `Season points-per-game × ${Math.round(b.appearanceShare * 100)}% of matches played`
+        : 'Season points-per-game',
+      fmtPts(b.ppg),
+    ]);
     inputRows.push(['Recent form', fmtPts(b.form)]);
   }
 
@@ -35,15 +40,17 @@ export function PredictionBreakdown({ breakdown }) {
 
   // Multipliers applied to the base above to reach the final predicted
   // figures — shown as ×values, not deltas, since that's what they are.
+  // ep_next already includes this gameweek's fixtures and fitness, so
+  // these apply to the rest of the base.
   const multRows = [];
   if (b.isBlankThisEvent) {
     multRows.push(['No fixture this gameweek', 'Blank — 0 pts']);
   } else {
     if (b.isDoubleThisEvent) multRows.push(['Fixtures this gameweek', `Double (${b.fixtureCountThisEvent})`]);
-    multRows.push(['Fixture difficulty (next match)', `×${b.nextFixtureMult.toFixed(2)}`]);
-    multRows.push(['Fixture difficulty (4-wk average, used for PTS/WK)', `×${b.fixtureMult.toFixed(2)}`]);
+    multRows.push(['Fixture difficulty this gameweek (not on ep_next)', `×${b.nextFixtureMult.toFixed(2)}`]);
+    multRows.push(['Fixtures over 4 gameweeks, used for PTS/WK', `×${b.fixtureMult.toFixed(2)}`]);
   }
-  if (b.availMult < 1) multRows.push(['Availability', `×${b.availMult.toFixed(2)}`]);
+  if (b.availMult < 1) multRows.push(['Availability (not on ep_next)', `×${b.availMult.toFixed(2)}`]);
   if (b.congestionMult < 1) multRows.push(['Short rest', `×${b.congestionMult.toFixed(2)} (${b.restDays}d since last match)`]);
 
   return (
@@ -255,7 +262,7 @@ export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, 
 }
 
 export function TransferCard({ suggestion, onApply }) {
-  const { out, inPlayer, inPredicted, gain, costDelta, reason, isFree, hitCost, netGain } = suggestion;
+  const { out, inPlayer, inPredicted, gain, costDelta, reason, isFree, hitCost, netGain, horizonGain, pairedWith } = suggestion;
   return (
     <div className="fpl-block" style={{ padding: 12, marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -274,16 +281,19 @@ export function TransferCard({ suggestion, onApply }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: 6 }}>
         <span style={{ fontSize: '0.75rem', color: 'var(--ink-dim)' }}>{reason}</span>
         <span className="fpl-mono" style={{ fontSize: '0.75rem', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span style={{ color: 'var(--mint)', fontWeight: 700 }}>+{fmtPts(gain)} pts</span>
+          <span style={{ color: gain < 0 ? 'var(--amber)' : 'var(--mint)', fontWeight: 700 }}>{gain >= 0 ? '+' : ''}{fmtPts(gain)} pts/wk</span>
           <span style={{ color: costDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{costDelta >= 0 ? '+' : ''}{costDelta.toFixed(1)}m</span>
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 6 }}>
+      <div style={{ display: 'flex', justifyContent: pairedWith ? 'space-between' : 'flex-end', alignItems: 'center', marginTop: 6, gap: 8, flexWrap: 'wrap' }}>
+        {pairedWith && <span style={{ fontSize: '0.72rem', color: 'var(--ink-dim)' }}>Make together with the {pairedWith} transfer</span>}
         {isFree ? (
-          <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--green)', fontWeight: 700, letterSpacing: '0.03em' }}>FREE TRANSFER</span>
+          <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--green)', fontWeight: 700, letterSpacing: '0.03em' }}>
+            FREE TRANSFER · {horizonGain >= 0 ? '+' : ''}{fmtPts(horizonGain)} PTS OVER 4 GWS
+          </span>
         ) : (
           <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--amber)', fontWeight: 700, letterSpacing: '0.03em' }}>
-            -{hitCost} HIT · NET {netGain >= 0 ? '+' : ''}{fmtPts(netGain)} PTS
+            -{hitCost} HIT · NET {netGain >= 0 ? '+' : ''}{fmtPts(netGain)} PTS OVER 4 GWS
           </span>
         )}
       </div>
@@ -793,7 +803,9 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
               <CheckCircle2 size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
               {suggestions.length === 0
                 ? "Your squad's in good shape — no changes look necessary this week."
-                : "Nothing worth a -4 hit right now — check back once you've got a free transfer, or increase the count above if you already do."}
+                : freeTransfers > 0
+                  ? 'Nothing beats saving your free transfer this week — it rolls over to next week.'
+                  : "Nothing worth a -4 hit right now — check back once you've got a free transfer, or increase the count above if you already do."}
             </div>
           )}
           {visibleSuggestions.map((s, i) => (

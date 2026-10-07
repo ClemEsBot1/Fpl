@@ -2,11 +2,12 @@
 // fixture ticker, with transfer trends beside them (below on a phone).
 // Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
-import { useState } from 'react';
-import { ArrowRight, CalendarRange, RotateCcw, Shirt, TriangleAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, CalendarRange, RotateCcw, Shirt, Target, TriangleAlert } from 'lucide-react';
 import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
+import { SkeletonRows } from '../components/common.jsx';
 
 function ScoreRing({ score }) {
   return (
@@ -61,7 +62,10 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
             </div>
           </>
         ) : (
-          <p className="fpl-home-text" role="status">Loading team {teamId}…</p>
+          <>
+            <span className="fpl-skel fpl-skel-lg" aria-hidden="true" />
+            <SkeletonRows rows={4} label={`Loading team ${teamId}…`} />
+          </>
         )}
       </section>
     );
@@ -73,7 +77,11 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
   const shown = s => (isPastGw ? (s.actualPoints || 0) * (s.multiplier || 1) : s.predicted);
   const top = [...starters].sort((a, b) => shown(b) - shown(a)).slice(0, 4);
   const worries = starters.filter(s => s.availNote).slice(0, 3);
+  // The best move, or both halves of a pair where one pays for the other.
   const best = suggestions && suggestions[0];
+  const bestMoves = best ? suggestions.filter(s => s === best || (best.group !== undefined && s.group === best.group)) : [];
+  const bestGain = bestMoves.reduce((sum, s) => sum + s.gain, 0);
+  const bestCost = bestMoves.reduce((sum, s) => sum + s.costDelta, 0);
   const gwPoints = isPastGw ? officialGwPoints(data) : null;
 
   return (
@@ -125,8 +133,10 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
                 : 'Transfers are only suggested for the upcoming gameweek.'}</p>
             ) : best ? (
               <p className="fpl-home-transfer">
-                <span><b>{best.out.player.webName}</b> out, <b>{best.inPlayer.webName}</b> in</span>
-                <span className="fpl-mono">+{fmtPts(best.gain)} pts · {best.costDelta >= 0 ? '+' : '−'}{fmtPrice(Math.abs(best.costDelta))}</span>
+                <span>{bestMoves.map((s, k) => (
+                  <span key={s.out.player.id}>{k > 0 ? ', ' : ''}<b>{s.out.player.webName}</b> out, <b>{s.inPlayer.webName}</b> in</span>
+                ))}</span>
+                <span className="fpl-mono">+{fmtPts(bestGain)} pts/wk · {bestCost >= 0 ? '+' : '−'}{fmtPrice(Math.abs(bestCost))}</span>
               </p>
             ) : <p className="fpl-home-hint">No transfer clearly beats your current XI.</p>}
           </div>
@@ -149,9 +159,59 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
   );
 }
 
+// How last gameweek's predictions (or the picked gameweek's, once it's
+// over) compared with what players scored. Hidden when there's nothing
+// saved for it.
+function PredictionCheck({ gwId, playersById }) {
+  // The answer and which gameweek it was for: still loading while that
+  // isn't the one asked for.
+  const [result, setResult] = useState({ gwId: undefined, data: null });
+  useEffect(() => {
+    let cancelled = false;
+    fetch(gwId ? `/api/accuracy?gw=${gwId}` : '/api/accuracy')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled) setResult({ gwId, data: d && typeof d.meanAbsError === 'number' ? d : null }); })
+      .catch(() => { if (!cancelled) setResult({ gwId, data: null }); });
+    return () => { cancelled = true; };
+  }, [gwId]);
+  const loading = result.gwId !== gwId;
+  if (!loading && !result.data) return null;
+  const d = loading ? null : result.data;
+  const topPick = d && d.topPick && playersById ? playersById[d.topPick.id] : null;
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="accuracy-h" aria-busy={loading}>
+      <div className="fpl-home-team-head">
+        <h2 id="accuracy-h" className="fpl-home-h"><Target size={18} aria-hidden="true" /> How accurate were we?</h2>
+        {d && <span className="fpl-mono fpl-home-meta">GW{d.gwId}</span>}
+      </div>
+      {!d ? <SkeletonRows rows={3} label="Loading how accurate the predictions were…" /> : (
+        <>
+          <div className="fpl-home-facts">
+            <div><b>{fmtPts(d.topTenAverageActual)}</b><span>pts each for our top 10 picks</span></div>
+            <div><b>{fmtPts(d.averageActual)}</b><span>pts for the average player</span></div>
+            <div><b>±{fmtPts(d.meanAbsError)}</b><span>typical miss per player</span></div>
+          </div>
+          {topPick && (
+            <p className="fpl-home-text">Our top pick, <b>{topPick.webName}</b>, was predicted {fmtPts(d.topPick.predicted)} and scored {d.topPick.actual}.</p>
+          )}
+          <p className="fpl-home-hint">Across {d.playersCompared} players who played, using predictions saved before the deadline.</p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function FixtureTicker({ staticData, fromGw }) {
   const [showAll, setShowAll] = useState(false);
-  if (!staticData || !fromGw) return null;
+  if (!staticData) {
+    return (
+      <section className="fpl-glass fpl-home-card" aria-labelledby="ticker-h" aria-busy="true">
+        <h2 id="ticker-h" className="fpl-home-h"><CalendarRange size={18} aria-hidden="true" /> Easiest fixtures</h2>
+        <SkeletonRows rows={6} label="Loading fixtures…" />
+      </section>
+    );
+  }
+  if (!fromGw) return null;
   const { gws, rows } = buildFixtureTicker(staticData.fixturesByTeam, staticData.teamsById, fromGw);
   if (!gws.length) return null;
   const shown = showAll ? rows : rows.slice(0, 8);
@@ -221,6 +281,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
         <div className="fpl-home-main">
           <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
+          <PredictionCheck gwId={isPast && event.finished ? event.id : null} playersById={staticData && staticData.playersById} />
         </div>
         {/* Keyed by gameweek so a new one starts on its first panel. */}
         <TransferTrends
