@@ -2,10 +2,10 @@
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, Trophy, Users } from 'lucide-react';
+import { Anchor, Armchair, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
-import { POSITION_LABELS, fmtPts } from '../lib/format.js';
-import { expectedPositions, forEachLimited, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { POSITION_LABELS, fmtPrice, fmtPts } from '../lib/format.js';
+import { expectedPositions, forEachLimited, leagueHighlights, parseStandings, privateLeagues } from '../lib/leagues.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 
 const LEAGUE_KEY = 'fpl_league_id';
@@ -71,9 +71,75 @@ function ExpectedCell({ rank, expected, loading }) {
   );
 }
 
+// The league analysis: who leads each category this week and this season,
+// and the players the league is captaining, owning, buying and selling.
+const MANAGER_ICONS = {
+  motw: Target, worst: ThumbsDown, rise: TrendingUp, fall: TrendingDown, bestTransfers: ArrowRightLeft, worstTransfers: Ban,
+  bench: Armchair, mostTransfers: Shuffle, leastTransfers: Anchor, bestValue: Gem, lowestValue: PiggyBank, bestRank: Medal,
+  bestCaptain: Star, worstCaptain: StarOff,
+};
+const PLAYER_ICONS = { captained: Crown, owned: Heart, in: LogIn, out: LogOut };
+
+function managerValue(h) {
+  if (h.value === null) return '';
+  switch (h.key) {
+    case 'rise': case 'fall': return `${h.value} place${h.value === 1 ? '' : 's'}`;
+    case 'bestTransfers': case 'worstTransfers': return `${h.value > 0 ? '+' : ''}${h.value} pts`;
+    case 'mostTransfers': case 'leastTransfers': return `${h.value} transfer${h.value === 1 ? '' : 's'}`;
+    case 'bestValue': case 'lowestValue': return fmtPrice(h.value);
+    case 'bestRank': return h.value.toLocaleString('en-GB');
+    default: return `${h.value} pts`;
+  }
+}
+
+function names(list, limit = 2) {
+  if (!list.length) return null;
+  return list.length > limit ? `${list.slice(0, limit).join(', ')} +${list.length - limit}` : list.join(', ');
+}
+
+function LeagueAnalysis({ members, teams, playersById, liveGwId, total }) {
+  const { managers, players, counted } = useMemo(() => leagueHighlights(members, teams), [members, teams]);
+  const loading = counted < total;
+  const item = (key, Icon, label, who, value) => (
+    <li key={key} className="fpl-analysis-item">
+      <Icon size={16} aria-hidden="true" />
+      <span className="fpl-analysis-label">{label}</span>
+      <span className="fpl-analysis-who">{who || <span className="fpl-dim">–</span>}</span>
+      {value ? <span className="fpl-analysis-value fpl-mono">{value}</span> : null}
+    </li>
+  );
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="analysis-h" aria-busy={loading}>
+      <div className="fpl-home-team-head">
+        <h2 id="analysis-h" className="fpl-home-h"><ChartBar size={18} aria-hidden="true" /> League analysis</h2>
+        <span className="fpl-mono fpl-home-meta">{loading ? `${counted} of ${total} teams` : liveGwId ? `GW${liveGwId}` : ''}</span>
+      </div>
+      <div className="fpl-analysis-grid">
+        <div>
+          <h3 className="fpl-home-sub"><Trophy size={15} aria-hidden="true" /> Manager highlights</h3>
+          <ul className="fpl-analysis-list">
+            {managers.map(h => item(h.key, MANAGER_ICONS[h.key] || Trophy, h.label, names(h.winners.map(w => w.name)), managerValue(h)))}
+          </ul>
+        </div>
+        <div>
+          <h3 className="fpl-home-sub"><Users size={15} aria-hidden="true" /> Player highlights</h3>
+          <ul className="fpl-analysis-list">
+            {players.map(h => item(
+              h.key, PLAYER_ICONS[h.key] || Users, h.label,
+              names(h.players.map(id => (playersById[id] ? playersById[id].webName : `#${id}`))),
+              h.count ? `${h.count} of ${counted} team${counted === 1 ? '' : 's'}` : '',
+            ))}
+          </ul>
+        </div>
+      </div>
+      <p className="fpl-home-hint">"This week" is Gameweek {liveGwId || '–'}. Transfers are scored by the points the players brought in made against the ones sold, less any hit.</p>
+    </section>
+  );
+}
+
 // One league's standings with each member's predicted points; mounted
 // afresh for each league picked.
-function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, fetchJson, loadTeam, onOpenTeam }) {
+function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam }) {
   const [standings, setStandings] = useState({ status: 'loading', data: null });
   const [teams, setTeams] = useState({}); // entry -> { status, squad, xiTotal, picksFromGwId }
   const [open, setOpen] = useState(null);
@@ -118,6 +184,7 @@ function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, fe
   const SORTS = [['rank', 'Rank'], ['live', 'Live'], ['predicted', 'Predicted'], ['expected', 'Expected']];
 
   return (
+    <>
     <section className="fpl-glass fpl-home-card" aria-labelledby="league-h" aria-busy={standings.status === 'loading'}>
       <div className="fpl-home-team-head">
         <h2 id="league-h" className="fpl-home-h"><Trophy size={18} aria-hidden="true" /> {standings.data ? standings.data.league.name : 'League'}</h2>
@@ -176,10 +243,14 @@ function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, fe
         </>
       )}
     </section>
+    {standings.status === 'ready' && standings.data.members.length > 1 && (
+      <LeagueAnalysis members={standings.data.members} teams={teams} playersById={playersById} liveGwId={liveGwId} total={standings.data.members.length} />
+    )}
+    </>
   );
 }
 
-export function MiniLeagueScreen({ homeTeamId, gwName, liveGwId, liveGwFinished, teamsById, fetchJson, loadTeam, onOpenTeam, onAddTeamId }) {
+export function MiniLeagueScreen({ homeTeamId, gwName, liveGwId, liveGwFinished, teamsById, playersById = {}, fetchJson, loadTeam, onOpenTeam, onAddTeamId }) {
   const [leagues, setLeagues] = useState({ status: homeTeamId ? 'loading' : 'none', list: [] });
   const [leagueId, setLeagueId] = useState(readSavedLeague);
   const [idInput, setIdInput] = useState('');
@@ -245,7 +316,7 @@ export function MiniLeagueScreen({ homeTeamId, gwName, liveGwId, liveGwFinished,
       </section>
 
       {leagueId && (
-        <LeagueTable key={leagueId} leagueId={leagueId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} />
+        <LeagueTable key={leagueId} leagueId={leagueId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} />
       )}
     </div>
   );

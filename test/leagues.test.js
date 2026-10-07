@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expectedPositions, forEachLimited, livePointsFor, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
+import { expectedPositions, forEachLimited, leagueHighlights, livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
 
 test("a team's mini-leagues leave out FPL's own leagues", () => {
   const entry = { leagues: { classic: [
@@ -70,4 +70,51 @@ test('expected positions add predicted points to totals with live points', () =>
   const tied = expectedPositions(members.slice(0, 2), { 1: { status: 'ready', xiTotal: 10 }, 2: { status: 'ready', xiTotal: 15 } });
   assert.equal(tied[1].position, 1);
   assert.equal(tied[2].position, 1, 'level on points share a position');
+});
+
+test("a member's week: captain, bench, transfers, value and best rank", () => {
+  const live = { 1: { totalPoints: 12 }, 2: { totalPoints: 2 }, 3: { totalPoints: 7 }, 4: { totalPoints: 1 }, 9: { totalPoints: 5 } };
+  const stats = memberWeekStats({
+    gw: 8,
+    picks: { picks: [{ element: 1, multiplier: 2, is_captain: true }, { element: 2, multiplier: 1 }, { element: 3, multiplier: 0 }], entry_history: { event_transfers_cost: 4, value: 1012 } },
+    liveById: live,
+    transfers: [{ event: 8, element_in: 2, element_out: 9 }, { event: 7, element_in: 4, element_out: 1 }],
+    entry: { summary_overall_rank: 50000, last_deadline_total_transfers: 9 },
+    history: { past: [{ rank: 12000 }, { rank: 300000 }] },
+  });
+  assert.deepEqual(stats, {
+    playerIds: [1, 2, 3], captainId: 1, captainPoints: 12, benchPoints: 7,
+    transfersIn: [2], transfersOut: [9], transferGain: 2 - 5 - 4,
+    seasonTransfers: 9, teamValue: 101.2, bestRank: 12000,
+  });
+});
+
+test('league highlights pick the leaders, sharing ties', () => {
+  const members = [
+    { entry: 1, teamName: 'A', rank: 1, lastRank: 3, eventTotal: 60 },
+    { entry: 2, teamName: 'B', rank: 2, lastRank: 1, eventTotal: 40 },
+    { entry: 3, teamName: 'C', rank: 3, lastRank: 2, eventTotal: 60 },
+  ];
+  const s = (o) => ({ status: 'ready', stats: { playerIds: [], transfersIn: [], transfersOut: [], ...o } });
+  const teams = {
+    1: s({ captainId: 10, captainPoints: 4, playerIds: [10, 11], seasonTransfers: 3 }),
+    2: s({ captainId: 10, captainPoints: 14, playerIds: [10, 12], seasonTransfers: 8, transfersIn: [12] }),
+    3: s({ captainId: 11, captainPoints: 4, playerIds: [10, 11], seasonTransfers: 3, transfersIn: [12] }),
+  };
+  const { managers, players } = leagueHighlights(members, teams);
+  const byKey = Object.fromEntries([...managers, ...players].map(h => [h.key, h]));
+  assert.deepEqual(byKey.motw.winners.map(w => w.name), ['A', 'C']);
+  assert.equal(byKey.motw.value, 60);
+  assert.deepEqual(byKey.rise.winners.map(w => w.name), ['A']);
+  assert.equal(byKey.rise.value, 2);
+  assert.deepEqual(byKey.fall.winners.map(w => w.name), ['B', 'C']);
+  assert.deepEqual(byKey.leastTransfers.winners.map(w => w.name), ['A', 'C']);
+  assert.deepEqual(byKey.bestCaptain.winners.map(w => w.name), ['B']);
+  assert.deepEqual(byKey.captained.players, [10]);
+  assert.equal(byKey.captained.count, 2);
+  assert.deepEqual(byKey.owned.players, [10]);
+  assert.equal(byKey.owned.count, 3);
+  assert.deepEqual(byKey.in.players, [12]);
+  assert.deepEqual(byKey.out.players, []);
+  assert.equal(byKey.bestValue.value, null, 'nobody has a value yet');
 });
