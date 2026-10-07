@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRecap, lastFinishedGw } from '../src/lib/recap.js';
+import { buildRecap, lastFinishedGw, mostOwnedXi, recapText } from '../src/lib/recap.js';
 
 const player = (id, webName, positionId, price = 6) => ({ id, webName, positionId, team: 1, price });
 const slot = (p, actualPoints, predicted, extra = {}) => ({ player: p, actualPoints, predicted, isStarting: true, multiplier: 1, ...extra });
@@ -48,7 +48,9 @@ test('the recap is for the latest gameweek to finish', () => {
 
 test('the headline and rank compare the week with the average and the week before', () => {
   const r = buildRecap(base);
-  assert.deepEqual(r.headline, { points: 48, average: 52, highest: 121, vsAverage: -4 });
+  assert.deepEqual({ ...r.headline, teams: undefined }, { points: 48, average: 52, highest: 121, vsAverage: -4, teams: undefined });
+  assert.equal(r.headline.teams.you.total, 48);
+  assert.deepEqual(r.headline.teams.you.rows.map(x => x.pos), ['DEF', 'MID', 'MID', 'FWD']);
   assert.equal(r.rank.before, 1204331);
   assert.equal(r.rank.move, 342141);
   assert.equal(r.rank.topPercent, 4.1);
@@ -88,7 +90,8 @@ test('star and flop leave out the bench and carry the prediction and price', () 
 test("transfers count only the gameweek's, less the hit", () => {
   const t = buildRecap(base).transfers;
   assert.equal(t.moves.length, 1);
-  assert.deepEqual(t.moves[0], { in: { id: 10, name: 'Mbeumo', points: 9 }, out: { id: 11, name: 'Bowen', points: 2 } });
+  assert.deepEqual(t.moves[0].in, { id: 10, name: 'Mbeumo', points: 9, price: null, next: [] });
+  assert.deepEqual(t.moves[0].out, { id: 11, name: 'Bowen', points: 2, price: null });
   assert.equal(t.net, 3);
 });
 
@@ -104,14 +107,17 @@ test('the mini-league slide finds the week winner and the closest rival', () => 
   assert.equal(l.now, 2);
   assert.deepEqual(l.winners, ['You']);
   assert.equal(l.gapToFirst, 15);
-  assert.deepEqual(l.rival, { teamName: 'Jo FC', margin: 33 });
+  assert.deepEqual(l.rival, { teamName: 'Jo FC', margin: 33, totalGap: 7 });
+  assert.deepEqual(l.riser, { teamName: 'You', move: 3 });
+  assert.deepEqual(l.table.map(r => r.move), [0, 3, -1, -1]);
   assert.deepEqual(l.rows.map(r => r.rank), [1, 2, 3]);
   assert.equal(buildRecap({ ...base, league: { ...league, members: league.members.filter(m => m.entry !== 77) } }).league, null);
 });
 
 test('you against the model is a share of the best possible XI', () => {
   const v = buildRecap({ ...base, modelScore: 68, bestScore: 120 }).vsModel;
-  assert.deepEqual(v, { you: 48, model: 68, best: 120, percent: 40 });
+  assert.deepEqual({ ...v, teams: undefined }, { you: 48, model: 68, best: 120, percent: 40, teams: undefined });
+  assert.equal(v.teams.model, null);
   assert.equal(buildRecap(base).vsModel, null);
 });
 
@@ -122,4 +128,41 @@ test('the prediction check sorts players by how far they beat their prediction',
   assert.equal(p.actualTotal, 48);
   assert.equal(p.beat.name, 'Salah');
   assert.equal(p.miss.name, 'Gabriel');
+});
+
+test('the most-owned XI keeps a legal formation and doubles the most captained', () => {
+  const pl = (id, positionId, selectedBy) => ({ id, webName: `P${id}`, positionId, selectedBy });
+  const all = [pl(1, 1, 40), pl(2, 1, 30), ...[3, 4, 5, 6, 7, 8].map(i => pl(i, 2, 60 - i)), ...[9, 10, 11, 12, 13].map(i => pl(i, 3, 80 - i)), pl(14, 4, 90), pl(15, 4, 5), pl(16, 4, 4)];
+  const live = Object.fromEntries(all.map(p => [p.id, { totalPoints: 2 }]));
+  const xi = mostOwnedXi(all, live, 14);
+  assert.equal(xi.rows.length, 11);
+  assert.deepEqual(xi.rows.map(r => r.pos).filter(p => p === 'GKP'), ['GKP']);
+  assert.ok(xi.rows.filter(r => r.pos === 'DEF').length >= 3);
+  assert.equal(xi.rows.find(r => r.isCaptain).id, 14);
+  assert.equal(xi.total, 24);
+});
+
+test("the highest scorer's team and the season's transfers come through", () => {
+  const top = { name: "Kev's Krew", picks: { picks: [{ element: 1, multiplier: 2 }, { element: 3, multiplier: 1 }, { element: 2, multiplier: 0 }], entry_history: { event_transfers_cost: 4 } } };
+  const playersById = { ...base.playersById, 1: salah, 2: haaland, 3: gabriel };
+  const history = { current: [...base.history.current.map(r => ({ ...r, event_transfers: 1, event_transfers_cost: r.event === 16 ? 4 : 0 }))] };
+  const r = buildRecap({ ...base, top, playersById, history, predictionsById: { 10: { predicted: 5 }, 11: { predicted: 4 } } });
+  assert.equal(r.headline.teams.top.name, "Kev's Krew");
+  assert.equal(r.headline.teams.top.total, 27);
+  assert.equal(r.transfers.seasonTransfers, 5);
+  assert.deepEqual(r.transfers.seasonHits, { count: 1, points: 4 });
+  assert.equal(r.transfers.nextIn, 15);
+  assert.equal(r.transfers.nextOut, 12);
+  assert.deepEqual(r.rank.series.map(x => x.event), [15, 16, 17, 18, 19]);
+});
+
+test('captain options list every counted player as captain, best first', () => {
+  const c = buildRecap(base).captain;
+  assert.deepEqual(c.options.map(o => [o.name, o.points, o.isYours]), [['Salah', 30, false], ['Haaland', 26, true], ['Saka', 12, false], ['Gabriel', 2, false]]);
+});
+
+test('the recap reads as a few lines of text', () => {
+  const text = recapText(buildRecap(base));
+  assert.equal(text.split('\n')[0], 'Test XI, Gameweek 19: 48 pts (−4 vs avg)');
+  assert.match(text, /C Haaland 26 · Star Salah 15/);
 });
