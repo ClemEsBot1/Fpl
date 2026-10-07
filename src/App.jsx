@@ -7,8 +7,8 @@ import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
-import { livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from './lib/leagues.js';
-import { buildRecap, lastFinishedGw, markRecapSeen, recapSeenFor } from './lib/recap.js';
+import { forEachLimited, livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from './lib/leagues.js';
+import { buildRecap, lastFinishedGw, leagueSlide, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
 import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
@@ -645,7 +645,7 @@ export default function FPLSquadChecker() {
           totalPoints: el.stats.total_points, minutes: el.stats.minutes,
           // For the gameweek recap's star and flop.
           goals: el.stats.goals_scored, assists: el.stats.assists, bonus: el.stats.bonus,
-          cleanSheets: el.stats.clean_sheets, conceded: el.stats.goals_conceded,
+          cleanSheets: el.stats.clean_sheets, conceded: el.stats.goals_conceded, yellow: el.stats.yellow_cards,
         };
       });
       return liveById;
@@ -1455,6 +1455,26 @@ export default function FPLSquadChecker() {
   const [recap, setRecap] = useState(null);
   const recapTicketRef = useRef(0);
 
+  // One mini-league for the recap: its standings and what its members
+  // captained in gameweek `gwId` (their picks, a few at a time).
+  async function loadRecapLeague(leagueId, gwId) {
+    const parsed = parseStandings(await fetchFplJson(`leagues-classic/${leagueId}/standings/`));
+    if (!parsed) return null;
+    const staticData = await ensureStaticData();
+    const byPlayer = {};
+    const names = {};
+    let counted = 0;
+    await forEachLimited(parsed.members, 6, m => fetchFplJson(`entry/${m.entry}/event/${gwId}/picks/`), (m, picks) => {
+      const captain = picks && Array.isArray(picks.picks) ? picks.picks.find(p => p.is_captain) : null;
+      if (!captain) return;
+      counted += 1;
+      byPlayer[captain.element] = (byPlayer[captain.element] || 0) + 1;
+      const player = staticData.playersById[captain.element];
+      if (player) names[captain.element] = player.webName;
+    });
+    return { id: parsed.league.id, name: parsed.league.name, members: parsed.members, hasMore: parsed.hasMore, captains: { byPlayer, names, counted } };
+  }
+
   // Everything the recap's slides show for the Home team's gameweek `gwId`.
   // `open` shows it straight away (from the button on Home); otherwise
   // (the pop-up once a gameweek ends) it only opens if it loads.
@@ -1473,40 +1493,45 @@ export default function FPLSquadChecker() {
         throw { code: 'ERR_STATIC_DATA' };
       }
       const optional = promise => promise.catch(() => null);
-      const [team, history, transfers, liveById, snap] = await Promise.all([
+      const event = staticData.allEvents.find(e => e.id === gwId) || null;
+      const topEntry = event && event.highest_scoring_entry;
+      const [team, history, transfers, liveById, snap, accuracy, topPicks, topMeta] = await Promise.all([
         loadTeamForGw(teamId, gwId, staticData, { isStale }),
         optional(fetchFplJson(`entry/${teamId}/history/`)),
         optional(fetchFplJson(`entry/${teamId}/transfers/`)),
         liveForGw(gwId, isGwFinished(staticData, gwId)),
         optional(fetch(`/api/optimal-squad?gw=${gwId}`).then(res => (res.ok ? res.json() : null))),
+        optional(fetch(`/api/accuracy?gw=${gwId}`).then(res => (res.ok ? res.json() : null))),
+        // The week's highest-scoring manager's team.
+        topEntry ? optional(fetchFplJson(`entry/${topEntry}/event/${gwId}/picks/`)) : null,
+        topEntry ? optional(fetchFplJson(`entry/${topEntry}/`)) : null,
       ]);
       if (!team || isStale()) return;
-      // The mini-league: the one last picked on the Mini-league screen if
-      // the team is in it, else its first. Its standings are FPL's current
-      // ones, so only while no later gameweek has started.
-      let league = null;
-      if (liveGwIdFor(staticData) === gwId && team.entry) {
-        const leagues = privateLeagues(team.entry);
-        const saved = Number((() => { try { return localStorage.getItem('fpl_league_id'); } catch { return null; } })());
-        const pick = leagues.find(l => l.id === saved) || leagues[0];
-        const standings = pick ? await optional(fetchFplJson(`leagues-classic/${pick.id}/standings/`)) : null;
-        const parsed = standings ? parseStandings(standings) : null;
-        if (parsed) league = { name: parsed.league.name, members: parsed.members, hasMore: parsed.hasMore };
-      }
+      // The mini-leagues, while no later gameweek has started (their
+      // standings are FPL's current ones). The one last picked on the
+      // Mini-league screen is shown first if the team is in it; the others
+      // load when picked.
+      const leagues = liveGwIdFor(staticData) === gwId && team.entry ? privateLeagues(team.entry) : [];
+      const saved = Number((() => { try { return localStorage.getItem('fpl_league_id'); } catch { return null; } })());
+      const first = leagues.find(l => l.id === saved) || leagues[0];
+      const league = first ? await optional(loadRecapLeague(first.id, gwId)) : null;
       if (isStale()) return;
       // The app's best squad for the week (as saved before its deadline) and
       // the best XI anyone could have picked, as on Look back.
       const frozen = snap && Array.isArray(snap.playerIds) && snapshotIsForSeason(snap, staticData.seasonId, staticData.allEvents)
         ? hydrateFrozenSquadSnapshot(snap, staticData, liveById) : null;
       const modelScore = frozen ? frozen.squad.filter(s => s.isStarting).reduce((sum, s) => sum + (s.actualPoints || 0) * (s.multiplier || 1), 0) : null;
-      const bestScore = buildHindsightSquad(staticData.allPlayers, liveById, SQUAD_BUDGET).totalScore;
-      const event = staticData.allEvents.find(e => e.id === gwId) || null;
+      const best = buildHindsightSquad(staticData.allPlayers, liveById, SQUAD_BUDGET);
       const data = buildRecap({
         gwId, gwName: event ? event.name : `Gameweek ${gwId}`, teamId: Number(teamId),
         teamName: (team.entryMeta && team.entryMeta.teamName) || `Team ${teamId}`,
-        squad: team.squad, entryHistory: team.entryHistory, activeChip: team.activeChip,
-        event, totalPlayers: staticData.totalPlayers, history, transfers, liveById, playersById: staticData.playersById,
-        league, modelScore, bestScore,
+        squad: team.squad, entryHistory: team.entryHistory, activeChip: team.activeChip, entry: team.entry,
+        event, events: staticData.allEvents, totalPlayers: staticData.totalPlayers, history, transfers, liveById,
+        playersById: staticData.playersById, allPlayers: staticData.allPlayers, teamsById: staticData.teamsById,
+        fixturesByTeam: staticData.fixturesByTeam, predictionsById: staticData.predictionsById,
+        top: topPicks && !topPicks.detail ? { name: (topMeta && topMeta.name) || 'Top team', picks: topPicks } : null,
+        league, leagues, modelScore, bestScore: best.totalScore, modelSquad: frozen ? frozen.squad : null, bestSquad: best.squad,
+        accuracy,
       });
       setRecap({ gwId, teamId, status: 'ready', data, error: null, open: true });
     } catch (e) {
@@ -1716,6 +1741,7 @@ export default function FPLSquadChecker() {
               state={recap}
               onClose={() => { recapTicketRef.current += 1; setRecap(null); }}
               onRetry={() => openRecap(recap.gwId)}
+              onLoadLeague={id => loadRecapLeague(id, recap.gwId).then(l => leagueSlide(l, Number(recap.teamId)))}
             />
           </Suspense>
         </ScreenErrorBoundary>
