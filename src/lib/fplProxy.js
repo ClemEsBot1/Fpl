@@ -9,6 +9,7 @@ const ALLOWED_PATHS = [
   { re: /^entry\/\d{1,10}\/$/, maxAge: 120 },
   { re: /^entry\/\d{1,10}\/event\/\d{1,2}\/picks\/$/, maxAge: 120 },
   { re: /^event\/\d{1,2}\/live\/$/, maxAge: 60 },
+  { re: /^leagues-classic\/\d{1,10}\/standings\/$/, maxAge: 300 },
 ];
 
 // Returns the rule for an allowed path, or null.

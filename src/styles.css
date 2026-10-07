@@ -419,6 +419,41 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-sub-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .fpl-sub-options .fpl-chip-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 0.78rem; }
 .fpl-sub-options .fpl-mono { color: var(--ink-dim); font-size: 0.7rem; }
+.fpl-league { display: grid; gap: 16px; padding: 20px 16px 32px; }
+.fpl-league-title { margin: 0; font-size: clamp(1.7rem, 4vw, 2.3rem); color: #05041A; }
+.fpl-league-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fpl-league-chips .fpl-chip-btn { padding: 8px 12px; font-size: 0.85rem; }
+.fpl-league-chips .fpl-mono { color: var(--ink-dim); font-size: 0.72rem; }
+.fpl-league-sort { display: flex; gap: 6px; }
+.fpl-league-sort .fpl-chip-btn { padding: 5px 10px; font-size: 0.75rem; }
+.fpl-league-cols, .fpl-league-row { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 3.4rem 4.2rem; align-items: center; gap: 8px; }
+.fpl-league-cols { font-size: 0.66rem; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.06em; padding: 0 0 4px; border-bottom: 1px solid var(--line); }
+.fpl-league-cols span:nth-child(n+3) { text-align: right; }
+.fpl-league-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.fpl-league-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.fpl-league-rank { color: var(--ink-dim); font-weight: 700; font-variant-numeric: tabular-nums; }
+.fpl-league-who { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; min-width: 0; cursor: pointer; padding: 6px 4px; border-radius: 8px; min-height: 44px; align-content: center; }
+.fpl-league-who:disabled { cursor: default; }
+.fpl-league-who:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.fpl-league-who b { font-family: 'Space Grotesk', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-league-who small { grid-column: 1; font-size: 0.75rem; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-league-chev { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--ink-dim); transition: transform 160ms ease-out; }
+.fpl-league-who:disabled .fpl-league-chev { opacity: 0.3; }
+.fpl-league-row.is-open .fpl-league-chev { transform: rotate(180deg); }
+@media (hover: hover) and (pointer: fine) { .fpl-league-who:not(:disabled):hover { background: rgba(255,255,255,0.08); } }
+.fpl-league-total { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.fpl-league-pred { text-align: right; font-weight: 700; color: var(--lime); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.fpl-league-skel { display: inline-block; width: 2.6rem; height: 14px; vertical-align: middle; }
+.fpl-league-open { padding: 8px 0 12px; border-bottom: 1px solid var(--line); }
+.fpl-league-team { display: grid; gap: 6px; background: rgba(5,4,26,0.35); border-radius: 12px; padding: 10px 12px; }
+.fpl-league-team ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.fpl-league-player { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.fpl-league-player:last-child { border-bottom: 0; }
+.fpl-league-player-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; font-family: 'Space Grotesk', sans-serif; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.fpl-league-player-name small { margin-left: 6px; font: 500 0.68rem 'IBM Plex Mono', monospace; color: var(--ink-dim); }
+.fpl-league-player-pts { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .fpl-league-chev { transition: none; } }
+@media (min-width: 900px) { .fpl-league { padding: 28px 32px; } }
 .fpl-price-timer { margin: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); font-size: 0.82rem; }
 .fpl-price-timer svg { color: var(--blue); flex-shrink: 0; }
 .fpl-price-timer span { flex: 1; }
