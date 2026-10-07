@@ -2,7 +2,7 @@
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Anchor, Armchair, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
+import { Anchor, Armchair, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { POSITION_LABELS, fmtPrice, fmtPts } from '../lib/format.js';
 import { expectedPositions, forEachLimited, leagueHighlights, parseStandings, privateLeagues } from '../lib/leagues.js';
@@ -10,8 +10,11 @@ import { POSITION_ORDER } from '../lib/predictions.js';
 
 const LEAGUE_KEY = 'fpl_league_id';
 // Members' teams are fetched a few at a time, so a 50-team league doesn't
-// fire 150 requests at once.
-const TEAM_LOADS_AT_ONCE = 6;
+// fire 150 requests at once. Teams that still fail (FPL turning requests
+// away) get one more go once the rest are in, two at a time.
+const TEAM_LOADS_AT_ONCE = 4;
+const RETRIES_AT_ONCE = 2;
+const RETRY_AFTER_MS = 1500;
 
 function readSavedLeague() {
   try { return Number(localStorage.getItem(LEAGUE_KEY)) || null; } catch { return null; }
@@ -155,9 +158,20 @@ function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, pl
         if (!data) { setStandings({ status: 'error', data: null }); return; }
         saveLeague(leagueId);
         setStandings({ status: 'ready', data });
-        forEachLimited(data.members, TEAM_LOADS_AT_ONCE, m => loadTeam(m.entry), (m, team, error) => {
+        const failed = [];
+        const settle = (m, team, error) => {
           if (cancelled) return;
+          if (error || !team) failed.push(m);
           setTeams(prev => ({ ...prev, [m.entry]: error || !team ? { status: 'error' } : { status: 'ready', ...team } }));
+        };
+        forEachLimited(data.members, TEAM_LOADS_AT_ONCE, m => loadTeam(m.entry), settle).then(() => {
+          if (cancelled || !failed.length) return;
+          const again = failed.splice(0);
+          setTimeout(() => {
+            if (cancelled) return;
+            setTeams(prev => ({ ...prev, ...Object.fromEntries(again.map(m => [m.entry, { status: 'loading' }])) }));
+            forEachLimited(again, RETRIES_AT_ONCE, m => loadTeam(m.entry), settle);
+          }, RETRY_AFTER_MS);
         });
       })
       .catch(() => { if (!cancelled) setStandings({ status: 'error', data: null }); });
@@ -179,6 +193,14 @@ function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, pl
     if (keyFor) list.sort((a, b) => keyFor(b) - keyFor(a) || a.rank - b.rank);
     return list;
   }, [standings.data, teams, sortBy, expected]);
+
+  // A team that still couldn't be loaded is tried again when tapped.
+  function retryTeam(entry) {
+    setTeams(prev => ({ ...prev, [entry]: { status: 'loading' } }));
+    loadTeam(entry)
+      .then(team => setTeams(prev => ({ ...prev, [entry]: team ? { status: 'ready', ...team } : { status: 'error' } })))
+      .catch(() => setTeams(prev => ({ ...prev, [entry]: { status: 'error' } })));
+  }
 
   const gwShort = name => (name ? name.replace('Gameweek ', 'GW') : '');
   const SORTS = [['rank', 'Rank'], ['live', 'Live'], ['predicted', 'Predicted'], ['expected', 'Expected']];
@@ -209,24 +231,27 @@ function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, pl
             {members.map(m => {
               const team = teams[m.entry];
               const isOpen = open === m.entry;
+              const failed = team && team.status === 'error';
+              const pending = !team || team.status === 'loading';
               return (
                 <Fragment key={m.entry}>
                   <li className={`fpl-league-row${isOpen ? ' is-open' : ''}`}>
                     <span className="fpl-league-rank fpl-mono">{m.rank}</span>
-                    <button type="button" className="fpl-league-who" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : m.entry)} disabled={!team || team.status !== 'ready'}>
+                    <button type="button" className={`fpl-league-who${failed ? ' is-failed' : ''}`} aria-expanded={failed ? undefined : isOpen}
+                      onClick={() => (failed ? retryTeam(m.entry) : setOpen(isOpen ? null : m.entry))} disabled={pending}>
                       <b>{m.teamName}{team && team.edited && <span className="fpl-league-edited">Edited</span>}</b>
-                      <small>{m.total} pts · {m.managerName}</small>
-                      <ChevronDown size={14} aria-hidden="true" className="fpl-league-chev" />
+                      <small>{m.total} pts · {failed ? "Couldn't load, tap to try again" : m.managerName}</small>
+                      {failed ? <RotateCcw size={14} aria-hidden="true" className="fpl-league-chev" /> : <ChevronDown size={14} aria-hidden="true" className="fpl-league-chev" />}
                     </button>
                     <span className="fpl-league-live fpl-mono">
-                      {!team ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
+                      {pending ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
                         : team.status === 'ready' && typeof team.livePoints === 'number' ? team.livePoints : '–'}
                     </span>
                     <span className="fpl-league-pred fpl-mono">
-                      {!team ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
+                      {pending ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
                         : team.status === 'ready' ? fmtPts(team.xiTotal) : '–'}
                     </span>
-                    <ExpectedCell rank={m.rank} expected={team && team.status === 'ready' ? expected[m.entry] : null} loading={!team} />
+                    <ExpectedCell rank={m.rank} expected={team && team.status === 'ready' ? expected[m.entry] : null} loading={pending} />
                   </li>
                   {isOpen && team && team.status === 'ready' && (
                     <li className="fpl-league-open"><MemberTeam team={team} teamsById={teamsById} onOpen={() => onOpenTeam(m.entry)} /></li>
