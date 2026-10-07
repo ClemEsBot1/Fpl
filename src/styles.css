@@ -464,6 +464,12 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (min-width: 900px) { .fpl-league { padding: 28px 32px; } }
 .fpl-analysis-grid { display: grid; gap: 18px; }
 @media (min-width: 760px) { .fpl-analysis-grid { grid-template-columns: 1.3fr 1fr; gap: 28px; } }
+.fpl-league-pair { display: grid; gap: 16px; align-items: start; min-width: 0; }
+@media (min-width: 1280px) {
+  /* The league analysis gets its own column beside the table. */
+  .fpl-league-pair { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); gap: 20px; }
+  .fpl-league-pair .fpl-analysis-grid { grid-template-columns: 1fr; gap: 18px; }
+}
 .fpl-analysis-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .fpl-analysis-item { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 1px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .fpl-analysis-item:last-child { border-bottom: 0; }
@@ -500,3 +506,151 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   .fpl-rv { transition: none; }
   .wm-scan, .fpl-footnav-more { animation: none; }
 }
+
+/* ---------- Gameweek recap: full-screen slides on a phone, a tall card on a computer ---------- */
+.fpl-home-top-side { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fpl-recap-open { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 0; cursor: pointer;
+  background: #05041A; color: var(--lime); font: 700 0.85rem 'Space Grotesk', sans-serif; transition: transform 160ms ease-out, background-color 160ms ease; }
+.fpl-recap-open:active { transform: scale(0.97); }
+.fpl-recap-open:focus-visible { outline: 3px solid #05041A; outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) { .fpl-recap-open:hover { background: #17123F; } }
+
+.fpl-recap, .fpl-recap * { box-sizing: border-box; }
+.fpl-recap { padding: 0; border: 0; margin: 0; width: 100vw; max-width: 100vw; height: 100vh; height: 100dvh; max-height: none; overflow: hidden;
+  background: linear-gradient(160deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%); color: var(--ink); font-family: 'Inter', sans-serif; }
+.fpl-recap::backdrop { background: rgba(10,8,30,0.7); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.fpl-recap[open] { animation: fplRecapOpen 260ms cubic-bezier(0.23, 1, 0.32, 1); }
+@keyframes fplRecapOpen { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+@media (min-width: 600px) {
+  .fpl-recap { margin: auto; width: 420px; height: min(860px, calc(100dvh - 48px)); border-radius: 24px; box-shadow: 0 30px 80px rgba(10,8,30,0.55); }
+}
+.fpl-recap-frame { height: 100%; display: flex; flex-direction: column; gap: 14px; background: rgba(9,7,30,0.66);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 20px calc(20px + env(safe-area-inset-bottom, 0px)); }
+.fpl-recap-segs { display: flex; gap: 4px; }
+.fpl-recap-segs span { flex: 1; height: 4px; border-radius: 2px; background: rgba(251,250,255,0.25); transition: background-color 200ms ease; }
+.fpl-recap-segs span.on { background: #FBFAFF; }
+.fpl-recap-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fpl-recap-head p { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.fpl-recap-close { width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.3); background: rgba(10,8,30,0.4); color: var(--ink);
+  display: grid; place-items: center; cursor: pointer; transition: transform 160ms ease-out; }
+.fpl-recap-close:active { transform: scale(0.95); }
+.fpl-recap-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+/* Auto margins centre a short slide and let a tall one scroll from its top. */
+.fpl-recap-slide { margin: auto 0; display: flex; flex-direction: column; gap: 16px; padding: 4px 0; animation: fplRecapSlide 240ms cubic-bezier(0.23, 1, 0.32, 1); }
+@keyframes fplRecapSlide { from { opacity: 0; transform: translateY(10px); } }
+.fpl-recap-title { margin: 0; display: grid; gap: 2px; font: 600 1.4rem 'Space Grotesk', sans-serif; }
+.fpl-recap-title small { font: 400 0.82rem 'Inter', sans-serif; color: var(--ink-dim); }
+.fpl-recap b:not(.fpl-mono) { font-family: 'Space Grotesk', sans-serif; }
+.fpl-recap .fpl-mono { font-variant-numeric: tabular-nums; }
+.fpl-recap .is-up { color: var(--green); }
+.fpl-recap .is-down { color: #FF8A8A; }
+.fpl-recap .is-lime { color: var(--lime); }
+.fpl-recap-big { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font: 600 1.4rem 'Space Grotesk', sans-serif; }
+.fpl-recap-big b { font-size: clamp(4.5rem, 26vw, 7rem); line-height: 0.9; color: var(--lime); }
+.fpl-recap-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+  font: 700 0.88rem 'IBM Plex Mono', monospace; color: #05041A; }
+.fpl-recap-pill.is-lime { background: var(--lime); color: #05041A; }
+.fpl-recap-pill.is-green { background: var(--green); color: #05041A; }
+.fpl-recap-pill.is-red { background: #FF8A8A; color: #05041A; }
+.fpl-recap-pill.is-yellow { background: var(--yellow); color: #05041A; }
+.fpl-recap-card { margin: 0; display: grid; gap: 12px; padding: 16px; border-radius: 16px; background: rgba(10,8,30,0.6); border: 1px solid rgba(255,255,255,0.2); }
+.fpl-recap-note { margin: 0; font-size: 0.9rem; line-height: 1.5; color: rgba(251,250,255,0.88); }
+.fpl-recap-bar { display: grid; grid-template-columns: 5.6rem minmax(0, 1fr) 2.6rem; align-items: center; gap: 10px; font-size: 0.82rem; }
+.fpl-recap-bar b { text-align: right; }
+.fpl-recap-track { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.fpl-recap-track span { display: block; height: 100%; transform-origin: left; transform: scaleX(var(--v, 0)); transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1); }
+@starting-style { .fpl-recap-track span { transform: scaleX(0); } }
+.fpl-recap-stack { display: grid; gap: 4px; }
+.fpl-recap-was { font-size: 1.25rem; color: var(--ink-dim); }
+.fpl-recap-now { font-size: clamp(2.6rem, 13vw, 3.5rem); line-height: 1; }
+.fpl-recap-grid2 { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fpl-recap-grid2 > div { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.fpl-recap-grid2 > div > span:first-child { font-size: 0.75rem; color: var(--ink-dim); }
+.fpl-recap-grid2 > div > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-recap-card.fpl-recap-mini { padding: 14px; gap: 4px; }
+.fpl-recap-mid { font-size: 1.6rem; }
+.fpl-recap-cap { display: flex; align-items: center; gap: 12px; }
+.fpl-recap-cap div { display: grid; gap: 2px; min-width: 0; }
+.fpl-recap-cap b { font-size: 1.35rem; }
+.fpl-recap-cap small { font-size: 0.82rem; color: var(--ink-dim); }
+.fpl-recap-badge { flex: none; width: 44px; height: 44px; border-radius: 22px; background: var(--blue); color: #03132B; display: grid; place-items: center; font: 700 1.1rem 'Space Grotesk', sans-serif; }
+.fpl-recap-capline { margin: 0; display: flex; align-items: baseline; gap: 10px; }
+.fpl-recap-capline b { font-size: 4rem; line-height: 1; color: var(--lime); }
+.fpl-recap-capline span { color: var(--ink-dim); }
+.fpl-recap-sf.is-star { border-color: var(--lime); }
+.fpl-recap-sf.is-flop { border-color: var(--red); }
+.fpl-recap-kicker { display: flex; align-items: center; gap: 8px; font: 700 0.75rem 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.is-star .fpl-recap-kicker, .is-star .fpl-recap-sf-head .fpl-mono { color: var(--lime); }
+.is-flop .fpl-recap-kicker, .is-flop .fpl-recap-sf-head .fpl-mono { color: #FF8A8A; }
+.fpl-recap-sf-head { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.fpl-recap-sf-head b:first-child { font-size: 1.6rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-recap-sf-head .fpl-mono { font-size: 2.4rem; line-height: 1; }
+.fpl-recap-facts > div { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 10px; }
+.fpl-recap-facts small { font-size: 0.75rem; }
+.fpl-recap-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fpl-recap-chips span { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 0.8rem; }
+.fpl-recap-moves { list-style: none; }
+.fpl-recap-moves li { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); align-items: center; gap: 8px; }
+.fpl-recap-moves li + li { border-top: 1px solid rgba(255,255,255,0.2); padding-top: 12px; }
+.fpl-recap-moves li > span { display: grid; gap: 2px; min-width: 0; }
+.fpl-recap-moves small { font: 700 0.7rem 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.06em; }
+.fpl-recap-moves b { font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-recap-moves svg { color: var(--ink-dim); }
+.fpl-recap-moves .fpl-recap-more { display: block; font-size: 0.85rem; color: var(--ink-dim); }
+.fpl-recap-sum { gap: 8px; }
+.fpl-recap-sum div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.fpl-recap-sum dt { font-size: 0.9rem; }
+.fpl-recap-sum dd { margin: 0; font-weight: 700; }
+.fpl-recap-net { border-top: 1px solid rgba(255,255,255,0.2); padding-top: 10px; }
+.fpl-recap-net dt { font-weight: 600; }
+.fpl-recap-net dd { font-size: 1.8rem; }
+.fpl-recap-move { display: flex; align-items: center; gap: 14px; }
+.fpl-recap-move div { display: grid; gap: 2px; }
+.fpl-recap-move span { font-size: 0.75rem; color: var(--ink-dim); }
+.fpl-recap-move svg:not(.is-up):not(.is-down) { color: var(--ink-dim); }
+.fpl-recap-table { list-style: none; padding: 6px 14px; gap: 0; }
+.fpl-recap-table li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) 2.6rem 3.6rem; align-items: center; gap: 8px; padding: 10px 0; font-size: 0.9rem; }
+.fpl-recap-table li + li { border-top: 1px solid rgba(255,255,255,0.12); }
+.fpl-recap-table li span:nth-child(n+3) { text-align: right; }
+.fpl-recap-table b { font-weight: 500; font-family: 'Inter', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-recap-table .fpl-recap-th { font: 600 0.68rem 'IBM Plex Mono', monospace; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 0; }
+.fpl-recap-table li.is-you { margin: 0 -8px; padding: 10px 8px; border-radius: 8px; background: rgba(206,255,16,0.14); }
+.fpl-recap-table li.is-you b { font-weight: 700; }
+.fpl-recap-table li.is-you span:nth-child(3) { color: var(--lime); }
+.fpl-recap-preds { display: table; width: 100%; border-spacing: 0; padding: 4px 14px; }
+.fpl-recap-preds th, .fpl-recap-preds td { padding: 7px 0 7px 10px; text-align: right; font-size: 0.86rem; border-top: 1px solid rgba(255,255,255,0.12); white-space: nowrap; }
+.fpl-recap-preds thead th { font: 600 0.68rem 'IBM Plex Mono', monospace; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.06em; border-top: 0; }
+.fpl-recap-preds th:first-child { padding-left: 0; text-align: left; width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.fpl-recap-preds tbody th { font-weight: 600; }
+.fpl-recap-share { border-radius: 20px; padding: 2px; background: linear-gradient(140deg, #CEFF10, #04F9FC 50%, #BF1CF0); }
+.fpl-recap-share-in { border-radius: 18px; background: #0B0920; padding: 20px; display: grid; gap: 16px; }
+.fpl-recap-share-top { margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.fpl-recap-share-top b { font-size: 1.1rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-recap-share-top span { font-size: 0.7rem; color: var(--ink-dim); white-space: nowrap; }
+.fpl-recap-share-pts { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; font: 600 1.2rem 'Space Grotesk', sans-serif; }
+.fpl-recap-share-pts b { font-size: 5rem; line-height: 0.9; color: var(--lime); }
+.fpl-recap-share-pts .fpl-recap-pill { margin-left: auto; align-self: center; padding: 4px 10px; font-size: 0.8rem; }
+.fpl-recap-share-facts { gap: 14px 12px; }
+.fpl-recap-share-facts dt { font-size: 0.78rem; color: var(--ink-dim); }
+.fpl-recap-share-facts dd { margin: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-recap-share-foot { margin: 0; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-recap-nav { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.fpl-recap-btn { min-height: 52px; padding: 0 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.35); background: rgba(10,8,30,0.35); color: var(--ink); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 600 1rem 'Space Grotesk', sans-serif;
+  transition: transform 160ms ease-out, background-color 160ms ease, border-color 160ms ease; }
+.fpl-recap-btn:active:not(:disabled) { transform: scale(0.97); }
+.fpl-recap-btn:disabled { opacity: 0.5; cursor: default; }
+.fpl-recap-next { background: var(--blue); border-color: var(--blue); color: #03132B; font-weight: 700; }
+.fpl-recap-btn:focus-visible, .fpl-recap-close:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .fpl-recap-btn:not(:disabled):hover { background: rgba(255,255,255,0.12); }
+  .fpl-recap-next:not(:disabled):hover { background: var(--lime); border-color: var(--lime); }
+  .fpl-recap-close:hover { background: rgba(255,255,255,0.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fpl-recap[open], .fpl-recap-slide { animation: fplRecapFade 160ms ease; }
+  .fpl-recap-track span { transition: none; }
+  .fpl-recap-btn, .fpl-recap-close, .fpl-recap-open { transition: none; }
+  .fpl-recap-btn:active:not(:disabled), .fpl-recap-close:active, .fpl-recap-open:active { transform: none; }
+}
+@keyframes fplRecapFade { from { opacity: 0; } }

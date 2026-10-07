@@ -184,7 +184,8 @@ function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, pl
   const SORTS = [['rank', 'Rank'], ['live', 'Live'], ['predicted', 'Predicted'], ['expected', 'Expected']];
 
   return (
-    <>
+    // Side by side on a wide screen: the table, then the analysis.
+    <div className="fpl-league-pair">
     <section className="fpl-glass fpl-home-card" aria-labelledby="league-h" aria-busy={standings.status === 'loading'}>
       <div className="fpl-home-team-head">
         <h2 id="league-h" className="fpl-home-h"><Trophy size={18} aria-hidden="true" /> {standings.data ? standings.data.league.name : 'League'}</h2>
@@ -246,7 +247,7 @@ function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, pl
     {standings.status === 'ready' && standings.data.members.length > 1 && (
       <LeagueAnalysis members={standings.data.members} teams={teams} playersById={playersById} liveGwId={liveGwId} total={standings.data.members.length} />
     )}
-    </>
+    </div>
   );
 }
 
