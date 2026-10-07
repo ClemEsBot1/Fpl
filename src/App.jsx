@@ -159,10 +159,36 @@ function readGwParam() {
   return Number.isInteger(gw) && gw >= 1 && gw <= 38 ? gw : null;
 }
 function writeGwParam(gw) {
+  writeParams({ gw: gw ? String(gw) : null });
+}
+// Sets (or, for null, removes) query parameters without a new history entry.
+function writeParams(values) {
   const params = new URLSearchParams(window.location.search);
-  if (gw) params.set('gw', String(gw)); else params.delete('gw');
+  Object.entries(values).forEach(([key, value]) => { if (value) params.set(key, value); else params.delete(key); });
   const query = params.toString();
-  window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+  const next = window.location.pathname + (query ? `?${query}` : '') + window.location.hash;
+  if (next !== window.location.pathname + window.location.search + window.location.hash) window.history.replaceState(window.history.state, '', next);
+}
+
+// The screen open is kept in the address too (?view=team, and ?team=123
+// for someone else's team), so a reload opens it again rather than Home.
+const RESTORABLE_VIEWS = ['team', 'league', 'screenshot', 'best', 'build', 'lookback', 'saved'];
+function readViewParam() {
+  const view = new URLSearchParams(window.location.search).get('view');
+  return RESTORABLE_VIEWS.includes(view) ? view : null;
+}
+// Whether this tab was past the welcome page, so a reload of Home stays
+// on Home. Kept for the tab only: a new visit still starts with welcome.
+const IN_APP_KEY = 'fpl_in_app';
+function readInApp() {
+  try { return sessionStorage.getItem(IN_APP_KEY) === '1'; } catch { return false; }
+}
+function writeInApp(inApp) {
+  try { if (inApp) sessionStorage.setItem(IN_APP_KEY, '1'); else sessionStorage.removeItem(IN_APP_KEY); } catch { /* storage unavailable */ }
+}
+function readTeamParam() {
+  const team = new URLSearchParams(window.location.search).get('team');
+  return team && /^\d{1,10}$/.test(team) ? team : null;
 }
 
 // What went wrong loading a team, in words (codes thrown by loadTeamForGw).
@@ -244,6 +270,8 @@ export default function FPLSquadChecker() {
   // started, so tapping Home (or starting something else) while a slow
   // lookup is running can't be overridden by that lookup finishing later.
   const ticketRef = useRef(0);
+  // The screen to reopen after a reload, until it has been.
+  const restoreViewRef = useRef(readViewParam());
   const newTicket = () => { ticketRef.current += 1; return ticketRef.current; };
   const isCurrent = ticket => ticket === ticketRef.current;
   // Navigating somewhere abandons whatever was loading.
@@ -299,7 +327,9 @@ export default function FPLSquadChecker() {
     preload(welcomeChunk)();
     const leaveBoot = next => setStageRaw(s => (s === 'boot' ? next : s));
     // Don't hold the app up for long if the account check is slow.
-    const timer = setTimeout(() => leaveBoot('welcome'), 3000);
+    // A reload of another screen goes back to it, so past the welcome page.
+    const skipWelcome = !!restoreViewRef.current || readInApp();
+    const timer = setTimeout(() => leaveBoot(skipWelcome ? 'home' : 'welcome'), 3000);
     (async () => {
       let loggedIn = false;
       try {
@@ -307,7 +337,7 @@ export default function FPLSquadChecker() {
         if (res.ok) { applyAccount(await res.json()); loggedIn = true; }
       } catch { /* not logged in / API unreachable — treat as logged out */ }
       clearTimeout(timer);
-      leaveBoot(loggedIn ? 'home' : 'welcome');
+      leaveBoot(loggedIn || skipWelcome ? 'home' : 'welcome');
     })();
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1583,10 +1613,38 @@ export default function FPLSquadChecker() {
     { id: 'about', label: 'About this app', desc: 'What it does and how it predicts', group: 'App', Icon: Info, run: () => setStage('welcome') },
     ...(install ? [{ id: 'install', label: 'Install the app', desc: 'Open it full screen, like an app', group: 'App', Icon: Download, run: install }] : []),
   ];
+  // After a reload, reopen the screen that was open (see readViewParam).
+  useEffect(() => {
+    const view = restoreViewRef.current;
+    if (!view || stage !== 'home') return;
+    restoreViewRef.current = null;
+    const teamParam = readTeamParam();
+    if (view === 'team' && teamParam) { handleTeamIdSubmit(teamParam); return; }
+    // Look back is only in the menu once the gameweeks are known.
+    if (view === 'lookback') { handleViewHindsight(); return; }
+    const item = navItems.find(i => i.id === view);
+    if (item) item.run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
   const showNav = stage !== 'welcome' && stage !== 'boot';
   const wideStage = stage === 'home' || stage === 'welcome' || stage === 'league';
   const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
   lastNavRef.current = activeNav;
+
+  // Keep the screen open in the address. Loading and error screens keep
+  // the one they came from; nothing is written until a reload's screen
+  // has been reopened.
+  const resultsTeamId = stage === 'results' && resultsData && resultsData.entryMeta && resultsData.entryMeta.teamId ? String(resultsData.entryMeta.teamId) : null;
+  useEffect(() => {
+    if (stage === 'boot' || stage === 'loading' || stage === 'error' || restoreViewRef.current) return;
+    writeInApp(stage !== 'welcome');
+    if (stage === 'welcome') { writeParams({ view: null, team: null }); return; }
+    writeParams({
+      view: RESTORABLE_VIEWS.includes(activeNav) ? activeNav : null,
+      team: resultsTeamId && resultsTeamId !== String(homeTeam.teamId) ? resultsTeamId : null,
+    });
+  }, [stage, activeNav, resultsTeamId, homeTeam.teamId]);
 
   // The summary row under the header: the squad on the results screen, or
   // on Home the remembered team for the picked gameweek.
