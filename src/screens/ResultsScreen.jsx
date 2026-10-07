@@ -925,42 +925,53 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
 
   const canSaveChanges = !!teamId && !data.isPastGw;
   const savedChanges = !!(data.entryMeta && data.entryMeta.savedChanges);
+  const onDevice = !!(data.entryMeta && data.entryMeta.changesOnDevice);
+  const busy = status && status.kind === 'saving';
+
+  // Changes to a Team ID's squad are kept on this device as they're made
+  // (so Home and Mini-league show them); an account keeps them on every
+  // device. Either way they can be dropped for the team on FPL.
+  const changesBanner = canSaveChanges && (savedChanges || data.edited) ? (
+    <div className="fpl-block" role="status" style={{ padding: 12, marginBottom: 10, display: 'grid', gap: 8 }}>
+      <div className="fpl-mono" style={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+        {data.edited
+          ? (session
+            ? 'Your changes are kept on this device, and show on Home and in Mini-league. Save them to your account to see them on any device.'
+            : 'Your changes are kept on this device, and show on Home and in Mini-league. Log in to keep them on any device.')
+          : (onDevice ? 'Showing your changes from this device, not the team on FPL.' : 'Showing the changes saved to your account, not the team on FPL.')}
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {session && (data.edited || onDevice) && (
+          <button onClick={handleSaveChanges} disabled={busy} className="fpl-btn fpl-btn-solid" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <Bookmark size={14} /> Save to account
+          </button>
+        )}
+        <button onClick={handleResetChanges} disabled={busy} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+          <RotateCcw size={14} /> Use the team on FPL
+        </button>
+      </div>
+      {status && status.kind === 'error' && !session && <div role="alert" style={{ color: 'var(--red)', fontSize: '0.78rem' }}>{status.message}</div>}
+    </div>
+  ) : null;
 
   if (!session) {
     return (
-      <button
-        onClick={onRequestLoginToSave}
-        className="fpl-btn"
-        style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-      >
-        <Bookmark size={16} /> {canSaveChanges && data.edited ? 'Log in to save your changes' : 'Log in to save this team'}
-      </button>
+      <>
+        {changesBanner}
+        <button
+          onClick={onRequestLoginToSave}
+          className="fpl-btn"
+          style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+        >
+          <Bookmark size={16} /> {canSaveChanges && (data.edited || onDevice) ? 'Log in to save your changes' : 'Log in to save this team'}
+        </button>
+      </>
     );
   }
 
   return (
     <div style={{ marginBottom: 10 }}>
-      {canSaveChanges && (savedChanges || data.edited) && (
-        <div className="fpl-block" role="status" style={{ padding: 12, marginBottom: 10, display: 'grid', gap: 8 }}>
-          <div className="fpl-mono" style={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-            {data.edited
-              ? 'You have changed this team. Save the changes to your account to see them whenever you load this Team ID.'
-              : 'Showing the changes saved to your account, not your team on FPL.'}
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {data.edited && (
-              <button onClick={handleSaveChanges} disabled={status && status.kind === 'saving'} className="fpl-btn fpl-btn-solid" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                <Bookmark size={14} /> Save changes
-              </button>
-            )}
-            {savedChanges && (
-              <button onClick={handleResetChanges} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                <RotateCcw size={14} /> Use my FPL team
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {changesBanner}
       <input
         value={label}
         onChange={e => setLabel(e.target.value)}
