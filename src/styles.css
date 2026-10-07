@@ -426,9 +426,11 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-chips .fpl-mono { color: var(--ink-dim); font-size: 0.72rem; }
 .fpl-league-sort { display: flex; gap: 6px; }
 .fpl-league-sort .fpl-chip-btn { padding: 5px 10px; font-size: 0.75rem; }
-.fpl-league-cols, .fpl-league-row { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 3.4rem 4.2rem; align-items: center; gap: 8px; }
+.fpl-league-cols, .fpl-league-row { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) 2.8rem 3.2rem 2.8rem; align-items: center; gap: 6px; }
+@media (min-width: 600px) { .fpl-league-cols, .fpl-league-row { grid-template-columns: 2.2rem minmax(0, 1fr) 3.6rem 4.2rem 3.6rem; gap: 10px; } }
 .fpl-league-cols { font-size: 0.66rem; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.06em; padding: 0 0 4px; border-bottom: 1px solid var(--line); }
 .fpl-league-cols span:nth-child(n+3) { text-align: right; }
+.fpl-league-cols { line-height: 1.2; }
 .fpl-league-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .fpl-league-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .fpl-league-rank { color: var(--ink-dim); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -442,7 +444,12 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-row.is-open .fpl-league-chev { transform: rotate(180deg); }
 @media (hover: hover) and (pointer: fine) { .fpl-league-who:not(:disabled):hover { background: rgba(255,255,255,0.08); } }
 .fpl-league-edited { margin-left: 6px; font: 600 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.04em; text-transform: uppercase; color: #05041A; background: var(--yellow); padding: 1px 5px; border-radius: 4px; vertical-align: 2px; }
-.fpl-league-total { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.fpl-league-live { text-align: right; font-weight: 700; color: var(--blue); font-variant-numeric: tabular-nums; }
+.fpl-league-exp { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; display: grid; justify-items: end; line-height: 1.1; }
+.fpl-league-exp small { display: inline-flex; align-items: center; font-size: 0.66rem; font-weight: 600; }
+.fpl-league-exp small.is-up { color: var(--green); }
+.fpl-league-exp small.is-down { color: var(--red); }
+.fpl-league-sort { flex-wrap: wrap; }
 .fpl-league-pred { text-align: right; font-weight: 700; color: var(--lime); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .fpl-league-skel { display: inline-block; width: 2.6rem; height: 14px; vertical-align: middle; }
 .fpl-league-open { padding: 8px 0 12px; border-bottom: 1px solid var(--line); }
