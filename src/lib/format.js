@@ -147,6 +147,13 @@ export function getNextDailyRefreshUTC(hourUTC = DAILY_REFRESH_HOUR_UTC) {
   return next.toISOString();
 }
 
+// Whether a deadline is less than a day away (and hasn't passed).
+export function isDeadlineSoon(targetISO, now = Date.now()) {
+  if (!targetISO) return false;
+  const diff = new Date(targetISO).getTime() - now;
+  return diff > 0 && diff < 864e5;
+}
+
 export function formatCountdown(targetISO, opts = {}) {
   const { suffix = 'to deadline', passedLabel = 'Deadline passed' } = opts;
   if (!targetISO) return '';

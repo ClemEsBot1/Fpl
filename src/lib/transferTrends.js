@@ -1,23 +1,39 @@
 // Transfer trends for the home screen: the players managers are buying
-// and selling most this gameweek, and an estimate of whose price is about
-// to move.
+// and selling most this gameweek, and whose price is about to move.
 //
-// FPL doesn't publish its price-change formula. What is known: a price
-// moves once enough of a player's owners have bought (or sold) them since
-// the last change, and falls trigger more easily than rises. So the
-// estimate compares this gameweek's net transfers with how many managers
-// own the player. It's a guide, not a promise, and is labelled that way.
+// FPL's own Price Change Predictor (2026/27 on) puts each player's progress
+// towards a price change in bootstrap-static as price_change_percent:
+// towards a rise when positive, a drop when negative, and 100% or more means
+// FPL expects the change at the next update, 00:00 UK time. When that field
+// isn't there, the status is estimated instead: a price moves once enough of
+// a player's owners have bought (or sold) them since the last change, and
+// falls trigger more easily than rises, so this gameweek's net transfers are
+// compared with how many managers own the player.
 
-// Net transfers as a share of owners needed for a move.
+// Progress (FPL's percentage) for each status. FPL doesn't publish where its
+// labels start; 100% is its own "expected tonight" line.
+export const VERY_LIKELY_PCT = 100;
+export const LIKELY_PCT = 70;
+
+// Estimate: net transfers as a share of owners needed for a move.
 export const RISE_LIKELY = 0.1;
 export const RISE_POSSIBLE = 0.05;
 export const FALL_LIKELY = -0.05;
 export const FALL_POSSIBLE = -0.025;
-// Below this many net transfers nothing is predicted, however few owners.
+// Below this many net transfers nothing is estimated, however few owners.
 const MIN_NET = 5000;
 
-// 'rise' | 'fall' with 'likely' | 'possible', or null.
+// { dir: 'rise' | 'fall', confidence, percent? } or null. From FPL's own
+// progress when it's published (confidence 'very likely' | 'likely'),
+// otherwise estimated (confidence 'likely' | 'possible').
 export function predictPriceChange(player, totalPlayers) {
+  if (typeof player.priceChangePercent === 'number') {
+    const pct = player.priceChangePercent;
+    const dir = pct > 0 ? 'rise' : 'fall';
+    if (Math.abs(pct) >= VERY_LIKELY_PCT) return { dir, confidence: 'very likely', percent: pct };
+    if (Math.abs(pct) >= LIKELY_PCT) return { dir, confidence: 'likely', percent: pct };
+    return null;
+  }
   const net = player.transfersInEvent - player.transfersOutEvent;
   if (Math.abs(net) < MIN_NET) return null;
   const owners = Math.max((player.selectedBy / 100) * (totalPlayers || 0), 10000);
@@ -27,6 +43,11 @@ export function predictPriceChange(player, totalPlayers) {
   if (pressure <= FALL_LIKELY) return { dir: 'fall', confidence: 'likely' };
   if (pressure <= FALL_POSSIBLE) return { dir: 'fall', confidence: 'possible' };
   return null;
+}
+
+// Whether FPL published its own price progress for these players.
+export function hasOfficialPriceData(allPlayers) {
+  return allPlayers.some(p => typeof p.priceChangePercent === 'number' && p.priceChangePercent !== 0);
 }
 
 function rowFor(player, totalPlayers) {
@@ -46,6 +67,32 @@ export function buildTransferTrends(allPlayers, totalPlayers, limit = 6) {
     { id: 'in', title: 'Most transferred in', rows: top(rows.filter(r => r.player.transfersInEvent > 0), (a, b) => b.player.transfersInEvent - a.player.transfersInEvent), stat: 'in' },
     { id: 'out', title: 'Most transferred out', rows: top(rows.filter(r => r.player.transfersOutEvent > 0), (a, b) => b.player.transfersOutEvent - a.player.transfersOutEvent), stat: 'out' },
   ];
+}
+
+// The players closest to a rise and to a drop by FPL's own progress, or no
+// panels when FPL hasn't published it.
+export function buildPriceWatch(allPlayers, totalPlayers, limit = 6) {
+  if (!hasOfficialPriceData(allPlayers)) return [];
+  const rows = allPlayers.filter(p => typeof p.priceChangePercent === 'number').map(p => rowFor(p, totalPlayers));
+  return [
+    { id: 'rises', title: 'Closest to a price rise', rows: rows.filter(r => r.player.priceChangePercent > 0).sort((a, b) => b.player.priceChangePercent - a.player.priceChangePercent).slice(0, limit), stat: 'pct' },
+    { id: 'drops', title: 'Closest to a price drop', rows: rows.filter(r => r.player.priceChangePercent < 0).sort((a, b) => a.player.priceChangePercent - b.player.priceChangePercent).slice(0, limit), stat: 'pct' },
+  ];
+}
+
+// When FPL next changes prices: 00:00 UK time (GMT or BST), as a Date.
+export function nextPriceChangeAt(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', year: 'numeric', month: 'numeric', day: 'numeric',
+  }).formatToParts(now).filter(x => x.type !== 'literal').map(x => [x.type, Number(x.value)]));
+  // Tomorrow's date in London, at midnight there: try UTC midnight and an
+  // hour earlier (BST), and take the one London reads as 00:00.
+  const utcMidnight = Date.UTC(parts.year, parts.month - 1, parts.day + 1);
+  const londonHour = t => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: 'numeric', hourCycle: 'h23' }).format(t));
+  for (const t of [utcMidnight - 3600e3, utcMidnight]) {
+    if (londonHour(t) === 0) return new Date(t);
+  }
+  return new Date(utcMidnight);
 }
 
 // The `limit` highest of `entries` ([{ player, points }]) by points, for

@@ -296,6 +296,17 @@ export function getTargetEvent(events, now = Date.now()) {
   return events[events.length - 1]; // every deadline has passed — season's over, show the last gameweek
 }
 
+// The gameweek the app opens on: the one being played, until every one of
+// its matches is over, then the next one to plan for. FPL marks a
+// gameweek `finished` once its last match is done.
+export function getDefaultEvent(events, now = Date.now()) {
+  const target = getTargetEvent(events, now);
+  const live = events
+    .filter(e => new Date(e.deadline_time).getTime() <= now)
+    .sort((a, b) => b.id - a.id)[0];
+  return live && !live.finished && (!target || live.id < target.id) ? live : target;
+}
+
 // A gameweek is "closed" once its deadline has passed: picks are locked in,
 // so it's safe to browse as history and nothing about it should recompute.
 export function isEventLocked(event, now = Date.now()) {
@@ -417,6 +428,10 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       transfersInEvent: Number(e.transfers_in_event) || 0,
       transfersOutEvent: Number(e.transfers_out_event) || 0,
       costChangeEvent: Number(e.cost_change_event) || 0,
+      // FPL's own progress towards a price change (+ rise, − drop; 100 =
+      // expected at the next change). null where FPL doesn't publish it.
+      priceChangePercent: e.price_change_percent === null || e.price_change_percent === undefined || e.price_change_percent === '' || !Number.isFinite(Number(e.price_change_percent))
+        ? null : Number(e.price_change_percent),
       penaltiesOrder: e.penalties_order === null || e.penalties_order === undefined ? null : Number(e.penalties_order),
       directFreekicksOrder: e.direct_freekicks_order === null || e.direct_freekicks_order === undefined ? null : Number(e.direct_freekicks_order),
       cornersOrder: e.corners_and_indirect_freekicks_order === null || e.corners_and_indirect_freekicks_order === undefined ? null : Number(e.corners_and_indirect_freekicks_order),

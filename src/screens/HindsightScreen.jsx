@@ -49,13 +49,17 @@ export function HindsightSquadColumn({ title, squad, score, teamsById }) {
         <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: 0 }}>{title}</div>
         <div className="fpl-mono" style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(score)} <span style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', fontWeight: 500 }}>PTS</span></div>
       </div>
+      {/* Dark panels per position, the same as Best squad and My team. */}
       {grouped.map(g => (
-        <div key={g.posId} style={{ marginBottom: 6 }}>
-          {g.players.map(slot => <HindsightPlayerRow key={slot.player.id} slot={slot} teamsById={teamsById} />)}
+        <div key={g.posId} style={{ marginBottom: 10 }}>
+          <div className="fpl-section-title">{POSITION_LABELS[g.posId]}</div>
+          <div className="fpl-block" style={{ borderTop: 'none' }}>
+            {g.players.map(slot => <HindsightPlayerRow key={slot.player.id} slot={slot} teamsById={teamsById} />)}
+          </div>
         </div>
       ))}
       {bench.length > 0 && (
-        <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6, padding: '0 4px' }}>
+        <div className="fpl-block fpl-mono" style={{ fontSize: '0.7rem', color: 'var(--ink-dim)', padding: '10px 12px' }}>
           Bench: {bench.map(s => s.player.webName).join(', ')}
         </div>
       )}
@@ -66,7 +70,7 @@ export function HindsightSquadColumn({ title, squad, score, teamsById }) {
 export function HindsightScreen({ data, savedTeams, compare, onSelectCompare, onBack }) {
   if (data.gwUnavailable) {
     return (
-      <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+      <div className="fpl-block" style={{ margin: '24px 16px', padding: '28px 16px', textAlign: 'center' }}>
         <Info size={28} style={{ color: 'var(--ink-dim)', margin: '0 auto 14px' }} />
         <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 6, color: 'var(--ink)' }}>
           No saved optimal squad for {data.gwName || `gameweek ${data.gwId}`}, so there's nothing to compare against.

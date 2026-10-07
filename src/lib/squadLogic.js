@@ -2,7 +2,7 @@
 // transfer suggestions, chip timing, squad scoring/export, and matching a
 // screenshot's read names to real players for the review screen.
 import { POSITION_LABELS, findTopMatches, similarity } from './format.js';
-import { MAX_PER_REAL_TEAM, POSITION_ORDER, SQUAD_BUDGET, SQUAD_SLOTS, buildOptimalTeam } from './predictions.js';
+import { MAX_PER_REAL_TEAM, POSITION_ORDER, SQUAD_BUDGET, SQUAD_SLOTS, buildOptimalTeam, isLegalStartingXi } from './predictions.js';
 
 export function suggestCaptain(starters) {
   if (!starters.length) return null;
@@ -88,6 +88,32 @@ export function ensureCaptaincy(squad, armband = 2) {
     if (s.isCaptain) return { ...s, isCaptain: false, multiplier: s.isStarting ? 1 : 0 };
     return s;
   });
+}
+
+// Who `slot` can swap places with between the XI and the bench: players
+// on the other side whose swap still leaves a legal formation (one
+// goalkeeper, 3-5 DEF, 2-5 MID, 1-3 FWD).
+export function substitutionOptions(squad, slot) {
+  const players = squad.map(s => s.player);
+  const starterIds = squad.filter(s => s.isStarting).map(s => s.player.id);
+  return squad.filter(other => {
+    if (other.isStarting === slot.isStarting) return false;
+    const [on, off] = slot.isStarting ? [other, slot] : [slot, other];
+    const ids = starterIds.filter(id => id !== off.player.id).concat(on.player.id);
+    return isLegalStartingXi(ids, players);
+  });
+}
+
+// Swaps two players between the XI and the bench. A benched player loses
+// their armband; if that was the captain's, ensureCaptaincy hands it on.
+export function substitutePlayers(squad, aId, bId, armband = 2) {
+  const swapped = squad.map(s => {
+    if (s.player.id !== aId && s.player.id !== bId) return s;
+    const isStarting = !s.isStarting;
+    if (isStarting) return { ...s, isStarting, multiplier: 1 };
+    return { ...s, isStarting, isCaptain: false, isViceCaptain: false, multiplier: 0 };
+  });
+  return ensureCaptaincy(swapped, armband);
 }
 
 // Problems that make a squad unplayable, for the screenshot review screen
