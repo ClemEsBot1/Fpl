@@ -64,14 +64,21 @@ export function livePointsFor(picks, liveById) {
 // (with live points for the gameweek in progress in place of FPL's figure)
 // plus their predicted points. Members still loading are placed on their
 // total alone. Ties share a position. Returns { [entry]: { projected, position } }.
-export function expectedPositions(members, teams) {
+// With `beforeWeek` (a gameweek that has started, see membersAtGw) it's the
+// position after that gameweek had everyone scored their prediction for
+// it: the total before it plus the prediction. Members whose total isn't
+// known are left out.
+export function expectedPositions(members, teams, { beforeWeek = false } = {}) {
   const projected = members.map(m => {
     const team = teams[m.entry];
     const ready = team && team.status === 'ready';
+    if (beforeWeek) {
+      return typeof m.totalBefore === 'number' ? { entry: m.entry, projected: m.totalBefore + (ready ? team.xiTotal || 0 : 0) } : null;
+    }
     const live = ready && typeof team.livePoints === 'number' ? team.livePoints : null;
     const base = live === null ? m.total : m.total - (m.eventTotal || 0) + live;
     return { entry: m.entry, projected: base + (ready ? team.xiTotal : 0) };
-  });
+  }).filter(Boolean);
   const sorted = [...projected].sort((a, b) => b.projected - a.projected);
   const out = {};
   sorted.forEach((p, i) => {
@@ -79,6 +86,41 @@ export function expectedPositions(members, teams) {
     out[p.entry] = { projected: Math.round(p.projected * 10) / 10, position };
   });
   return out;
+}
+
+// Positions shared by equal totals: 1, 2, 2, 4.
+function rankBy(list, valueOf) {
+  const sorted = [...list].sort((a, b) => valueOf(b) - valueOf(a));
+  const out = new Map();
+  sorted.forEach((x, i) => {
+    out.set(x, i > 0 && valueOf(x) === valueOf(sorted[i - 1]) ? out.get(sorted[i - 1]) : i + 1);
+  });
+  return out;
+}
+
+// A league as it stood after gameweek `gwId`, for a gameweek that has
+// started: each member's total, points that week and position after it and
+// before it, from their FPL history (team.history: [{ event, points, total }]).
+// For a gameweek still being played (`finished` false) the week's live
+// points stand in for FPL's figure. Members whose history hasn't loaded
+// have null positions and totals.
+export function membersAtGw(members, teams, gwId, { finished = true } = {}) {
+  const rows = members.map(m => {
+    const team = teams[m.entry];
+    const history = team && team.status === 'ready' && Array.isArray(team.history) ? team.history : null;
+    if (!history) return { ...m, rank: null, lastRank: null, total: null, totalBefore: null, eventTotal: null };
+    const at = history.find(r => r.event === gwId);
+    const earlier = history.filter(r => r.event < gwId);
+    const totalBefore = earlier.length ? earlier[earlier.length - 1].total : 0;
+    const live = !finished && typeof team.livePoints === 'number' ? team.livePoints : null;
+    const eventTotal = live !== null ? live : (at ? at.points : 0);
+    const total = live !== null ? totalBefore + live : (at ? at.total : totalBefore);
+    return { ...m, total, totalBefore, eventTotal };
+  });
+  const known = rows.filter(r => r.total !== null);
+  const after = rankBy(known, r => r.total);
+  const before = rankBy(known, r => r.totalBefore);
+  return rows.map(r => (r.total === null ? r : { ...r, rank: after.get(r), lastRank: before.get(r) }));
 }
 
 // One member's numbers for the league analysis, from their picks for the

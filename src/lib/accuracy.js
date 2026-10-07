@@ -39,10 +39,18 @@ export function summariseAccuracy(predictedById, liveElements) {
   const topAverageActual = top.reduce((s, p) => s + p.actual, 0) / top.length;
   const best = top[0];
 
+  // How far off predictions usually are: half of players land within the
+  // 50th percentile of misses, eight in ten within the 80th.
+  const misses = pairs.map(p => Math.abs(p.predicted - p.actual)).sort((a, b) => a - b);
+  const percentile = q => misses[Math.min(n - 1, Math.max(0, Math.ceil(q * n) - 1))];
+
   const round = (x, dp = 1) => Math.round(x * 10 ** dp) / 10 ** dp;
   return {
     playersCompared: n,
     meanAbsError: round(meanAbsError),
+    missP50: round(percentile(0.5)),
+    missP80: round(percentile(0.8)),
+    missP90: round(percentile(0.9)),
     correlation: round(correlation, 2),
     topTenAverageActual: round(topAverageActual),
     averageActual: round(meanA),

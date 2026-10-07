@@ -17,6 +17,17 @@ test('scores only players who played', () => {
   assert.ok(s.topTenAverageActual > s.averageActual);
 });
 
+test('the usual size of a miss comes from the spread of every miss', () => {
+  // Misses of 0, 1, 2 … 9, each for 3 players.
+  const predicted = {};
+  const rows = [];
+  for (let id = 1; id <= 30; id++) { predicted[id] = 2; rows.push([id, 2 + ((id - 1) % 10)]); }
+  const s = summariseAccuracy(predicted, live(rows));
+  assert.equal(s.missP50, 4);
+  assert.equal(s.missP80, 7);
+  assert.equal(s.missP90, 8);
+});
+
 test('too few players to judge returns null', () => {
   assert.equal(summariseAccuracy({ 1: 2 }, live([[1, 2]])), null);
 });
