@@ -10,10 +10,10 @@
 // falls trigger more easily than rises, so this gameweek's net transfers are
 // compared with how many managers own the player.
 
-// Progress (FPL's percentage) for each status. FPL doesn't publish where its
-// labels start; 100% is its own "expected tonight" line.
+// Progress (FPL's percentage) where each of FPL's statuses starts. 100% is
+// its own "expected tonight" line.
 export const VERY_LIKELY_PCT = 100;
-export const LIKELY_PCT = 70;
+export const LIKELY_PCT = 95;
 
 // Estimate: net transfers as a share of owners needed for a move.
 export const RISE_LIKELY = 0.1;
