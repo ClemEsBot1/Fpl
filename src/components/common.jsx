@@ -153,6 +153,18 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
   );
 }
 
+// Grey placeholder bars in the shape of what's loading, so the page keeps
+// its layout instead of jumping when the data lands. `label` is read out
+// to screen readers in place of the bars.
+export function SkeletonRows({ rows = 4, label = 'Loading…' }) {
+  return (
+    <div className="fpl-skel-rows" role="status">
+      {Array.from({ length: rows }, (_, i) => <span key={i} className="fpl-skel" aria-hidden="true" />)}
+      <span className="fpl-sr-only">{label}</span>
+    </div>
+  );
+}
+
 export function LoadingScreen({ message }) {
   return (
     <div role="status" aria-live="polite" style={{ padding: '60px 16px', textAlign: 'center' }}>

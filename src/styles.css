@@ -4,7 +4,7 @@
   --panel:rgba(10,8,30,0.60); --panel-alt:rgba(10,8,30,0.42); --line:rgba(255,255,255,0.20);
   --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.72); --blue:#04F9FC; --green:#36FE48;
   --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; }
-.fpl-root { font-family:'Inter',sans-serif; background:var(--bg) fixed; color:var(--ink); min-height:100vh; }
+.fpl-root { font-family:'Inter',sans-serif; background:var(--bg) fixed; color:var(--ink); min-height:100vh; min-height:100dvh; }
 
 .fpl-display { font-family:'Space Grotesk',sans-serif; }
 .fpl-mono { font-family:'IBM Plex Mono',monospace; }
@@ -14,10 +14,11 @@
 .fpl-btn { font-family:'Space Grotesk',sans-serif; font-weight:600; letter-spacing:0.02em;
   border:2px solid var(--blue); background:transparent; color:var(--blue); border-radius:6px;
   padding:14px 18px; cursor:pointer; transition:background .15s,color .15s; text-align:left; }
-.fpl-btn:hover, .fpl-btn:focus-visible { background:var(--blue); color:#03132B; }
+.fpl-btn:focus-visible { background:var(--blue); color:#03132B; }
+@media (hover: hover) and (pointer: fine) { .fpl-btn:hover { background:var(--blue); color:#03132B; } }
 .fpl-btn:focus-visible { outline:3px solid var(--sky); outline-offset:2px; }
 .fpl-btn-solid { background:var(--blue); color:#03132B; }
-.fpl-btn-solid:hover { background:var(--lime); }
+@media (hover: hover) and (pointer: fine) { .fpl-btn-solid:hover { background:var(--lime); } }
 .fpl-btn:disabled { opacity:0.5; cursor:not-allowed; }
 
 .fpl-input { font-family:'IBM Plex Mono',monospace; font-size:1.1rem; letter-spacing:0.04em;
@@ -39,7 +40,7 @@
 
 .fpl-row { display:flex; align-items:center; gap:10px; padding:10px 10px; border-bottom:1px solid var(--line); }
 .fpl-row-editable { cursor:pointer; transition:background .12s; }
-.fpl-row-editable:hover { background:var(--panel-alt); }
+@media (hover: hover) and (pointer: fine) { .fpl-row-editable:hover { background:var(--panel-alt); } }
 .fpl-row-editable.fpl-row-open { background:var(--panel-alt); }
 .fpl-row:last-child { border-bottom:none; }
 .fpl-row-bench { opacity:0.72; }
@@ -64,8 +65,18 @@
 @keyframes fplPulse { 0%,100%{opacity:0.25;} 50%{opacity:1;} }
 .fpl-spin { animation:fplSpin 0.8s linear infinite; }
 @keyframes fplSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+.fpl-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.fpl-skel-rows { display:grid; gap:12px; padding:4px 0; }
+.fpl-skel { display:block; height:14px; border-radius:6px;
+  background:linear-gradient(90deg, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.08) 70%);
+  background-size:300% 100%; animation:fplShimmer 1.6s ease-in-out infinite; }
+.fpl-skel:nth-child(3n+2) { width:82%; }
+.fpl-skel:nth-child(3n) { width:64%; }
+.fpl-skel-lg { height:38px; width:45%; }
+@keyframes fplShimmer { from{background-position:100% 0;} to{background-position:0 0;} }
 @media (prefers-reduced-motion: reduce) {
   .fpl-pulse { animation:none; opacity:0.7; }
+  .fpl-skel { animation:none; }
   .fpl-spin { animation:none !important; }
 }
 
@@ -75,7 +86,7 @@
 .fpl-details[open] summary { color:var(--ink); }
 
 .fpl-search-item { padding:8px 10px; cursor:pointer; border-bottom:1px solid var(--line); font-size:0.85rem; }
-.fpl-search-item:hover { background:var(--panel-alt); }
+@media (hover: hover) and (pointer: fine) { .fpl-search-item:hover { background:var(--panel-alt); } }
 .fpl-search-item:last-child { border-bottom:none; }
 
 .fpl-chip-btn { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; padding:6px 8px;
@@ -93,7 +104,8 @@
 .fpl-option-sub { display:block; font-size:0.7rem; font-weight:400; margin-top:2px; opacity:0.75; }
 .fpl-back-btn { background:none; border:none; color:var(--ink-dim); display:flex; align-items:center; gap:4px;
   font-size:0.78rem; margin-bottom:18px; cursor:pointer; padding:0; }
-.fpl-back-btn:hover, .fpl-back-btn:focus-visible { color:var(--ink); }
+.fpl-back-btn:focus-visible { color:var(--ink); }
+@media (hover: hover) and (pointer: fine) { .fpl-back-btn:hover { color:var(--ink); } }
 
 /* Player pick lists are real buttons (keyboard and screen-reader
    accessible); this keeps them looking like plain list rows. */
@@ -118,20 +130,33 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; border-radius:inherit;
   background:linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 60%);
 }
-.fpl-btn:hover, .fpl-btn:focus-visible {
+.fpl-btn:focus-visible {
   background:linear-gradient(145deg, rgba(255,255,255,0.30), rgba(255,255,255,0.06)), var(--blue);
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.70), inset 0 -1px 0 rgba(255,255,255,0.15), 0 8px 22px rgba(4,249,252,0.28);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fpl-btn:hover {
+    background:linear-gradient(145deg, rgba(255,255,255,0.30), rgba(255,255,255,0.06)), var(--blue);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.70), inset 0 -1px 0 rgba(255,255,255,0.15), 0 8px 22px rgba(4,249,252,0.28);
+  }
 }
 .fpl-btn-solid {
   background:linear-gradient(145deg, rgba(255,255,255,0.32), rgba(255,255,255,0.04)), var(--blue);
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(3,19,43,0.12), 0 8px 22px rgba(4,249,252,0.25);
 }
-.fpl-btn-solid:hover {
-  background:linear-gradient(145deg, rgba(255,255,255,0.32), rgba(255,255,255,0.04)), var(--lime);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(3,19,43,0.12), 0 8px 22px rgba(206,255,16,0.28);
+@media (hover: hover) and (pointer: fine) {
+  .fpl-btn-solid:hover {
+    background:linear-gradient(145deg, rgba(255,255,255,0.32), rgba(255,255,255,0.04)), var(--lime);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(3,19,43,0.12), 0 8px 22px rgba(206,255,16,0.28);
+  }
 }
-.fpl-chip-btn:hover, .fpl-chip-btn:focus-visible {
+.fpl-chip-btn:focus-visible {
   background:linear-gradient(145deg, rgba(255,255,255,0.24), rgba(255,255,255,0.06)), rgba(10,8,30,0.20);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fpl-chip-btn:hover {
+    background:linear-gradient(145deg, rgba(255,255,255,0.24), rgba(255,255,255,0.06)), rgba(10,8,30,0.20);
+  }
 }
 .fpl-btn:active:not(:disabled), .fpl-chip-btn:active:not(:disabled) { transform:scale(0.98); }
 .fpl-btn:disabled { box-shadow:inset 0 1px 0 rgba(255,255,255,0.25); }
@@ -157,7 +182,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-dialog-card { position:relative; padding:28px 20px 20px; border-radius:12px; border:1px solid var(--line);
   background:linear-gradient(160deg, rgba(40,30,110,0.92), rgba(10,8,30,0.94)); box-shadow:0 20px 60px rgba(10,8,30,0.5); font-family:'Inter',sans-serif; }
 .fpl-dialog-close { position:absolute; top:10px; right:10px; background:none; border:none; color:var(--ink-dim); padding:6px; cursor:pointer; display:flex; border-radius:6px; }
-.fpl-dialog-close:hover, .fpl-dialog-close:focus-visible { color:var(--ink); background:var(--panel-alt); }
+.fpl-dialog-close:focus-visible { color:var(--ink); background:var(--panel-alt); }
+@media (hover: hover) and (pointer: fine) { .fpl-dialog-close:hover { color:var(--ink); background:var(--panel-alt); } }
 .fpl-dialog[open] { animation:fplDialogIn .16s ease-out; }
 @keyframes fplDialogIn { from { opacity:0; transform:translateY(8px) scale(0.98); } to { opacity:1; transform:none; } }
 @media (prefers-reduced-motion: reduce) { .fpl-dialog[open] { animation:none; } }
@@ -179,7 +205,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-sidenav button { width: 100%; display: flex; align-items: center; gap: 16px; border: 0; background: transparent; padding: 12px 14px;
   border-radius: 12px; text-align: left; font: 600 1rem 'Inter', sans-serif; color: rgba(251,250,255,0.85); cursor: pointer; }
 .fpl-sidenav button svg { flex-shrink: 0; }
-.fpl-sidenav button:hover { background: rgba(255,255,255,0.08); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .fpl-sidenav button:hover { background: rgba(255,255,255,0.08); color: var(--ink); } }
 .fpl-sidenav button[aria-current="page"] { background: rgba(4,249,252,0.16); color: var(--blue); }
 .fpl-sidenav-label { display: grid; gap: 2px; min-width: 0; }
 .fpl-sidenav-label small { font-size: 0.8rem; font-weight: 400; color: var(--ink-dim); }
@@ -197,7 +223,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @keyframes fplMoreIn { from { opacity: 0; transform: translateY(10px); } }
 .fpl-footnav-more button { display: flex; align-items: center; gap: 12px; border: 0; background: transparent; padding: 12px; border-radius: 12px;
   text-align: left; font: 500 0.95rem 'Inter', sans-serif; color: var(--ink); cursor: pointer; }
-.fpl-footnav-more button:hover { background: rgba(255,255,255,0.08); }
+@media (hover: hover) and (pointer: fine) { .fpl-footnav-more button:hover { background: rgba(255,255,255,0.08); } }
 .fpl-footnav-more button[aria-current="page"] { color: var(--blue); }
 .fpl-footnav-more svg { color: var(--blue); }
 .fpl-has-nav .fpl-main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
@@ -209,7 +235,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   /* Only with the menu: the welcome page has none, so it takes the full width. */
   .fpl-has-nav .fpl-shell { display: grid; grid-template-columns: 380px minmax(0, 1fr); align-items: start; }
   .fpl-sidenav { display: grid; gap: 8px; align-content: start; position: sticky; top: var(--fpl-header-h, 58px);
-    height: calc(100vh - var(--fpl-header-h, 58px)); box-sizing: border-box; overflow-y: auto; padding: 12px 16px 24px;
+    height: calc(100vh - var(--fpl-header-h, 58px)); height: calc(100dvh - var(--fpl-header-h, 58px)); box-sizing: border-box; overflow-y: auto; padding: 12px 16px 24px;
     background: rgba(9,7,30,0.56); border-right: 1px solid rgba(255,255,255,0.2);
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
   .fpl-footnav-root { display: none; }
@@ -231,9 +257,9 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-pill:active { transform: scale(0.97); }
 .fpl-pill:focus-visible { outline: 3px solid #05041A; outline-offset: 3px; }
 .fpl-pill-dark { background: #05041A; color: #04F9FC; box-shadow: 0 10px 30px rgba(5,4,26,0.35); }
-.fpl-pill-dark:hover { background: #17123F; }
+@media (hover: hover) and (pointer: fine) { .fpl-pill-dark:hover { background: #17123F; } }
 .fpl-pill-outline { background: transparent; color: #05041A; }
-.fpl-pill-outline:hover { background: #05041A; color: #FBFAFF; }
+@media (hover: hover) and (pointer: fine) { .fpl-pill-outline:hover { background: #05041A; color: #FBFAFF; } }
 .fpl-welcome-intro .fpl-welcome-login { font-size: 0.92rem; }
 .fpl-welcome-login button { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: #05041A; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .fpl-welcome-sec { display: grid; gap: 14px; }
@@ -242,9 +268,9 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-welcome-end { display: grid; gap: 14px; justify-items: start; padding: 26px 22px; }
 .fpl-welcome-end p { margin: 0; color: rgba(251,250,255,0.8); max-width: 52ch; }
 .fpl-welcome-end .fpl-pill-dark { background: #04F9FC; color: #05041A; border-color: #04F9FC; }
-.fpl-welcome-end .fpl-pill-dark:hover { background: var(--lime); border-color: var(--lime); }
+@media (hover: hover) and (pointer: fine) { .fpl-welcome-end .fpl-pill-dark:hover { background: var(--lime); border-color: var(--lime); } }
 .fpl-welcome-end .fpl-pill-outline { color: #FBFAFF; border-color: rgba(251,250,255,0.6); }
-.fpl-welcome-end .fpl-pill-outline:hover { background: #FBFAFF; color: #05041A; }
+@media (hover: hover) and (pointer: fine) { .fpl-welcome-end .fpl-pill-outline:hover { background: #FBFAFF; color: #05041A; } }
 .fpl-carousel { display: grid; gap: 14px; }
 .fpl-carousel-track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 2px 10px; scrollbar-width: none; }
 .fpl-carousel-track::-webkit-scrollbar { display: none; }
@@ -331,7 +357,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-home-actions { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
 .fpl-home-actions .fpl-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; }
 .fpl-link { justify-self: start; background: none; border: 0; padding: 4px 0; color: var(--blue); font: 600 0.88rem 'Inter', sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-.fpl-link:hover { text-decoration: underline; }
+@media (hover: hover) and (pointer: fine) { .fpl-link:hover { text-decoration: underline; } }
 .fpl-home-team-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .fpl-home-team-grid { display: grid; gap: 18px; }
 .fpl-home-col { display: grid; gap: 14px; align-content: start; min-width: 0; }

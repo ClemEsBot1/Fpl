@@ -10,6 +10,7 @@ import { useMemo, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Repeat } from 'lucide-react';
 import { fmtPrice, fmtPts } from '../lib/format.js';
 import { buildTransferTrends, topByPoints } from '../lib/transferTrends.js';
+import { SkeletonRows } from './common.jsx';
 
 const POS = ['', 'GKP', 'DEF', 'MID', 'FWD'];
 const EMPTY = {
@@ -72,7 +73,7 @@ function pointsPanel(id, title, entries, format, teamsById, empty) {
   const rows = entries && topByPoints(entries);
   return {
     id, title,
-    body: !rows ? <p className="fpl-home-hint" role="status">{empty.loading}</p>
+    body: !rows ? (empty.waiting ? <SkeletonRows rows={5} label={empty.loading} /> : <p className="fpl-home-hint">{empty.loading}</p>)
       : rows.length ? (
         <ol className="fpl-trend-list">
           {rows.map(r => <ScorerRow key={r.player.id} player={r.player} points={format(r.points)} teamsById={teamsById} />)}
@@ -83,7 +84,9 @@ function pointsPanel(id, title, entries, format, teamsById, empty) {
 
 // Your team's players with their points, or null without a team loaded.
 const teamEntries = (team, pointsFor) => (team ? team.squad.map(s => ({ player: s.player, points: pointsFor(s) })) : null);
-const noTeam = teamPending => (teamPending ? 'Loading your team…' : 'Add your FPL Team ID on Home to see your own players here.');
+const noTeam = teamPending => (teamPending
+  ? { loading: 'Loading your team…', waiting: true }
+  : { loading: 'Add your FPL Team ID on Home to see your own players here.' });
 
 // The panels for a gameweek that has started: the highest scorers of all
 // players and on your team, then FPL's own numbers for the week.
@@ -101,9 +104,9 @@ function recapPanels(staticData, event, live, team, teamPending) {
   ].filter(([, v]) => v !== null && v !== undefined && v !== 0);
   return [
     pointsPanel('scorers', `Top scorers in GW${event.id}`, all, String, teamsById,
-      { loading: 'Loading points…', none: 'No points scored yet this gameweek.' }),
+      { loading: 'Loading points…', waiting: true, none: 'No points scored yet this gameweek.' }),
     pointsPanel('team-scorers', 'Top scorers on your team', teamEntries(team, s => s.actualPoints || 0), String, teamsById,
-      { loading: noTeam(teamPending), none: 'None of your players has scored yet this gameweek.' }),
+      { ...noTeam(teamPending), none: 'None of your players has scored yet this gameweek.' }),
     {
       id: 'numbers', title: `Gameweek ${event.id} in numbers`,
       body: facts.length ? (
@@ -131,7 +134,7 @@ function upcomingPanels(staticData, team, teamPending) {
     pointsPanel('predicted', 'Highest predicted points', all, fmtPts, teamsById,
       { loading: '', none: 'No predictions yet.' }),
     pointsPanel('team-predicted', 'Highest predicted on your team', teamEntries(team, s => s.predicted), fmtPts, teamsById,
-      { loading: noTeam(teamPending), none: 'No predictions for your players yet.' }),
+      { ...noTeam(teamPending), none: 'No predictions for your players yet.' }),
   ];
 }
 
@@ -144,6 +147,14 @@ export function TransferTrends({ staticData, event, isPast, live, team, teamPend
     if (!staticData || !event) return [];
     return isPast ? recapPanels(staticData, event, live, team, teamPending) : upcomingPanels(staticData, team, teamPending);
   }, [staticData, event, isPast, live, team, teamPending]);
+  if (!staticData) {
+    return (
+      <section className="fpl-glass fpl-home-card fpl-trends" aria-labelledby="trends-h" aria-busy="true">
+        <h2 id="trends-h" className="fpl-home-h"><Repeat size={18} aria-hidden="true" /> Transfer trends</h2>
+        <SkeletonRows rows={6} label="Loading transfer trends…" />
+      </section>
+    );
+  }
   if (!panels.length) return null;
 
   function onScroll() {
