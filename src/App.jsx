@@ -1,14 +1,15 @@
 // App shell: state, data loading and which screen is shown. The screens
 // themselves live in src/screens/, shared pieces in src/components/, and
 // non-UI logic in src/lib/.
-import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
+import { predictedXiTotal } from './lib/leagues.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Wand2 } from 'lucide-react';
+import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
@@ -53,7 +54,8 @@ const accountChunk = chunk(() => import('./screens/AccountScreens.jsx'));
 const builderChunk = chunk(() => import('./screens/CustomSquadBuilder.jsx'));
 const hindsightChunk = chunk(() => import('./screens/HindsightScreen.jsx'));
 const welcomeChunk = chunk(() => import('./screens/WelcomeScreen.jsx'));
-const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk];
+const leagueChunk = chunk(() => import('./screens/MiniLeagueScreen.jsx'));
+const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk];
 // For fetching a screen ahead of time; a failure shows up when it's opened.
 const preload = source => () => { source.load().catch(() => {}); };
 const loadResultsScreen = preload(resultsChunk);
@@ -66,6 +68,7 @@ const ReviewScreen = lazyScreen(screenshotChunk, 'ReviewScreen');
 const CustomSquadBuilder = lazyScreen(builderChunk, 'CustomSquadBuilder');
 const HindsightScreen = lazyScreen(hindsightChunk, 'HindsightScreen');
 const WelcomeScreen = lazyScreen(welcomeChunk, 'WelcomeScreen');
+const MiniLeagueScreen = lazyScreen(leagueChunk, 'MiniLeagueScreen');
 const MyTeamsScreen = lazyScreen(accountChunk, 'MyTeamsScreen');
 const AuthDialog = lazyScreen(accountChunk, 'AuthDialog');
 
@@ -100,6 +103,7 @@ function navSectionFor(stage, resultsData) {
     case 'customBuild': return 'build';
     case 'hindsight': return 'lookback';
     case 'myTeams': return 'saved';
+    case 'league': return 'league';
     case 'results':
       if (!resultsData) return null;
       if (resultsData.isOptimalBuild) return 'best';
@@ -1369,12 +1373,25 @@ export default function FPLSquadChecker() {
   // The menu (sidebar on a computer, footer on a phone). Hidden on the
   // welcome page, which has its own Start button.
   const install = useInstallPrompt();
+  // A mini-league member's team for the gameweek being planned, with its
+  // predicted points. Kept as one function across renders: the league
+  // screen reloads its teams whenever this changes.
+  const loadLeagueTeamRef = useRef(null);
+  loadLeagueTeamRef.current = async entryId => {
+    const staticData = await ensureStaticData();
+    const result = await loadTeamForGw(entryId, currentGwId(staticData), staticData);
+    if (!result) return null;
+    return { squad: result.squad, xiTotal: predictedXiTotal(result.squad), picksFromGwId: result.entryMeta.picksFromGwId || null };
+  };
+  const loadLeagueTeam = useCallback(entryId => loadLeagueTeamRef.current(entryId), []);
+
   const navItems = [
     { id: 'home', label: 'Home', desc: 'Your gameweek and the fixture ticker', group: 'Your team', Icon: House, footer: true, run: () => setStage('home') },
     {
       id: 'team', label: 'My team', desc: 'Every player in your squad, predicted', group: 'Your team', Icon: Shirt, footer: true,
       run: () => (homeTeam.teamId ? handleTeamIdSubmit(homeTeam.teamId) : setStage('teamIdForm')),
     },
+    { id: 'league', label: 'Mini-league', desc: 'Your leagues, every team predicted', group: 'Your team', Icon: Users, run: () => setStage('league') },
     { id: 'screenshot', label: 'Screenshot', desc: 'Read a squad from a screenshot', group: 'Your team', Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
     { id: 'best', label: 'Best squad', desc: 'The top-predicted 15 for £100m', group: 'Tools', Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
     { id: 'build', label: 'Build a squad', desc: 'Pick your own and preview chips', group: 'Tools', Icon: Wand2, run: handleStartCustomBuild },
@@ -1495,6 +1512,17 @@ export default function FPLSquadChecker() {
                 compare={hindsightCompare}
                 onSelectCompare={handleCompareSavedInHindsight}
                 onBack={() => { setStage('home'); setHindsightData(null); setHindsightCompare(null); }}
+              />
+            )}
+            {stage === 'league' && (
+              <MiniLeagueScreen
+                homeTeamId={homeTeam.teamId}
+                gwName={liveStatic && liveStatic.targetEvent ? liveStatic.targetEvent.name : ''}
+                teamsById={liveStatic ? liveStatic.teamsById : {}}
+                fetchJson={fetchFplJson}
+                loadTeam={loadLeagueTeam}
+                onOpenTeam={entryId => handleTeamIdSubmit(String(entryId))}
+                onAddTeamId={() => setStage('home')}
               />
             )}
             {stage === 'myTeams' && (
