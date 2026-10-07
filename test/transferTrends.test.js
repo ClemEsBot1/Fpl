@@ -31,7 +31,9 @@ test('points panels list the highest first and leave out zeros', () => {
 test("FPL's own price progress sets the status when it's published", () => {
   const withPct = pct => ({ ...p(1, 1, 0, 0), priceChangePercent: pct });
   assert.deepEqual(predictPriceChange(withPct(104), TOTAL), { dir: 'rise', confidence: 'very likely', percent: 104 });
-  assert.deepEqual(predictPriceChange(withPct(75), TOTAL), { dir: 'rise', confidence: 'likely', percent: 75 });
+  assert.deepEqual(predictPriceChange(withPct(96), TOTAL), { dir: 'rise', confidence: 'likely', percent: 96 });
+  assert.deepEqual(predictPriceChange(withPct(-95), TOTAL), { dir: 'fall', confidence: 'likely', percent: -95 });
+  assert.equal(predictPriceChange(withPct(94), TOTAL), null);
   assert.deepEqual(predictPriceChange(withPct(-120), TOTAL), { dir: 'fall', confidence: 'very likely', percent: -120 });
   assert.equal(predictPriceChange(withPct(40), TOTAL), null);
   // Big net transfers don't override FPL's own figure.
