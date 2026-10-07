@@ -3,7 +3,7 @@
 // Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
 import { useEffect, useState } from 'react';
-import { ArrowRight, CalendarRange, RotateCcw, Shirt, Target, TriangleAlert } from 'lucide-react';
+import { ArrowRight, CalendarRange, RotateCcw, Shirt, Sparkles, Target, TriangleAlert } from 'lucide-react';
 import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
@@ -262,7 +262,7 @@ function FixtureTicker({ staticData, fromGw }) {
   );
 }
 
-export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetryTeam }) {
+export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetryTeam, recapGw, onOpenRecap }) {
   const target = staticData && staticData.targetEvent;
   // Everything on Home is for the gameweek picked in the header.
   const event = (staticData && staticData.allEvents.find(e => e.id === selectedGw)) || target;
@@ -271,11 +271,19 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
     <div className="fpl-home">
       <div className="fpl-home-top">
         <h1 className="fpl-display">{event ? event.name : 'Home'}</h1>
-        {event && (
-          <span className={`fpl-mono fpl-home-deadline${!isPast && isDeadlineSoon(event.deadline_time) ? ' fpl-deadline-soon' : ''}`}>
-            {isPast ? (event.finished ? 'Finished' : 'In progress') : formatCountdown(event.deadline_time)}
-          </span>
-        )}
+        <div className="fpl-home-top-side">
+          {/* The latest finished gameweek's recap, any time. */}
+          {recapGw ? (
+            <button type="button" className="fpl-recap-open" onClick={() => onOpenRecap(recapGw)}>
+              <Sparkles size={16} aria-hidden="true" /> GW{recapGw} recap
+            </button>
+          ) : null}
+          {event && (
+            <span className={`fpl-mono fpl-home-deadline${!isPast && isDeadlineSoon(event.deadline_time) ? ' fpl-deadline-soon' : ''}`}>
+              {isPast ? (event.finished ? 'Finished' : 'In progress') : formatCountdown(event.deadline_time)}
+            </span>
+          )}
+        </div>
       </div>
       <div className="fpl-home-layout">
         <div className="fpl-home-main">

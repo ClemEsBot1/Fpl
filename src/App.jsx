@@ -7,7 +7,8 @@ import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
-import { livePointsFor, memberWeekStats, predictedXiTotal } from './lib/leagues.js';
+import { livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from './lib/leagues.js';
+import { buildRecap, lastFinishedGw, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
 import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
@@ -56,7 +57,8 @@ const builderChunk = chunk(() => import('./screens/CustomSquadBuilder.jsx'));
 const hindsightChunk = chunk(() => import('./screens/HindsightScreen.jsx'));
 const welcomeChunk = chunk(() => import('./screens/WelcomeScreen.jsx'));
 const leagueChunk = chunk(() => import('./screens/MiniLeagueScreen.jsx'));
-const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk];
+const recapChunk = chunk(() => import('./components/GwRecap.jsx'));
+const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk, recapChunk];
 // For fetching a screen ahead of time; a failure shows up when it's opened.
 const preload = source => () => { source.load().catch(() => {}); };
 const loadResultsScreen = preload(resultsChunk);
@@ -72,6 +74,7 @@ const WelcomeScreen = lazyScreen(welcomeChunk, 'WelcomeScreen');
 const MiniLeagueScreen = lazyScreen(leagueChunk, 'MiniLeagueScreen');
 const MyTeamsScreen = lazyScreen(accountChunk, 'MyTeamsScreen');
 const AuthDialog = lazyScreen(accountChunk, 'AuthDialog');
+const GwRecap = lazyScreen(recapChunk, 'GwRecap');
 
 // Shown instead of a blank page when a screen fails to render — most
 // likely its code couldn't be downloaded (offline, or the app was updated
@@ -163,6 +166,14 @@ function writeGwParam(gw) {
 }
 
 // What went wrong loading a team, in words (codes thrown by loadTeamForGw).
+// The gameweek Home's recap button opens: the one picked in the header if
+// it's over, else the latest to finish. null before any has.
+function recapGwFor(staticData, selectedGw) {
+  if (!staticData) return null;
+  const picked = (staticData.allEvents || []).find(e => e.id === selectedGw);
+  return picked && picked.finished ? picked.id : lastFinishedGw(staticData.allEvents);
+}
+
 function teamErrorMessage(e) {
   const messages = {
     ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead.",
@@ -630,7 +641,12 @@ export default function FPLSquadChecker() {
     const promise = fetchFplJson(`event/${gwId}/live/`).then(live => {
       const liveById = {};
       (live.elements || []).forEach(el => {
-        liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes };
+        liveById[el.id] = {
+          totalPoints: el.stats.total_points, minutes: el.stats.minutes,
+          // For the gameweek recap's star and flop.
+          goals: el.stats.goals_scored, assists: el.stats.assists, bonus: el.stats.bonus,
+          cleanSheets: el.stats.clean_sheets, conceded: el.stats.goals_conceded,
+        };
       });
       return liveById;
     }).catch(() => {
@@ -1433,6 +1449,83 @@ export default function FPLSquadChecker() {
   };
   const loadLeagueTeam = useCallback(entryId => loadLeagueTeamRef.current(entryId), []);
 
+  /* ---------- The gameweek recap ---------- */
+
+  // { gwId, teamId, status: 'loading' | 'ready' | 'error', data, error, open }
+  const [recap, setRecap] = useState(null);
+  const recapTicketRef = useRef(0);
+
+  // Everything the recap's slides show for the Home team's gameweek `gwId`.
+  // `open` shows it straight away (from the button on Home); otherwise
+  // (the pop-up once a gameweek ends) it only opens if it loads.
+  async function openRecap(gwId, { open = true } = {}) {
+    const teamId = homeTeam.teamId;
+    if (!teamId || !gwId) return;
+    const ticket = ++recapTicketRef.current;
+    const isStale = () => ticket !== recapTicketRef.current;
+    recapChunk.load().catch(() => {});
+    setRecap({ gwId, teamId, status: 'loading', data: null, error: null, open });
+    try {
+      let staticData;
+      try {
+        staticData = await ensureStaticData();
+      } catch {
+        throw { code: 'ERR_STATIC_DATA' };
+      }
+      const optional = promise => promise.catch(() => null);
+      const [team, history, transfers, liveById, snap] = await Promise.all([
+        loadTeamForGw(teamId, gwId, staticData, { isStale }),
+        optional(fetchFplJson(`entry/${teamId}/history/`)),
+        optional(fetchFplJson(`entry/${teamId}/transfers/`)),
+        liveForGw(gwId, isGwFinished(staticData, gwId)),
+        optional(fetch(`/api/optimal-squad?gw=${gwId}`).then(res => (res.ok ? res.json() : null))),
+      ]);
+      if (!team || isStale()) return;
+      // The mini-league: the one last picked on the Mini-league screen if
+      // the team is in it, else its first. Its standings are FPL's current
+      // ones, so only while no later gameweek has started.
+      let league = null;
+      if (liveGwIdFor(staticData) === gwId && team.entry) {
+        const leagues = privateLeagues(team.entry);
+        const saved = Number((() => { try { return localStorage.getItem('fpl_league_id'); } catch { return null; } })());
+        const pick = leagues.find(l => l.id === saved) || leagues[0];
+        const standings = pick ? await optional(fetchFplJson(`leagues-classic/${pick.id}/standings/`)) : null;
+        const parsed = standings ? parseStandings(standings) : null;
+        if (parsed) league = { name: parsed.league.name, members: parsed.members, hasMore: parsed.hasMore };
+      }
+      if (isStale()) return;
+      // The app's best squad for the week (as saved before its deadline) and
+      // the best XI anyone could have picked, as on Look back.
+      const frozen = snap && Array.isArray(snap.playerIds) && snapshotIsForSeason(snap, staticData.seasonId, staticData.allEvents)
+        ? hydrateFrozenSquadSnapshot(snap, staticData, liveById) : null;
+      const modelScore = frozen ? frozen.squad.filter(s => s.isStarting).reduce((sum, s) => sum + (s.actualPoints || 0) * (s.multiplier || 1), 0) : null;
+      const bestScore = buildHindsightSquad(staticData.allPlayers, liveById, SQUAD_BUDGET).totalScore;
+      const event = staticData.allEvents.find(e => e.id === gwId) || null;
+      const data = buildRecap({
+        gwId, gwName: event ? event.name : `Gameweek ${gwId}`, teamId: Number(teamId),
+        teamName: (team.entryMeta && team.entryMeta.teamName) || `Team ${teamId}`,
+        squad: team.squad, entryHistory: team.entryHistory, activeChip: team.activeChip,
+        event, totalPlayers: staticData.totalPlayers, history, transfers, liveById, playersById: staticData.playersById,
+        league, modelScore, bestScore,
+      });
+      setRecap({ gwId, teamId, status: 'ready', data, error: null, open: true });
+    } catch (e) {
+      if (isStale()) return;
+      setRecap(r => (r && r.open ? { ...r, status: 'error', error: teamErrorMessage(e) } : null));
+    }
+  }
+
+  // Once a gameweek is over, its recap pops up on Home, once per team on
+  // this device.
+  useEffect(() => {
+    if (stage !== 'home' || !liveStatic || !homeTeam.teamId || recap) return;
+    const gwId = lastFinishedGw(liveStatic.allEvents);
+    if (!gwId || recapSeenFor(homeTeam.teamId) >= gwId) return;
+    markRecapSeen(homeTeam.teamId, gwId);
+    openRecap(gwId, { open: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, liveStatic, homeTeam.teamId]);
+
   const navItems = [
     { id: 'home', label: 'Home', desc: 'Your gameweek and the fixture ticker', group: 'Your team', Icon: House, footer: true, run: () => setStage('home') },
     {
@@ -1449,7 +1542,7 @@ export default function FPLSquadChecker() {
     ...(install ? [{ id: 'install', label: 'Install the app', desc: 'Open it full screen, like an app', group: 'App', Icon: Download, run: install }] : []),
   ];
   const showNav = stage !== 'welcome' && stage !== 'boot';
-  const wideStage = stage === 'home' || stage === 'welcome';
+  const wideStage = stage === 'home' || stage === 'welcome' || stage === 'league';
   const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
   lastNavRef.current = activeNav;
 
@@ -1507,6 +1600,8 @@ export default function FPLSquadChecker() {
                 onOpenTeam={openHomeTeam}
                 onChangeTeam={() => rememberHomeTeam(null)}
                 onRetryTeam={() => loadHomeTeam(homeTeam.teamId)}
+                recapGw={homeTeam.teamId ? recapGwFor(liveStatic, selectedGw) : null}
+                onOpenRecap={gwId => { markRecapSeen(homeTeam.teamId, gwId); openRecap(gwId); }}
               />
             )}
             {stage === 'teamIdForm' && (
@@ -1608,6 +1703,19 @@ export default function FPLSquadChecker() {
               error={authError}
               loading={authLoading}
               onClose={() => { setAuthError(''); setAuthDialog(null); }}
+            />
+          </Suspense>
+        </ScreenErrorBoundary>
+      )}
+      {recap && recap.open && recap.teamId === homeTeam.teamId && (
+        <ScreenErrorBoundary key={`recap-${recap.gwId}`} overlay>
+          <Suspense fallback={null}>
+            <GwRecap
+              key={recap.gwId}
+              gwId={recap.gwId}
+              state={recap}
+              onClose={() => { recapTicketRef.current += 1; setRecap(null); }}
+              onRetry={() => openRecap(recap.gwId)}
             />
           </Suspense>
         </ScreenErrorBoundary>

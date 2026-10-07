@@ -127,6 +127,24 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   return canvas;
 }
 
+// Saves the card as a PNG file. Returns 'downloaded'.
+export async function downloadCard(canvas, fileName = 'fpl-squad.png') {
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  downloadBlob(blob, fileName);
+  return 'downloaded';
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 // Shares the card as an image where the browser can (most phones), and
 // otherwise downloads it. Returns 'shared', 'downloaded' or 'cancelled'.
 export async function shareCard(canvas, { title, fileName = 'fpl-squad.png' }) {
@@ -141,13 +159,96 @@ export async function shareCard(canvas, { title, fileName = 'fpl-squad.png' }) {
       // fall through to download
     }
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  downloadBlob(blob, fileName);
   return 'downloaded';
+}
+
+const ordinal = v => {
+  const t = v % 100;
+  return `${v}${t >= 11 && t <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][v % 10] || 'th'}`;
+};
+
+// The recap's last slide as a PNG: the team, its points against the
+// average, and four facts from the week (see src/lib/recap.js).
+export async function drawRecapCard({ recap, siteUrl }) {
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const display = '"Space Grotesk", "Inter", sans-serif';
+  const mono = '"IBM Plex Mono", monospace';
+  const dim = 'rgba(251,250,255,0.72)';
+
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#04F9FC');
+  bg.addColorStop(0.55, '#7573F7');
+  bg.addColorStop(1, '#BF1CF0');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(10,8,30,0.78)';
+  roundRect(ctx, 48, 48, W - 96, H - 96, 36);
+  ctx.fill();
+
+  ctx.fillStyle = '#CEFF10';
+  ctx.fillRect(112, 124, 18, 18);
+  ctx.fillStyle = '#FBFAFF';
+  ctx.font = `700 34px ${display}`;
+  ctx.fillText('GAMEWEEK RECAP', 144, 144);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = dim;
+  ctx.font = `600 30px ${mono}`;
+  ctx.fillText((recap.gwName || '').toUpperCase(), W - 112, 144);
+  ctx.textAlign = 'left';
+
+  ctx.fillStyle = '#FBFAFF';
+  ctx.font = `700 64px ${display}`;
+  ctx.fillText(fitText(ctx, recap.teamName || 'My team', W - 224), 112, 260);
+
+  const h = recap.headline;
+  ctx.fillStyle = '#CEFF10';
+  ctx.font = `700 230px ${mono}`;
+  ctx.fillText(String(h.points), 104, 500);
+  const ptsW = ctx.measureText(String(h.points)).width;
+  ctx.fillStyle = '#FBFAFF';
+  ctx.font = `600 52px ${display}`;
+  ctx.fillText('pts', 104 + ptsW + 18, 496);
+  if (h.vsAverage !== null) {
+    const label = `${h.vsAverage > 0 ? '+' : h.vsAverage < 0 ? '−' : ''}${Math.abs(h.vsAverage)} vs average`;
+    ctx.font = `700 34px ${mono}`;
+    const w = ctx.measureText(label).width + 48;
+    ctx.fillStyle = h.vsAverage >= 0 ? '#CEFF10' : '#FF8A8A';
+    roundRect(ctx, 112, 548, w, 64, 32);
+    ctx.fill();
+    ctx.fillStyle = '#05041A';
+    ctx.fillText(label, 136, 592);
+  }
+
+  const facts = [
+    recap.rank && ['OVERALL RANK', `${recap.rank.now.toLocaleString('en-GB')}${recap.rank.move > 0 ? ' ▲' : recap.rank.move < 0 ? ' ▼' : ''}`],
+    recap.captain && ['CAPTAIN', `${recap.captain.name} ${recap.captain.points}`],
+    recap.starFlop && ['STAR', `${recap.starFlop.star.name} ${recap.starFlop.star.points}`],
+    recap.league && ['MINI-LEAGUE', `${recap.league.was ? `${ordinal(recap.league.was)} → ` : ''}${ordinal(recap.league.now)}`],
+  ].filter(Boolean);
+  facts.forEach(([label, value], i) => {
+    const x = 112 + (i % 2) * 440;
+    const y = 720 + Math.floor(i / 2) * 170;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    roundRect(ctx, x, y, 416, 140, 20);
+    ctx.fill();
+    ctx.fillStyle = dim;
+    ctx.font = `600 24px ${mono}`;
+    ctx.fillText(label, x + 28, y + 50);
+    ctx.fillStyle = '#FBFAFF';
+    ctx.font = `700 40px ${mono}`;
+    ctx.fillText(fitText(ctx, value, 360), x + 28, y + 106);
+  });
+
+  ctx.fillStyle = dim;
+  ctx.font = `500 26px ${mono}`;
+  if (recap.rank && recap.rank.topPercent) ctx.fillText(`Top ${recap.rank.topPercent}% this week`, 112, H - 120);
+  ctx.textAlign = 'right';
+  ctx.fillText(siteUrl || '', W - 112, H - 120);
+  ctx.textAlign = 'left';
+  return canvas;
 }
