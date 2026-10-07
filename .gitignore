@@ -30,3 +30,6 @@ public/tesseract
 
 # Downloaded by scripts/download-screenshot-reports.mjs
 screenshot-reports
+
+# Downloaded by scripts/backtest.mjs
+.backtest-cache

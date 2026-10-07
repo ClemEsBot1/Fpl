@@ -36,6 +36,7 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
   xgRegression: 0.15,                            // how much of the xG/actual gap to credit, per computePlayerPrediction
   selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
   oddsAdjustment: 1.0,                           // scales the already-capped nudge from src/lib/oddsAdjustment.js; 1.0 = trust it at face value
+  fixtureWindowGws: 4,                           // `predicted` averages over this many gameweeks (doubles count twice, blanks zero)
 };
 
 /* ----------------------------------------------------------------------------
@@ -45,7 +46,12 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
 export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink = null, options = {}) {
   const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
   const rawEpNext = p.epNext || 0;
-  const ppg = p.pointsPerGame || 0;
+  // points_per_game only counts matches the player appeared in, so a squad
+  // player who plays one game in three looks as good as a regular. Scaling
+  // it by the share of the team's matches they appeared in turns it into
+  // points per team match, the same footing as form.
+  const appearanceShare = typeof p.appearanceShare === 'number' ? p.appearanceShare : 1;
+  const ppg = (p.pointsPerGame || 0) * appearanceShare;
   const form = p.form || 0;
 
   // ep_next is FPL's own next-gameweek model, and it's the input the rest of
@@ -66,8 +72,10 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     : rawEpNext;
 
   let base;
+  let epTerm; // the part of `base` that comes from ep_next
   if (formEligible && form > 0) {
-    base = weights.epNext * epNext + weights.ppg * ppg + weights.form * form;
+    epTerm = weights.epNext * epNext;
+    base = epTerm + weights.ppg * ppg + weights.form * form;
   } else {
     // Early season (before GW5): points_per_game suffers the exact same
     // small-sample problem as form — after one gameweek it's literally just
@@ -75,6 +83,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     // nowhere near sustainable). Lean on FPL's own next-gameweek model
     // instead (now shrunk toward the position average above, for the same
     // small-sample reason), rather than getting fooled by either one.
+    epTerm = epNext;
     base = epNext;
   }
 
@@ -128,17 +137,24 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   // scales trust in it, same role xgRegression plays above.
   base += (p.oddsAdjustment || 0) * weights.oddsAdjustment;
 
-  function fixtureMultFor(diff) {
-    return Math.max(0.8, Math.min(1.18, 1 + (3 - diff) * 0.075));
+  // How much easier (>1) or harder (<1) a single fixture is than average,
+  // from FPL's own 1-5 difficulty rating. (Opponent attack/defence strength
+  // by position was backtested over 2024-25 and 2025-26 and did no better.)
+  function fixtureMultFor(f) {
+    return Math.max(0.8, Math.min(1.18, 1 + (3 - f.difficulty) * 0.075));
   }
 
+  // `predicted` is a per-gameweek average over the next
+  // weights.fixtureWindowGws gameweeks, so a double inside the window adds a
+  // match and a blank takes one away.
   const fixtures = fixturesByTeam[p.team] || [];
-  const upcoming = fixtures.slice(0, 4);
-  let fixtureMult = 1;
-  if (upcoming.length) {
-    const avgDiff = upcoming.reduce((s, f) => s + f.difficulty, 0) / upcoming.length;
-    fixtureMult = fixtureMultFor(avgDiff);
-  }
+  const windowGws = weights.fixtureWindowGws;
+  const firstEvent = typeof options.targetEventId === 'number' ? options.targetEventId : (fixtures[0] ? fixtures[0].event : 0);
+  const upcoming = fixtures.filter(f => f.event < firstEvent + windowGws);
+  // Gameweeks the window covers: fewer near the end of the season.
+  const lastScheduledEvent = fixtures.length ? fixtures[fixtures.length - 1].event : firstEvent;
+  const windowDivisor = Math.max(1, Math.min(windowGws, lastScheduledEvent - firstEvent + 1));
+  const fixtureMult = upcoming.length ? upcoming.reduce((s, f) => s + fixtureMultFor(f), 0) / windowDivisor : 1;
 
   // Blank/double gameweek handling for the TARGET gameweek specifically
   // (the one this whole staticData build is for — options.targetEventId).
@@ -147,16 +163,11 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   // `fixtures` whose event matches — could be 0 (blank), 1 (normal), or 2+
   // (double).
   //
-  // This deliberately only touches nextMatchPredicted (the "just next
-  // gameweek" figure used for captaincy) and not the `fixtureMult` above
-  // (the 4-fixture rolling average that `predicted` uses for squad/transfer
-  // decisions) — `predicted` is intentionally smoothed across several
-  // gameweeks for stability, and blindly doubling it for a double or
-  // zeroing it for a blank would fight that design. The one correction
-  // `predicted` DOES get for a blank is lower down (predicted is floored to
-  // 0 when there's no fixture at all this gameweek — a player who
-  // definitely isn't playing this week has no "typical week" to smooth
-  // toward, whatever the multi-week average says).
+  // nextMatchPredicted (this gameweek alone, used for captaincy and the
+  // starting XI) counts every fixture of a double. `predicted` is the
+  // smoothed per-gameweek figure over the window above; it's floored to 0
+  // for a blank — a player who definitely isn't playing this week has no
+  // "typical week" to smooth toward, whatever the multi-week average says.
   const thisEventFixtures = typeof options.targetEventId === 'number'
     ? fixtures.filter(f => f.event === options.targetEventId)
     : (fixtures.length ? [fixtures[0]] : []); // no targetEventId supplied — behave like the single-next-fixture logic this replaced
@@ -174,7 +185,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   const DOUBLE_FIXTURE_DISCOUNT = 0.92; // modest rotation/fatigue discount on the 2nd+ fixture of a double — not a precise model, just "not a clean free 2x"
   const nextFixtureMult = isBlankThisEvent
     ? 0
-    : thisEventFixtures.reduce((sum, f, i) => sum + fixtureMultFor(f.difficulty) * (i === 0 ? 1 : DOUBLE_FIXTURE_DISCOUNT), 0);
+    : thisEventFixtures.reduce((sum, f, i) => sum + fixtureMultFor(f) * (i === 0 ? 1 : DOUBLE_FIXTURE_DISCOUNT), 0);
 
   let availMult = 1;
   let availNote = null;
@@ -202,13 +213,24 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   const restDays = p.daysSinceLastFixture;
   const congestionMult = (typeof restDays === 'number' && restDays < REST_DAYS_THRESHOLD) ? CONGESTION_DISCOUNT : 1;
 
-  // See the comment above nextFixtureMult: predicted (the multi-week
-  // smoothed figure) isn't scaled for a double here, but IS floored to 0
-  // for a blank — there's nothing to smooth toward when the team plain
-  // doesn't play this gameweek at all.
-  const predicted = isBlankThisEvent ? 0 : Math.max(0, base * fixtureMult * availMult * congestionMult);
-  const nextMatchPredicted = Math.max(0, base * nextFixtureMult * availMult * congestionMult);
-  const baseAvail = Math.max(0, base * availMult);
+  // FPL's ep_next is already "chance of playing x (form + this gameweek's
+  // fixture term)", summed over both matches of a double and 0 for an
+  // injured player (checked against FPL's own published figures). So the
+  // ep_next share of `base` is taken as this gameweek's figure as it is,
+  // and only the other components get the fixture and availability
+  // multipliers — applying them to ep_next too counted both twice. It's
+  // still multiplied out for a player who is ruled out (FPL doesn't always
+  // zero ep_next for a suspension), and later gameweeks in the window use
+  // its per-match value.
+  const ruledOut = ['i', 's', 'u', 'n'].includes(p.status);
+  const epThisEvent = isBlankThisEvent ? 0 : epTerm * (ruledOut ? availMult : 1);
+  const epPerMatch = epThisEvent / Math.max(1, fixtureCountThisEvent);
+  const otherTerm = base - epTerm;
+  const laterInWindow = upcoming.filter(f => !thisEventFixtures.includes(f));
+  const epWindow = (epThisEvent + epPerMatch * laterInWindow.reduce((s, f) => s + fixtureMultFor(f), 0)) / windowDivisor;
+  const predicted = isBlankThisEvent ? 0 : Math.max(0, (epWindow + otherTerm * fixtureMult * availMult) * congestionMult);
+  const nextMatchPredicted = Math.max(0, (epThisEvent + otherTerm * nextFixtureMult * availMult) * congestionMult);
+  const baseAvail = Math.max(0, epPerMatch + otherTerm * availMult);
   return {
     predicted: Math.round(predicted * 10) / 10,
     nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
@@ -227,7 +249,8 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     breakdown: {
       epNext: Math.round(epNext * 100) / 100,
       epNextShrunk: !!(epNextShrink && confidence < 1),
-      ppg,
+      ppg: Math.round(ppg * 100) / 100,
+      appearanceShare: typeof p.appearanceShare === 'number' ? Math.round(p.appearanceShare * 100) / 100 : null,
       form,
       formEligible: !!(formEligible && form > 0),
       setPieceBonus: Math.round(setPieceBonus * 100) / 100,
@@ -343,6 +366,15 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   // is 0 for everyone, same as before this feature existed.
   const oddsByTeamForTargetEvent = buildOddsByTeamForEvent(options.oddsData, targetEvent.id);
 
+  // League matches each team has played before the target gameweek, for
+  // the share of them a player appeared in.
+  const teamMatchesPlayed = {};
+  fixturesRaw.forEach(f => {
+    if (f.event === null || f.event === undefined || f.event >= targetEvent.id) return;
+    teamMatchesPlayed[f.team_h] = (teamMatchesPlayed[f.team_h] || 0) + 1;
+    teamMatchesPlayed[f.team_a] = (teamMatchesPlayed[f.team_a] || 0) + 1;
+  });
+
   const allPlayers = bootstrap.elements.map(e => {
     const seasonPoints = e.total_points;
     const seasonPPG = parseFloat(e.points_per_game) || 0;
@@ -393,6 +425,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       assists: Number(e.assists) || 0,
       expectedGoals: parseFloat(e.expected_goals) || 0,
       expectedAssists: parseFloat(e.expected_assists) || 0,
+      appearanceShare: appearanceShareFor(seasonPoints, seasonPPG, teamMatchesPlayed[e.team]),
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
       oddsAdjustment: oddsAdjustmentForMatches(oddsByTeamForTargetEvent[e.team], e.element_type),
     };
@@ -468,6 +501,14 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   };
 }
 
+// Share of the team's matches a player appeared in: appearances are total
+// points over points per game (FPL publishes no appearance count). null when
+// it can't be told, e.g. before the first match.
+function appearanceShareFor(totalPoints, ppg, teamMatches) {
+  if (!teamMatches || !(ppg > 0)) return null;
+  return Math.min(1, Math.round(totalPoints / ppg) / teamMatches);
+}
+
 // The season a set of gameweeks belongs to, e.g. "2026-27", from the first
 // gameweek's deadline. Saved snapshots carry it, because FPL reuses
 // gameweek numbers (and player ids) every season.
@@ -510,6 +551,9 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
   // (hindsight) and buildSavedSquadActualPerformance both do this, and
   // neither should be shrunk: there's no forecast noise to correct for in
   // "what actually happened".
+  // The squad is ranked on the multi-week figure, which already counts a
+  // double or a blank inside its window. (Blending in this gameweek's
+  // figure was backtested and did worse over the following 4 weeks.)
   const selVal = id => predictionsById[id].selectionValue ?? predictionsById[id].predicted;
 
   // Default eligibility excludes unavailable/injured/suspended/not-in-squad
@@ -671,9 +715,14 @@ export function buildOptimalSquad(allPlayers, predictionsById, budget, options =
 }
 
 // Picks the highest-predicted valid formation (1 GKP + 10 outfield in a
-// legal DEF/MID/FWD split) from a 15-man squad.
+// legal DEF/MID/FWD split) from a 15-man squad. The XI only plays this
+// gameweek, so it's ranked on this gameweek's figure: both matches of a
+// double, nothing for a blank.
 export function pickBestFormation(squad15, predictionsById) {
-  const selVal = id => predictionsById[id].selectionValue ?? predictionsById[id].predicted;
+  const selVal = id => {
+    const pred = predictionsById[id];
+    return pred.nextMatchSelectionValue ?? pred.nextMatchPredicted ?? pred.selectionValue ?? pred.predicted;
+  };
   const byPos = { 1: [], 2: [], 3: [], 4: [] };
   squad15.forEach(p => byPos[p.positionId].push(p));
   POSITION_ORDER.forEach(pos => byPos[pos].sort((a, b) => selVal(b.id) - selVal(a.id)));

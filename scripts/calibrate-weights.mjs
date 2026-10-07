@@ -87,7 +87,13 @@ async function loadSeasonData(season, endGw) {
   for (let gw = 1; gw <= endGw; gw++) {
     const rows = await fetchCsv(`${base}/gws/gw${gw}.csv`);
     const byElement = {};
-    rows.forEach(r => { byElement[r.element] = r; });
+    // A double gameweek has one row per match: add them up.
+    rows.forEach(r => {
+      const prev = byElement[r.element];
+      if (!prev) { byElement[r.element] = r; return; }
+      const sum = k => String((Number(prev[k]) || 0) + (Number(r[k]) || 0));
+      byElement[r.element] = { ...prev, total_points: sum('total_points'), minutes: sum('minutes'), goals_scored: sum('goals_scored'), assists: sum('assists'), expected_goals: sum('expected_goals'), expected_assists: sum('expected_assists') };
+    });
     gwRows[gw] = byElement;
   }
   const playerMetaById = {};

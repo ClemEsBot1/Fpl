@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ensureCaptaincy, matchExtractedSquad, squadProblems, suggestTransfers, swapPlayerInSquad } from '../src/lib/squadLogic.js';
+import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestTransfers, swapPlayerInSquad } from '../src/lib/squadLogic.js';
 import { normalize, playerMatchesSearch, levenshtein } from '../src/lib/format.js';
 
 // A legal 15: 2 GKP, 5 DEF, 5 MID, 3 FWD, each at a different club.
@@ -69,6 +69,52 @@ test('transfer suggestions respect the club limit after the player leaves', () =
   const [first] = suggestTransfers(squad, [...ps, sameClub], predictionsById, 0);
   assert.equal(first.out.player.id, 8);
   assert.equal(first.inPlayer.id, 100);
+});
+
+test("a bench player is only replaced if the new one would start", () => {
+  const ps = players();
+  const squad = ps.map(p => slot(p));
+  // Player 7 (a benched DEF) is injured; every other player predicts 5.
+  const predictionsById = Object.fromEntries(ps.map(p => [p.id, { predicted: p.id === 7 ? 0 : 5 }]));
+  const okDef = { id: 100, webName: 'OkDef', positionId: 2, team: 30, price: 5, status: 'a' };
+  const greatDef = { id: 101, webName: 'GreatDef', positionId: 2, team: 31, price: 5, status: 'a' };
+  predictionsById[100] = { predicted: 4 };
+  predictionsById[101] = { predicted: 7 };
+  assert.deepEqual(suggestTransfers(squad, [...ps, okDef], predictionsById, 0), [], "a 4-pt defender wouldn't make the XI");
+  const [first] = suggestTransfers(squad, [...ps, greatDef], predictionsById, 0);
+  assert.equal(first.inPlayer.id, 101);
+  assert.equal(first.gain, 2); // replaces a 5-pt starter in the XI
+});
+
+test('a downgrade that pays for an upgrade is suggested as a pair, cheaper move first', () => {
+  const ps = players({ 15: { price: 6 } });
+  const squad = ps.map(p => slot(p));
+  const predictionsById = Object.fromEntries(ps.map(p => [p.id, { predicted: 5 }]));
+  predictionsById[15] = { predicted: 1 }; // bench FWD, £6.0m
+  const cheapFwd = { id: 100, webName: 'CheapFwd', positionId: 4, team: 30, price: 4, status: 'a' };
+  const starMid = { id: 101, webName: 'StarMid', positionId: 3, team: 31, price: 7, status: 'a' };
+  predictionsById[100] = { predicted: 1 };
+  predictionsById[101] = { predicted: 9 };
+  const suggestions = suggestTransfers(squad, [...ps, cheapFwd, starMid], predictionsById, 0);
+  assert.deepEqual(suggestions.map(s => s.inPlayer.id), [100, 101]);
+  assert.equal(suggestions[0].group, suggestions[1].group);
+  assert.match(suggestions[0].reason, /Frees £2.0m for StarMid/);
+});
+
+test('transfers are judged over 4 gameweeks, and a free one must beat rolling it', () => {
+  const s = gain => ({ gain });
+  // +1.5/wk is +6 over 4 gameweeks: worth a -4 hit.
+  assert.equal(applyFreeTransferEconomics([s(1.5)], 0).length, 1);
+  assert.equal(applyFreeTransferEconomics([s(1.5)], 0)[0].netGain, 2);
+  // +1.0/wk is +4: not a clear win over the hit.
+  assert.equal(applyFreeTransferEconomics([s(1.0)], 0).length, 0);
+  // +0.3/wk with a free transfer is +1.2: rolling the transfer is better.
+  assert.equal(applyFreeTransferEconomics([s(0.3)], 1).length, 0);
+  assert.equal(applyFreeTransferEconomics([s(0.5)], 1).length, 1);
+  // A pair is kept or dropped together.
+  const pair = [{ gain: -0.2, group: 0 }, { gain: 2, group: 0 }];
+  assert.equal(applyFreeTransferEconomics(pair, 2).length, 2);
+  assert.equal(applyFreeTransferEconomics(pair, 0).length, 0);
 });
 
 test('a swapped-in player inherits no armband or old points', () => {

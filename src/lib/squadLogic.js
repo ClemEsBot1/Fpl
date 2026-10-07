@@ -132,65 +132,152 @@ export function squadProblems(players, starters) {
 
 export const MAX_TRANSFER_SUGGESTIONS = 5;
 
+// Best starting XI total from 15 players, on the multi-week `predicted`
+// figure (a transfer is for the next few gameweeks, not just this one).
+function xiTotal(players, predictionsById) {
+  const byPos = { 1: [], 2: [], 3: [], 4: [] };
+  players.forEach(p => byPos[p.positionId].push(predictionsById[p.id].predicted));
+  POSITION_ORDER.forEach(pos => byPos[pos].sort((a, b) => b - a));
+  const sum = (list, n) => list.slice(0, n).reduce((s, v) => s + v, 0);
+  let best = -Infinity;
+  for (const { d, m, f } of getValidFormations()) {
+    if (d > byPos[2].length || m > byPos[3].length || f > byPos[4].length) continue;
+    best = Math.max(best, sum(byPos[1], 1) + sum(byPos[2], d) + sum(byPos[3], m) + sum(byPos[4], f));
+  }
+  return best === -Infinity ? 0 : best;
+}
+
+// How much more (pts/wk) two transfers made together — a downgrade that
+// pays for an upgrade — must gain than the best two made one at a time
+// before the pair is suggested instead.
+const PAIR_MIN_EXTRA_GAIN = 0.3;
+const MIN_TRANSFER_GAIN = 0.3; // pts/wk
+
 export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths) {
-  const starters = squad.filter(s => s.isStarting);
-  const isBad = (s) => !!s.availNote;
-  const flagged = starters.filter(isBad);
-  const sortedByPred = [...starters].sort((a, b) => a.predicted - b.predicted);
-  const lowPerformers = sortedByPred.filter(s => !isBad(s)).slice(0, MAX_TRANSFER_SUGGESTIONS);
-
-  const seen = new Set();
-  const candidates = [];
-  [...flagged, ...lowPerformers].forEach(s => {
-    if (!seen.has(s.player.id)) { seen.add(s.player.id); candidates.push(s); }
-  });
-
-  const squadIds = new Set(squad.map(s => s.player.id));
-  const teamCounts = {};
-  squad.forEach(s => { teamCounts[s.player.team] = (teamCounts[s.player.team] || 0) + 1; });
-
-  // Suggestions are meant to work together, so each one only spends what
-  // the earlier ones left in the bank, and nobody is suggested twice. Prices
-  // are compared in tenths, as FPL stores them.
   const tenths = price => Math.round(price * 10);
+  const pred = id => predictionsById[id].predicted;
+  let players = squad.map(s => s.player);
+  const slotById = new Map(squad.map(s => [s.player.id, s]));
+  const used = new Set(players.map(p => p.id)); // in the squad, or already suggested
   let bankLeft = bankTenths || 0;
-  const suggestedIds = new Set();
-  const suggestions = [];
-  for (const out of candidates) {
-    if (suggestions.length >= MAX_TRANSFER_SUGGESTIONS) break;
-    const budgetTenths = tenths(out.player.price) + bankLeft;
-    const pool = allPlayers.filter(p =>
-      p.positionId === out.player.positionId &&
-      !squadIds.has(p.id) &&
-      !suggestedIds.has(p.id) &&
-      tenths(p.price) <= budgetTenths &&
-      p.status === 'a' &&
+
+  const clubCounts = list => {
+    const counts = {};
+    list.forEach(p => { counts[p.team] = (counts[p.team] || 0) + 1; });
+    return counts;
+  };
+  // Everyone available, best first, per position — sorted once, since the
+  // searches below ask for replacements thousands of times.
+  const byPosition = { 1: [], 2: [], 3: [], 4: [] };
+  allPlayers.forEach(p => { if (p.status === 'a' && byPosition[p.positionId]) byPosition[p.positionId].push(p); });
+  POSITION_ORDER.forEach(pos => byPosition[pos].sort((a, b) => pred(b.id) - pred(a.id)));
+  // Up to `limit` players who could replace `out` within `budgetTenths`,
+  // best first.
+  const replacementsFor = (out, budgetTenths, counts, limit = 1) => {
+    const found = [];
+    for (const p of byPosition[out.positionId]) {
+      if (used.has(p.id) || tenths(p.price) > budgetTenths) continue;
       // The outgoing player frees a place in their own club's quota.
-      (teamCounts[p.team] || 0) - (p.team === out.player.team ? 1 : 0) < MAX_PER_REAL_TEAM
-    );
-    let top = null;
-    for (const p of pool) {
-      if (!top || predictionsById[p.id].predicted > predictionsById[top.id].predicted) top = p;
+      if ((counts[p.team] || 0) - (p.team === out.team ? 1 : 0) >= MAX_PER_REAL_TEAM) continue;
+      found.push(p);
+      if (found.length >= limit) break;
     }
-    if (top) {
-      const gain = predictionsById[top.id].predicted - out.predicted;
-      if (gain > 0.3) {
-        suggestedIds.add(top.id);
-        bankLeft -= tenths(top.price) - tenths(out.player.price);
-        teamCounts[out.player.team] -= 1;
-        teamCounts[top.team] = (teamCounts[top.team] || 0) + 1;
-        suggestions.push({
-          out,
-          inPlayer: top,
-          inPredicted: predictionsById[top.id].predicted,
-          gain: Math.round(gain * 10) / 10,
-          costDelta: (tenths(top.price) - tenths(out.player.price)) / 10,
-          reason: out.availNote || 'Below-average returns for the position',
-        });
+    return found;
+  };
+  const swapIn = (list, out, inP) => list.map(p => (p.id === out.id ? inP : p));
+  const makeSuggestion = (out, inP, gain, reason) => ({
+    out: slotById.get(out.id),
+    inPlayer: inP,
+    inPredicted: pred(inP.id),
+    gain: Math.round(gain * 10) / 10,
+    costDelta: (tenths(inP.price) - tenths(out.price)) / 10,
+    reason,
+  });
+  const reasonFor = out => slotById.get(out.id).availNote || 'Below-average returns for the position';
+
+  // The single best move for the squad as it stands: for each player, the
+  // best affordable replacement, scored by how much the best XI improves —
+  // so a bench player only counts if they'd make the XI.
+  const bestSingle = (list, bank) => {
+    const base = xiTotal(list, predictionsById);
+    const counts = clubCounts(list);
+    let best = null;
+    for (const out of list) {
+      const [inP] = replacementsFor(out, tenths(out.price) + bank, counts);
+      if (!inP) continue;
+      const gain = xiTotal(swapIn(list, out, inP), predictionsById) - base;
+      if (!best || gain > best.gain) best = { out, inP, gain };
+    }
+    return best;
+  };
+
+  // The best two moves made together, where one pays for the other: every
+  // pair of outgoing players, the top few replacements for the first, and
+  // the best the money left buys for the second.
+  const PAIR_CANDIDATES = 8;
+  const bestPair = (list, bank) => {
+    const base = xiTotal(list, predictionsById);
+    const countsA = clubCounts(list);
+    let best = null;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = 0; j < list.length; j++) {
+        if (i === j) continue;
+        const a = list[i], b = list[j];
+        const pot = tenths(a.price) + tenths(b.price) + bank;
+        for (const inA of replacementsFor(a, pot, countsA, PAIR_CANDIDATES)) {
+          const afterA = swapIn(list, a, inA);
+          used.add(inA.id);
+          const [inB] = replacementsFor(b, pot - tenths(inA.price), clubCounts(afterA));
+          used.delete(inA.id);
+          if (!inB) continue;
+          const gain = xiTotal(swapIn(afterA, b, inB), predictionsById) - base;
+          if (!best || gain > best.gain) best = { a, inA, b, inB, gain };
+        }
       }
     }
+    return best;
+  };
+
+  const suggestions = [];
+  const apply = (out, inP) => {
+    bankLeft -= tenths(inP.price) - tenths(out.price);
+    players = swapIn(players, out, inP);
+    used.add(inP.id);
+  };
+
+  while (suggestions.length < MAX_TRANSFER_SUGGESTIONS) {
+    const single = bestSingle(players, bankLeft);
+    const pair = suggestions.length + 2 <= MAX_TRANSFER_SUGGESTIONS ? bestPair(players, bankLeft) : null;
+    // A pair is only worth suggesting when it beats the best two moves
+    // made one after the other.
+    let twoSingles = -Infinity;
+    if (pair && single) {
+      const afterSingle = swapIn(players, single.out, single.inP);
+      used.add(single.inP.id);
+      const next = bestSingle(afterSingle, bankLeft - (tenths(single.inP.price) - tenths(single.out.price)));
+      used.delete(single.inP.id);
+      twoSingles = single.gain + (next ? Math.max(0, next.gain) : 0);
+    }
+    if (pair && pair.gain > twoSingles + PAIR_MIN_EXTRA_GAIN && pair.gain > MIN_TRANSFER_GAIN) {
+      // The cheaper move goes first, so its savings are in the bank when
+      // the second one is made.
+      const moves = [[pair.a, pair.inA], [pair.b, pair.inB]]
+        .sort((x, y) => (tenths(x[1].price) - tenths(x[0].price)) - (tenths(y[1].price) - tenths(y[0].price)));
+      const group = suggestions.length;
+      const gainFirst = xiTotal(swapIn(players, moves[0][0], moves[0][1]), predictionsById) - xiTotal(players, predictionsById);
+      const [[out1, in1], [out2, in2]] = moves;
+      const s1 = makeSuggestion(out1, in1, gainFirst, reasonFor(out1));
+      apply(out1, in1);
+      const s2 = makeSuggestion(out2, in2, pair.gain - gainFirst, reasonFor(out2));
+      apply(out2, in2);
+      if (s1.costDelta < 0) s1.reason = `Frees £${(-s1.costDelta).toFixed(1)}m for ${in2.webName}`;
+      suggestions.push({ ...s1, group, pairedWith: in2.webName }, { ...s2, group, pairedWith: in1.webName });
+      continue;
+    }
+    if (!single || single.gain <= MIN_TRANSFER_GAIN) break;
+    suggestions.push(makeSuggestion(single.out, single.inP, single.gain, reasonFor(single.out)));
+    apply(single.out, single.inP);
   }
-  suggestions.sort((a, b) => b.gain - a.gain);
   return suggestions;
 }
 
@@ -261,30 +348,39 @@ export const CHIP_INFO = {
   '3xc': { label: 'Triple Captain', desc: "Your captain's points count 3x instead of 2x this gameweek." },
 };
 
-// suggestTransfers ranks candidates purely by predicted-points gain — it
-// has no idea how many free transfers you actually have. A real transfer
-// beyond your free one(s) costs -4 points off your gameweek total, so a
-// "+0.5 pts" suggestion is a bad idea to actually make if it costs a hit,
-// while the exact same suggestion is a no-brainer if it's free. This is a
-// pure presentation-layer transform over suggestTransfers' output — it
-// doesn't change what gets suggested, just whether each one is free or
-// would cost a hit, and hides hit-costing swaps too marginal to be worth
-// it (kept ones still show the true net gain, hit included, so the person
-// sees an honest number either way).
+// suggestTransfers ranks moves by predicted points per gameweek — it has no
+// idea how many free transfers you have. A transfer beyond your free ones
+// costs -4 once, while its gain repeats every gameweek the new player
+// plays for you, so the two are compared over TRANSFER_HORIZON_GWS
+// gameweeks (the same window `predicted` averages over). A free transfer
+// isn't free either: unused, it rolls over to next week, so a free move
+// has to be worth more than keeping it (FREE_TRANSFER_VALUE). Two moves
+// suggested as a pair are kept or dropped together. Kept ones show the
+// true net gain, hit included.
 export const TRANSFER_HIT_COST = 4;
+export const TRANSFER_HORIZON_GWS = 4;
+// Points a rolled free transfer is worth. A reasoned starting value, not
+// backtested: a second free transfer next week usually buys a move worth a
+// couple of points.
+export const FREE_TRANSFER_VALUE = 1.5;
 
 export function applyFreeTransferEconomics(suggestions, freeTransfers) {
   const ft = Math.max(0, Number(freeTransfers) || 0);
-  return suggestions
-    .map((s, i) => {
-      const isFree = i < ft;
-      const hitCost = isFree ? 0 : TRANSFER_HIT_COST;
-      return { ...s, isFree, hitCost, netGain: Math.round((s.gain - hitCost) * 10) / 10 };
-    })
-    // A free swap is always worth showing (even a marginal +0.1 pts costs
-    // nothing to take). One that costs a hit needs to clear a real margin
-    // above simply breaking even, or it's not worth the -4 for a coin-flip.
-    .filter(s => s.isFree || s.netGain > 0.5);
+  const priced = suggestions.map((s, i) => {
+    const isFree = i < ft;
+    const hitCost = isFree ? 0 : TRANSFER_HIT_COST;
+    const horizonGain = s.gain * TRANSFER_HORIZON_GWS;
+    return { ...s, isFree, hitCost, horizonGain: Math.round(horizonGain * 10) / 10, netGain: Math.round((horizonGain - hitCost) * 10) / 10 };
+  });
+  // A move that costs a hit has to clear it by a real margin, not a
+  // coin-flip; a free one has to beat rolling the transfer.
+  const worthIt = s => (s.isFree ? s.horizonGain > FREE_TRANSFER_VALUE : s.netGain > 0.5);
+  const groupOk = {};
+  priced.forEach(s => {
+    if (s.group === undefined) return;
+    groupOk[s.group] = (groupOk[s.group] || 0) + (s.horizonGain - (s.isFree ? FREE_TRANSFER_VALUE : s.hitCost + 0.5));
+  });
+  return priced.filter(s => (s.group === undefined ? worthIt(s) : groupOk[s.group] > 0));
 }
 
 // Squad Score: the optimal squad (best possible XI within budget) is defined
