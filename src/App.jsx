@@ -8,6 +8,7 @@ import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDead
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
 import { predictedXiTotal } from './lib/leagues.js';
+import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
 import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
@@ -132,6 +133,14 @@ function squadSnapshot(squad, bankTenths) {
 function savedChangesFor(savedTeams, teamId, gwId) {
   const entry = savedTeams.find(t => t.type === 'teamId' && String(t.teamId) === String(teamId));
   return entry && entry.squad && entry.squad.gwId === gwId ? entry.squad : null;
+}
+
+// The changes to show for a Team ID in one gameweek: the latest edits made
+// on this device, else the ones saved to the account, else null (the
+// picks on FPL). Edits on this device are marked `onDevice`.
+function teamChangesFor(savedTeams, teamId, gwId) {
+  const local = teamEditFor(teamId, gwId);
+  return local ? { ...local, onDevice: true } : savedChangesFor(savedTeams, teamId, gwId);
 }
 
 // Where the Team ID shown on Home is remembered.
@@ -433,18 +442,25 @@ export default function FPLSquadChecker() {
       squad: { ...squadSnapshot(data.squad, data.bankTenths), gwId },
     }));
     if (result.ok) {
+      // The account now has them, so this device's copy isn't needed.
+      clearTeamEdit(teamId);
       setResultsData(prev => (prev === data || (prev && prev.squad === data.squad)
-        ? { ...prev, edited: false, entryMeta: { ...prev.entryMeta, savedChanges: true } } : prev));
+        ? { ...prev, edited: false, entryMeta: { ...prev.entryMeta, savedChanges: true, changesOnDevice: false } } : prev));
     }
     return result;
   }
 
-  // Forgets a Team ID's saved changes and shows its picks on FPL again.
+  // Forgets a Team ID's changes, on this device and (when they were saved
+  // there) on the account, and shows its picks on FPL again.
   async function handleResetTeamChanges(data) {
     const { teamId, gwId, teamName } = data.entryMeta;
-    const result = handleTeamsResult(await postJson('/api/teams', { type: 'teamId', teamId, label: teamName, gwId, squad: null }));
-    if (result.ok) handleTeamIdSubmit(String(teamId), gwId, { ignoreSaved: true });
-    return result;
+    clearTeamEdit(teamId);
+    if (session && savedChangesFor(savedTeams, teamId, gwId)) {
+      const result = handleTeamsResult(await postJson('/api/teams', { type: 'teamId', teamId, label: teamName, gwId, squad: null }));
+      if (!result.ok) return result;
+    }
+    handleTeamIdSubmit(String(teamId), gwId, { ignoreSaved: true });
+    return { ok: true };
   }
 
   async function handleDeleteSavedTeam(entryId) {
@@ -726,6 +742,14 @@ export default function FPLSquadChecker() {
     setResultsData(buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, extra));
     setStageRaw('results');
   }
+
+  // Edits to a Team ID's squad for the gameweek being planned are kept on
+  // this device straight away, so Home and Mini-league show them too.
+  useEffect(() => {
+    const d = resultsData;
+    if (!d || !d.edited || d.isPastGw || !d.entryMeta || !d.entryMeta.teamId) return;
+    saveTeamEdit(d.entryMeta.teamId, d.entryMeta.gwId, { ...squadSnapshot(d.squad, d.bankTenths), gwId: d.entryMeta.gwId });
+  }, [resultsData]);
 
   // Called after an in-place squad edit (manual swap, or accepting a
   // transfer suggestion) — recomputes everything derived (predicted total,
@@ -1089,7 +1113,7 @@ export default function FPLSquadChecker() {
     if (saved) {
       return {
         squad: saved.squad, gwStatic, entry, isPastGwView, entryHistory: null, bankTenths: saved.bankTenths, activeChip: null,
-        entryMeta: { teamId: entryMeta.teamId, gwId, teamName: entryMeta.teamName, savedChanges: true },
+        entryMeta: { teamId: entryMeta.teamId, gwId, teamName: entryMeta.teamName, savedChanges: true, changesOnDevice: !!savedSquad.onDevice },
       };
     }
 
@@ -1128,7 +1152,7 @@ export default function FPLSquadChecker() {
       const team = await loadTeamForGw(teamId, gwId, staticData, {
         isStale: () => !isCurrent(ticket),
         onProgress: message => showLoading(ticket, message),
-        savedSquad: ignoreSaved ? null : savedChangesFor(savedTeams, teamId, gwId),
+        savedSquad: ignoreSaved ? null : teamChangesFor(savedTeams, teamId, gwId),
       });
       if (!team) return;
       // The first team someone checks becomes the one Home shows.
@@ -1171,7 +1195,7 @@ export default function FPLSquadChecker() {
         throw { code: 'ERR_STATIC_DATA' };
       }
       const gwId = selectedGw || currentGwId(staticData);
-      const savedSquad = savedChangesFor(savedTeams, teamId, gwId);
+      const savedSquad = teamChangesFor(savedTeams, teamId, gwId);
       const team = await loadTeamForGw(teamId, gwId, staticData, { isStale, savedSquad });
       if (!team || isStale()) return;
       const data = buildResultsData(team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId, entryHistory: team.entryHistory });
@@ -1202,7 +1226,7 @@ export default function FPLSquadChecker() {
     const target = selectedGw || (staticDataRef.current ? currentGwId(staticDataRef.current) : null);
     // Saved changes arriving (after logging in) or changing also count.
     const fresh = homeTeam.status === 'ready' && homeTeam.data && homeTeam.data.gwId === target
-      && JSON.stringify(homeTeam.savedSquad) === JSON.stringify(savedChangesFor(savedTeams, homeTeam.teamId, target))
+      && JSON.stringify(homeTeam.savedSquad) === JSON.stringify(teamChangesFor(savedTeams, homeTeam.teamId, target))
       && Date.now() - homeTeam.loadedAt < 10 * 60 * 1000;
     if (!fresh) loadHomeTeam(homeTeam.teamId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1379,9 +1403,13 @@ export default function FPLSquadChecker() {
   const loadLeagueTeamRef = useRef(null);
   loadLeagueTeamRef.current = async entryId => {
     const staticData = await ensureStaticData();
-    const result = await loadTeamForGw(entryId, currentGwId(staticData), staticData);
+    const gwId = currentGwId(staticData);
+    const result = await loadTeamForGw(entryId, gwId, staticData, { savedSquad: teamChangesFor(savedTeams, entryId, gwId) });
     if (!result) return null;
-    return { squad: result.squad, xiTotal: predictedXiTotal(result.squad), picksFromGwId: result.entryMeta.picksFromGwId || null };
+    return {
+      squad: result.squad, xiTotal: predictedXiTotal(result.squad),
+      picksFromGwId: result.entryMeta.picksFromGwId || null, edited: !!result.entryMeta.savedChanges,
+    };
   };
   const loadLeagueTeam = useCallback(entryId => loadLeagueTeamRef.current(entryId), []);
 

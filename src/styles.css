@@ -441,6 +441,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-who:disabled .fpl-league-chev { opacity: 0.3; }
 .fpl-league-row.is-open .fpl-league-chev { transform: rotate(180deg); }
 @media (hover: hover) and (pointer: fine) { .fpl-league-who:not(:disabled):hover { background: rgba(255,255,255,0.08); } }
+.fpl-league-edited { margin-left: 6px; font: 600 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.04em; text-transform: uppercase; color: #05041A; background: var(--yellow); padding: 1px 5px; border-radius: 4px; vertical-align: 2px; }
 .fpl-league-total { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .fpl-league-pred { text-align: right; font-weight: 700; color: var(--lime); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .fpl-league-skel { display: inline-block; width: 2.6rem; height: 14px; vertical-align: middle; }

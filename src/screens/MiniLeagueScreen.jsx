@@ -42,11 +42,13 @@ function MemberTeam({ team, teamsById, onOpen }) {
   };
   return (
     <div className="fpl-league-team">
-      {team.picksFromGwId && <p className="fpl-home-hint">This gameweek's picks are hidden until the deadline, so this is their Gameweek {team.picksFromGwId} team.</p>}
+      {team.edited
+        ? <p className="fpl-home-hint">Showing your edits to this team. Open it to change it more, or go back to the team on FPL.</p>
+        : team.picksFromGwId && <p className="fpl-home-hint">This gameweek's picks are hidden until the deadline, so this is their Gameweek {team.picksFromGwId} team.</p>}
       <ul>{POSITION_ORDER.flatMap(pos => starters.filter(s => s.player.positionId === pos)).map(row)}</ul>
       <h4 className="fpl-home-sub">Bench</h4>
       <ul>{bench.map(row)}</ul>
-      <button type="button" className="fpl-link" onClick={onOpen}>Open their full team <ArrowRight size={14} /></button>
+      <button type="button" className="fpl-link" onClick={onOpen}>Open and edit this team <ArrowRight size={14} /></button>
     </div>
   );
 }
@@ -110,7 +112,7 @@ function LeagueTable({ leagueId, gwName, teamsById, fetchJson, loadTeam, onOpenT
                   <li className={`fpl-league-row${isOpen ? ' is-open' : ''}`}>
                     <span className="fpl-league-rank fpl-mono">{m.rank}</span>
                     <button type="button" className="fpl-league-who" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : m.entry)} disabled={!team || team.status !== 'ready'}>
-                      <b>{m.teamName}</b>
+                      <b>{m.teamName}{team && team.edited && <span className="fpl-league-edited">Edited</span>}</b>
                       <small>{m.managerName}</small>
                       <ChevronDown size={14} aria-hidden="true" className="fpl-league-chev" />
                     </button>
