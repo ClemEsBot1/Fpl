@@ -7,7 +7,7 @@ import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
-import { livePointsFor, predictedXiTotal } from './lib/leagues.js';
+import { livePointsFor, memberWeekStats, predictedXiTotal } from './lib/leagues.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
 import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
@@ -1408,22 +1408,27 @@ export default function FPLSquadChecker() {
   // screen reloads its teams whenever this changes.
   const loadLeagueTeamRef = useRef(null);
   // Also their points so far in the latest gameweek to have started (its
-  // picks and FPL's live scores), or null before the season.
+  // picks and FPL's live scores; null before the season) and the numbers
+  // the league analysis needs.
   loadLeagueTeamRef.current = async entryId => {
     const staticData = await ensureStaticData();
     const gwId = currentGwId(staticData);
     const liveGw = liveGwIdFor(staticData);
-    const [result, livePoints] = await Promise.all([
+    const optional = path => fetchFplJson(path).catch(() => null);
+    const [result, livePicks, liveById, transfers, history] = await Promise.all([
       loadTeamForGw(entryId, gwId, staticData, { savedSquad: teamChangesFor(savedTeams, entryId, gwId) }),
-      liveGw
-        ? Promise.all([fetchFplJson(`entry/${entryId}/event/${liveGw}/picks/`).catch(() => null), liveForGw(liveGw, isGwFinished(staticData, liveGw))])
-          .then(([picks, liveById]) => livePointsFor(picks, liveById))
-        : Promise.resolve(null),
+      liveGw ? optional(`entry/${entryId}/event/${liveGw}/picks/`) : null,
+      liveGw ? liveForGw(liveGw, isGwFinished(staticData, liveGw)) : {},
+      optional(`entry/${entryId}/transfers/`),
+      optional(`entry/${entryId}/history/`),
     ]);
     if (!result) return null;
     return {
-      squad: result.squad, xiTotal: predictedXiTotal(result.squad), livePoints,
+      squad: result.squad, xiTotal: predictedXiTotal(result.squad),
+      livePoints: liveGw ? livePointsFor(livePicks, liveById) : null,
       picksFromGwId: result.entryMeta.picksFromGwId || null, edited: !!result.entryMeta.savedChanges,
+      // For the league analysis (most captained, best transfers and so on).
+      stats: memberWeekStats({ gw: liveGw, picks: livePicks, liveById, transfers, entry: result.entry, history }),
     };
   };
   const loadLeagueTeam = useCallback(entryId => loadLeagueTeamRef.current(entryId), []);
@@ -1564,6 +1569,7 @@ export default function FPLSquadChecker() {
                 liveGwId={liveStatic ? liveGwIdFor(liveStatic) : null}
                 liveGwFinished={!!(liveStatic && liveGwIdFor(liveStatic) && isGwFinished(liveStatic, liveGwIdFor(liveStatic)))}
                 teamsById={liveStatic ? liveStatic.teamsById : {}}
+                playersById={liveStatic ? liveStatic.playersById : {}}
                 fetchJson={fetchFplJson}
                 loadTeam={loadLeagueTeam}
                 onOpenTeam={entryId => handleTeamIdSubmit(String(entryId))}

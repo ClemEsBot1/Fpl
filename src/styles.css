@@ -462,6 +462,15 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-player-pts { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .fpl-league-chev { transition: none; } }
 @media (min-width: 900px) { .fpl-league { padding: 28px 32px; } }
+.fpl-analysis-grid { display: grid; gap: 18px; }
+@media (min-width: 760px) { .fpl-analysis-grid { grid-template-columns: 1.3fr 1fr; gap: 28px; } }
+.fpl-analysis-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.fpl-analysis-item { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 1px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.fpl-analysis-item:last-child { border-bottom: 0; }
+.fpl-analysis-item svg { color: var(--blue); grid-row: 1 / span 2; }
+.fpl-analysis-label { grid-column: 2; font-size: 0.74rem; color: var(--ink-dim); }
+.fpl-analysis-who { grid-column: 2; font-family: 'Space Grotesk', sans-serif; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-analysis-value { grid-column: 3; grid-row: 1 / span 2; font-weight: 700; font-size: 0.82rem; color: var(--lime); text-align: right; font-variant-numeric: tabular-nums; }
 .fpl-price-timer { margin: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); font-size: 0.82rem; }
 .fpl-price-timer svg { color: var(--blue); flex-shrink: 0; }
 .fpl-price-timer span { flex: 1; }
