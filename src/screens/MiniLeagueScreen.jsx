@@ -2,10 +2,10 @@
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ChevronDown, Trophy, Users } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { POSITION_LABELS, fmtPts } from '../lib/format.js';
-import { forEachLimited, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { expectedPositions, forEachLimited, parseStandings, privateLeagues } from '../lib/leagues.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 
 const LEAGUE_KEY = 'fpl_league_id';
@@ -53,9 +53,27 @@ function MemberTeam({ team, teamsById, onOpen }) {
   );
 }
 
+// Expected position after the next gameweek, with how far that is from
+// the current rank.
+function ExpectedCell({ rank, expected, loading }) {
+  if (loading) return <span className="fpl-league-exp"><span className="fpl-skel fpl-league-skel" aria-label="Loading" /></span>;
+  if (!expected) return <span className="fpl-league-exp fpl-mono">–</span>;
+  const move = rank - expected.position;
+  return (
+    <span className="fpl-league-exp fpl-mono" title={`${expected.projected} pts expected`}>
+      {expected.position}
+      {move !== 0 && (
+        <small className={move > 0 ? 'is-up' : 'is-down'} aria-label={move > 0 ? `up ${move}` : `down ${-move}`}>
+          {move > 0 ? <ArrowUp size={11} aria-hidden="true" /> : <ArrowDown size={11} aria-hidden="true" />}{Math.abs(move)}
+        </small>
+      )}
+    </span>
+  );
+}
+
 // One league's standings with each member's predicted points; mounted
 // afresh for each league picked.
-function LeagueTable({ leagueId, gwName, teamsById, fetchJson, loadTeam, onOpenTeam }) {
+function LeagueTable({ leagueId, gwName, liveGwId, liveGwFinished, teamsById, fetchJson, loadTeam, onOpenTeam }) {
   const [standings, setStandings] = useState({ status: 'loading', data: null });
   const [teams, setTeams] = useState({}); // entry -> { status, squad, xiTotal, picksFromGwId }
   const [open, setOpen] = useState(null);
@@ -80,29 +98,45 @@ function LeagueTable({ leagueId, gwName, teamsById, fetchJson, loadTeam, onOpenT
     return () => { cancelled = true; };
   }, [leagueId, fetchJson, loadTeam]);
 
+  // Where everyone would be after the next gameweek if it went as
+  // predicted, worked out again as each team arrives.
+  const expected = useMemo(() => (standings.data ? expectedPositions(standings.data.members, teams) : {}), [standings.data, teams]);
+
   const members = useMemo(() => {
     const list = standings.data ? [...standings.data.members] : [];
-    if (sortBy === 'predicted') {
-      const pts = m => (teams[m.entry] && teams[m.entry].status === 'ready' ? teams[m.entry].xiTotal : -1);
-      list.sort((a, b) => pts(b) - pts(a) || a.rank - b.rank);
-    }
+    const ready = m => teams[m.entry] && teams[m.entry].status === 'ready';
+    const keyFor = {
+      live: m => (ready(m) && typeof teams[m.entry].livePoints === 'number' ? teams[m.entry].livePoints : -Infinity),
+      predicted: m => (ready(m) ? teams[m.entry].xiTotal : -Infinity),
+      expected: m => -(expected[m.entry] ? expected[m.entry].position : Infinity),
+    }[sortBy];
+    if (keyFor) list.sort((a, b) => keyFor(b) - keyFor(a) || a.rank - b.rank);
     return list;
-  }, [standings.data, teams, sortBy]);
+  }, [standings.data, teams, sortBy, expected]);
+
+  const gwShort = name => (name ? name.replace('Gameweek ', 'GW') : '');
+  const SORTS = [['rank', 'Rank'], ['live', 'Live'], ['predicted', 'Predicted'], ['expected', 'Expected']];
 
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="league-h" aria-busy={standings.status === 'loading'}>
       <div className="fpl-home-team-head">
         <h2 id="league-h" className="fpl-home-h"><Trophy size={18} aria-hidden="true" /> {standings.data ? standings.data.league.name : 'League'}</h2>
         <div className="fpl-league-sort" role="group" aria-label="Sort by">
-          <button type="button" className={`fpl-chip-btn${sortBy === 'rank' ? ' active' : ''}`} aria-pressed={sortBy === 'rank'} onClick={() => setSortBy('rank')}>Rank</button>
-          <button type="button" className={`fpl-chip-btn${sortBy === 'predicted' ? ' active' : ''}`} aria-pressed={sortBy === 'predicted'} onClick={() => setSortBy('predicted')}>Predicted</button>
+          {SORTS.map(([key, label]) => (
+            <button key={key} type="button" className={`fpl-chip-btn${sortBy === key ? ' active' : ''}`} aria-pressed={sortBy === key} onClick={() => setSortBy(key)}>{label}</button>
+          ))}
         </div>
       </div>
       {standings.status === 'loading' && <SkeletonRows rows={8} label="Loading the league…" />}
       {standings.status === 'error' && <p className="fpl-home-text" role="alert">Couldn't load league {leagueId}. Check the ID, or try again in a minute.</p>}
       {standings.status === 'ready' && (
         <>
-          <div className="fpl-league-cols fpl-mono" aria-hidden="true"><span>#</span><span>Team</span><span>Total</span><span>{gwName ? `${gwName.replace('Gameweek', 'GW')} pred` : 'Pred'}</span></div>
+          <div className="fpl-league-cols fpl-mono" aria-hidden="true">
+            <span>#</span><span>Team</span>
+            <span>{liveGwId ? `GW${liveGwId} ${liveGwFinished ? 'pts' : 'live'}` : 'Live'}</span>
+            <span>{gwName ? `${gwShort(gwName)} pred` : 'Pred'}</span>
+            <span>Exp</span>
+          </div>
           <ol className="fpl-league-list">
             {members.map(m => {
               const team = teams[m.entry];
@@ -113,14 +147,18 @@ function LeagueTable({ leagueId, gwName, teamsById, fetchJson, loadTeam, onOpenT
                     <span className="fpl-league-rank fpl-mono">{m.rank}</span>
                     <button type="button" className="fpl-league-who" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : m.entry)} disabled={!team || team.status !== 'ready'}>
                       <b>{m.teamName}{team && team.edited && <span className="fpl-league-edited">Edited</span>}</b>
-                      <small>{m.managerName}</small>
+                      <small>{m.total} pts · {m.managerName}</small>
                       <ChevronDown size={14} aria-hidden="true" className="fpl-league-chev" />
                     </button>
-                    <span className="fpl-league-total fpl-mono">{m.total}</span>
+                    <span className="fpl-league-live fpl-mono">
+                      {!team ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
+                        : team.status === 'ready' && typeof team.livePoints === 'number' ? team.livePoints : '–'}
+                    </span>
                     <span className="fpl-league-pred fpl-mono">
                       {!team ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
                         : team.status === 'ready' ? fmtPts(team.xiTotal) : '–'}
                     </span>
+                    <ExpectedCell rank={m.rank} expected={team && team.status === 'ready' ? expected[m.entry] : null} loading={!team} />
                   </li>
                   {isOpen && team && team.status === 'ready' && (
                     <li className="fpl-league-open"><MemberTeam team={team} teamsById={teamsById} onOpen={() => onOpenTeam(m.entry)} /></li>
@@ -130,7 +168,9 @@ function LeagueTable({ leagueId, gwName, teamsById, fetchJson, loadTeam, onOpenT
             })}
           </ol>
           <p className="fpl-home-hint">
-            Predicted points are each team's starting XI, captain doubled.
+            {liveGwId ? `Live is each team's points so far in Gameweek ${liveGwId}, before automatic subs. ` : ''}
+            Predicted is each team's starting XI for {gwName || 'the next gameweek'}, captain doubled.
+            Expected is the position if every team scores its prediction.
             {standings.data.hasMore ? ' Showing the top 50.' : ''}
           </p>
         </>
@@ -139,7 +179,7 @@ function LeagueTable({ leagueId, gwName, teamsById, fetchJson, loadTeam, onOpenT
   );
 }
 
-export function MiniLeagueScreen({ homeTeamId, gwName, teamsById, fetchJson, loadTeam, onOpenTeam, onAddTeamId }) {
+export function MiniLeagueScreen({ homeTeamId, gwName, liveGwId, liveGwFinished, teamsById, fetchJson, loadTeam, onOpenTeam, onAddTeamId }) {
   const [leagues, setLeagues] = useState({ status: homeTeamId ? 'loading' : 'none', list: [] });
   const [leagueId, setLeagueId] = useState(readSavedLeague);
   const [idInput, setIdInput] = useState('');
@@ -205,7 +245,7 @@ export function MiniLeagueScreen({ homeTeamId, gwName, teamsById, fetchJson, loa
       </section>
 
       {leagueId && (
-        <LeagueTable key={leagueId} leagueId={leagueId} gwName={gwName} teamsById={teamsById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} />
+        <LeagueTable key={leagueId} leagueId={leagueId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} />
       )}
     </div>
   );

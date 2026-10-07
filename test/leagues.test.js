@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { forEachLimited, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
+import { expectedPositions, forEachLimited, livePointsFor, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
 
 test("a team's mini-leagues leave out FPL's own leagues", () => {
   const entry = { leagues: { classic: [
@@ -44,4 +44,30 @@ test('team loads run a few at a time and report every result', async () => {
   }, (n, value, error) => seen.push([n, value, error ? error.message : null]));
   assert.equal(peak, 2);
   assert.deepEqual(seen.sort((a, b) => a[0] - b[0]), [[1, 10, null], [2, 20, null], [3, null, 'nope'], [4, 40, null], [5, 50, null]]);
+});
+
+test('live points count multipliers and take off the hit', () => {
+  const picks = { picks: [{ element: 1, multiplier: 2 }, { element: 2, multiplier: 1 }, { element: 3, multiplier: 0 }], entry_history: { event_transfers_cost: 4 } };
+  const live = { 1: { totalPoints: 10 }, 2: { totalPoints: 3 }, 3: { totalPoints: 15 } };
+  assert.equal(livePointsFor(picks, live), 19);
+  assert.equal(livePointsFor(null, live), null);
+});
+
+test('expected positions add predicted points to totals with live points', () => {
+  const members = [
+    { entry: 1, rank: 1, total: 500, eventTotal: 40 },
+    { entry: 2, rank: 2, total: 495, eventTotal: 30 },
+    { entry: 3, rank: 3, total: 480, eventTotal: 20 },
+  ];
+  const teams = {
+    1: { status: 'ready', livePoints: 45, xiTotal: 50 }, // 460 + 45 + 50 = 555
+    2: { status: 'ready', livePoints: 30, xiTotal: 70 }, // 465 + 30 + 70 = 565
+    3: { status: 'loading' }, // 480 so far
+  };
+  const exp = expectedPositions(members, teams);
+  assert.deepEqual([exp[2].position, exp[1].position, exp[3].position], [1, 2, 3]);
+  assert.equal(exp[1].projected, 555);
+  const tied = expectedPositions(members.slice(0, 2), { 1: { status: 'ready', xiTotal: 10 }, 2: { status: 'ready', xiTotal: 15 } });
+  assert.equal(tied[1].position, 1);
+  assert.equal(tied[2].position, 1, 'level on points share a position');
 });
