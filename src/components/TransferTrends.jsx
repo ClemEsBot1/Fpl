@@ -6,16 +6,18 @@
 // then FPL's numbers for the week (FPL only publishes transfer counts for
 // the upcoming gameweek). Sits to the right of the home cards on a wide
 // screen and below them on a phone.
-import { useMemo, useRef, useState } from 'react';
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Repeat } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Clock, Repeat } from 'lucide-react';
 import { fmtPrice, fmtPts } from '../lib/format.js';
-import { buildTransferTrends, topByPoints } from '../lib/transferTrends.js';
+import { buildPriceWatch, buildTransferTrends, hasOfficialPriceData, nextPriceChangeAt, topByPoints } from '../lib/transferTrends.js';
 import { SkeletonRows } from './common.jsx';
 
 const POS = ['', 'GKP', 'DEF', 'MID', 'FWD'];
 const EMPTY = {
   in: 'No transfers yet this gameweek.',
   out: 'No transfers yet this gameweek.',
+  rises: 'Nobody is close to a price rise.',
+  drops: 'Nobody is close to a price drop.',
 };
 
 function fmtCount(n) {
@@ -24,15 +26,41 @@ function fmtCount(n) {
   return `${n < 0 ? '−' : n > 0 ? '+' : ''}${text}`;
 }
 
+// FPL's own status ("Very likely to rise"), or for an estimate the
+// change it would make ("+£0.1m likely").
 function PriceChip({ change }) {
   if (!change) return <span className="fpl-trend-chip">No change</span>;
   const rise = change.dir === 'rise';
   const Icon = rise ? ArrowUpRight : ArrowDownRight;
+  const official = typeof change.percent === 'number';
+  const strong = official ? change.confidence === 'very likely' : change.confidence === 'likely';
+  const label = official
+    ? `${change.confidence[0].toUpperCase()}${change.confidence.slice(1)} to ${rise ? 'rise' : 'drop'}`
+    : `${rise ? '+' : '−'}£0.1m ${change.confidence}`;
   return (
-    <span className={`fpl-trend-chip ${rise ? 'is-rise' : 'is-fall'}${change.confidence === 'likely' ? ' is-likely' : ''}`}>
+    <span className={`fpl-trend-chip ${rise ? 'is-rise' : 'is-fall'}${strong ? ' is-likely' : ''}`}>
       <Icon size={12} aria-hidden="true" />
-      {rise ? '+' : '−'}£0.1m {change.confidence}
+      {label}
     </span>
+  );
+}
+
+// Time left until FPL's next price changes at 00:00 UK, ticking each
+// minute.
+function PriceChangeTimer() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const mins = Math.max(0, Math.ceil((nextPriceChangeAt(new Date(now)).getTime() - now) / 60000));
+  const text = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+  return (
+    <p className="fpl-price-timer">
+      <Clock size={14} aria-hidden="true" />
+      <span>Price changes in <b className="fpl-mono">{text}</b></span>
+      <small>00:00 UK</small>
+    </p>
   );
 }
 
@@ -40,6 +68,8 @@ function TrendRow({ row, stat, teamsById }) {
   const { player, net, change } = row;
   const team = teamsById[player.team];
   const value = stat === 'in' ? player.transfersInEvent : stat === 'out' ? -player.transfersOutEvent : net;
+  const count = stat === 'pct' ? `${player.priceChangePercent > 0 ? '+' : '−'}${Math.round(Math.abs(player.priceChangePercent))}%` : fmtCount(value);
+  const negative = stat === 'pct' ? player.priceChangePercent < 0 : value < 0;
   return (
     <li className="fpl-trend-row">
       <span className="fpl-row-pos">{POS[player.positionId]}</span>
@@ -48,7 +78,7 @@ function TrendRow({ row, stat, teamsById }) {
         <small>{team ? team.short_name : ''} · {fmtPrice(player.price)}</small>
       </span>
       <span className="fpl-trend-side">
-        <span className={`fpl-trend-count${value < 0 ? ' is-out' : ''}`}>{fmtCount(value)}</span>
+        <span className={`fpl-trend-count${negative ? ' is-out' : ''}`}>{count}</span>
         <PriceChip change={change} />
       </span>
     </li>
@@ -120,7 +150,8 @@ function recapPanels(staticData, event, live, team, teamPending) {
 // highest predicted points of all players and on your team.
 function upcomingPanels(staticData, team, teamPending) {
   const { allPlayers, predictionsById, teamsById } = staticData;
-  const transfers = buildTransferTrends(allPlayers, staticData.totalPlayers).map(panel => ({
+  const lists = [...buildPriceWatch(allPlayers, staticData.totalPlayers), ...buildTransferTrends(allPlayers, staticData.totalPlayers)];
+  const transfers = lists.map(panel => ({
     id: panel.id, title: panel.title,
     body: panel.rows.length ? (
       <ol className="fpl-trend-list">
@@ -174,6 +205,7 @@ export function TransferTrends({ staticData, event, isPast, live, team, teamPend
         <h2 id="trends-h" className="fpl-home-h"><Repeat size={18} aria-hidden="true" /> {isPast ? `Gameweek ${event.id} recap` : 'Transfer trends'}</h2>
         <span className="fpl-mono fpl-home-meta">{isPast ? (event.finished ? 'Final' : 'Live') : `GW${event.id} so far`}</span>
       </div>
+      <PriceChangeTimer />
       <div className="fpl-trends-track" ref={trackRef} onScroll={onScroll} tabIndex={0} aria-label="Transfer trends panels">
         {panels.map((panel, k) => (
           <div key={panel.id} className="fpl-trends-panel" role="group" aria-roledescription="panel" aria-label={`${panel.title}, ${k + 1} of ${panels.length}`} aria-hidden={k !== current}>
@@ -195,7 +227,9 @@ export function TransferTrends({ staticData, event, isPast, live, team, teamPend
       </div>
       <p className="fpl-home-hint">{isPast
         ? "FPL only publishes transfer counts for the upcoming gameweek, so a past one shows its points instead."
-        : "Price changes are an estimate from net transfers and ownership; FPL doesn't publish its formula."}</p>
+        : hasOfficialPriceData(staticData.allPlayers)
+          ? "Price status is FPL's own Price Change Predictor: 100% means FPL expects the change at 00:00 UK. It's a guide, not a promise."
+          : "Price changes are an estimate from net transfers and ownership; FPL doesn't publish its formula."}</p>
     </section>
   );
 }

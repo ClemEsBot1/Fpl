@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestTransfers, swapPlayerInSquad } from '../src/lib/squadLogic.js';
+import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, squadProblems, substitutePlayers, substitutionOptions, suggestTransfers, swapPlayerInSquad } from '../src/lib/squadLogic.js';
 import { normalize, playerMatchesSearch, levenshtein } from '../src/lib/format.js';
 
 // A legal 15: 2 GKP, 5 DEF, 5 MID, 3 FWD, each at a different club.
@@ -176,4 +176,30 @@ test('names are compared without accents, special letters or spacing', () => {
   assert.ok(!playerMatchesSearch(taa, 'saka'));
   assert.equal(levenshtein('kitten', 'sitting'), 3);
   assert.equal(levenshtein('', 'abc'), 3);
+});
+
+test('substitutes keep the formation legal', () => {
+  // 4-4-2: bench is GKP 2, DEF 7, MID 12, FWD 15.
+  const squad = players().map(p => slot(p));
+  const forStarterDef = substitutionOptions(squad, squad.find(s => s.player.id === 3)).map(s => s.player.id);
+  // A defender can go off for a defender, midfielder or forward (4-4-2 to
+  // 3-5-2 or 3-4-3), never the keeper.
+  assert.deepEqual(forStarterDef.sort((a, b) => a - b), [7, 12, 15]);
+  const forBenchKeeper = substitutionOptions(squad, squad.find(s => s.player.id === 2)).map(s => s.player.id);
+  assert.deepEqual(forBenchKeeper, [1]);
+});
+
+test('a benched captain hands the armband on', () => {
+  const squad = players().map(p => slot(p, {
+    isCaptain: p.id === 13, isViceCaptain: p.id === 8, multiplier: p.id === 13 ? 2 : STARTER_IDS.has(p.id) ? 1 : 0,
+  }));
+  const next = substitutePlayers(squad, 13, 15);
+  const byId = id => next.find(s => s.player.id === id);
+  assert.equal(byId(13).isStarting, false);
+  assert.equal(byId(13).isCaptain, false);
+  assert.equal(byId(13).multiplier, 0);
+  assert.equal(byId(15).isStarting, true);
+  assert.equal(byId(15).multiplier, 1);
+  assert.equal(byId(8).isCaptain, true, 'the vice-captain takes over');
+  assert.equal(byId(8).multiplier, 2);
 });

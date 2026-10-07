@@ -3,7 +3,7 @@
 .fpl-root { --bg:linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%);
   --panel:rgba(10,8,30,0.60); --panel-alt:rgba(10,8,30,0.42); --line:rgba(255,255,255,0.20);
   --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.72); --blue:#04F9FC; --green:#36FE48;
-  --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; }
+  --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; --yellow:#FFD60A; }
 .fpl-root { font-family:'Inter',sans-serif; background:var(--bg) fixed; color:var(--ink); min-height:100vh; min-height:100dvh; }
 
 .fpl-display { font-family:'Space Grotesk',sans-serif; }
@@ -380,6 +380,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-home-facts div { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 10px; display: grid; gap: 2px; }
 .fpl-home-facts b { font-family: 'IBM Plex Mono', monospace; font-size: 1rem; font-variant-numeric: tabular-nums; }
 .fpl-home-facts span { font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-deadline-soon { color: var(--yellow); font-weight: 700; }
 .fpl-home-meta { font-size: 0.7rem; color: var(--ink-dim); }
 .fpl-ticker-wrap { overflow-x: auto; }
 .fpl-ticker { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; }
@@ -414,6 +415,15 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-trend-chip.is-likely.is-fall { color: #05041A; background: var(--red); }
 .fpl-arrows button:disabled { opacity: 0.35; cursor: default; }
 .fpl-trend-count small { font-size: 0.7rem; font-weight: 500; color: var(--ink-dim); }
+.fpl-sub-picker { display: grid; gap: 8px; padding: 10px 10px 0; }
+.fpl-sub-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.fpl-sub-options .fpl-chip-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 0.78rem; }
+.fpl-sub-options .fpl-mono { color: var(--ink-dim); font-size: 0.7rem; }
+.fpl-price-timer { margin: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); font-size: 0.82rem; }
+.fpl-price-timer svg { color: var(--blue); flex-shrink: 0; }
+.fpl-price-timer span { flex: 1; }
+.fpl-price-timer b { font-variant-numeric: tabular-nums; }
+.fpl-price-timer small { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--ink-dim); }
 .fpl-trend-facts { margin: 0; display: grid; }
 .fpl-trend-facts div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .fpl-trend-facts div:last-child { border-bottom: 0; }

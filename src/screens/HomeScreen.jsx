@@ -4,7 +4,7 @@
 // footer on a phone).
 import { useEffect, useState } from 'react';
 import { ArrowRight, CalendarRange, RotateCcw, Shirt, Target, TriangleAlert } from 'lucide-react';
-import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, officialGwPoints } from '../lib/format.js';
+import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
 import { SkeletonRows } from '../components/common.jsx';
@@ -272,7 +272,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
       <div className="fpl-home-top">
         <h1 className="fpl-display">{event ? event.name : 'Home'}</h1>
         {event && (
-          <span className="fpl-mono fpl-home-deadline">
+          <span className={`fpl-mono fpl-home-deadline${!isPast && isDeadlineSoon(event.deadline_time) ? ' fpl-deadline-soon' : ''}`}>
             {isPast ? (event.finished ? 'Finished' : 'In progress') : formatCountdown(event.deadline_time)}
           </span>
         )}

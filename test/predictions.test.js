@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, pickBestFormation, SQUAD_BUDGET, MAX_PER_REAL_TEAM,
+  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM,
 } from '../src/lib/predictions.js';
 
 // A deterministic synthetic league: 20 clubs × 25 players, with prices and
@@ -241,4 +241,14 @@ test("the XI is picked on this gameweek's figure", () => {
   const xi = pickBestFormation(players, preds);
   assert.ok(!xi.has(15));
   assert.ok(xi.has(7));
+});
+
+test('the app stays on the gameweek being played until its matches are over', () => {
+  const now = Date.parse('2026-10-07T12:00:00Z');
+  const ev = (id, daysFromNow, finished) => ({ id, deadline_time: new Date(now + daysFromNow * 864e5).toISOString(), finished });
+  const events = [ev(6, -9, true), ev(7, -2, false), ev(8, 5, false)];
+  assert.equal(getDefaultEvent(events, now).id, 7, 'GW7 deadline passed, matches still on');
+  events[1].finished = true;
+  assert.equal(getDefaultEvent(events, now).id, 8, 'GW7 over: on to GW8');
+  assert.equal(getDefaultEvent([ev(1, 3, false), ev(2, 10, false)], now).id, 1, 'before the season');
 });

@@ -1,11 +1,11 @@
 // Results for a squad: predicted points per player, captaincy, transfer
 // suggestions, chip timing, editing, saving, sharing and reminders.
 import { Fragment, useMemo, useState } from 'react';
-import { ArrowRight, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Crown, Download, Edit3, Info, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Trophy, Zap } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Crown, Download, Edit3, Info, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Trophy, Zap } from 'lucide-react';
 import { DifficultyChips } from '../components/common.jsx';
 import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
-import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
+import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
 // — see computePlayerPrediction in src/lib/predictions.js for where each
@@ -175,6 +175,36 @@ export function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
         <input type="checkbox" checked={!!slot.isViceCaptain} onChange={() => onSetVice(slot.player.id)} />
         Vice-captain
       </label>
+    </div>
+  );
+}
+
+// Swap an open row's player between the XI and the bench: the players on
+// the other side who keep the formation legal, one button each.
+export function SubstitutePicker({ slot, squad, onSubstitute }) {
+  const options = substitutionOptions(squad, slot);
+  return (
+    <div className="fpl-sub-picker" onClick={e => e.stopPropagation()}>
+      <div className="fpl-mono fpl-meta">{slot.isStarting ? 'Substitute: bring on' : 'Substitute: bring on for'}</div>
+      {options.length ? (
+        <div className="fpl-sub-options">
+          {options.map(other => (
+            <button
+              key={other.player.id}
+              type="button"
+              className="fpl-chip-btn"
+              onClick={() => onSubstitute(slot.player.id, other.player.id)}
+              aria-label={slot.isStarting ? `Bring on ${other.player.webName} for ${slot.player.webName}` : `Bring on ${slot.player.webName} for ${other.player.webName}`}
+            >
+              <ArrowUpDown size={13} aria-hidden="true" />
+              {POSITION_LABELS[other.player.positionId]} {other.player.webName}
+              <span className="fpl-mono">{fmtPts(other.predicted)}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="fpl-meta">No one can swap in without breaking the formation.</div>
+      )}
     </div>
   );
 }
@@ -517,6 +547,12 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
     onSquadUpdate(newSquad, bankTenths);
   }
 
+  // Moves two players between the XI and the bench; no transfer is used.
+  function applySubstitution(aId, bId) {
+    onSquadUpdate(substitutePlayers(squad, aId, bId, armband), bankTenths);
+    setEditSlotId(null);
+  }
+
   function toggleRowEdit(playerId) {
     setEditSlotId(current => (current === playerId ? null : playerId));
   }
@@ -642,7 +678,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
 
       {canEdit && editMode && (
         <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
-          Tap any player below to swap them, or set captain/vice-captain.
+          Tap any player below to substitute them, transfer them out, or set captain/vice-captain.
         </div>
       )}
 
@@ -685,6 +721,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                     ) : (
                       <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>Bench players can't wear the armband.</div>
                     )}
+                    <SubstitutePicker slot={slot} squad={squad} onSubstitute={applySubstitution} />
                     <InlineSwapSearch
                       key={slot.player.id}
                       outSlot={slot}
@@ -729,6 +766,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                     ) : (
                       <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>Bench players can't wear the armband.</div>
                     )}
+                    <SubstitutePicker slot={slot} squad={squad} onSubstitute={applySubstitution} />
                     <InlineSwapSearch
                       key={slot.player.id}
                       outSlot={slot}

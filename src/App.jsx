@@ -4,9 +4,9 @@
 import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
-import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, officialGwPoints } from './lib/format.js';
+import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
-import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
+import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
 import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Wand2 } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
@@ -484,6 +484,8 @@ export default function FPLSquadChecker() {
   }, [stage]);
 
   const currentGwId = staticData => (staticData.targetEvent ? staticData.targetEvent.id : 1);
+  // The gameweek to show when none was picked (see applyGameweekOptions).
+  const defaultGwId = staticData => (getDefaultEvent(staticData.allEvents) || staticData.targetEvent || { id: 1 }).id;
 
   // Loads (once) the FPL data everything else needs. A failed first load
   // isn't kept, so the next attempt tries again. Once the gameweek it was
@@ -500,7 +502,7 @@ export default function FPLSquadChecker() {
         staticDataRef.current = data;
         staticPromiseRef.current = refresh;
         asOfCacheRef.current.clear();
-        applyGameweekOptions(data, loaded.targetEvent.id);
+        applyGameweekOptions(data, defaultGwId(loaded));
         return data;
       }, () => loaded).finally(() => { refreshPromiseRef.current = null; });
       refreshPromiseRef.current = refresh;
@@ -525,16 +527,39 @@ export default function FPLSquadChecker() {
   // is_current/is_next here would let a gameweek whose deadline has already
   // passed keep showing as "current" for days, since that FPL flag tracks
   // match-play status rather than transfer deadlines.
-  function applyGameweekOptions(data, previousTargetId) {
+  //
+  // The one picked to start with is the gameweek being played, until all
+  // of its matches are over, and then the next one (getDefaultEvent).
+  function applyGameweekOptions(data, previousDefaultId) {
     setLiveStatic(data);
     setGwOptions(data.allEvents.filter(e => isEventLocked(e) || (data.targetEvent && e.id === data.targetEvent.id)));
     if (data.targetEvent) {
-      // Follow the target forward if it was what was selected. A gameweek
-      // from the address that can't be picked falls back to the target.
+      // Follow the default forward if it was what was selected. A
+      // gameweek from the address that can't be picked falls back to it.
       const pickable = id => data.allEvents.some(e => e.id === id && (isEventLocked(e) || e.id === data.targetEvent.id));
-      setSelectedGw(prev => (prev === null || prev === previousTargetId || !pickable(prev) ? data.targetEvent.id : prev));
+      const next = defaultGwId(data);
+      setSelectedGw(prev => (prev === null || prev === previousDefaultId || !pickable(prev) ? next : prev));
     }
   }
+
+  // While a gameweek is being played, check FPL every 10 minutes so the app
+  // moves on to the next one once its last match has finished.
+  const liveDefaultId = liveStatic && liveStatic.targetEvent && defaultGwId(liveStatic) !== liveStatic.targetEvent.id ? defaultGwId(liveStatic) : null;
+  useEffect(() => {
+    if (!liveDefaultId) return undefined;
+    const id = setInterval(() => {
+      const before = staticDataRef.current;
+      loadStaticData().then(data => {
+        if (staticDataRef.current !== before) return; // a deadline refresh got there first
+        staticDataRef.current = data;
+        staticPromiseRef.current = Promise.resolve(data);
+        asOfCacheRef.current.clear();
+        applyGameweekOptions(data, liveDefaultId);
+      }, () => {});
+    }, 10 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveDefaultId]);
 
   useEffect(() => {
     ensureStaticData().catch(() => {});
@@ -1179,10 +1204,10 @@ export default function FPLSquadChecker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, homeTeam.teamId, homeTeam.status, gwOptions, selectedGw, savedTeams]);
 
-  // Keep the address in step with the gameweek picked: the upcoming one
-  // needs no ?gw, an earlier one is written in.
+  // Keep the address in step with the gameweek picked: the default one
+  // needs no ?gw, any other is written in.
   useEffect(() => {
-    const target = liveStatic && liveStatic.targetEvent ? liveStatic.targetEvent.id : null;
+    const target = liveStatic && liveStatic.targetEvent ? defaultGwId(liveStatic) : null;
     if (!target) return;
     writeGwParam(selectedGw && selectedGw !== target ? selectedGw : null);
   }, [selectedGw, liveStatic]);
@@ -1372,6 +1397,7 @@ export default function FPLSquadChecker() {
       ? ((summaryData.allEvents?.find(e => e.id === summaryData.gwId))?.name || '')
       : (summaryData.targetEvent ? summaryData.targetEvent.name : ''),
     countdown: summaryData.isPastGw ? '' : (summaryData.targetEvent ? formatCountdown(summaryData.targetEvent.deadline_time) : ''),
+    countdownSoon: !summaryData.isPastGw && !!summaryData.targetEvent && isDeadlineSoon(summaryData.targetEvent.deadline_time),
     xiTotal: summaryData.xiTotal,
     actualXiTotal: summaryData.isPastGw ? officialGwPoints(summaryData) : null,
   } : null;

@@ -134,7 +134,7 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
       {summary && (
         <div style={{ background: 'var(--panel-alt)', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div className="fpl-mono fpl-meta-lg">
-            {summary.gwLabel}{summary.countdown ? ` · ${summary.countdown}` : ''}
+            {summary.gwLabel}{summary.countdown ? <> · <span className={summary.countdownSoon ? 'fpl-deadline-soon' : undefined}>{summary.countdown}</span></> : null}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
             <span className="fpl-mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(summary.xiTotal)}</span>
