@@ -3,13 +3,29 @@
 import { buildStaticDataFromRaw } from './predictions.js';
 import { applyAsOfStats } from './asOf.js';
 
-export async function fetchFplJson(path) {
+// FPL turns some requests away when many arrive at once (a mini-league
+// loads several calls per team), and the proxy can time out. Those are
+// worth another go; a 404 or 400 is an answer, not a hiccup.
+const RETRY_DELAYS_MS = [700, 2000];
+const retryable = status => status === 429 || status >= 500;
+
+export async function fetchFplJson(path, { retryDelays = RETRY_DELAYS_MS } = {}) {
   // Calls our own /api/fpl serverless function (added via Vercel), which
   // fetches FPL server-side — no CORS issue, no dependence on third-party
   // proxy services, and no dynamic-route filename to trip over.
-  const r = await fetch(`/api/fpl?path=${encodeURIComponent(path)}`);
-  if (!r.ok) throw new Error('status ' + r.status);
-  return r.json();
+  for (let attempt = 0; ; attempt++) {
+    let r;
+    try {
+      r = await fetch(`/api/fpl?path=${encodeURIComponent(path)}`);
+    } catch (e) {
+      // Offline or the connection dropped.
+      if (attempt >= retryDelays.length) throw e;
+    }
+    if (r && r.ok) return r.json();
+    if (r && (!retryable(r.status) || attempt >= retryDelays.length)) throw new Error('status ' + r.status);
+    // A little jitter so a burst of retries doesn't arrive together.
+    await new Promise(resolve => setTimeout(resolve, retryDelays[attempt] * (0.75 + Math.random() / 2)));
+  }
 }
 
 export async function fetchPlayerHistory() {

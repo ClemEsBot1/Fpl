@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRecap, lastFinishedGw, mostOwnedXi, recapText } from '../src/lib/recap.js';
+import { buildRecap, lastFinishedGw, missVerdict, mostOwnedXi, recapText } from '../src/lib/recap.js';
 
 const player = (id, webName, positionId, price = 6) => ({ id, webName, positionId, team: 1, price });
 const slot = (p, actualPoints, predicted, extra = {}) => ({ player: p, actualPoints, predicted, isStarting: true, multiplier: 1, ...extra });
@@ -165,4 +165,18 @@ test('the recap reads as a few lines of text', () => {
   const text = recapText(buildRecap(base));
   assert.equal(text.split('\n')[0], 'Test XI, Gameweek 19: 48 pts (−4 vs avg)');
   assert.match(text, /C Haaland 26 · Star Salah 15/);
+});
+
+test("each player's miss is judged against how far off every player was", () => {
+  const accuracy = { meanAbsError: 2, topTenAverageActual: 6, averageActual: 3, missP50: 1.5, missP80: 3, missP90: 4.5 };
+  const p = buildRecap({ ...base, accuracy }).predictions;
+  // Salah +7.9, Haaland +4.8, Saka 0, Gabriel −4.3.
+  assert.deepEqual(p.rows.map(r => r.verdict), ['way-off', 'way-off', 'close', 'off']);
+  assert.equal(p.withinUsual, 1);
+  assert.equal(p.judged, 4);
+  assert.deepEqual(p.wayOff, ['Salah', 'Haaland']);
+  // (7.9 + 4.8 + 0 + 4.3) / 4 = 4.25 against 2 for everyone.
+  assert.equal(p.missCompared, 'much-bigger');
+  assert.equal(missVerdict(-5, 0, p.range), 'dnp');
+  assert.equal(buildRecap(base).predictions.range, null);
 });

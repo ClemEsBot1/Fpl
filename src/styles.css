@@ -441,6 +441,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-who small { grid-column: 1; font-size: 0.75rem; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fpl-league-chev { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--ink-dim); transition: transform 160ms ease-out; }
 .fpl-league-who:disabled .fpl-league-chev { opacity: 0.3; }
+.fpl-league-who.is-failed small { color: var(--yellow); }
 .fpl-league-row.is-open .fpl-league-chev { transform: rotate(180deg); }
 @media (hover: hover) and (pointer: fine) { .fpl-league-who:not(:disabled):hover { background: rgba(255,255,255,0.08); } }
 .fpl-league-edited { margin-left: 6px; font: 600 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.04em; text-transform: uppercase; color: #05041A; background: var(--yellow); padding: 1px 5px; border-radius: 4px; vertical-align: 2px; }
@@ -695,7 +696,14 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-recap-narrow { max-width: 440px; }
 .fpl-recap-chart { display: block; width: 100%; height: auto; }
 .fpl-recap-axis { margin: 4px 0 0; display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--ink-dim); }
-.fpl-recap-cols { display: flex; align-items: flex-end; gap: 4px; height: 64px; }
+.fpl-recap-cols { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 64px; touch-action: pan-y; }
+.fpl-recap-cols span.is-hover { background: var(--ink); }
+.fpl-recap-cols span.is-now.is-hover { background: var(--lime); box-shadow: 0 0 0 2px var(--ink); }
+.fpl-recap-plot { position: relative; touch-action: pan-y; cursor: crosshair; }
+/* The value under the pointer, above the point or bar it belongs to. */
+.fpl-recap-tip { position: absolute; z-index: 1; transform: translate(-50%, calc(-100% - 10px)); padding: 4px 8px; border-radius: 6px; pointer-events: none; white-space: nowrap;
+  background: var(--ink); color: #05041A; font-size: 0.72rem; font-weight: 700; box-shadow: 0 6px 18px rgba(5,4,26,0.35); }
+.fpl-recap-cols .fpl-recap-tip { flex: none; width: auto; height: auto; min-height: 0; border-radius: 6px; background: var(--ink); }
 .fpl-recap-cols span { flex: 1; min-height: 2px; height: calc(var(--v) * 100%); border-radius: 3px 3px 0 0; background: rgba(255,255,255,0.3); }
 .fpl-recap-cols span.is-now { background: var(--lime); }
 .fpl-recap-fx { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 0.75rem; color: var(--ink-dim); }
@@ -729,3 +737,21 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-recap.is-wide .fpl-recap-share { width: 380px; }
 .fpl-recap-copytext { margin: 0 0 10px; white-space: pre-line; font-size: 0.82rem; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) { .fpl-recap-tabs button { transition: none; } .fpl-recap-tabs button:active { transform: none; } }
+/* Prediction check: how a miss compares with every player's that week. */
+.fpl-recap-verdict { display: inline-block; padding: 2px 7px; border-radius: 999px; font: 700 0.64rem 'IBM Plex Mono', monospace; white-space: nowrap; }
+.fpl-recap-verdict.is-close { background: rgba(54,254,72,0.18); color: var(--green); }
+.fpl-recap-verdict.is-usual { background: rgba(4,249,252,0.16); color: var(--blue); }
+.fpl-recap-verdict.is-off { background: rgba(255,214,10,0.18); color: var(--yellow); }
+.fpl-recap-verdict.is-way-off { background: #FF8A8A; color: #05041A; }
+.fpl-recap-verdict.is-dnp { background: rgba(255,255,255,0.1); color: var(--ink-dim); }
+.fpl-recap-bands { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr; gap: 3px; height: 8px; margin-bottom: 8px; }
+.fpl-recap-bands span { border-radius: 4px; }
+.fpl-recap-bands .is-close { background: var(--green); }
+.fpl-recap-bands .is-usual { background: var(--blue); }
+.fpl-recap-bands .is-off { background: var(--yellow); }
+.fpl-recap-bands .is-way-off { background: #FF8A8A; }
+.fpl-recap-bandkey { margin: 0 0 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.fpl-recap-bandkey div { display: grid; gap: 3px; justify-items: start; }
+.fpl-recap-bandkey dd { margin: 0; font-size: 0.78rem; font-weight: 700; }
+.fpl-recap-range { gap: 4px; }
+.fpl-recap-preds tr.is-way-off th, .fpl-recap-preds tr.is-way-off td { background: rgba(255,90,90,0.16); }

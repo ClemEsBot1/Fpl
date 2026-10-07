@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expectedPositions, forEachLimited, leagueHighlights, livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
+import { expectedPositions, forEachLimited, leagueHighlights, livePointsFor, memberWeekStats, membersAtGw, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
 
 test("a team's mini-leagues leave out FPL's own leagues", () => {
   const entry = { leagues: { classic: [
@@ -117,4 +117,25 @@ test('league highlights pick the leaders, sharing ties', () => {
   assert.deepEqual(byKey.in.players, [12]);
   assert.deepEqual(byKey.out.players, []);
   assert.equal(byKey.bestValue.value, null, 'nobody has a value yet');
+});
+
+test('a league as it stood after an earlier gameweek comes from each history', () => {
+  const members = [
+    { entry: 1, teamName: 'A', rank: 1, total: 300, eventTotal: 50 },
+    { entry: 2, teamName: 'B', rank: 2, total: 290, eventTotal: 70 },
+    { entry: 3, teamName: 'C', rank: 3, total: 280, eventTotal: 60 },
+  ];
+  const teams = {
+    1: { status: 'ready', xiTotal: 40, history: [{ event: 4, points: 60, total: 200 }, { event: 5, points: 30, total: 230 }] },
+    2: { status: 'ready', xiTotal: 50, history: [{ event: 4, points: 50, total: 190 }, { event: 5, points: 45, total: 235 }] },
+    3: { status: 'loading' },
+  };
+  const at5 = membersAtGw(members, teams, 5);
+  assert.deepEqual(at5.map(m => [m.entry, m.rank, m.lastRank, m.total, m.eventTotal]), [[1, 2, 1, 230, 30], [2, 1, 2, 235, 45], [3, null, null, null, null]]);
+  // Had everyone scored their prediction in GW5: A 200 + 40, B 190 + 50.
+  assert.deepEqual(expectedPositions(at5, teams, { beforeWeek: true }), { 1: { projected: 240, position: 1 }, 2: { projected: 240, position: 1 } });
+  // A week still being played uses the live points.
+  const live = membersAtGw(members, { ...teams, 1: { ...teams[1], livePoints: 70 } }, 5, { finished: false });
+  assert.equal(live[0].total, 270);
+  assert.equal(live[0].rank, 1);
 });

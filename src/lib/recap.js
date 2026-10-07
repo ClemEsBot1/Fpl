@@ -299,19 +299,42 @@ function vsModelSlide({ points, modelScore, bestScore, squad, modelSquad, bestSq
   };
 }
 
+// How a player's miss compares with every player's that week (`range`,
+// the 50th, 80th and 90th percentiles of misses from /api/accuracy):
+// close, usual, off or way off. A player who didn't play isn't a miss.
+export function missVerdict(diff, minutes, range) {
+  if (minutes === 0) return 'dnp';
+  if (!range) return null;
+  const miss = Math.abs(diff);
+  if (miss <= range.p50) return 'close';
+  if (miss <= range.p80) return 'usual';
+  if (miss <= range.p90) return 'off';
+  return 'way-off';
+}
+
 // Each player's prediction against what they scored, the bench too, and
 // how the app's predictions did across all players (`accuracy`, from
-// /api/accuracy).
+// /api/accuracy), with whether your players' misses were in the usual range.
 function predictionsSlide({ squad, liveById, accuracy }) {
   const counted = squad.filter(counts);
   if (!counted.length) return null;
-  const row = s => ({
-    id: s.player.id, name: s.player.webName, pos: POS[s.player.positionId], isCaptain: (s.multiplier || 0) >= 2,
-    predicted: round1(s.predicted || 0), actual: s.actualPoints || 0, diff: round1((s.actualPoints || 0) - (s.predicted || 0)),
-    minutes: liveById[s.player.id] ? liveById[s.player.id].minutes || 0 : null,
-  });
-  const rows = counted.map(row).sort((a, b) => b.diff - a.diff);
   const all = accuracy && typeof accuracy.meanAbsError === 'number' ? accuracy : null;
+  const range = all && typeof all.missP80 === 'number' ? { p50: all.missP50, p80: all.missP80, p90: all.missP90 } : null;
+  const row = s => {
+    const minutes = liveById[s.player.id] ? liveById[s.player.id].minutes || 0 : null;
+    const diff = round1((s.actualPoints || 0) - (s.predicted || 0));
+    return {
+      id: s.player.id, name: s.player.webName, pos: POS[s.player.positionId], isCaptain: (s.multiplier || 0) >= 2,
+      predicted: round1(s.predicted || 0), actual: s.actualPoints || 0, diff, minutes,
+      verdict: missVerdict(diff, minutes, range),
+    };
+  };
+  const rows = counted.map(row).sort((a, b) => b.diff - a.diff);
+  const typicalMiss = round1(rows.reduce((s, r) => s + Math.abs(r.diff), 0) / rows.length);
+  const judged = rows.filter(r => r.verdict && r.verdict !== 'dnp');
+  // Your XI's typical miss against every player's: about usual within a
+  // quarter either way.
+  const ratio = all && all.meanAbsError > 0 ? typicalMiss / all.meanAbsError : null;
   return {
     rows,
     bench: squad.filter(s => !counts(s)).map(row),
@@ -319,7 +342,12 @@ function predictionsSlide({ squad, liveById, accuracy }) {
     actualTotal: counted.reduce((s, x) => s + (x.actualPoints || 0) * x.multiplier, 0),
     beat: rows[0].diff > 0 ? rows[0] : null,
     miss: rows[rows.length - 1].diff < 0 ? rows[rows.length - 1] : null,
-    typicalMiss: round1(rows.reduce((s, r) => s + Math.abs(r.diff), 0) / rows.length),
+    typicalMiss,
+    missCompared: ratio === null ? null : ratio < 0.75 ? 'smaller' : ratio <= 1.25 ? 'usual' : ratio <= 1.75 ? 'bigger' : 'much-bigger',
+    range,
+    withinUsual: range ? judged.filter(r => r.verdict === 'close' || r.verdict === 'usual').length : null,
+    judged: range ? judged.length : null,
+    wayOff: rows.filter(r => r.verdict === 'way-off').map(r => r.name),
     allPlayers: all ? { typicalMiss: round1(all.meanAbsError), topTen: round1(all.topTenAverageActual), average: round1(all.averageActual) } : null,
   };
 }

@@ -1141,6 +1141,8 @@ export default function FPLSquadChecker() {
 
     return {
       squad, gwStatic, entry, entryMeta, isPastGwView,
+      // The picks themselves, for callers that also want the week's points.
+      picks: borrowed ? null : picks,
       // FPL's own record of the week (points, hit, ranks), for a gameweek
       // whose picks are its own.
       entryHistory: borrowed ? null : (picks.entry_history || null),
@@ -1419,35 +1421,50 @@ export default function FPLSquadChecker() {
   // The menu (sidebar on a computer, footer on a phone). Hidden on the
   // welcome page, which has its own Start button.
   const install = useInstallPrompt();
-  // A mini-league member's team for the gameweek being planned, with its
-  // predicted points. Kept as one function across renders: the league
-  // screen reloads its teams whenever this changes.
+  // A mini-league member's team for gameweek `gwId` (the one picked in the
+  // header; the one being planned when that's later), with its predicted
+  // points. Kept as one function across renders: the league screen reloads
+  // its teams whenever this changes.
   const loadLeagueTeamRef = useRef(null);
-  // Also their points so far in the latest gameweek to have started (its
-  // picks and FPL's live scores; null before the season) and the numbers
-  // the league analysis needs.
-  loadLeagueTeamRef.current = async entryId => {
+  // Also their points that gameweek once it has started (otherwise in the
+  // latest gameweek to have started; null before the season), their
+  // season so far, and the numbers the league analysis needs.
+  loadLeagueTeamRef.current = async (entryId, gwId) => {
     const staticData = await ensureStaticData();
-    const gwId = currentGwId(staticData);
-    const liveGw = liveGwIdFor(staticData);
+    const target = currentGwId(staticData);
+    const gw = gwId && gwId < target ? gwId : target;
+    const started = gw < target;
+    const weekGw = started ? gw : liveGwIdFor(staticData);
     const optional = path => fetchFplJson(path).catch(() => null);
-    const [result, livePicks, liveById, transfers, history] = await Promise.all([
-      loadTeamForGw(entryId, gwId, staticData, { savedSquad: teamChangesFor(savedTeams, entryId, gwId) }),
-      liveGw ? optional(`entry/${entryId}/event/${liveGw}/picks/`) : null,
-      liveGw ? liveForGw(liveGw, isGwFinished(staticData, liveGw)) : {},
+    const [result, liveById, transfers, history] = await Promise.all([
+      loadTeamForGw(entryId, gw, staticData, { savedSquad: started ? null : teamChangesFor(savedTeams, entryId, gw) }).catch(e => {
+        // A team that joined after this gameweek has nothing to show for it.
+        if (e && e.code === 'ERR_TEAM_NOT_STARTED') return { notStarted: true };
+        throw e;
+      }),
+      weekGw ? liveForGw(weekGw, isGwFinished(staticData, weekGw)) : {},
       optional(`entry/${entryId}/transfers/`),
       optional(`entry/${entryId}/history/`),
     ]);
     if (!result) return null;
+    const seasonSoFar = history && Array.isArray(history.current)
+      ? history.current.map(r => ({ event: r.event, points: r.points - (r.event_transfers_cost || 0), total: r.total_points })) : null;
+    // A finished week's points from FPL's own record, which counts
+    // automatic subs; one still being played from the picks and live scores.
+    const weekRow = seasonSoFar && weekGw && isGwFinished(staticData, weekGw) ? seasonSoFar.find(r => r.event === weekGw) : null;
+    if (result.notStarted) return { squad: [], xiTotal: 0, livePoints: null, notStarted: true, history: seasonSoFar, stats: null };
+    // The week's picks: already loaded when that's the gameweek shown.
+    const livePicks = !weekGw ? null : (started && result.picks ? result.picks : await optional(`entry/${entryId}/event/${weekGw}/picks/`));
     return {
       squad: result.squad, xiTotal: predictedXiTotal(result.squad),
-      livePoints: liveGw ? livePointsFor(livePicks, liveById) : null,
+      livePoints: weekRow ? weekRow.points : weekGw ? livePointsFor(livePicks, liveById) : null,
       picksFromGwId: result.entryMeta.picksFromGwId || null, edited: !!result.entryMeta.savedChanges,
+      history: seasonSoFar,
       // For the league analysis (most captained, best transfers and so on).
-      stats: memberWeekStats({ gw: liveGw, picks: livePicks, liveById, transfers, entry: result.entry, history }),
+      stats: memberWeekStats({ gw: weekGw, picks: livePicks, liveById, transfers, entry: result.entry, history }),
     };
   };
-  const loadLeagueTeam = useCallback(entryId => loadLeagueTeamRef.current(entryId), []);
+  const loadLeagueTeam = useCallback((entryId, gwId) => loadLeagueTeamRef.current(entryId, gwId), []);
 
   /* ---------- The gameweek recap ---------- */
 
@@ -1585,6 +1602,14 @@ export default function FPLSquadChecker() {
     actualXiTotal: summaryData.isPastGw ? officialGwPoints(summaryData) : null,
   } : null;
 
+  // The mini-league follows the gameweek picked in the header: one that has
+  // started shows its points and positions; the one being planned shows the
+  // latest points and its predictions.
+  const leagueTarget = liveStatic && liveStatic.targetEvent ? liveStatic.targetEvent.id : null;
+  const leagueGw = leagueTarget ? (selectedGw && selectedGw < leagueTarget ? selectedGw : leagueTarget) : null;
+  const leagueGwEvent = liveStatic && leagueGw ? liveStatic.allEvents.find(e => e.id === leagueGw) : null;
+  const leagueWeekGw = leagueGw && leagueGw < leagueTarget ? leagueGw : (liveStatic ? liveGwIdFor(liveStatic) : null);
+
   return (
     <div className={`fpl-root${showNav ? ' fpl-has-nav' : ''}`}>
       {showNav && (
@@ -1685,9 +1710,11 @@ export default function FPLSquadChecker() {
             {stage === 'league' && (
               <MiniLeagueScreen
                 homeTeamId={homeTeam.teamId}
-                gwName={liveStatic && liveStatic.targetEvent ? liveStatic.targetEvent.name : ''}
-                liveGwId={liveStatic ? liveGwIdFor(liveStatic) : null}
-                liveGwFinished={!!(liveStatic && liveGwIdFor(liveStatic) && isGwFinished(liveStatic, liveGwIdFor(liveStatic)))}
+                gwId={leagueGw}
+                targetGwId={liveStatic && liveStatic.targetEvent ? liveStatic.targetEvent.id : null}
+                gwName={leagueGwEvent ? leagueGwEvent.name : ''}
+                liveGwId={leagueWeekGw}
+                liveGwFinished={!!(liveStatic && leagueWeekGw && isGwFinished(liveStatic, leagueWeekGw))}
                 teamsById={liveStatic ? liveStatic.teamsById : {}}
                 playersById={liveStatic ? liveStatic.playersById : {}}
                 fetchJson={fetchFplJson}

@@ -124,8 +124,10 @@ function Headline({ recap, wide }) {
 }
 
 // The season's overall rank as a line (higher is better) and points per
-// gameweek as bars.
+// gameweek as bars. Hovering (or touching) either shows the exact value.
 function RankCharts({ r }) {
+  const [lineAt, setLineAt] = useState(null);
+  const [barAt, setBarAt] = useState(null);
   const ranked = r.series.filter(s => s.overallRank);
   const W = 560;
   const H = 150;
@@ -138,28 +140,53 @@ function RankCharts({ r }) {
     const x = i => (i / (ranked.length - 1)) * W;
     const pts = ranked.map((s, i) => `${Math.round(x(i))},${Math.round(y(s.overallRank))}`).join(' ');
     const last = ranked[ranked.length - 1];
+    // The point nearest the pointer, across the chart's width.
+    const pick = e => {
+      const box = e.currentTarget.getBoundingClientRect();
+      const rel = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+      setLineAt(Math.round(rel * (ranked.length - 1)));
+    };
+    const at = lineAt !== null ? ranked[lineAt] : null;
     line = (
       <div className="fpl-recap-card">
         <p className="fpl-recap-h3"><span>Overall rank this season</span><span>Best {n(lo)}</span></p>
-        <svg viewBox={`-8 -8 ${W + 16} ${H + 16}`} className="fpl-recap-chart" role="img" aria-label={`Overall rank from ${n(ranked[0].overallRank)} in Gameweek ${ranked[0].event} to ${n(last.overallRank)} now`}>
-          <line x1="0" x2={W} y1={H} y2={H} stroke="rgba(255,255,255,0.15)" />
-          <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="rgba(255,255,255,0.08)" />
-          <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-          <circle cx={W} cy={Math.round(y(last.overallRank))} r="6" fill="var(--lime)" />
-        </svg>
+        <div className="fpl-recap-plot" onPointerMove={pick} onPointerDown={pick} onPointerLeave={() => setLineAt(null)}>
+          <svg viewBox={`-8 -8 ${W + 16} ${H + 16}`} className="fpl-recap-chart" role="img" aria-label={`Overall rank by gameweek: ${ranked.map(s => `GW${s.event} ${n(s.overallRank)}`).join(', ')}`}>
+            <line x1="0" x2={W} y1={H} y2={H} stroke="rgba(255,255,255,0.15)" />
+            <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="rgba(255,255,255,0.08)" />
+            {at ? <line x1={x(lineAt)} x2={x(lineAt)} y1="0" y2={H} stroke="rgba(255,255,255,0.3)" strokeDasharray="3 4" /> : null}
+            <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+            <circle cx={W} cy={Math.round(y(last.overallRank))} r="6" fill="var(--lime)" />
+            {at ? <circle cx={x(lineAt)} cy={y(at.overallRank)} r="6" fill="var(--ink)" stroke="var(--blue)" strokeWidth="3" /> : null}
+          </svg>
+          {at ? (
+            <span className="fpl-recap-tip fpl-mono" style={{ left: `${(lineAt / (ranked.length - 1)) * 100}%`, top: `${(y(at.overallRank) / H) * 100}%` }}>
+              GW{at.event} · {n(at.overallRank)}
+            </span>
+          ) : null}
+        </div>
         <p className="fpl-recap-axis fpl-mono"><span>GW{ranked[0].event}</span><span>GW{last.event}</span></p>
       </div>
     );
   }
   const most = Math.max(1, ...r.series.map(s => s.points || 0));
+  const bar = barAt !== null ? r.series[barAt] : null;
   return (
     <>
       {line}
       {r.series.length >= 2 ? (
         <div className="fpl-recap-card">
           <p className="fpl-recap-h3"><span>Points each gameweek</span>{r.averagePoints ? <span>Average {r.averagePoints}</span> : null}</p>
-          <div className="fpl-recap-cols" role="img" aria-label={`Points each gameweek, ${r.series.map(s => s.points).join(', ')}`}>
-            {r.series.map((s, i) => <span key={s.event} className={i === r.series.length - 1 ? 'is-now' : ''} style={{ '--v': (s.points || 0) / most }} />)}
+          <div className="fpl-recap-cols" role="img" aria-label={`Points by gameweek: ${r.series.map(s => `GW${s.event} ${s.points}`).join(', ')}`} onPointerLeave={() => setBarAt(null)}>
+            {r.series.map((s, i) => (
+              <span key={s.event} className={`${i === r.series.length - 1 ? 'is-now' : ''}${i === barAt ? ' is-hover' : ''}`} style={{ '--v': (s.points || 0) / most }}
+                onPointerEnter={() => setBarAt(i)} onPointerDown={() => setBarAt(i)} />
+            ))}
+            {bar ? (
+              <span className="fpl-recap-tip fpl-mono" style={{ left: `${((barAt + 0.5) / r.series.length) * 100}%`, top: `${(1 - (bar.points || 0) / most) * 100}%` }}>
+                GW{bar.event} · {bar.points} pts
+              </span>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -547,7 +574,14 @@ function VsModel({ recap, wide }) {
   );
 }
 
-function PredRow({ r, bench }) {
+const VERDICTS = { close: 'Close', usual: 'Usual', off: 'Off', 'way-off': 'Way off', dnp: "Didn't play" };
+const COMPARED = { smaller: 'smaller than usual', usual: 'about usual', bigger: 'bigger than usual', 'much-bigger': 'much bigger than usual' };
+
+function Verdict({ v }) {
+  return v ? <span className={`fpl-recap-verdict is-${v}`}>{VERDICTS[v]}</span> : null;
+}
+
+function PredRow({ r, bench, withRange }) {
   return (
     <tr className={bench ? 'is-bench' : ''}>
       <th scope="row">{r.name}{r.isCaptain ? ' (C)' : ''}</th>
@@ -555,7 +589,29 @@ function PredRow({ r, bench }) {
       <td className="fpl-mono">{fmtPts(r.predicted)}</td><td className="fpl-mono">{r.actual}</td>
       <td className={`fpl-mono ${tone(r.diff)}`}>{r.diff === 0 ? '0.0' : signed1(r.diff)}</td>
       <td className="fpl-mono is-dim">{r.minutes ?? '–'}</td>
+      {withRange ? <td><Verdict v={r.verdict} /></td> : null}
     </tr>
+  );
+}
+
+// Where misses usually fall this week, from every player's: the bands a
+// player's miss is judged against.
+function MissRange({ p }) {
+  if (!p.range) return null;
+  const { p50, p80, p90 } = p.range;
+  return (
+    <div className="fpl-recap-card fpl-recap-range">
+      <p className="fpl-recap-h3"><span>Usual range of a miss</span><span>Half within ±{fmtPts(p50)}, 8 in 10 within ±{fmtPts(p80)}</span></p>
+      <div className="fpl-recap-bands" aria-hidden="true">
+        <span className="is-close" /><span className="is-usual" /><span className="is-off" /><span className="is-way-off" />
+      </div>
+      <dl className="fpl-recap-bandkey">
+        <div><dt><Verdict v="close" /></dt><dd className="fpl-mono">±{fmtPts(p50)}</dd></div>
+        <div><dt><Verdict v="usual" /></dt><dd className="fpl-mono">±{fmtPts(p80)}</dd></div>
+        <div><dt><Verdict v="off" /></dt><dd className="fpl-mono">±{fmtPts(p90)}</dd></div>
+        <div><dt><Verdict v="way-off" /></dt><dd className="fpl-mono">&gt;{fmtPts(p90)}</dd></div>
+      </dl>
+    </div>
   );
 }
 
@@ -567,16 +623,23 @@ function Predictions({ recap, wide }) {
       <div className="fpl-recap-card fpl-recap-mini"><span>Actual</span><b className="fpl-mono fpl-recap-mid is-lime">{p.actualTotal}</b></div>
     </div>
   );
+  const verdictLine = p.range ? (
+    <p className="fpl-recap-note">
+      <b className="fpl-mono">{p.withinUsual} of {p.judged}</b> of your players were within the usual range (±{fmtPts(p.range.p80)}).
+      {p.wayOff.length ? <> Way off: {p.wayOff.join(', ')}.</> : ' None were way off.'}
+    </p>
+  ) : null;
   if (!wide) {
     return (
       <>
         <h2 className="fpl-recap-title">Prediction check</h2>
         {totals}
+        {verdictLine}
         <table className="fpl-recap-card fpl-recap-preds">
           <thead><tr><th scope="col">Player</th><th scope="col">Pred</th><th scope="col">Got</th><th scope="col">Diff</th></tr></thead>
           <tbody>
             {p.rows.map(r => (
-              <tr key={r.id}>
+              <tr key={r.id} className={r.verdict === 'way-off' ? 'is-way-off' : ''}>
                 <th scope="row">{r.name}{r.isCaptain ? ' (C)' : ''}</th>
                 <td className="fpl-mono">{fmtPts(r.predicted)}</td><td className="fpl-mono">{r.actual}</td>
                 <td className={`fpl-mono ${tone(r.diff)}`}>{r.diff === 0 ? '0.0' : signed1(r.diff)}</td>
@@ -584,32 +647,33 @@ function Predictions({ recap, wide }) {
             ))}
           </tbody>
         </table>
-        <p className="fpl-recap-note">Points before the captain's armband; the totals include it.</p>
+        <p className="fpl-recap-note is-small">Points before the captain's armband; the totals include it.{p.range ? ' Highlighted rows were way off.' : ''}</p>
       </>
     );
   }
   return (
-    <div className="fpl-recap-wide" style={{ '--cols': '340px minmax(0, 1fr)' }}>
+    <div className="fpl-recap-wide" style={{ '--cols': '360px minmax(0, 1fr)' }}>
       <div className="fpl-recap-col">
         <h2 className="fpl-recap-title">Prediction check</h2>
         {totals}
         <div className="fpl-recap-grid2">
-          {p.beat ? <Stat label="Biggest beat" className="is-up">{p.beat.name} {signed1(p.beat.diff)}</Stat> : null}
-          {p.miss ? <Stat label="Biggest miss" className="is-down">{p.miss.name} {signed1(p.miss.diff)}</Stat> : null}
-          <Stat label="Typical miss, your XI">±{fmtPts(p.typicalMiss)}</Stat>
+          <Stat label="Typical miss, your XI" className={p.missCompared === 'bigger' || p.missCompared === 'much-bigger' ? 'is-down' : p.missCompared ? 'is-up' : ''}>±{fmtPts(p.typicalMiss)}</Stat>
           {p.allPlayers ? <Stat label="Typical miss, all players">±{fmtPts(p.allPlayers.typicalMiss)}</Stat> : null}
         </div>
-        {p.allPlayers ? <p className="fpl-recap-note is-small">The app's top 10 picks scored {fmtPts(p.allPlayers.topTen)} each this week; the average player scored {fmtPts(p.allPlayers.average)}.</p> : null}
+        {p.missCompared ? <p className="fpl-recap-note is-small">Your XI's misses were {COMPARED[p.missCompared]} this week.</p> : null}
+        <MissRange p={p} />
+        {verdictLine}
       </div>
       <div className="fpl-recap-card fpl-recap-tablecard">
         <table className="fpl-recap-ltable fpl-recap-ptable">
-          <thead><tr><th scope="col">Player</th><th scope="col">Pos</th><th scope="col">Pred</th><th scope="col">Got</th><th scope="col">Diff</th><th scope="col">Mins</th></tr></thead>
+          <thead><tr><th scope="col">Player</th><th scope="col">Pos</th><th scope="col">Pred</th><th scope="col">Got</th><th scope="col">Diff</th><th scope="col">Mins</th>{p.range ? <th scope="col">Range</th> : null}</tr></thead>
           <tbody>
-            {p.rows.map(r => <PredRow key={r.id} r={r} />)}
-            {p.bench.length ? <tr className="fpl-recap-benchrow"><th scope="rowgroup" colSpan="6">Bench</th></tr> : null}
-            {p.bench.map(r => <PredRow key={r.id} r={r} bench />)}
+            {p.rows.map(r => <PredRow key={r.id} r={r} withRange={!!p.range} />)}
+            {p.bench.length ? <tr className="fpl-recap-benchrow"><th scope="rowgroup" colSpan={p.range ? 7 : 6}>Bench</th></tr> : null}
+            {p.bench.map(r => <PredRow key={r.id} r={r} bench withRange={!!p.range} />)}
           </tbody>
         </table>
+        {p.allPlayers ? <p className="fpl-recap-note is-small">The app's top 10 picks scored {fmtPts(p.allPlayers.topTen)} each this week; the average player scored {fmtPts(p.allPlayers.average)}.</p> : null}
       </div>
     </div>
   );
