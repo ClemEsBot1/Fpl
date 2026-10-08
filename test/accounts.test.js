@@ -32,7 +32,7 @@ const tokenFromLastEmail = () => new URL(sent.at(-1).text.match(/https:\S+/)[0])
 beforeEach(async () => {
   redis = fakeRedis();
   sent = [];
-  const r = await auth({ action: 'register', username: 'clem', password: 'correct-horse', email: 'clem@example.com' }, { ip: '198.51.100.9' });
+  const r = await auth({ action: 'register', username: 'clem', password: 'correct-horse1', email: 'clem@example.com' }, { ip: '198.51.100.9' });
   assert.equal(r.status, 200);
 });
 
@@ -46,25 +46,25 @@ test('parallel password guesses cannot get past the per-account limit', async ()
 
 test('parallel sign-ups from one network are capped too', async () => {
   const results = await Promise.all(Array.from({ length: 12 }, (_, i) =>
-    auth({ action: 'register', username: `burst${i}`, password: 'correct-horse' })));
+    auth({ action: 'register', username: `burst${i}`, password: 'correct-horse1' })));
   assert.equal(results.filter(r => r.status === 200).length, MAX_REGISTRATIONS_PER_IP);
 });
 
 test('two sign-ups for the same name: only one gets the account', async () => {
   const [a, b] = await Promise.all([
-    auth({ action: 'register', username: 'twin', password: 'first-password' }, { ip: '192.0.2.1' }),
-    auth({ action: 'register', username: 'twin', password: 'second-password' }, { ip: '192.0.2.2' }),
+    auth({ action: 'register', username: 'twinned', password: 'first-password1' }, { ip: '192.0.2.1' }),
+    auth({ action: 'register', username: 'twinned', password: 'second-password1' }, { ip: '192.0.2.2' }),
   ]);
   assert.deepEqual([a.status, b.status].sort(), [200, 409]);
-  const winner = a.status === 200 ? 'first-password' : 'second-password';
-  assert.equal((await auth({ action: 'login', username: 'twin', password: winner })).status, 200);
+  const winner = a.status === 200 ? 'first-password1' : 'second-password1';
+  assert.equal((await auth({ action: 'login', username: 'twinned', password: winner })).status, 200);
 });
 
 test('failed sign-ups do not use up the network allowance', async () => {
   for (let i = 0; i < MAX_REGISTRATIONS_PER_IP + 2; i++) {
-    assert.equal((await auth({ action: 'register', username: 'clem', password: 'correct-horse' })).status, 409);
+    assert.equal((await auth({ action: 'register', username: 'clem', password: 'correct-horse1' })).status, 409);
   }
-  assert.equal((await auth({ action: 'register', username: 'newcomer', password: 'correct-horse' })).status, 200);
+  assert.equal((await auth({ action: 'register', username: 'newcomer', password: 'correct-horse1' })).status, 200);
 });
 
 test('made-up usernames are refused without creating anything', async () => {
@@ -77,8 +77,8 @@ test('made-up usernames are refused without creating anything', async () => {
 });
 
 test('a stray space around the username still signs in', async () => {
-  assert.equal((await auth({ action: 'login', username: 'clem ', password: 'correct-horse' })).status, 200);
-  assert.equal((await auth({ action: 'login', username: ' Clem', password: 'correct-horse' })).status, 200);
+  assert.equal((await auth({ action: 'login', username: 'clem ', password: 'correct-horse1' })).status, 200);
+  assert.equal((await auth({ action: 'login', username: ' Clem', password: 'correct-horse1' })).status, 200);
 });
 
 test("a blocked network can't lock other people out of their accounts", async () => {
@@ -89,16 +89,16 @@ test("a blocked network can't lock other people out of their accounts", async ()
   for (let i = 0; i < MAX_FAILED_LOGINS_PER_USER + 2; i++) {
     assert.equal((await auth({ action: 'login', username: 'clem', password: `guess-${i}` }, { ip: attacker })).status, 429);
   }
-  assert.equal((await auth({ action: 'login', username: 'clem', password: 'correct-horse' }, { ip: '198.51.100.20' })).status, 200);
+  assert.equal((await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }, { ip: '198.51.100.20' })).status, 200);
 });
 
 test('requests that are not JSON are refused', async () => {
-  const r = await auth({ action: 'login', username: 'clem', password: 'correct-horse' }, { contentType: 'application/x-www-form-urlencoded' });
+  const r = await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }, { contentType: 'application/x-www-form-urlencoded' });
   assert.equal(r.status, 415);
 });
 
 test('signing in returns the saved teams, so no second request is needed', async () => {
-  const login = await auth({ action: 'login', username: 'clem', password: 'correct-horse' });
+  const login = await auth({ action: 'login', username: 'clem', password: 'correct-horse1' });
   const cookie = cookieOf(login);
   assert.deepEqual(login.body.teams, []);
   await request(teamsHandler, { body: { type: 'teamId', teamId: 123, label: 'Mine' }, cookie });
@@ -107,11 +107,11 @@ test('signing in returns the saved teams, so no second request is needed', async
 });
 
 test('a password reset signs out sessions from before it', async () => {
-  const oldCookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse' }));
+  const oldCookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }));
   assert.equal((await request(teamsHandler, { method: 'GET', cookie: oldCookie })).status, 200);
 
   await auth({ action: 'forgot_password', identifier: 'clem' });
-  const reset = await auth({ action: 'reset_password', token: tokenFromLastEmail(), password: 'brand-new-password' });
+  const reset = await auth({ action: 'reset_password', token: tokenFromLastEmail(), password: 'brand-new-password1' });
   assert.equal(reset.status, 200);
 
   assert.equal((await request(teamsHandler, { method: 'GET', cookie: oldCookie })).status, 401);
@@ -125,14 +125,14 @@ test('a reset link used twice at once only works once', async () => {
   await auth({ action: 'forgot_password', identifier: 'clem' });
   const token = tokenFromLastEmail();
   const results = await Promise.all([
-    auth({ action: 'reset_password', token, password: 'first-new-password' }),
-    auth({ action: 'reset_password', token, password: 'second-new-password' }),
+    auth({ action: 'reset_password', token, password: 'first-new-password1' }),
+    auth({ action: 'reset_password', token, password: 'second-new-password1' }),
   ]);
   assert.deepEqual(results.map(r => r.status).sort(), [200, 400]);
 });
 
 test('saves made at the same moment are all kept', async () => {
-  const cookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse' }));
+  const cookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }));
   const results = await Promise.all([1, 2, 3, 4].map(n =>
     request(teamsHandler, { body: { type: 'teamId', teamId: 1000 + n, label: `Team ${n}` }, cookie })));
   assert.ok(results.every(r => r.status === 200));
@@ -141,7 +141,7 @@ test('saves made at the same moment are all kept', async () => {
 });
 
 test('a squad can be saved without a vice-captain, with its XI and bank', async () => {
-  const cookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse' }));
+  const cookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }));
   const playerIds = Array.from({ length: 15 }, (_, i) => i + 1);
   const ok = await request(teamsHandler, { body: { type: 'custom', squad: { playerIds, captainId: 3, viceCaptainId: null, startingIds: playerIds.slice(0, 11), bankTenths: 15 } }, cookie });
   assert.equal(ok.status, 200);

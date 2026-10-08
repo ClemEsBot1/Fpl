@@ -40,17 +40,17 @@ beforeEach(async () => {
   redis = fakeRedis();
   deleted = [];
   delete process.env.ADMIN_USERNAMES;
-  const clem = await request({ body: { action: 'register', username: 'clem', password: 'correct-horse', email: 'clem@example.com' } });
+  const clem = await request({ body: { action: 'register', username: 'clem', password: 'correct-horse1', email: 'clem@example.com' } });
   clemCookie = cookieOf(clem);
-  const sam = await request({ body: { action: 'register', username: 'Sam_1', password: 'correct-horse', email: 'sam@example.com' } });
+  const sam = await request({ body: { action: 'register', username: 'Sammy_1', password: 'correct-horse1', email: 'sam@example.com' } });
   samCookie = cookieOf(sam);
 });
 
 test('clem is an admin by default; ADMIN_USERNAMES replaces the list', () => {
   assert.equal(isAdmin('Clem'), true);
-  assert.equal(isAdmin('sam_1'), false);
-  process.env.ADMIN_USERNAMES = 'sam_1, other';
-  assert.equal(isAdmin('sam_1'), true);
+  assert.equal(isAdmin('sammy_1'), false);
+  process.env.ADMIN_USERNAMES = 'sammy_1, other';
+  assert.equal(isAdmin('sammy_1'), true);
   assert.equal(isAdmin('clem'), false);
   delete process.env.ADMIN_USERNAMES;
 });
@@ -72,23 +72,23 @@ test('only a signed-in admin gets in', async () => {
 
 test('find an account by name or email, never its password', async () => {
   const byEmail = await request({ body: { action: 'admin', op: 'find_user', query: 'SAM@example.com' }, cookie: clemCookie });
-  assert.equal(byEmail.body.user.username, 'Sam_1');
+  assert.equal(byEmail.body.user.username, 'Sammy_1');
   assert.equal(byEmail.body.user.passwordHash, undefined);
   assert.equal((await request({ body: { action: 'admin', op: 'find_user', query: 'nobody' }, cookie: clemCookie })).body.user, null);
 });
 
 test('signing someone out everywhere ends their sessions', async () => {
-  const r = await request({ body: { action: 'admin', op: 'sign_out_user', username: 'sam_1' }, cookie: clemCookie });
+  const r = await request({ body: { action: 'admin', op: 'sign_out_user', username: 'sammy_1' }, cookie: clemCookie });
   assert.equal(r.body.user.sessionVersion, 1);
   assert.equal((await request({ method: 'GET', cookie: samCookie })).status, 401);
 });
 
 test('deleting an account frees its email; your own account is refused', async () => {
   assert.equal((await request({ body: { action: 'admin', op: 'delete_user', username: 'clem' }, cookie: clemCookie })).status, 400);
-  assert.equal((await request({ body: { action: 'admin', op: 'delete_user', username: 'sam_1' }, cookie: clemCookie })).body.ok, true);
-  assert.equal(await redis.get('user:sam_1'), null);
+  assert.equal((await request({ body: { action: 'admin', op: 'delete_user', username: 'sammy_1' }, cookie: clemCookie })).body.ok, true);
+  assert.equal(await redis.get('user:sammy_1'), null);
   assert.equal(await redis.get('email:sam@example.com'), null);
-  const again = await request({ body: { action: 'register', username: 'newsam', password: 'correct-horse', email: 'sam@example.com' } });
+  const again = await request({ body: { action: 'register', username: 'newsam', password: 'correct-horse1', email: 'sam@example.com' } });
   assert.equal(again.status, 200);
 });
 
