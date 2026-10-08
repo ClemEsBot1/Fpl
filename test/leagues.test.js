@@ -139,3 +139,32 @@ test('a league as it stood after an earlier gameweek comes from each history', (
   assert.equal(live[0].total, 270);
   assert.equal(live[0].rank, 1);
 });
+
+test('league ownership counts captains twice and the bench not at all', async () => {
+  const { leagueOwnership, leagueDifferentials } = await import('../src/lib/leagues.js');
+  const p = id => ({ id, webName: `P${id}` });
+  const slot = (id, mult, pred = 5) => ({ player: p(id), multiplier: mult, isStarting: mult > 0, nextMatchPredicted: pred });
+  const members = [
+    { entry: 1, teamName: 'You', rank: 2, total: 100 },
+    { entry: 2, teamName: 'Leader', rank: 1, total: 110 },
+    { entry: 3, teamName: 'Third', rank: 3, total: 90 },
+  ];
+  const teams = {
+    1: { status: 'ready', squad: [slot(10, 2), slot(11, 1), slot(12, 0)] },
+    2: { status: 'ready', squad: [slot(10, 1), slot(13, 2, 6), slot(12, 1)] },
+    3: { status: 'ready', squad: [slot(13, 2, 6), slot(11, 0), slot(12, 1)] },
+  };
+  const { counted, byId } = leagueOwnership(members, teams);
+  assert.equal(counted, 3);
+  assert.equal(byId[10], 1); // (2 + 1 + 0) / 3
+  assert.equal(byId[13], 4 / 3);
+  const d = leagueDifferentials(members, teams, 1);
+  // Your captain 10 is your biggest edge; 13, captained by two others, the biggest threat.
+  assert.equal(d.edges[0].player.id, 10);
+  assert.equal(d.threats[0].player.id, 13);
+  assert.equal(d.rival.teamName, 'Leader');
+  assert.equal(d.rival.gap, 10);
+  // Against the leader: 10 (+1 × 5), 11 (+1 × 5), 12 (−1 × 5), 13 (−2 × 6).
+  assert.equal(d.rival.swing, 5 + 5 - 5 - 12);
+  assert.equal(leagueDifferentials(members, { 1: teams[1] }, 1), null, 'nobody to compare with');
+});

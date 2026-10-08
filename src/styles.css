@@ -972,3 +972,16 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-live-status { font-size: 0.72rem; color: var(--ink-dim); text-align: right; white-space: nowrap; }
 .fpl-live-status.is-live { color: var(--lime); font-weight: 700; }
 .fpl-live-bonus { grid-column: 1 / -1; margin: 0; font-size: 0.78rem; line-height: 1.4; }
+
+/* Mini-league: analysis and differentials stacked beside the table. */
+.fpl-league-side { display: grid; gap: 16px; min-width: 0; align-content: start; }
+.fpl-diff-grid { display: grid; gap: 14px; }
+@media (min-width: 600px) { .fpl-diff-grid { grid-template-columns: 1fr 1fr; } }
+.fpl-diff-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.fpl-diff-list li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; align-items: baseline; font-size: 0.85rem; }
+.fpl-diff-list .fpl-meta { grid-column: 1; font-size: 0.7rem; }
+.fpl-diff-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.fpl-diff-swing { grid-column: 2; grid-row: 1 / span 2; font-weight: 700; }
+.fpl-diff-swing.is-up, .fpl-diff-up { color: var(--lime); }
+.fpl-diff-swing.is-down, .fpl-diff-down { color: var(--red); }
+.fpl-diff-rival { margin: 0; }
