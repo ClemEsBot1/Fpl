@@ -272,3 +272,22 @@ test('recent minutes come from the gameweeks just before the target', () => {
   const live = { 5: [el(1, 90)], 6: [el(1, 90)], 7: [el(1, 0)], 8: [el(1, 45), el(2, 90)], 9: [el(1, 90)] };
   assert.deepEqual(recentMinutesFromLive(live, 9), { 1: 225, 2: 90 });
 });
+
+test('bookmaker odds count once per priced match, and only in the weeks priced', () => {
+  const base = { id: 1, positionId: 4, team: 1, epNext: 0, pointsPerGame: 4, appearanceShare: 1, form: 4, status: 'a' };
+  const fixtures = { 1: [10, 11, 12, 13].map(event => ({ event, opponent: 2, isHome: true, difficulty: 3 })) };
+  const opts = { targetEventId: 10 };
+  const none = computePlayerPrediction({ ...base }, fixtures, true, null, opts);
+  const thisWeek = computePlayerPrediction({ ...base, oddsByEvent: { 10: 0.4 } }, fixtures, true, null, opts);
+  const twoWeeks = computePlayerPrediction({ ...base, oddsByEvent: { 10: 0.4, 11: 0.4 } }, fixtures, true, null, opts);
+  assert.equal(Math.round((thisWeek.nextMatchPredicted - none.nextMatchPredicted) * 10) / 10, 0.4);
+  // The 4-week average gets a quarter of one week's nudge, not all of it.
+  assert.equal(Math.round((thisWeek.predicted - none.predicted) * 10) / 10, 0.1);
+  assert.equal(Math.round((twoWeeks.predicted - none.predicted) * 10) / 10, 0.2);
+  assert.equal(twoWeeks.nextMatchPredicted, thisWeek.nextMatchPredicted);
+  // A double gameweek's two priced matches both count.
+  const dgw = { 1: [{ event: 10, opponent: 2, isHome: true, difficulty: 3 }, { event: 10, opponent: 3, isHome: false, difficulty: 3 }] };
+  const dgwNone = computePlayerPrediction({ ...base }, dgw, true, null, opts);
+  const dgwOdds = computePlayerPrediction({ ...base, oddsByEvent: { 10: 0.4 } }, dgw, true, null, opts);
+  assert.equal(Math.round((dgwOdds.nextMatchPredicted - dgwNone.nextMatchPredicted) * 10) / 10, 0.8);
+});

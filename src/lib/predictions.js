@@ -10,7 +10,7 @@
 ============================================================================ */
 
 import { buildCareerBaselineByCode, buildLastSeasonStatsByCode } from './playerHistory.js';
-import { buildOddsByTeamForEvent, oddsAdjustmentForMatches } from './oddsAdjustment.js';
+import { buildOddsByTeam, oddsAdjustmentForMatches } from './oddsAdjustment.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
@@ -136,14 +136,16 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   base += xgAdjustment;
 
   // Bookmaker-odds nudge (see src/lib/oddsAdjustment.js for the full
-  // reasoning): p.oddsAdjustment is pre-computed once per player in
-  // buildStaticDataFromRaw from that player's NEXT fixture's odds only —
-  // odds aren't available/reliable for fixtures further out the way FPL's
-  // own fixture-difficulty rating is, so unlike fixtureMult below (a 4-game
-  // average) this only ever reflects the immediate next match. Already
-  // capped small in computeOddsAdjustment; weights.oddsAdjustment just
-  // scales trust in it, same role xgRegression plays above.
-  base += (p.oddsAdjustment || 0) * weights.oddsAdjustment;
+  // reasoning): a points nudge per match, for each gameweek bookmakers have
+  // priced (p.oddsByEvent: { [event]: average nudge per match that week },
+  // from buildStaticDataFromRaw; p.oddsAdjustment is the target
+  // gameweek's). It's added per match below, so it only counts for the
+  // matches it was priced for: once for a single gameweek, twice for a
+  // double, and only for the weeks it covers in the 4-week average.
+  const oddsNudgeFor = event => {
+    if (p.oddsByEvent && typeof p.oddsByEvent[event] === 'number') return p.oddsByEvent[event] * weights.oddsAdjustment;
+    return event === options.targetEventId || options.targetEventId === undefined ? (p.oddsAdjustment || 0) * weights.oddsAdjustment : 0;
+  };
 
   // How much easier (>1) or harder (<1) a single fixture is than average,
   // from FPL's own 1-5 difficulty rating. (Opponent attack/defence strength
@@ -248,8 +250,11 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   const otherTerm = (base - epTerm) * minutesMult;
   const laterInWindow = upcoming.filter(f => !thisEventFixtures.includes(f));
   const epWindow = (epThisEvent + epPerMatch * laterInWindow.reduce((s, f) => s + fixtureMultFor(f), 0)) / windowDivisor;
-  const predicted = isBlankThisEvent ? 0 : Math.max(0, (epWindow + otherTerm * fixtureMult * availMult) * congestionMult);
-  const nextMatchPredicted = Math.max(0, (epThisEvent + otherTerm * nextFixtureMult * availMult) * congestionMult);
+  const oddsThisEvent = thisEventFixtures.reduce((sum, f) => sum + oddsNudgeFor(f.event), 0);
+  const oddsWindow = upcoming.reduce((sum, f) => sum + oddsNudgeFor(f.event), 0) / windowDivisor;
+  const playing = availMult * minutesMult;
+  const predicted = isBlankThisEvent ? 0 : Math.max(0, (epWindow + otherTerm * fixtureMult * availMult + oddsWindow * playing) * congestionMult);
+  const nextMatchPredicted = Math.max(0, (epThisEvent + otherTerm * nextFixtureMult * availMult + oddsThisEvent * playing) * congestionMult);
   const baseAvail = Math.max(0, epPerMatch + otherTerm * availMult);
   return {
     predicted: Math.round(predicted * 10) / 10,
@@ -275,7 +280,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
       formEligible: !!(formEligible && form > 0),
       setPieceBonus: Math.round(setPieceBonus * 100) / 100,
       xgAdjustment: Math.round(xgAdjustment * 100) / 100,
-      oddsAdjustment: Math.round((p.oddsAdjustment || 0) * weights.oddsAdjustment * 100) / 100,
+      oddsAdjustment: Math.round(oddsThisEvent * 100) / 100,
       base: Math.round(base * 100) / 100,
       fixtureMult: Math.round(fixtureMult * 1000) / 1000,
       nextFixtureMult: Math.round(nextFixtureMult * 1000) / 1000,
@@ -397,7 +402,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   // numbers) — best-effort, like playerHistoryData: no odds fetched yet, or
   // the fetch/matching failed for this gameweek, just means oddsAdjustment
   // is 0 for everyone, same as before this feature existed.
-  const oddsByTeamForTargetEvent = buildOddsByTeamForEvent(options.oddsData, targetEvent.id);
+  const oddsByTeam = buildOddsByTeam(options.oddsData, targetEvent.id);
 
   // League matches each team has played before the target gameweek, for
   // the share of them a player appeared in, and in the last
@@ -476,7 +481,8 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       recentMinutesShare: recentMinutesById && teamRecentMatches[e.team]
         ? Math.min(1, (recentMinutesById[e.id] || 0) / (90 * teamRecentMatches[e.team])) : null,
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
-      oddsAdjustment: oddsAdjustmentForMatches(oddsByTeamForTargetEvent[e.team], e.element_type),
+      oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type)])),
+      oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type),
     };
   });
 

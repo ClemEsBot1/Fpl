@@ -40,7 +40,7 @@ export function PredictionBreakdown({ breakdown }) {
   const adjustmentRows = [];
   if (b.setPieceBonus) adjustmentRows.push(['Set-piece duty (pens/FKs/corners)', b.setPieceBonus]);
   if (b.xgAdjustment) adjustmentRows.push(['Underlying chances (xG/xA)', b.xgAdjustment]);
-  if (b.oddsAdjustment) adjustmentRows.push(['Bookmaker odds nudge', b.oddsAdjustment]);
+  if (b.oddsAdjustment) adjustmentRows.push(['Bookmaker odds (this gameweek, every match)', b.oddsAdjustment]);
 
   // Multipliers applied to the base above to reach the final predicted
   // figures — shown as ×values, not deltas, since that's what they are.
