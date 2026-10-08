@@ -2,10 +2,12 @@
 // fixture ticker, with transfer trends beside them (below on a phone).
 // Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
-import { useEffect, useState } from 'react';
-import { ArrowRight, CalendarRange, RotateCcw, Shirt, Sparkles, Target, TriangleAlert } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, CalendarRange, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
 import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
+import { buildAlerts } from '../lib/alerts.js';
+import { notificationState, notifyNewAlerts, setNotifications } from '../lib/notify.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
 import { SkeletonRows } from '../components/common.jsx';
 
@@ -162,6 +164,61 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
 // How last gameweek's predictions (or the picked gameweek's, once it's
 // over) compared with what players scored. Hidden when there's nothing
 // saved for it.
+const ALERT_ICONS = { deadline: AlarmClock, rise: TrendingUp, fall: TrendingDown, news: TriangleAlert };
+
+// Alerts for your team (src/lib/alerts.js), with a switch for sending them
+// as notifications. Rechecked every minute.
+function Alerts({ staticData, homeTeam }) {
+  const [now, setNow] = useState(() => Date.now());
+  const [notify, setNotify] = useState(notificationState);
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+  const squad = homeTeam.status === 'ready' && homeTeam.data ? homeTeam.data.squad : null;
+  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now), [staticData, squad, now]);
+  useEffect(() => { notifyNewAlerts(alerts); }, [alerts]);
+  if (!staticData || !homeTeam.teamId) return null;
+  const toggle = async () => {
+    const next = await setNotifications(notify !== 'on');
+    if (next === 'on') await notifyNewAlerts(alerts, { markOnly: true });
+    setNotify(next);
+  };
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="alerts-h">
+      <div className="fpl-home-team-head">
+        <h2 id="alerts-h" className="fpl-home-h"><Bell size={18} aria-hidden="true" /> Alerts</h2>
+        {notify !== 'unsupported' ? (
+          <button type="button" className="fpl-link" onClick={toggle} disabled={notify === 'blocked'} aria-pressed={notify === 'on'}>
+            {notify === 'on' ? <><BellOff size={14} aria-hidden="true" /> Stop notifications</> : notify === 'blocked' ? 'Notifications blocked' : <><BellRing size={14} aria-hidden="true" /> Notify me</>}
+          </button>
+        ) : null}
+      </div>
+      {alerts.length ? (
+        <ul className="fpl-alerts">
+          {(showAll ? alerts : alerts.slice(0, 4)).map(a => {
+            const Icon = ALERT_ICONS[a.kind] || Bell;
+            return (
+              <li key={a.id} className={`fpl-alert is-${a.level}`}>
+                <Icon size={16} aria-hidden="true" />
+                <span><b>{a.title}</b><span className="fpl-meta">{a.body}</span></span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="fpl-home-text" style={{ margin: 0 }}>{squad ? 'All clear: no injury news or price moves for your players, and no deadline in the next day.' : 'Alerts for your players show here once your team has loaded.'}</p>
+      )}
+      {alerts.length > 4 ? (
+        <button type="button" className="fpl-link" style={{ justifySelf: 'start' }} onClick={() => setShowAll(v => !v)}>{showAll ? 'Show fewer' : `Show all ${alerts.length}`}</button>
+      ) : null}
+      {notify === 'on' ? <p className="fpl-home-hint">Notifications come while the app is open or running on your phone.</p> : null}
+      {notify === 'blocked' ? <p className="fpl-home-hint">Your browser is blocking notifications for this site; allow them in its site settings.</p> : null}
+    </section>
+  );
+}
+
 function PredictionCheck({ gwId, playersById }) {
   // The answer and which gameweek it was for: still loading while that
   // isn't the one asked for.
@@ -295,6 +352,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
       <div className="fpl-home-layout">
         <div className="fpl-home-main">
           <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
+          <Alerts staticData={staticData} homeTeam={homeTeam} />
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
           <PredictionCheck gwId={isPast && event.finished ? event.id : null} playersById={staticData && staticData.playersById} />
         </div>

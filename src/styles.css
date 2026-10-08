@@ -985,3 +985,13 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-diff-swing.is-up, .fpl-diff-up { color: var(--lime); }
 .fpl-diff-swing.is-down, .fpl-diff-down { color: var(--red); }
 .fpl-diff-rival { margin: 0; }
+
+/* Alerts on Home. */
+.fpl-alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fpl-alert { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border-left: 3px solid var(--sky); font-size: 0.85rem; line-height: 1.4; }
+.fpl-alert.is-warn { border-left-color: var(--amber); }
+.fpl-alert > svg { margin-top: 2px; color: var(--ink-dim); }
+.fpl-alert.is-warn > svg { color: var(--amber); }
+.fpl-alert b { display: block; }
+.fpl-alert .fpl-meta { display: block; font-size: 0.78rem; }
+.fpl-home-team-head .fpl-link[aria-pressed] { display: inline-flex; align-items: center; gap: 6px; }
