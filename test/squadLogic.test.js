@@ -187,6 +187,20 @@ test('substitutes keep the formation legal', () => {
   assert.deepEqual(forStarterDef.sort((a, b) => a - b), [7, 12, 15]);
   const forBenchKeeper = substitutionOptions(squad, squad.find(s => s.player.id === 2)).map(s => s.player.id);
   assert.deepEqual(forBenchKeeper, [1]);
+  // A benched defender can come on for any outfield starter (5-3-2 and
+  // 5-4-1 are legal) or swap with the other outfield substitutes, never
+  // the benched keeper.
+  const forBenchDef = substitutionOptions(squad, squad.find(s => s.player.id === 7)).map(s => s.player.id);
+  assert.deepEqual(forBenchDef.sort((a, b) => a - b), [3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15]);
+});
+
+test('two substitutes swap places in the bench order', () => {
+  const squad = players().map(p => slot(p));
+  const next = substitutePlayers(squad, 7, 15);
+  const benchOrder = s => s.filter(x => !x.isStarting).map(x => x.player.id);
+  assert.deepEqual(benchOrder(squad), [2, 7, 12, 15]);
+  assert.deepEqual(benchOrder(next), [2, 15, 12, 7]);
+  assert.deepEqual(next.filter(x => x.isStarting).map(x => x.player.id), squad.filter(x => x.isStarting).map(x => x.player.id));
 });
 
 test('a benched captain hands the armband on', () => {

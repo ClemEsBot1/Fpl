@@ -90,13 +90,17 @@ export function ensureCaptaincy(squad, armband = 2) {
   });
 }
 
-// Who `slot` can swap places with between the XI and the bench: players
-// on the other side whose swap still leaves a legal formation (one
-// goalkeeper, 3-5 DEF, 2-5 MID, 1-3 FWD).
+// Who `slot` can swap places with: players on the other side of the XI
+// and bench whose swap still leaves a legal formation (one goalkeeper,
+// 3-5 DEF, 2-5 MID, 1-3 FWD), and, for an outfield substitute, the other
+// outfield substitutes (the bench order is who comes on first).
 export function substitutionOptions(squad, slot) {
   const players = squad.map(s => s.player);
   const starterIds = squad.filter(s => s.isStarting).map(s => s.player.id);
+  const outfield = s => s.player.positionId !== 1;
   return squad.filter(other => {
+    if (other.player.id === slot.player.id) return false;
+    if (!other.isStarting && !slot.isStarting) return outfield(slot) && outfield(other);
     if (other.isStarting === slot.isStarting) return false;
     const [on, off] = slot.isStarting ? [other, slot] : [slot, other];
     const ids = starterIds.filter(id => id !== off.player.id).concat(on.player.id);
@@ -106,12 +110,13 @@ export function substitutionOptions(squad, slot) {
 
 // Swaps two players between the XI and the bench. They also swap places in
 // the squad's order, so the player benched takes the other's place on the
-// bench, as on FPL (the bench order is who comes on first). A benched
-// player loses their armband; if that was the captain's, ensureCaptaincy
-// hands it on.
+// bench, as on FPL (the bench order is who comes on first). Two
+// substitutes just swap places in that order. A benched player loses their
+// armband; if that was the captain's, ensureCaptaincy hands it on.
 export function substitutePlayers(squad, aId, bId, armband = 2) {
+  const bothBenched = [aId, bId].every(id => squad.some(s => s.player.id === id && !s.isStarting));
   const flipped = squad.map(s => {
-    if (s.player.id !== aId && s.player.id !== bId) return s;
+    if (bothBenched || (s.player.id !== aId && s.player.id !== bId)) return s;
     const isStarting = !s.isStarting;
     if (isStarting) return { ...s, isStarting, multiplier: 1 };
     return { ...s, isStarting, isCaptain: false, isViceCaptain: false, multiplier: 0 };

@@ -182,30 +182,44 @@ export function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
 }
 
 // Swap an open row's player between the XI and the bench: the players on
-// the other side who keep the formation legal, one button each.
+// the other side who keep the formation legal, one button each. A
+// substitute can also swap with another one to change the bench order.
 export function SubstitutePicker({ slot, squad, onSubstitute }) {
   const options = substitutionOptions(squad, slot);
+  const groups = [
+    { key: 'xi', label: slot.isStarting ? 'Substitute: bring on' : 'Substitute: bring on for', list: options.filter(o => o.isStarting !== slot.isStarting) },
+    { key: 'bench', label: 'Bench order: swap with', list: options.filter(o => o.isStarting === slot.isStarting) },
+  ].filter(g => g.list.length);
+  const ariaFor = other => {
+    if (other.isStarting === slot.isStarting) return `Swap ${slot.player.webName} with ${other.player.webName} on the bench`;
+    return slot.isStarting ? `Bring on ${other.player.webName} for ${slot.player.webName}` : `Bring on ${slot.player.webName} for ${other.player.webName}`;
+  };
   return (
     <div className="fpl-sub-picker" onClick={e => e.stopPropagation()}>
-      <div className="fpl-mono fpl-meta">{slot.isStarting ? 'Substitute: bring on' : 'Substitute: bring on for'}</div>
-      {options.length ? (
-        <div className="fpl-sub-options">
-          {options.map(other => (
-            <button
-              key={other.player.id}
-              type="button"
-              className="fpl-chip-btn"
-              onClick={() => onSubstitute(slot.player.id, other.player.id)}
-              aria-label={slot.isStarting ? `Bring on ${other.player.webName} for ${slot.player.webName}` : `Bring on ${slot.player.webName} for ${other.player.webName}`}
-            >
-              <ArrowUpDown size={13} aria-hidden="true" />
-              {POSITION_LABELS[other.player.positionId]} {other.player.webName}
-              <span className="fpl-mono">{fmtPts(other.predicted)}</span>
-            </button>
-          ))}
+      {groups.length ? groups.map(g => (
+        <div key={g.key}>
+          <div className="fpl-mono fpl-meta">{g.label}</div>
+          <div className="fpl-sub-options">
+            {g.list.map(other => (
+              <button
+                key={other.player.id}
+                type="button"
+                className="fpl-chip-btn"
+                onClick={() => onSubstitute(slot.player.id, other.player.id)}
+                aria-label={ariaFor(other)}
+              >
+                <ArrowUpDown size={13} aria-hidden="true" />
+                {POSITION_LABELS[other.player.positionId]} {other.player.webName}
+                <span className="fpl-mono">{fmtPts(other.predicted)}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="fpl-meta">No one can swap in without breaking the formation.</div>
+      )) : (
+        <>
+          <div className="fpl-mono fpl-meta">{slot.isStarting ? 'Substitute: bring on' : 'Substitute: bring on for'}</div>
+          <div className="fpl-meta">No one can swap in without breaking the formation.</div>
+        </>
       )}
     </div>
   );
@@ -939,7 +953,9 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           <div className="fpl-team-pitch">
             {subSlot ? (
               <div className="fpl-sub-banner" role="status">
-                <span><b>Substituting {subSlot.player.webName}.</b> {subOptions.size ? 'Pick a highlighted player to swap with.' : 'No one can swap in without breaking the formation.'}</span>
+                <span><b>Substituting {subSlot.player.webName}.</b> {!subOptions.size ? 'No one can swap in without breaking the formation.'
+                  : subSlot.isStarting || subSlot.player.positionId === 1 ? 'Pick a highlighted player to swap with.'
+                    : 'Pick a starter to bring them on, or a substitute to change who comes on first.'}</span>
                 <button type="button" className="fpl-link" onClick={() => setSubFrom(null)}>Cancel</button>
               </div>
             ) : canEdit ? (

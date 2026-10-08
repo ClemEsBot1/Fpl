@@ -416,6 +416,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-arrows button:disabled { opacity: 0.35; cursor: default; }
 .fpl-trend-count small { font-size: 0.7rem; font-weight: 500; color: var(--ink-dim); }
 .fpl-sub-picker { display: grid; gap: 8px; padding: 10px 10px 0; }
+.fpl-sub-picker > div { display: grid; gap: 8px; }
 .fpl-sub-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .fpl-sub-options .fpl-chip-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 0.78rem; }
 .fpl-sub-options .fpl-mono { color: var(--ink-dim); font-size: 0.7rem; }
