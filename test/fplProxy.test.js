@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { fplPathRule, fplCacheControl } from '../src/lib/fplProxy.js';
 
 test('allows exactly the FPL endpoints the app uses', () => {
-  for (const path of ['bootstrap-static/', 'fixtures/', 'entry/1234567/', 'entry/1234567/event/8/picks/', 'event/8/live/', 'leagues-classic/314/standings/', 'entry/1234567/transfers/', 'entry/1234567/history/']) {
+  for (const path of ['bootstrap-static/', 'fixtures/', 'entry/1234567/', 'entry/1234567/event/8/picks/', 'event/8/live/', 'leagues-classic/314/standings/', 'entry/1234567/transfers/', 'entry/1234567/history/', 'fixtures/?event=12']) {
     assert.ok(fplPathRule(path), path);
   }
 });

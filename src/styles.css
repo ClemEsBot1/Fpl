@@ -955,3 +955,20 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   .fpl-compare tbody td { padding: 6px 3px; font-size: 0.78rem; }
   .fpl-compare-fx .fpl-ticker-fx { min-width: 30px; }
 }
+
+/* Live gameweek. */
+.fpl-live-grid { display: grid; gap: 14px; min-width: 0; }
+@media (min-width: 1000px) { .fpl-live-grid { grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); align-items: start; } }
+.fpl-live-total { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.fpl-live-total > b { font-size: 2.6rem; line-height: 1; color: var(--lime); font-variant-numeric: tabular-nums; }
+.fpl-live-total .fpl-meta b { color: var(--ink); }
+.fpl-live-matches { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fpl-live-match { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid transparent; }
+.fpl-live-match.is-live { border-color: rgba(206,255,16,0.45); background: rgba(206,255,16,0.06); }
+.fpl-live-score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+.fpl-live-team { font-weight: 700; }
+.fpl-live-team:first-child { text-align: right; }
+.fpl-live-goals { font-size: 1.05rem; font-weight: 700; min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; }
+.fpl-live-status { font-size: 0.72rem; color: var(--ink-dim); text-align: right; white-space: nowrap; }
+.fpl-live-status.is-live { color: var(--lime); font-weight: 700; }
+.fpl-live-bonus { grid-column: 1 / -1; margin: 0; font-size: 0.78rem; line-height: 1.4; }

@@ -6,6 +6,8 @@
 const ALLOWED_PATHS = [
   { re: /^bootstrap-static\/$/, maxAge: 300 },
   { re: /^fixtures\/$/, maxAge: 300 },
+  // One gameweek's matches, refreshed every minute for the live screen.
+  { re: /^fixtures\/\?event=\d{1,2}$/, maxAge: 60 },
   { re: /^entry\/\d{1,10}\/$/, maxAge: 120 },
   { re: /^entry\/\d{1,10}\/event\/\d{1,2}\/picks\/$/, maxAge: 120 },
   { re: /^event\/\d{1,2}\/live\/$/, maxAge: 60 },
