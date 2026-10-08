@@ -33,3 +33,7 @@ screenshot-reports
 
 # Downloaded by scripts/backtest.mjs
 .backtest-cache
+
+# Downloaded data for the ML model (scripts/ml/fpl_data.py)
+scripts/ml/.cache
+__pycache__

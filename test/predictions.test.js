@@ -291,3 +291,28 @@ test('bookmaker odds count once per priced match, and only in the weeks priced',
   const dgwOdds = computePlayerPrediction({ ...base, oddsByEvent: { 10: 0.4 } }, dgw, true, null, opts);
   assert.equal(Math.round((dgwOdds.nextMatchPredicted - dgwNone.nextMatchPredicted) * 10) / 10, 0.8);
 });
+
+test('the ML model predicts when its file is for this gameweek and season', () => {
+  const { bootstrap, fixtures } = league();
+  const target = bootstrap.events.find(e => new Date(e.deadline_time).getTime() > Date.now()).id;
+  const season = seasonIdFor(bootstrap.events);
+  const fit = bootstrap.elements[3];
+  const doubt = { ...bootstrap.elements[4], status: 'd', chance_of_playing_next_round: 50 };
+  bootstrap.elements = bootstrap.elements.map(e => (e.id === doubt.id ? doubt : e));
+  const mlData = { season, gwId: target, builtAt: '2026-10-01T04:20:00Z', byId: { [fit.id]: [6, 4, 4, 4, 2], [doubt.id]: [5, 5, 5, 5, 5] } };
+  const sd = buildStaticDataFromRaw(bootstrap, fixtures, { mlData });
+  const p = sd.predictionsById[fit.id];
+  assert.equal(p.source, 'ml');
+  assert.equal(p.nextMatchPredicted, 6);
+  assert.equal(p.predicted, 4.5); // the next four weeks' average
+  assert.deepEqual(p.byGw.map(w => w.points), [6, 4, 4, 4, 2]);
+  assert.equal(p.breakdown.ml.next, 6);
+  assert.equal(sd.mlBuiltAt, '2026-10-01T04:20:00Z');
+  // FPL's 50% flag still halves it.
+  assert.equal(sd.predictionsById[doubt.id].nextMatchPredicted, 2.5);
+  // Players the model has nothing for keep the formula.
+  assert.equal(sd.predictionsById[bootstrap.elements[0].id].source, 'formula');
+  // A file for another gameweek or season is ignored.
+  assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, gwId: target + 1 } }).predictionsById[fit.id].source, 'formula');
+  assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, season: '1999-00' } }).predictionsById[fit.id].source, 'formula');
+});

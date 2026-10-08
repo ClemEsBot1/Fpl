@@ -4,7 +4,7 @@
 //   pages        network first, falling back to the cached app shell
 //   /assets/*    cache first (Vite fingerprints these, so they never change)
 //   icons etc.   served from cache, refreshed in the background
-//   /api/*, other sites, Tesseract files: never touched — always live
+//   /api/*, /ml/*, other sites, Tesseract files: never touched — always live
 //
 // Bump VERSION to drop every cached file on the next visit.
 const VERSION = 'v2';
@@ -38,7 +38,7 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/tesseract/')) return;
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ml/') || url.pathname.startsWith('/tesseract/')) return;
 
   if (req.mode === 'navigate') {
     event.respondWith((async () => {

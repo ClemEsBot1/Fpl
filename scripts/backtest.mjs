@@ -13,6 +13,16 @@
 //   squad4PerGw       the same 15 over the next 4 gameweeks, XI and
 //                     captain re-picked each week (no transfers)
 //
+// FPL's expected points in the archive (xP) were recorded after each
+// gameweek and partly know its result (scripts/ml/evaluate.py --leak-check),
+// which flatters anything that leans on them. NO_XP=1 replaces them with
+// what the app uses for past gameweeks (recent form), for a fair test.
+//
+// For the ML model (scripts/ml/evaluate.py):
+//   DUMP=formula.csv   writes the formula's prediction for every scored row
+//   ML_PREDS=ml.json   scores the ML model's predictions instead
+//                      ({ season: { gw: { id: [this week, 4-week average] } } })
+//
 // Usage:
 //   node scripts/backtest.mjs
 //   SEASONS=2024-25 START=6 END=34 node scripts/backtest.mjs
@@ -83,7 +93,7 @@ async function loadSeason(season) {
     }
     gws[gw] = byId;
   }
-  return { players, teams, fixtures, gws };
+  return { season, players, teams, fixtures, gws };
 }
 
 // bootstrap-static as it would have looked before gameweek G. Fitness flags
@@ -106,7 +116,8 @@ function bootstrapBefore(S, G) {
     return {
       id, code: Number(p.code), web_name: p.web_name, team: Number(p.team), element_type: Number(p.element_type),
       now_cost: now ? now.value : Number(p.now_cost), form: String(formPts / Math.min(4, G - 1)),
-      points_per_game: String(apps ? pts / apps : 0), total_points: pts, ep_next: String(now ? now.xP : 0),
+      points_per_game: String(apps ? pts / apps : 0), total_points: pts,
+      ep_next: process.env.NO_XP ? String(G >= 5 ? formPts / Math.min(4, G - 1) : (apps ? pts / apps : 0)) : String(now ? now.xP : 0),
       status: 'a', chance_of_playing_next_round: null, selected_by_percent: '0',
       minutes, goals_scored: goals, assists, expected_goals: xg, expected_assists: xa,
     };
@@ -146,19 +157,44 @@ function pearson(x, y) {
 }
 const mae = (x, y) => x.reduce((a, v, i) => a + Math.abs(v - y[i]), 0) / x.length;
 
+const ML = process.env.ML_PREDS ? JSON.parse(fs.readFileSync(process.env.ML_PREDS, 'utf8')) : null;
+const DUMP = process.env.DUMP ? [] : null;
+// The ML model's predictions in place of the formula's, with the same
+// selection shrinkage buildStaticDataFromRaw applies.
+function applyMl(data, season, G) {
+  const byId = ML && ML[season] && ML[season][G];
+  if (!byId) return data;
+  const preds = {};
+  for (const p of data.allPlayers) {
+    const m = byId[p.id];
+    preds[p.id] = { ...data.predictionsById[p.id], nextMatchPredicted: m ? m[0] : 0, predicted: m ? m[1] : 0 };
+  }
+  for (const pos of [1, 2, 3, 4]) {
+    const pool = data.allPlayers.filter(p => p.positionId === pos);
+    const avg = pool.reduce((s, p) => s + preds[p.id].predicted, 0) / pool.length;
+    const avgN = pool.reduce((s, p) => s + preds[p.id].nextMatchPredicted, 0) / pool.length;
+    for (const p of pool) {
+      preds[p.id].selectionValue = 0.85 * preds[p.id].predicted + 0.15 * avg;
+      preds[p.id].nextMatchSelectionValue = 0.85 * preds[p.id].nextMatchPredicted + 0.15 * avgN;
+    }
+  }
+  return { ...data, predictionsById: preds };
+}
+
 function run(variant, seasons) {
   const nx = [], ny = [], wx = [], wy = [];
   const byPos = {};
   let xiPts = 0, squad4 = 0, n = 0;
   for (const { S, hist } of seasons) {
     const staticAt = {};
-    const sd = G => (staticAt[G] ||= buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {}, recentMinutesById: recentMinutesBefore(S, G) }));
+    const sd = G => (staticAt[G] ||= applyMl(buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {}, recentMinutesById: recentMinutesBefore(S, G) }), S.season, G));
     for (let G = START; G <= END; G++) {
       if (!hasExpectedPoints(S, G)) continue;
       const data = sd(G);
       for (const p of data.allPlayers) {
         if (!(p.minutes > 0)) continue; // everyone predicts ~0 for players yet to play
         const pred = data.predictionsById[p.id];
+        if (DUMP) DUMP.push(`${S.season},${G},${p.id},${pred.nextMatchPredicted},${pred.predicted}`);
         nx.push(pred.nextMatchPredicted); ny.push(S.gws[G][p.id]?.pts || 0);
         let later = 0;
         for (let g = G; g < G + 4; g++) later += S.gws[g]?.[p.id]?.pts || 0;
@@ -224,3 +260,4 @@ for (const s of SEASONS) {
 }
 if (process.env.HAUL_TABLE) haulTable(seasons);
 else console.table(variants.flatMap(v => run(v, seasons)));
+if (DUMP) fs.writeFileSync(process.env.DUMP, 'season,gw,id,next,pred4\n' + DUMP.join('\n'));

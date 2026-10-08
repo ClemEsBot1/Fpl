@@ -995,3 +995,10 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-alert b { display: block; }
 .fpl-alert .fpl-meta { display: block; font-size: 0.78rem; }
 .fpl-home-team-head .fpl-link[aria-pressed] { display: inline-flex; align-items: center; gap: 6px; }
+
+/* How the ML model is learning (Home). */
+.fpl-ml-weeks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fpl-ml-weeks li { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: center; font-size: 0.8rem; }
+.fpl-ml-gw { color: var(--ink-dim); font-size: 0.72rem; }
+.fpl-ml-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.fpl-ml-bar i { display: block; height: 100%; border-radius: 4px; background: var(--lime); }

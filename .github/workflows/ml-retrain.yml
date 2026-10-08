@@ -1,0 +1,51 @@
+name: Retrain ML model
+
+# Every day: retrain the points model on every season so far plus this
+# season's finished gameweeks, predict the gameweek being planned, and
+# commit the predictions to public/ml/ (see scripts/ml/retrain.py). The
+# push redeploys the app, and the 06:00 refresh cron in vercel.json then
+# builds the optimal squad from the new predictions. Once a gameweek is
+# over, its predictions are scored into public/ml/history.json, so you can
+# see the model learning week by week.
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ml-retrain
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: scripts/ml/requirements.txt
+      - run: pip install -r scripts/ml/requirements.txt
+      # Past seasons from the archive never change: download them once.
+      - uses: actions/cache@v4
+        with:
+          path: scripts/ml/.cache
+          key: fpl-archive-${{ github.run_id }}
+          restore-keys: fpl-archive-
+      - run: python scripts/ml/retrain.py
+      - name: Commit new predictions
+        run: |
+          if git diff --quiet -- public/ml && [ -z "$(git ls-files --others --exclude-standard public/ml)" ]; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add public/ml
+          git commit -m "ML: retrained predictions"
+          git push
