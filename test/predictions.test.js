@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM,
+  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive,
 } from '../src/lib/predictions.js';
 
 // A deterministic synthetic league: 20 clubs × 25 players, with prices and
@@ -251,4 +251,24 @@ test('the app stays on the gameweek being played until its matches are over', ()
   events[1].finished = true;
   assert.equal(getDefaultEvent(events, now).id, 8, 'GW7 over: on to GW8');
   assert.equal(getDefaultEvent([ev(1, 3, false), ev(2, 10, false)], now).id, 1, 'before the season');
+});
+
+test('a player who has lost his place is marked down, one who has won one is not marked up', () => {
+  const base = { id: 1, positionId: 3, team: 1, epNext: 0, pointsPerGame: 6, appearanceShare: 1, form: 6, status: 'a', seasonMinutesShare: 0.9 };
+  const fixtures = { 1: [{ event: 10, opponent: 2, isHome: true, difficulty: 3 }] };
+  const opts = { targetEventId: 10 };
+  const regular = computePlayerPrediction({ ...base, recentMinutesShare: 0.9 }, fixtures, true, null, opts);
+  const benched = computePlayerPrediction({ ...base, recentMinutesShare: 0.3 }, fixtures, true, null, opts);
+  const unknown = computePlayerPrediction({ ...base, recentMinutesShare: null }, fixtures, true, null, opts);
+  const newStarter = computePlayerPrediction({ ...base, seasonMinutesShare: 0.4, recentMinutesShare: 1 }, fixtures, true, null, opts);
+  assert.ok(benched.nextMatchPredicted < regular.nextMatchPredicted * 0.75);
+  assert.equal(unknown.nextMatchPredicted, regular.nextMatchPredicted);
+  assert.equal(newStarter.nextMatchPredicted, regular.nextMatchPredicted);
+  assert.equal(benched.breakdown.minutesMult, 0.667);
+});
+
+test('recent minutes come from the gameweeks just before the target', () => {
+  const el = (id, minutes) => ({ id, stats: { minutes } });
+  const live = { 5: [el(1, 90)], 6: [el(1, 90)], 7: [el(1, 0)], 8: [el(1, 45), el(2, 90)], 9: [el(1, 90)] };
+  assert.deepEqual(recentMinutesFromLive(live, 9), { 1: 225, 2: 90 });
 });

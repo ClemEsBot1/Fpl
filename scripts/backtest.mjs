@@ -23,7 +23,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, SQUAD_BUDGET } from '../src/lib/predictions.js';
+import { buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, RECENT_MINUTES_GWS, SQUAD_BUDGET } from '../src/lib/predictions.js';
 
 const ARCHIVE = 'https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data';
 const CACHE = path.resolve(import.meta.dirname, '..', '.backtest-cache');
@@ -114,6 +114,15 @@ function bootstrapBefore(S, G) {
   return { teams: S.teams, events, elements, total_players: 0 };
 }
 
+// Minutes in the RECENT_MINUTES_GWS gameweeks before G.
+function recentMinutesBefore(S, G) {
+  const out = {};
+  for (let g = Math.max(1, G - RECENT_MINUTES_GWS); g < G; g++) {
+    for (const [id, r] of Object.entries(S.gws[g] || {})) out[id] = (out[id] || 0) + r.minutes;
+  }
+  return out;
+}
+
 // player-history.json without the tested season or anything after it.
 function historyBefore(history, season) {
   const players = {};
@@ -142,7 +151,7 @@ function run(variant, seasons) {
   let xiPts = 0, squad4 = 0, n = 0;
   for (const { S, hist } of seasons) {
     const staticAt = {};
-    const sd = G => (staticAt[G] ||= buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {} }));
+    const sd = G => (staticAt[G] ||= buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {}, recentMinutesById: recentMinutesBefore(S, G) }));
     for (let G = START; G <= END; G++) {
       if (!hasExpectedPoints(S, G)) continue;
       const data = sd(G);

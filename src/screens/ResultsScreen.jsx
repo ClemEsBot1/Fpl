@@ -54,6 +54,7 @@ export function PredictionBreakdown({ breakdown }) {
   }
   if (b.availMult < 1) multRows.push(['Availability (not on ep_next)', `×${b.availMult.toFixed(2)}`]);
   if (b.congestionMult < 1) multRows.push(['Short rest', `×${b.congestionMult.toFixed(2)} (${b.restDays}d since last match)`]);
+  if (b.minutesMult < 1) multRows.push(['Fewer minutes lately', `×${b.minutesMult.toFixed(2)} (${Math.round((b.recentMinutesShare || 0) * 100)}% of the last 4 gameweeks' minutes)`]);
 
   return (
     <div className="fpl-block" style={{ padding: 12, marginTop: 2, marginBottom: 8 }} onClick={e => e.stopPropagation()}>

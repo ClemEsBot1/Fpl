@@ -16,7 +16,7 @@
 const FORM_WINDOW = 4; // FPL's form is a ~30-day average ≈ the last 4 gameweeks
 
 // Column order of each row in the compact table.
-export const AS_OF_FIELDS = ['points', 'minutes', 'appearances', 'goals', 'assists', 'xg', 'xa', 'formPoints'];
+export const AS_OF_FIELDS = ['points', 'minutes', 'appearances', 'goals', 'assists', 'xg', 'xa', 'formPoints', 'recentMinutes'];
 
 // Matches a player appeared in during one gameweek. A double gameweek is two
 // matches, and FPL's points per game is per match, so count the fixtures in
@@ -39,7 +39,7 @@ export function aggregateLiveStats(liveByEvent, gwId) {
     for (const el of liveByEvent[gw] || []) {
       const s = el.stats || {};
       let t = totals.get(el.id);
-      if (!t) { t = [0, 0, 0, 0, 0, 0, 0, 0]; totals.set(el.id, t); }
+      if (!t) { t = [0, 0, 0, 0, 0, 0, 0, 0, 0]; totals.set(el.id, t); }
       const points = Number(s.total_points) || 0;
       const minutes = Number(s.minutes) || 0;
       t[0] += points;
@@ -49,7 +49,7 @@ export function aggregateLiveStats(liveByEvent, gwId) {
       t[4] += Number(s.assists) || 0;
       t[5] += parseFloat(s.expected_goals) || 0;
       t[6] += parseFloat(s.expected_assists) || 0;
-      if (gw >= formFrom) t[7] += points;
+      if (gw >= formFrom) { t[7] += points; t[8] += minutes; }
     }
   }
   const players = {};
@@ -57,6 +57,17 @@ export function aggregateLiveStats(liveByEvent, gwId) {
     players[id] = t.map(v => Math.round(v * 100) / 100);
   });
   return { gwId, fields: AS_OF_FIELDS, players };
+}
+
+// { [playerId]: minutes } in the recent gameweeks before asOf.gwId, for
+// buildStaticDataFromRaw's options.recentMinutesById. null for a table
+// cached before it carried them.
+export function recentMinutesFromAsOf(asOf) {
+  const k = (asOf.fields || []).indexOf('recentMinutes');
+  if (k < 0) return null;
+  const out = {};
+  Object.entries(asOf.players || {}).forEach(([id, row]) => { out[id] = row[k] || 0; });
+  return out;
 }
 
 // Returns a copy of `bootstrap` whose players carry their pre-`gwId`

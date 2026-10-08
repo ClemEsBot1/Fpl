@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateLiveStats, applyAsOfStats } from '../src/lib/asOf.js';
+import { aggregateLiveStats, applyAsOfStats, recentMinutesFromAsOf } from '../src/lib/asOf.js';
 
 const live = (rows) => rows.map(([id, points, minutes, goals = 0, xg = '0.00']) => ({ id, stats: { total_points: points, minutes, goals_scored: goals, assists: 0, expected_goals: xg, expected_assists: '0.00' } }));
 
@@ -12,7 +12,7 @@ test('only gameweeks before the target count', () => {
     4: live([[1, 20, 90, 3]]), // gameweek 4 itself must not leak into "before gameweek 4"
   };
   const asOf = aggregateLiveStats(liveByEvent, 4);
-  assert.deepEqual(asOf.players[1], [14, 180, 2, 2, 0, 1.4, 0, 14]);
+  assert.deepEqual(asOf.players[1], [14, 180, 2, 2, 0, 1.4, 0, 14, 180]);
 });
 
 test('form covers only the last four gameweeks', () => {
@@ -23,6 +23,8 @@ test('form covers only the last four gameweeks', () => {
   assert.equal(points, 5 * 10 + 4 * 2);
   assert.equal(apps, 9);
   assert.equal(formPoints, 4 * 2);
+  assert.deepEqual(recentMinutesFromAsOf(asOf), { 7: 4 * 90 });
+  assert.equal(recentMinutesFromAsOf({ fields: ['points'], players: {} }), null, 'a table cached before recent minutes');
 });
 
 test('bootstrap players get their pre-deadline numbers, nothing from today', () => {

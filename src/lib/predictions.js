@@ -37,6 +37,7 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
   selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
   oddsAdjustment: 1.0,                           // scales the already-capped nudge from src/lib/oddsAdjustment.js; 1.0 = trust it at face value
   fixtureWindowGws: 4,                           // `predicted` averages over this many gameweeks (doubles count twice, blanks zero)
+  recentMinutes: 0.5,                            // how far fewer recent minutes (last 4 gameweeks) than over the season pull the non-ep_next part down; 0 = off
 };
 
 /* ----------------------------------------------------------------------------
@@ -225,7 +226,19 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   const ruledOut = ['i', 's', 'u', 'n'].includes(p.status);
   const epThisEvent = isBlankThisEvent ? 0 : epTerm * (ruledOut ? availMult : 1);
   const epPerMatch = epThisEvent / Math.max(1, fixtureCountThisEvent);
-  const otherTerm = base - epTerm;
+  // Recent minutes against the season's: a player who has lost his place
+  // plays more like his last few weeks than his season average. Moves only
+  // the non-ep_next part, like availability, since FPL's ep_next already
+  // knows who has been starting. Only ever down: backtested over 2022-23 to
+  // 2025-26, crediting a player who has just won a place made predictions
+  // worse (form already catches it), while marking down one who has lost
+  // his improved the next gameweek's error and the picked XI's points.
+  let minutesMult = 1;
+  if (weights.recentMinutes > 0 && typeof p.recentMinutesShare === 'number' && typeof p.seasonMinutesShare === 'number' && p.seasonMinutesShare > 0.1) {
+    const ratio = Math.max(0.25, Math.min(1, p.recentMinutesShare / p.seasonMinutesShare));
+    minutesMult = 1 + weights.recentMinutes * (ratio - 1);
+  }
+  const otherTerm = (base - epTerm) * minutesMult;
   const laterInWindow = upcoming.filter(f => !thisEventFixtures.includes(f));
   const epWindow = (epThisEvent + epPerMatch * laterInWindow.reduce((s, f) => s + fixtureMultFor(f), 0)) / windowDivisor;
   const predicted = isBlankThisEvent ? 0 : Math.max(0, (epWindow + otherTerm * fixtureMult * availMult) * congestionMult);
@@ -261,6 +274,8 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
       nextFixtureMult: Math.round(nextFixtureMult * 1000) / 1000,
       availMult: Math.round(availMult * 1000) / 1000,
       congestionMult: Math.round(congestionMult * 1000) / 1000,
+      minutesMult: Math.round(minutesMult * 1000) / 1000,
+      recentMinutesShare: typeof p.recentMinutesShare === 'number' ? Math.round(p.recentMinutesShare * 100) / 100 : null,
       restDays: typeof restDays === 'number' ? restDays : null,
       fixtureCountThisEvent,
       isBlankThisEvent,
@@ -378,13 +393,22 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   const oddsByTeamForTargetEvent = buildOddsByTeamForEvent(options.oddsData, targetEvent.id);
 
   // League matches each team has played before the target gameweek, for
-  // the share of them a player appeared in.
+  // the share of them a player appeared in, and in the last
+  // RECENT_MINUTES_GWS gameweeks, for the share of recent minutes played
+  // (options.recentMinutesById: minutes in those gameweeks, see
+  // recentMinutesFromLive).
   const teamMatchesPlayed = {};
+  const teamRecentMatches = {};
   fixturesRaw.forEach(f => {
     if (f.event === null || f.event === undefined || f.event >= targetEvent.id) return;
     teamMatchesPlayed[f.team_h] = (teamMatchesPlayed[f.team_h] || 0) + 1;
     teamMatchesPlayed[f.team_a] = (teamMatchesPlayed[f.team_a] || 0) + 1;
+    if (f.event >= targetEvent.id - RECENT_MINUTES_GWS) {
+      teamRecentMatches[f.team_h] = (teamRecentMatches[f.team_h] || 0) + 1;
+      teamRecentMatches[f.team_a] = (teamRecentMatches[f.team_a] || 0) + 1;
+    }
   });
+  const recentMinutesById = options.recentMinutesById || null;
 
   const allPlayers = bootstrap.elements.map(e => {
     const seasonPoints = e.total_points;
@@ -441,6 +465,9 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       expectedGoals: parseFloat(e.expected_goals) || 0,
       expectedAssists: parseFloat(e.expected_assists) || 0,
       appearanceShare: appearanceShareFor(seasonPoints, seasonPPG, teamMatchesPlayed[e.team]),
+      seasonMinutesShare: teamMatchesPlayed[e.team] ? Math.min(1, (Number(e.minutes) || 0) / (90 * teamMatchesPlayed[e.team])) : null,
+      recentMinutesShare: recentMinutesById && teamRecentMatches[e.team]
+        ? Math.min(1, (recentMinutesById[e.id] || 0) / (90 * teamRecentMatches[e.team])) : null,
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
       oddsAdjustment: oddsAdjustmentForMatches(oddsByTeamForTargetEvent[e.team], e.element_type),
     };
@@ -514,6 +541,19 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     seasonId: seasonIdFor(bootstrap.events),
     totalPlayers: Number(bootstrap.total_players) || 0,
   };
+}
+
+// Gameweeks counted as "recent" for minutes played.
+export const RECENT_MINUTES_GWS = 4;
+
+// { [playerId]: minutes } over the gameweeks before `gwId` that count as
+// recent, from FPL's per-gameweek live data ({ [gw]: elements[] }).
+export function recentMinutesFromLive(liveByEvent, gwId) {
+  const out = {};
+  for (let gw = Math.max(1, gwId - RECENT_MINUTES_GWS); gw < gwId; gw++) {
+    for (const el of liveByEvent[gw] || []) out[el.id] = (out[el.id] || 0) + (Number(el.stats && el.stats.minutes) || 0);
+  }
+  return out;
 }
 
 // Share of the team's matches a player appeared in: appearances are total

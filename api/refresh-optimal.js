@@ -1,5 +1,5 @@
 import { put, get } from '@vercel/blob';
-import { buildStaticDataFromRaw, buildOptimalTeam, isEventLocked, SQUAD_BUDGET } from '../src/lib/predictions.js';
+import { buildStaticDataFromRaw, buildOptimalTeam, getTargetEvent, isEventLocked, recentMinutesFromLive, RECENT_MINUTES_GWS, SQUAD_BUDGET } from '../src/lib/predictions.js';
 import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 
@@ -53,6 +53,19 @@ async function fetchOddsServer() {
     const r = await fetch(`${ODDS_API_URL}&apiKey=${apiKey}`, { signal: AbortSignal.timeout(10_000) });
     if (!r.ok) return null;
     return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+// Minutes in the gameweeks before `gwId` (see recentMinutesFromLive).
+// Best-effort like the two above: on failure predictions skip that step.
+async function fetchRecentMinutesServer(gwId) {
+  try {
+    const gws = [];
+    for (let gw = Math.max(1, gwId - RECENT_MINUTES_GWS); gw < gwId; gw++) gws.push(gw);
+    const lives = await Promise.all(gws.map(async gw => [gw, (await fetchFplJsonServer(`event/${gw}/live/`)).elements || []]));
+    return recentMinutesFromLive(Object.fromEntries(lives), gwId);
   } catch {
     return null;
   }
@@ -117,7 +130,9 @@ export default async function handler(req, res) {
       } catch { /* non-fatal — see comment above */ }
     }
 
-    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData });
+    const plannedGw = forceGwId || (getTargetEvent(bootstrap.events) || {}).id;
+    const recentMinutesById = plannedGw ? await fetchRecentMinutesServer(plannedGw) : null;
+    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData, recentMinutesById });
     const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
 
     // After the last deadline of the season there's no gameweek left to
