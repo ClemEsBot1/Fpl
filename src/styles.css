@@ -891,3 +891,67 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-plan-hit { color: var(--red); font-weight: 700; }
 .fpl-plan-gain { color: var(--lime); }
 .fpl-plan .fpl-btn { justify-self: start; }
+
+/* Tool screens: Fixtures, Compare players, Live. */
+.fpl-tool { padding: 20px 16px 100px; display: grid; gap: 14px; min-width: 0; }
+@media (min-width: 900px) { .fpl-tool { padding: 28px 32px 60px; } }
+.fpl-tool-head { display: grid; gap: 4px; }
+.fpl-tool-h { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.5rem; letter-spacing: -0.01em; }
+.fpl-tool-sub { margin: 0; color: var(--ink-dim); font-size: 0.9rem; line-height: 1.5; max-width: 62ch; }
+.fpl-tool-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.fpl-tool-note { margin: 0; font-size: 0.85rem; color: var(--ink-dim); }
+.fpl-tool-note b { color: var(--ink); }
+.fpl-tool-card { padding: 14px; display: grid; gap: 12px; min-width: 0; }
+
+.fpl-ticker-full { min-width: 560px; }
+.fpl-ticker-full thead th.is-double { color: var(--lime); }
+.fpl-ticker-full thead th.is-blank { color: var(--amber); }
+.fpl-ticker-full td { min-width: 52px; }
+.fpl-ticker-fx.is-small { padding: 3px 2px; font-size: 0.62rem; }
+.fpl-ticker-club { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 4px 0 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.fpl-ticker-shirt { display: inline-block; width: 22px; height: 22px; }
+.fpl-ticker-shirt .fpl-shirt { width: 100%; height: 100%; object-fit: contain; }
+.fpl-ticker-chev { color: var(--ink-dim); transition: transform 160ms ease; }
+.fpl-ticker-club[aria-expanded="true"] .fpl-ticker-chev { transform: rotate(180deg); }
+.fpl-ticker-detail td { padding: 4px 0 10px; }
+.fpl-ticker-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-ticker-legend i { width: 18px; height: 10px; border-radius: 3px; }
+.fpl-ticker-legend-note { margin-left: auto; }
+
+.fpl-club-players { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; }
+.fpl-club-table { width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; }
+.fpl-club-table th, .fpl-club-table td { padding: 5px 6px; text-align: left; white-space: nowrap; }
+.fpl-club-table thead th { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
+.fpl-club-table tbody tr + tr { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-club-pts { color: var(--lime); font-weight: 700; }
+.fpl-club-flag { color: var(--amber); font-weight: 700; }
+.fpl-compare-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 0.72rem; }
+.fpl-compare-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.fpl-compare-add { max-width: 420px; }
+.fpl-compare-wrap { overflow-x: auto; }
+.fpl-compare { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: calc(130px + var(--cols) * 120px); }
+.fpl-compare col:first-child, .fpl-compare tbody th { width: 130px; }
+.fpl-compare thead th { vertical-align: top; padding: 0 6px 12px; text-align: center; font-weight: 400; }
+.fpl-compare thead th > span { display: block; }
+.fpl-compare-shirt { width: 56px; height: 56px; margin: 0 auto 4px; }
+.fpl-compare-shirt .fpl-shirt { width: 100%; height: 100%; object-fit: contain; }
+.fpl-compare-name { font-weight: 700; font-size: 1rem; overflow-wrap: anywhere; }
+.fpl-compare-flag { color: var(--amber); font-size: 0.72rem; margin-top: 2px; }
+.fpl-compare-remove { font-size: 0.75rem; margin-top: 4px; }
+.fpl-compare tbody th { text-align: left; font-weight: 500; font-size: 0.8rem; color: var(--ink-dim); padding: 7px 6px 7px 0; }
+.fpl-compare tbody td { text-align: center; padding: 7px 6px; font-size: 0.85rem; border-radius: 6px; }
+.fpl-compare tbody tr + tr > * { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-compare td.is-best { background: rgba(206,255,16,0.12); color: var(--lime); font-weight: 700; }
+.fpl-compare-fx { display: flex; justify-content: center; gap: 3px; margin-top: 3px; }
+.fpl-compare-fx .fpl-ticker-fx { min-width: 34px; }
+.fpl-ticker-full thead th:first-child, .fpl-ticker-full tbody th { width: 96px; }
+@media (max-width: 599px) {
+  .fpl-compare { min-width: calc(84px + var(--cols) * 86px); }
+  .fpl-compare col:first-child, .fpl-compare tbody th { width: 84px; font-size: 0.72rem; }
+  .fpl-compare thead th { padding: 0 3px 10px; }
+  .fpl-compare-shirt { width: 44px; height: 44px; }
+  .fpl-compare-name { font-size: 0.85rem; }
+  .fpl-compare tbody td { padding: 6px 3px; font-size: 0.78rem; }
+  .fpl-compare-fx .fpl-ticker-fx { min-width: 30px; }
+}

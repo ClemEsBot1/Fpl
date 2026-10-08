@@ -11,7 +11,7 @@ import { forEachLimited, livePointsFor, memberWeekStats, parseStandings, predict
 import { buildRecap, lastFinishedGw, leagueSlide, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { Bookmark, Camera, Download, History, House, Info, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
+import { Bookmark, CalendarRange, Camera, Download, GitCompareArrows, History, House, Info, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
@@ -58,7 +58,8 @@ const hindsightChunk = chunk(() => import('./screens/HindsightScreen.jsx'));
 const welcomeChunk = chunk(() => import('./screens/WelcomeScreen.jsx'));
 const leagueChunk = chunk(() => import('./screens/MiniLeagueScreen.jsx'));
 const recapChunk = chunk(() => import('./components/GwRecap.jsx'));
-const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk, recapChunk];
+const toolsChunk = chunk(() => import('./screens/ToolScreens.jsx'));
+const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk, recapChunk, toolsChunk];
 // For fetching a screen ahead of time; a failure shows up when it's opened.
 const preload = source => () => { source.load().catch(() => {}); };
 const loadResultsScreen = preload(resultsChunk);
@@ -75,6 +76,8 @@ const MiniLeagueScreen = lazyScreen(leagueChunk, 'MiniLeagueScreen');
 const MyTeamsScreen = lazyScreen(accountChunk, 'MyTeamsScreen');
 const AuthDialog = lazyScreen(accountChunk, 'AuthDialog');
 const GwRecap = lazyScreen(recapChunk, 'GwRecap');
+const FixturesScreen = lazyScreen(toolsChunk, 'FixturesScreen');
+const CompareScreen = lazyScreen(toolsChunk, 'CompareScreen');
 
 // Shown instead of a blank page when a screen fails to render — most
 // likely its code couldn't be downloaded (offline, or the app was updated
@@ -108,6 +111,8 @@ function navSectionFor(stage, resultsData) {
     case 'hindsight': return 'lookback';
     case 'myTeams': return 'saved';
     case 'league': return 'league';
+    case 'fixtures': return 'fixtures';
+    case 'compare': return 'compare';
     case 'results':
       if (!resultsData) return null;
       if (resultsData.isOptimalBuild) return 'best';
@@ -172,7 +177,20 @@ function writeParams(values) {
 
 // The screen open is kept in the address too (?view=team, and ?team=123
 // for someone else's team), so a reload opens it again rather than Home.
-const RESTORABLE_VIEWS = ['team', 'league', 'screenshot', 'best', 'build', 'lookback', 'saved'];
+const RESTORABLE_VIEWS = ['team', 'league', 'screenshot', 'best', 'build', 'lookback', 'saved', 'fixtures', 'compare'];
+
+// Players picked to compare (Compare players), kept on this device.
+const COMPARE_KEY = 'fpl_compare';
+const MAX_COMPARE = 3;
+function readCompareIds() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(COMPARE_KEY) || '[]');
+    return Array.isArray(ids) ? ids.filter(Number.isInteger).slice(0, MAX_COMPARE) : [];
+  } catch { return []; }
+}
+function writeCompareIds(ids) {
+  try { localStorage.setItem(COMPARE_KEY, JSON.stringify(ids)); } catch { /* storage unavailable */ }
+}
 function readViewParam() {
   const view = new URLSearchParams(window.location.search).get('view');
   return RESTORABLE_VIEWS.includes(view) ? view : null;
@@ -253,6 +271,9 @@ export default function FPLSquadChecker() {
   const staticDataRef = useRef(null);
   // The current static data, for screens that show it directly (Home).
   const [liveStatic, setLiveStatic] = useState(null);
+  const [compareIds, setCompareIdsRaw] = useState(readCompareIds);
+  const setCompareIds = ids => { setCompareIdsRaw(ids); writeCompareIds(ids); };
+  const toggleCompare = id => setCompareIds(compareIds.includes(id) ? compareIds.filter(x => x !== id) : [...compareIds, id].slice(0, MAX_COMPARE));
   // A reload of that data in progress (see ensureStaticData).
   const refreshPromiseRef = useRef(null);
   // The optimal XI's predicted total, per static-data set (the current one,
@@ -1608,6 +1629,8 @@ export default function FPLSquadChecker() {
     { id: 'screenshot', label: 'Screenshot', desc: 'Read a squad from a screenshot', group: 'Your team', Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
     { id: 'best', label: 'Best squad', desc: 'The top-predicted 15 for £100m', group: 'Tools', Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
     { id: 'build', label: 'Build a squad', desc: 'Pick your own and preview chips', group: 'Tools', Icon: Wand2, run: handleStartCustomBuild },
+    { id: 'fixtures', label: 'Fixtures', desc: 'Every club\'s next 8 gameweeks', group: 'Tools', Icon: CalendarRange, run: () => setStage('fixtures') },
+    { id: 'compare', label: 'Compare players', desc: 'Up to 3 players side by side', group: 'Tools', Icon: GitCompareArrows, run: () => setStage('compare') },
     ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', desc: 'Past gameweeks against the best XI', group: 'Tools', Icon: History, run: handleViewHindsight }] : []),
     { id: 'saved', label: 'Saved teams', desc: 'Team IDs and squads on your account', group: 'Tools', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
     { id: 'about', label: 'About this app', desc: 'What it does and how it predicts', group: 'App', Icon: Info, run: () => setStage('welcome') },
@@ -1628,7 +1651,7 @@ export default function FPLSquadChecker() {
   }, [stage]);
 
   const showNav = stage !== 'welcome' && stage !== 'boot';
-  const wideStage = stage === 'home' || stage === 'welcome' || stage === 'league' || stage === 'customBuild';
+  const wideStage = ['home', 'welcome', 'league', 'customBuild', 'fixtures', 'compare'].includes(stage);
   const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
   lastNavRef.current = activeNav;
 
@@ -1780,6 +1803,13 @@ export default function FPLSquadChecker() {
                 onOpenTeam={entryId => handleTeamIdSubmit(String(entryId))}
                 onAddTeamId={() => setStage('home')}
               />
+            )}
+            {(stage === 'fixtures' || stage === 'compare') && !liveStatic && <LoadingScreen message="Loading fixtures and players…" />}
+            {stage === 'fixtures' && liveStatic && (
+              <FixturesScreen staticData={liveStatic} compareIds={compareIds} onToggleCompare={toggleCompare} onOpenCompare={() => setStage('compare')} />
+            )}
+            {stage === 'compare' && liveStatic && (
+              <CompareScreen staticData={liveStatic} compareIds={compareIds} onToggleCompare={toggleCompare} onClear={() => setCompareIds([])} />
             )}
             {stage === 'myTeams' && (
               <MyTeamsScreen
