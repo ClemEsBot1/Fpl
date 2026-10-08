@@ -100,3 +100,46 @@ export function nextPriceChangeAt(now = new Date()) {
 export function topByPoints(entries, limit = 6) {
   return entries.filter(e => e.player && e.points > 0).sort((a, b) => b.points - a.points).slice(0, limit);
 }
+
+// Transfers in the last hour. The server (api/transfer-trend.js) keeps a
+// snapshot of every player's transfers in and out this gameweek every
+// SNAPSHOT_EVERY_MS or so; the change since the one about an hour old is
+// each player's transfers in the last hour.
+export const SNAPSHOT_EVERY_MS = 10 * 60 * 1000;
+export const KEEP_SNAPSHOTS = 24; // about four hours at that rate
+
+// A compact snapshot of bootstrap-static: { at, gw, ids, tin, tout }.
+export function transferSnapshot(bootstrap, at = Date.now()) {
+  const next = (bootstrap.events || []).find(e => e.is_next) || null;
+  const els = (bootstrap.elements || []).filter(e => e.transfers_in_event || e.transfers_out_event);
+  return {
+    at, gw: next ? next.id : null,
+    ids: els.map(e => e.id),
+    tin: els.map(e => Number(e.transfers_in_event) || 0),
+    tout: els.map(e => Number(e.transfers_out_event) || 0),
+  };
+}
+
+// The snapshot to compare with: for the same gameweek, the newest one at
+// least `minAgeMs` old (an hour), else the oldest there is.
+export function pickBaseline(snapshots, current, { minAgeMs = 60 * 60 * 1000 } = {}) {
+  const same = snapshots.filter(s => s.gw === current.gw && s.at < current.at);
+  if (!same.length) return null;
+  const oldEnough = same.filter(s => current.at - s.at >= minAgeMs).sort((a, b) => b.at - a.at)[0];
+  return oldEnough || same.sort((a, b) => a.at - b.at)[0];
+}
+
+// { minutes, byId: { [id]: [in, out] } }: transfers between `base` and
+// `current`, or null without a baseline.
+export function transferDeltas(current, base) {
+  if (!base) return null;
+  const before = new Map(base.ids.map((id, k) => [id, [base.tin[k], base.tout[k]]]));
+  const byId = {};
+  current.ids.forEach((id, k) => {
+    const [i0, o0] = before.get(id) || [0, 0];
+    const din = current.tin[k] - i0;
+    const dout = current.tout[k] - o0;
+    if (din || dout) byId[id] = [din, dout];
+  });
+  return { minutes: Math.round((current.at - base.at) / 60000), byId };
+}

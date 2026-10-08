@@ -1,0 +1,16 @@
+name: Transfer snapshots
+
+# Calls /api/transfer-trend every 20 minutes so it keeps a snapshot of
+# FPL's transfer counts even when nobody has the app open: the home
+# screen's "last hour" figures compare with the one about an hour old.
+on:
+  schedule:
+    - cron: '7,27,47 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl -sf -o /dev/null https://fplchecker.vercel.app/api/transfer-trend || true

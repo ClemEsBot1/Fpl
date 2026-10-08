@@ -55,3 +55,22 @@ test('price changes are at the next 00:00 UK time, BST or GMT', () => {
   assert.equal(next('2026-12-10T12:00:00Z'), '2026-12-11T00:00:00.000Z'); // GMT
   assert.equal(next('2026-10-24T23:10:00Z'), '2026-10-26T00:00:00.000Z'); // clocks go back that night
 });
+
+test('transfers in the last hour come from the snapshot about an hour old', async () => {
+  const { transferSnapshot, pickBaseline, transferDeltas } = await import('../src/lib/transferTrends.js');
+  const boot = (tin, tout, gw = 8) => ({ events: [{ id: gw, is_next: true }], elements: [
+    { id: 1, transfers_in_event: tin, transfers_out_event: tout }, { id: 2, transfers_in_event: 0, transfers_out_event: 0 },
+  ] });
+  const H = 3600e3;
+  const snaps = [transferSnapshot(boot(100, 10), 0), transferSnapshot(boot(500, 40), 0.5 * H), transferSnapshot(boot(900, 50), 1.1 * H)];
+  const now = transferSnapshot(boot(2000, 60), 2 * H);
+  assert.deepEqual(now.ids, [1]);
+  const base = pickBaseline(snaps, now);
+  assert.equal(base.at, 0.5 * H, 'the newest one at least an hour old');
+  assert.deepEqual(transferDeltas(now, base), { minutes: 90, byId: { 1: [1500, 20] } });
+  // Too new to have an hour: the oldest one there is.
+  assert.equal(pickBaseline([snaps[2]], now).at, 1.1 * H);
+  // A new gameweek starts from zero: last week's snapshots don't count.
+  assert.equal(pickBaseline(snaps, transferSnapshot(boot(5, 1, 9), 2 * H)), null);
+  assert.equal(transferDeltas(now, null), null);
+});
