@@ -181,6 +181,31 @@ function run(variant, seasons) {
   };
 }
 
+// HAUL_TABLE=1: how often a player scored 10+ in a gameweek, by position
+// group and how many points he was predicted for it (nextMatchPredicted),
+// for HAUL_RATES in src/lib/captaincy.js.
+function haulTable(seasons) {
+  const groups = { def: [1, 2], mid: [3], fwd: [4] };
+  const edges = [1, 2, 3, 4, 5, 6, 7, 8, 10];
+  const counts = {};
+  for (const { S, hist } of seasons) {
+    for (let G = START; G <= END; G++) {
+      if (!hasExpectedPoints(S, G)) continue;
+      const data = buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, recentMinutesById: recentMinutesBefore(S, G) });
+      for (const p of data.allPlayers) {
+        const x = data.predictionsById[p.id].nextMatchPredicted;
+        if (!(x >= 1)) continue;
+        const g = Object.keys(groups).find(k => groups[k].includes(p.positionId));
+        const b = edges.filter(e => x >= e).pop();
+        const c = (counts[`${g} ${b}`] ||= { n: 0, hauls: 0 });
+        c.n++;
+        if ((S.gws[G][p.id]?.pts || 0) >= 10) c.hauls++;
+      }
+    }
+  }
+  console.table(Object.fromEntries(Object.entries(counts).sort().map(([k, c]) => [k, { n: c.n, rate: (c.hauls / c.n).toFixed(3) }])));
+}
+
 const variants = process.argv[2] ? JSON.parse(process.argv[2]) : [{ name: 'current' }];
 const history = JSON.parse(fs.readFileSync(path.join(ROOT, 'player-history.json'), 'utf8'));
 const seasons = [];
@@ -188,4 +213,5 @@ for (const s of SEASONS) {
   console.log(`Loading ${s}...`);
   seasons.push({ S: await loadSeason(s), hist: historyBefore(history, s) });
 }
-console.table(variants.map(v => run(v, seasons)));
+if (process.env.HAUL_TABLE) haulTable(seasons);
+else console.table(variants.map(v => run(v, seasons)));

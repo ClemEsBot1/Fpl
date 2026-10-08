@@ -8,6 +8,7 @@ import { nextFixtureLabel } from '../lib/pitch.js';
 import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
+import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
@@ -796,6 +797,11 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   })).filter(g => g.players.length > 0);
 
   const viewedGwName = (isPastGw && allEvents && data.gwId) ? ((allEvents.find(e => e.id === data.gwId) || {}).name) : null;
+  const captainPicks = useMemo(() => {
+    if (!captainSuggestion || isOptimalBuild) return null;
+    const options = captainOptions(starters);
+    return { safe: options[0], diff: differentialCaptain(options) };
+  }, [captainSuggestion, isOptimalBuild, starters]);
   const showCaptainSuggestion = captainSuggestion && (!captain || captain.player.id !== captainSuggestion.player.id) && captainSuggestion.nextMatchPredicted > (captain ? captain.nextMatchPredicted : 0) + 0.3;
 
   return (
@@ -898,15 +904,34 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         />
       )}
 
-            {captainSuggestion && !isOptimalBuild && (
-        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--sky)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      {captainSuggestion && !isOptimalBuild && (
+        <div className="fpl-block fpl-captain-card" style={{ borderLeftColor: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)' }}>
           <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
-          <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '0.85rem', lineHeight: 1.5, minWidth: 0, flex: 1 }}>
             {showCaptainSuggestion ? (
               <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
             ) : (
               <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
             )}
+            {captainPicks ? (
+              <div className="fpl-captain-picks">
+                {[['Safe', captainPicks.safe], ['Differential', captainPicks.diff]].filter(([, o]) => o).map(([label, o]) => (
+                  <div key={label} className="fpl-captain-pick">
+                    <span className="fpl-mono fpl-captain-pick-label">{label}</span>
+                    <span className="fpl-captain-pick-name">{o.slot.player.webName}</span>
+                    <span className="fpl-mono fpl-meta">{fmtPts(o.expected)} pts · {Math.round(o.haul * 100)}% chance of 10+ · {o.owned.toFixed(1)}% owned</span>
+                    {canEdit && (!captain || captain.player.id !== o.slot.player.id) ? (
+                      <button type="button" className="fpl-link" onClick={() => applyCaptainChange(o.slot.player.id, 'captain')}>Captain him</button>
+                    ) : null}
+                  </div>
+                ))}
+                {captainPicks.diff ? (
+                  <p className="fpl-meta" style={{ margin: 0 }}>
+                    The differential is for climbing rank: fewer managers own {captainPicks.diff.slot.player.webName}, so if he hauls you gain on far more of them. The safe pick is the most points on average.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       )}
