@@ -4,9 +4,9 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Anchor, Armchair, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
-import { POSITION_LABELS, fmtPrice, fmtPts } from '../lib/format.js';
+import { Pitch, PlayerCard } from '../components/Pitch.jsx';
+import { fmtPrice, fmtPts } from '../lib/format.js';
 import { expectedPositions, forEachLimited, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
-import { POSITION_ORDER } from '../lib/predictions.js';
 
 const LEAGUE_KEY = 'fpl_league_id';
 // Members' teams are fetched a few at a time, so a 50-team league doesn't
@@ -23,24 +23,23 @@ function saveLeague(id) {
   try { localStorage.setItem(LEAGUE_KEY, String(id)); } catch { /* private mode */ }
 }
 
-// One member's 15: the XI by position, then the bench, each player's
-// predicted points beside their name.
+// One member's 15 on a pitch: the XI, then the bench, each player's
+// predicted points (or what they scored, for a gameweek that has started).
 function MemberTeam({ team, teamsById, onOpen }) {
   const starters = team.squad.filter(s => s.isStarting);
   const bench = team.squad.filter(s => !s.isStarting);
-  const row = s => {
-    const club = teamsById[s.player.team];
+  const card = slot => {
+    const mult = slot.isStarting ? (slot.multiplier || 1) : 1;
+    const scored = slot.actualPoints !== undefined;
+    const club = teamsById[slot.player.team];
     return (
-      <li key={s.player.id} className="fpl-league-player">
-        <span className="fpl-row-pos">{POSITION_LABELS[s.player.positionId]}</span>
-        <span className="fpl-league-player-name">
-          {s.player.webName}
-          {s.isCaptain && <span className="fpl-armband" title="Captain">C</span>}
-          {s.isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
-          <small>{club ? club.short_name : ''}</small>
-        </span>
-        <span className="fpl-league-player-pts">{fmtPts(s.predicted * (s.isStarting ? (s.multiplier || 1) : 1))}</span>
-      </li>
+      <PlayerCard
+        key={slot.player.id}
+        slot={slot}
+        team={club}
+        points={scored ? (slot.played === false ? '–' : slot.actualPoints * mult) : fmtPts(slot.predicted * mult)}
+        info={scored ? `pred ${fmtPts(slot.predicted * mult)}` : (club ? club.short_name : '')}
+      />
     );
   };
   return (
@@ -48,9 +47,7 @@ function MemberTeam({ team, teamsById, onOpen }) {
       {team.edited
         ? <p className="fpl-home-hint">Showing your edits to this team. Open it to change it more, or go back to the team on FPL.</p>
         : team.picksFromGwId && <p className="fpl-home-hint">This gameweek's picks are hidden until the deadline, so this is their Gameweek {team.picksFromGwId} team.</p>}
-      <ul>{POSITION_ORDER.flatMap(pos => starters.filter(s => s.player.positionId === pos)).map(row)}</ul>
-      <h4 className="fpl-home-sub">Bench</h4>
-      <ul>{bench.map(row)}</ul>
+      <Pitch starters={starters} bench={bench} card={card} compact />
       <button type="button" className="fpl-link" onClick={onOpen}>Open and edit this team <ArrowRight size={14} /></button>
     </div>
   );

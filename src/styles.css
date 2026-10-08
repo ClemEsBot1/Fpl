@@ -755,3 +755,108 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-recap-bandkey dd { margin: 0; font-size: 0.78rem; font-weight: 700; }
 .fpl-recap-range { gap: 4px; }
 .fpl-recap-preds tr.is-way-off th, .fpl-recap-preds tr.is-way-off td { background: rgba(255,90,90,0.16); }
+
+/* ---------- Pitch: a squad laid out like the FPL site ---------- */
+.fpl-pitch { --card: 74px; --shirt: 46px; position: relative; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.22);
+  background: repeating-linear-gradient(180deg, #11A24C 0 44px, #0E9645 44px 88px); }
+.fpl-pitch.is-compact { --card: 64px; --shirt: 38px; }
+@media (min-width: 600px) { .fpl-pitch { --card: 92px; --shirt: 60px; } .fpl-pitch.is-compact { --card: 76px; --shirt: 46px; } }
+.fpl-pitch-field { position: relative; padding: 18px 6px 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.fpl-pitch-lines { position: absolute; inset: 8px; border: 2px solid rgba(255,255,255,0.5); border-radius: 4px; pointer-events: none; }
+.fpl-pitch-box { position: absolute; top: -2px; left: 50%; width: 46%; height: 16%; transform: translateX(-50%); border: 2px solid rgba(255,255,255,0.5); border-top: 0; }
+.fpl-pitch-mid { position: absolute; left: 0; right: 0; top: 58%; border-top: 2px solid rgba(255,255,255,0.5); }
+.fpl-pitch-circle { position: absolute; top: 58%; left: 50%; width: 26%; aspect-ratio: 1; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; }
+.fpl-pitch-row { position: relative; display: flex; justify-content: center; gap: 6px; flex-wrap: nowrap; min-width: 0; }
+@media (min-width: 600px) { .fpl-pitch-row { gap: 12px; } }
+.fpl-pitch-bench { display: flex; justify-content: center; gap: 6px; padding: 10px 6px 12px; background: rgba(5,4,26,0.45); border-top: 1px solid rgba(255,255,255,0.18); }
+@media (min-width: 600px) { .fpl-pitch-bench { gap: 12px; } }
+.fpl-pitch-benchslot { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 4px; flex: 0 1 var(--card); min-width: 0; }
+.fpl-pitch-benchlabel { font-size: 0.62rem; font-weight: 700; color: rgba(251,250,255,0.8); }
+
+.fpl-pc { position: relative; width: var(--card); flex: 0 1 var(--card); min-width: 0; transition: opacity 160ms ease, transform 160ms ease-out; }
+.fpl-pc-body { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; cursor: pointer; border-radius: 8px; padding: 4px 0 0; outline-offset: 2px; }
+.fpl-pc-body:disabled { cursor: default; }
+.fpl-pc-body:focus-visible { outline: 2px solid var(--ink); }
+.fpl-pc-body:active:not(:disabled) { transform: scale(0.97); }
+.fpl-pc-shirt { position: relative; width: var(--shirt); height: var(--shirt); margin-bottom: 2px; }
+.fpl-shirt { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 3px 4px rgba(5,4,26,0.35)); user-select: none; }
+.fpl-pc-name { width: 100%; box-sizing: border-box; padding: 2px 3px; border-radius: 4px 4px 0 0; background: #FBFAFF; color: #05041A; font: 600 0.66rem 'Inter', sans-serif; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpl-pc-name.is-doubt { background: var(--yellow); }
+.fpl-pc-name.is-out { background: #FF8A8A; }
+.fpl-pc-info { width: 100%; box-sizing: border-box; padding: 2px 3px; border-radius: 0 0 4px 4px; background: rgba(230,231,240,0.92); color: #05041A; font-size: 0.6rem; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 600px) { .fpl-pc-name { font-size: 0.74rem; padding: 3px 4px; } .fpl-pc-info { font-size: 0.66rem; } }
+.fpl-pc-arm { position: absolute; left: -6px; top: -2px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; background: #05041A; color: #FBFAFF; font: 700 0.6rem 'IBM Plex Mono', monospace; box-shadow: 0 0 0 1.5px #FBFAFF; }
+.fpl-pc-arm.is-vc { background: #3B2A80; }
+.fpl-pc-flag { position: absolute; right: -4px; top: -2px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); color: #05041A; }
+.fpl-pc-flag.is-out { background: #FF5A5A; }
+.fpl-pc-pts { position: absolute; right: -8px; bottom: 0; min-width: 20px; padding: 1px 4px; border-radius: 6px; background: #05041A; color: var(--lime); font-size: 0.64rem; font-weight: 700; text-align: center; box-shadow: 0 0 0 1px rgba(255,255,255,0.35); }
+.fpl-pc-pts.is-high { background: var(--lime); color: #05041A; }
+.fpl-pc-pts.is-low { color: #FF8A8A; }
+.fpl-pc-tag { position: absolute; left: -6px; bottom: 0; padding: 1px 4px; border-radius: 6px; background: var(--green); color: #05041A; font-size: 0.56rem; font-weight: 700; }
+.fpl-pc-price { display: block; margin-bottom: 2px; text-align: center; font-size: 0.66rem; font-weight: 700; color: #FBFAFF; text-shadow: 0 1px 2px rgba(5,4,26,0.6); }
+.fpl-pc-x { position: absolute; left: 0; top: 0; z-index: 1; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: rgba(5,4,26,0.75); color: #FBFAFF; cursor: pointer; }
+.fpl-pc-x:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .fpl-pc-x:hover { background: #FF5A5A; } }
+.fpl-pc-plus { position: absolute; inset: 0; display: grid; place-items: center; color: #FBFAFF; }
+.fpl-pc.is-empty .fpl-pc-name { background: rgba(5,4,26,0.55); color: #FBFAFF; border-radius: 4px; }
+/* Substituting: the player picked, those who can swap with them, the rest. */
+.fpl-pc.is-selected .fpl-pc-body { box-shadow: 0 0 0 2px #FF5A5A; background: rgba(255,90,90,0.25); }
+.fpl-pc.is-selected .fpl-pc-name { background: #FF5A5A; color: #FBFAFF; }
+.fpl-pc.is-eligible .fpl-pc-body { box-shadow: 0 0 0 2px var(--lime); background: rgba(206,255,16,0.18); }
+.fpl-pc.is-dim { opacity: 0.35; filter: saturate(0.4); }
+.fpl-pc.is-in .fpl-pc-name { background: var(--green); }
+@media (prefers-reduced-motion: reduce) { .fpl-pc, .fpl-pc-body:active:not(:disabled) { transition: none; transform: none; } }
+.fpl-team-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.fpl-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 10px; background: rgba(9,7,30,0.56); border: 1px solid var(--line); }
+.fpl-seg button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-dim); font: 600 0.82rem 'Space Grotesk', sans-serif; cursor: pointer; transition: background-color 160ms ease, color 160ms ease; }
+.fpl-seg button.is-on { background: rgba(255,255,255,0.14); color: var(--ink); }
+.fpl-seg button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.fpl-team-pitch { display: grid; gap: 10px; margin-bottom: 18px; }
+.fpl-sub-banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255,90,90,0.16); border: 1px solid rgba(255,90,90,0.5); font-size: 0.85rem; }
+.fpl-sheet .fpl-dialog-card { display: grid; gap: 14px; }
+.fpl-sheet-head { display: flex; align-items: center; gap: 14px; padding-right: 28px; }
+.fpl-sheet-shirt { width: 64px; height: 64px; flex: none; }
+.fpl-sheet-head h2 { margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 4px; }
+.fpl-sheet-head p { margin: 2px 0 0; }
+.fpl-sheet .fpl-availnote { margin: 0; }
+.fpl-sheet-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fpl-sheet-stats div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.08); }
+.fpl-sheet-stats b { font-size: 1.05rem; }
+.fpl-sheet-stats span { font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-sheet-fx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fpl-sheet-fx > span:last-child { display: flex; gap: 4px; flex-wrap: wrap; }
+.fpl-sheet-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fpl-sheet-actions .fpl-btn { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 44px; }
+.fpl-planner { display: grid; gap: 12px; margin-bottom: 18px; }
+.fpl-planner-head { display: flex; justify-content: space-between; align-items: center; }
+.fpl-planner-head h2 { margin: 0; }
+.fpl-planner-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.fpl-planner-facts div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: rgba(9,7,30,0.56); border: 1px solid var(--line); }
+.fpl-planner-facts dt { font-size: 0.68rem; color: var(--ink-dim); }
+.fpl-planner-facts dd { margin: 0; font-weight: 700; }
+.fpl-planner-facts .is-up { color: var(--green); }
+.fpl-planner-facts .is-down { color: #FF8A8A; }
+.fpl-stepper { display: inline-flex; align-items: center; gap: 8px; }
+.fpl-stepper button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: rgba(255,255,255,0.08); color: var(--ink); cursor: pointer; font-weight: 700; }
+.fpl-stepper button:disabled { opacity: 0.4; cursor: default; }
+.fpl-planner-pick { display: grid; gap: 4px; border-radius: 12px; background: rgba(9,7,30,0.56); border: 1px solid var(--line); padding-top: 10px; }
+.fpl-planner-pick > p { margin: 0 10px; }
+.fpl-planner-actions { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+.fpl-planner-actions .fpl-btn { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 46px; }
+.fpl-pitch.is-squad .fpl-pitch-field { gap: 18px; padding-top: 14px; }
+.fpl-pitch.is-squad .fpl-pitch-mid, .fpl-pitch.is-squad .fpl-pitch-circle { top: 64%; }
+.fpl-pc-price + .fpl-pc-x { top: 18px; left: -2px; }
+.fpl-pitch.is-squad .fpl-pc-arm { display: none; }
+/* Build a squad: the pitch, then the picker and the rest; side by side on a computer. */
+.fpl-builder { display: grid; gap: 16px; align-items: start; }
+.fpl-builder-main { display: grid; gap: 8px; min-width: 0; }
+.fpl-builder-side { display: grid; gap: 0; min-width: 0; }
+.fpl-builder-pick { display: grid; gap: 8px; padding: 12px; margin-bottom: 16px; }
+.fpl-builder-pick-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+@media (min-width: 1000px) {
+  .fpl-builder { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); gap: 24px; }
+  .fpl-builder-side { position: sticky; top: calc(var(--fpl-header-h, 58px) + 16px); max-height: calc(100dvh - var(--fpl-header-h, 58px) - 32px); overflow-y: auto; padding-right: 4px; }
+  .fpl-builder .fpl-pitch { --card: 104px; --shirt: 68px; }
+}
+.fpl-builder-page { padding: 20px 16px 100px; }
+@media (min-width: 900px) { .fpl-builder-page { padding: 28px 32px 60px; } }

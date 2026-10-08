@@ -1,8 +1,10 @@
 // Results for a squad: predicted points per player, captaincy, transfer
 // suggestions, chip timing, editing, saving, sharing and reminders.
-import { Fragment, useMemo, useState } from 'react';
-import { ArrowRight, ArrowUpDown, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Crown, Download, Edit3, Info, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Trophy, Zap } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeftRight, ArrowRight, ArrowUpDown, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Crown, Download, Edit3, Info, LayoutGrid, List as ListIcon, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Sparkles, Trophy, X, Zap } from 'lucide-react';
 import { DifficultyChips } from '../components/common.jsx';
+import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
+import { nextFixtureLabel } from '../lib/pitch.js';
 import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
@@ -438,11 +440,196 @@ function GameweekUnavailable({ data, onStartOver }) {
   );
 }
 
+
+// Pitch or list, remembered on this device.
+const TEAM_VIEW_KEY = 'fpl_team_view';
+function readTeamView() {
+  try { return localStorage.getItem(TEAM_VIEW_KEY) === 'list' ? 'list' : 'pitch'; } catch { return 'pitch'; }
+}
+function saveTeamView(view) {
+  try { localStorage.setItem(TEAM_VIEW_KEY, view); } catch { /* private mode */ }
+}
+
+const tenths = price => Math.round(price * 10);
+
+// A player's details, opened by tapping their card on the pitch, with
+// what can be done with them: armband, substitute, transfer out.
+function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit, onClose, onCaptain, onVice, onSubstitute, onTransfer }) {
+  const dialogRef = useRef(null);
+  const [showWhy, setShowWhy] = useState(false);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => { if (dialog && dialog.open) dialog.close(); };
+  }, []);
+  const { player } = slot;
+  return (
+    <dialog
+      ref={dialogRef}
+      className="fpl-dialog fpl-sheet"
+      aria-labelledby="sheet-h"
+      onCancel={e => { e.preventDefault(); onClose(); }}
+      onClick={e => { if (e.target === dialogRef.current) onClose(); }}
+    >
+      <div className="fpl-dialog-card">
+        <button type="button" onClick={onClose} aria-label="Close" className="fpl-dialog-close"><X size={18} /></button>
+        <div className="fpl-sheet-head">
+          <span className="fpl-sheet-shirt"><Shirt team={team} isKeeper={player.positionId === 1} /></span>
+          <div>
+            <h2 id="sheet-h" className="fpl-display">{player.webName}{slot.isCaptain ? <span className="fpl-armband">C</span> : null}{slot.isViceCaptain ? <span className="fpl-armband fpl-armband-vc">V</span> : null}</h2>
+            <p className="fpl-mono fpl-meta">{POSITION_LABELS[player.positionId]} · {team ? team.name : '—'} · {fmtPrice(player.price)}</p>
+          </div>
+        </div>
+        {slot.availNote ? <p className="fpl-availnote">{slot.availNote}</p> : null}
+        <div className="fpl-sheet-stats">
+          {isPastGw ? (
+            <div><b className="fpl-mono">{slot.played === false ? '–' : slot.actualPoints ?? '–'}</b><span>points this gameweek</span></div>
+          ) : (
+            <div><b className="fpl-mono">{fmtPts(slot.nextMatchPredicted ?? slot.predicted)}</b><span>predicted this gameweek</span></div>
+          )}
+          <div><b className="fpl-mono">{fmtPts(slot.predicted)}</b><span>predicted per week</span></div>
+          <div><b className="fpl-mono">{fmtPts(player.displaySeasonPoints)}</b><span>season points{player.displayIsLastSeason ? ' (LS)' : ''}</span></div>
+          <div><b className="fpl-mono">{typeof player.selectedBy === 'number' ? `${player.selectedBy}%` : '–'}</b><span>owned by</span></div>
+        </div>
+        {!isPastGw ? <div className="fpl-sheet-fx"><span className="fpl-mono fpl-meta">Next fixtures</span><span><DifficultyChips fixtures={fixturesByTeam[player.team]} teamsById={teamsById} max={4} /></span></div> : null}
+        {slot.breakdown ? (
+          <>
+            <button type="button" className="fpl-link" aria-expanded={showWhy} onClick={() => setShowWhy(v => !v)}>{showWhy ? 'Hide why' : 'Why this prediction?'}</button>
+            {showWhy ? <PredictionBreakdown breakdown={slot.breakdown} /> : null}
+          </>
+        ) : null}
+        {canEdit ? (
+          <div className="fpl-sheet-actions">
+            {slot.isStarting ? (
+              <>
+                <button type="button" className={`fpl-btn${slot.isCaptain ? ' fpl-btn-solid' : ''}`} aria-pressed={!!slot.isCaptain} onClick={onCaptain}><Crown size={15} aria-hidden="true" /> Captain</button>
+                <button type="button" className={`fpl-btn${slot.isViceCaptain ? ' fpl-btn-solid' : ''}`} aria-pressed={!!slot.isViceCaptain} onClick={onVice}>Vice-captain</button>
+              </>
+            ) : null}
+            <button type="button" className="fpl-btn" onClick={onSubstitute}><ArrowUpDown size={15} aria-hidden="true" /> Substitute</button>
+            <button type="button" className="fpl-btn" onClick={onTransfer}><ArrowLeftRight size={15} aria-hidden="true" /> Transfer out</button>
+          </div>
+        ) : null}
+      </div>
+    </dialog>
+  );
+}
+
+// The squad with every transfer planned so far applied, and the bank left.
+function applyPlanned(squad, bankTenths, planned, predictionsById) {
+  let work = squad;
+  let bank = bankTenths || 0;
+  Object.entries(planned).forEach(([outId, inPlayer]) => {
+    if (!inPlayer) return;
+    const out = squad.find(s => s.player.id === Number(outId));
+    if (!out) return;
+    bank -= tenths(inPlayer.price) - tenths(out.player.price);
+    work = swapPlayerInSquad(work, out.player.id, inPlayer, predictionsById);
+  });
+  return { work, bank };
+}
+
+// Planning transfers on the pitch, as on the FPL site: all 15 with their
+// prices; remove a player and pick who comes in, or let Auto Pick fill the
+// gaps with the best-predicted players that fit. Nothing changes until
+// Make transfers.
+function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teamsById, fixturesByTeam, freeTransfers, onFreeTransfers, startOut, onConfirm, onCancel }) {
+  const [planned, setPlanned] = useState(() => (startOut ? { [startOut]: null } : {}));
+  const [pickFor, setPickFor] = useState(startOut || null);
+  const { work, bank } = applyPlanned(squad, bankTenths, planned, predictionsById);
+  const made = Object.values(planned).filter(Boolean).length;
+  const gaps = Object.values(planned).filter(p => !p).length;
+  const hits = Math.max(0, made - freeTransfers) * 4;
+  const change = Object.entries(planned).reduce((sum, [outId, p]) => {
+    if (!p) return sum;
+    const out = squad.find(s => s.player.id === Number(outId));
+    return sum + (predictionsById[p.id] ? predictionsById[p.id].predicted : 0) - (out ? out.predicted : 0);
+  }, 0);
+
+  const remove = id => { setPlanned(prev => ({ ...prev, [id]: null })); setPickFor(id); };
+  const pick = (outId, inPlayer) => { setPlanned(prev => ({ ...prev, [outId]: inPlayer })); setPickFor(null); };
+  // Each gap gets the best-predicted player of its position that fits.
+  function autoPick() {
+    let next = { ...planned };
+    Object.keys(next).filter(id => !next[id]).forEach(id => {
+      const outSlot = squad.find(s => s.player.id === Number(id));
+      if (!outSlot) return;
+      const now = applyPlanned(squad, bankTenths, next, predictionsById);
+      const ids = new Set(now.work.map(s => s.player.id));
+      const choice = playersByPositionSorted(allPlayers, predictionsById, outSlot.player.positionId)
+        .find(p => !ids.has(p.id) && !swapBlocker(outSlot, p, now.work, now.bank));
+      if (choice) next = { ...next, [id]: choice };
+    });
+    setPlanned(next);
+    setPickFor(null);
+  }
+
+  const rows = POSITION_ORDER.map(pos => squad.filter(s => s.player.positionId === pos));
+  const pickSlot = pickFor ? squad.find(s => s.player.id === pickFor) : null;
+  const card = slot => {
+    const id = slot.player.id;
+    if (!(id in planned)) {
+      return <PlayerCard key={id} slot={slot} team={teamsById[slot.player.team]} price={slot.player.price}
+        info={nextFixtureLabel(slot.player, fixturesByTeam, teamsById)} onRemove={() => remove(id)} onClick={() => remove(id)}
+        label={`${slot.player.webName}, ${fmtPrice(slot.player.price)}: transfer out`} />;
+    }
+    const inPlayer = planned[id];
+    if (!inPlayer) return <EmptyCard key={id} positionId={slot.player.positionId} onClick={() => setPickFor(id)} />;
+    const pred = predictionsById[inPlayer.id];
+    return <PlayerCard key={id} slot={{ player: inPlayer, availNote: pred ? pred.availNote : null }} team={teamsById[inPlayer.team]} price={inPlayer.price}
+      info={nextFixtureLabel(inPlayer, fixturesByTeam, teamsById)} state="in" tag="IN" onRemove={() => remove(id)} onClick={() => remove(id)}
+      label={`${inPlayer.webName} coming in, ${fmtPrice(inPlayer.price)}: change`} />;
+  };
+
+  return (
+    <section className="fpl-planner" aria-labelledby="planner-h">
+      <div className="fpl-planner-head">
+        <h2 id="planner-h" className="fpl-section-title fpl-inline"><ArrowLeftRight size={14} aria-hidden="true" /> Transfers</h2>
+        <button type="button" className="fpl-link" onClick={onCancel}>Cancel</button>
+      </div>
+      <dl className="fpl-planner-facts">
+        <div><dt>Free transfers</dt><dd>
+          <span className="fpl-stepper">
+            <button type="button" aria-label="One fewer free transfer" onClick={() => onFreeTransfers(Math.max(0, freeTransfers - 1))} disabled={freeTransfers <= 0}>−</button>
+            <b className="fpl-mono">{freeTransfers}</b>
+            <button type="button" aria-label="One more free transfer" onClick={() => onFreeTransfers(Math.min(5, freeTransfers + 1))} disabled={freeTransfers >= 5}>+</button>
+          </span>
+        </dd></div>
+        <div><dt>Transfers</dt><dd className="fpl-mono">{made}</dd></div>
+        <div><dt>Cost</dt><dd className={`fpl-mono${hits ? ' is-down' : ''}`}>{hits ? `−${hits} pts` : '0 pts'}</dd></div>
+        <div><dt>Bank</dt><dd className={`fpl-mono${bank < 0 ? ' is-down' : ''}`}>{fmtPrice(bank / 10)}</dd></div>
+        <div><dt>Predicted change</dt><dd className={`fpl-mono ${change - hits / 4 > 0 ? 'is-up' : change < 0 ? 'is-down' : ''}`}>{change >= 0 ? '+' : ''}{fmtPts(change)} pts/wk</dd></div>
+      </dl>
+      <Pitch rows={rows} card={card} className="is-squad" />
+      {pickSlot ? (
+        <div className="fpl-planner-pick">
+          <p className="fpl-mono fpl-meta">Replacing {pickSlot.player.webName} ({fmtPrice(pickSlot.player.price)})</p>
+          <InlineSwapSearch key={pickSlot.player.id} outSlot={pickSlot} squad={work} allPlayers={allPlayers} predictionsById={predictionsById} teamsById={teamsById} bankTenths={bank} onSwap={pick} />
+        </div>
+      ) : null}
+      <div className="fpl-planner-actions">
+        <button type="button" className="fpl-btn" onClick={autoPick} disabled={!gaps}><Sparkles size={15} aria-hidden="true" /> Auto pick</button>
+        <button type="button" className="fpl-btn" onClick={() => { setPlanned({}); setPickFor(null); }} disabled={!Object.keys(planned).length}><RotateCcw size={15} aria-hidden="true" /> Reset</button>
+        <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onConfirm(planned)} disabled={!made || gaps > 0}>Make transfers</button>
+      </div>
+      {gaps > 0 ? <p className="fpl-mono fpl-meta">Pick a player for every empty place, or use Auto pick.</p> : null}
+    </section>
+  );
+}
+
 function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onSaveTeamChanges, onResetTeamChanges, onRequestLoginToSave }) {
   const { squad, starters, bench, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById, activeChip } = data;
   const [editMode, setEditMode] = useState(false);
   const [editSlotId, setEditSlotId] = useState(null);
   const [chipPreview, setChipPreview] = useState(null);
+  const [view, setViewState] = useState(readTeamView);
+  const setView = v => { setViewState(v); saveTeamView(v); setEditMode(false); setSubFrom(null); };
+  // Substituting on the pitch: the player picked first.
+  const [subFrom, setSubFrom] = useState(null);
+  // The player whose details are open.
+  const [sheetId, setSheetId] = useState(null);
+  // The transfer planner, open with this player already taken out (or true).
+  const [planning, setPlanning] = useState(null);
   // A finished gameweek is a record of what happened: no editing, chip
   // planning or transfers.
   const canEdit = !isOptimalBuild && !isPastGw;
@@ -551,6 +738,16 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   function applySubstitution(aId, bId) {
     onSquadUpdate(substitutePlayers(squad, aId, bId, armband), bankTenths);
     setEditSlotId(null);
+  }
+
+  // Makes every transfer planned on the pitch at once.
+  function applyPlanned_(planned) {
+    const { work, bank } = applyPlanned(squad, bankTenths, planned, predictionsById);
+    const count = Object.values(planned).filter(Boolean).length;
+    if (!count || bank < 0) return;
+    onSquadUpdate(ensureCaptaincy(work, armband), bank);
+    setFreeTransfers(n => Math.max(0, n - count));
+    setPlanning(null);
   }
 
   function toggleRowEdit(playerId) {
@@ -666,6 +863,114 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         />
       )}
 
+            {captainSuggestion && !isOptimalBuild && (
+        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--sky)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+            {showCaptainSuggestion ? (
+              <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
+            ) : (
+              <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="fpl-team-toolbar">
+        <div className="fpl-seg" role="group" aria-label="Show the team as">
+          <button type="button" className={view === 'pitch' ? 'is-on' : ''} aria-pressed={view === 'pitch'} onClick={() => setView('pitch')}><LayoutGrid size={14} aria-hidden="true" /> Pitch</button>
+          <button type="button" className={view === 'list' ? 'is-on' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}><ListIcon size={14} aria-hidden="true" /> List</button>
+        </div>
+        {canEdit && view === 'pitch' && !planning ? (
+          <button type="button" className="fpl-btn" onClick={() => { setSubFrom(null); setPlanning(true); }}><ArrowLeftRight size={15} aria-hidden="true" /> Transfers</button>
+        ) : null}
+      </div>
+
+      {view === 'pitch' && planning ? (
+        <TransferPlanner
+          key={String(planning)}
+          squad={squad}
+          bankTenths={bankTenths}
+          allPlayers={allPlayers}
+          predictionsById={predictionsById}
+          teamsById={teamsById}
+          fixturesByTeam={fixturesByTeam}
+          freeTransfers={freeTransfers}
+          onFreeTransfers={setFreeTransfers}
+          startOut={planning === true ? null : planning}
+          onConfirm={applyPlanned_}
+          onCancel={() => setPlanning(null)}
+        />
+      ) : null}
+
+      {view === 'pitch' && !planning ? (() => {
+        const subSlot = subFrom ? squad.find(s => s.player.id === subFrom) : null;
+        const subOptions = subSlot ? new Set(substitutionOptions(squad, subSlot).map(s => s.player.id)) : null;
+        const card = slot => {
+          const id = slot.player.id;
+          const mult = slot.isStarting ? (slot.multiplier || 1) : 1;
+          const points = isPastGw
+            ? (slot.played === false ? '–' : (slot.actualPoints ?? 0) * mult)
+            : fmtPts(slot.predicted * mult);
+          const raw = isPastGw ? (slot.actualPoints ?? 0) : slot.predicted;
+          const tone = isPastGw ? (slot.played === false ? null : raw >= 6 ? 'high' : raw <= 1 ? 'low' : null) : (raw >= 5 ? 'high' : raw < 2 ? 'low' : null);
+          let state = null;
+          let onClick = () => setSheetId(id);
+          if (subSlot) {
+            state = id === subFrom ? 'selected' : subOptions.has(id) ? 'eligible' : 'dim';
+            onClick = id === subFrom ? () => setSubFrom(null)
+              : subOptions.has(id) ? () => { applySubstitution(subFrom, id); setSubFrom(null); }
+                : undefined;
+          }
+          return (
+            <PlayerCard
+              key={id}
+              slot={slot}
+              team={teamsById[slot.player.team]}
+              points={points}
+              pointsTone={tone}
+              info={isPastGw ? `pred ${fmtPts(slot.predicted)}` : nextFixtureLabel(slot.player, fixturesByTeam, teamsById)}
+              state={state}
+              onClick={onClick}
+            />
+          );
+        };
+        return (
+          <div className="fpl-team-pitch">
+            {subSlot ? (
+              <div className="fpl-sub-banner" role="status">
+                <span><b>Substituting {subSlot.player.webName}.</b> {subOptions.size ? 'Pick a highlighted player to swap with.' : 'No one can swap in without breaking the formation.'}</span>
+                <button type="button" className="fpl-link" onClick={() => setSubFrom(null)}>Cancel</button>
+              </div>
+            ) : canEdit ? (
+              <p className="fpl-mono fpl-meta">Tap a player to see their details, change the armband, substitute or transfer them.</p>
+            ) : null}
+            <Pitch starters={starters} bench={bench} card={card} />
+          </div>
+        );
+      })() : null}
+
+      {sheetId && squad.some(s => s.player.id === sheetId) ? (() => {
+        const slot = squad.find(s => s.player.id === sheetId);
+        return (
+          <PlayerSheet
+            slot={slot}
+            team={teamsById[slot.player.team]}
+            teamsById={teamsById}
+            fixturesByTeam={fixturesByTeam}
+            isPastGw={isPastGw}
+            canEdit={canEdit}
+            onClose={() => setSheetId(null)}
+            onCaptain={() => applyCaptainChange(slot.player.id, 'captain')}
+            onVice={() => applyCaptainChange(slot.player.id, 'vice')}
+            onSubstitute={() => { setSheetId(null); setSubFrom(slot.player.id); }}
+            onTransfer={() => { setSheetId(null); setPlanning(slot.player.id); }}
+          />
+        );
+      })() : null}
+
+      {view === 'list' ? (
+        <>
       {canEdit && (
         <button
           className={`fpl-btn ${editMode ? 'fpl-btn-solid' : ''}`}
@@ -679,19 +984,6 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       {canEdit && editMode && (
         <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
           Tap any player below to substitute them, transfer them out, or set captain/vice-captain.
-        </div>
-      )}
-
-      {captainSuggestion && !isOptimalBuild && (
-        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--sky)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
-          <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-            {showCaptainSuggestion ? (
-              <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
-            ) : (
-              <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
-            )}
-          </div>
         </div>
       )}
 
@@ -785,6 +1077,9 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         </div>
       )}
 
+        </>
+      ) : null}
+
       {chipTiming && (
         <div style={{ marginBottom: 16 }}>
           <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Chip timing</div>
@@ -847,13 +1142,8 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             </div>
           )}
           {visibleSuggestions.map((s, i) => (
-            <TransferCard key={i} suggestion={s} onApply={editMode ? applySwap : null} />
+            <TransferCard key={i} suggestion={s} onApply={canEdit ? applySwap : null} />
           ))}
-          {visibleSuggestions.length > 0 && !editMode && (
-            <button className="fpl-mono" onClick={() => setEditMode(true)} style={{ background: 'var(--panel)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid var(--line)', borderRadius: 4, color: 'var(--lime)', fontSize: '0.72rem', padding: '8px 10px', marginTop: 2, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-              Switch to edit mode to accept a suggestion
-            </button>
-          )}
         </div>
       )}
 

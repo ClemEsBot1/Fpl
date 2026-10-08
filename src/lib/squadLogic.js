@@ -104,15 +104,22 @@ export function substitutionOptions(squad, slot) {
   });
 }
 
-// Swaps two players between the XI and the bench. A benched player loses
-// their armband; if that was the captain's, ensureCaptaincy hands it on.
+// Swaps two players between the XI and the bench. They also swap places in
+// the squad's order, so the player benched takes the other's place on the
+// bench, as on FPL (the bench order is who comes on first). A benched
+// player loses their armband; if that was the captain's, ensureCaptaincy
+// hands it on.
 export function substitutePlayers(squad, aId, bId, armband = 2) {
-  const swapped = squad.map(s => {
+  const flipped = squad.map(s => {
     if (s.player.id !== aId && s.player.id !== bId) return s;
     const isStarting = !s.isStarting;
     if (isStarting) return { ...s, isStarting, multiplier: 1 };
     return { ...s, isStarting, isCaptain: false, isViceCaptain: false, multiplier: 0 };
   });
+  const a = flipped.findIndex(s => s.player.id === aId);
+  const b = flipped.findIndex(s => s.player.id === bId);
+  const swapped = [...flipped];
+  if (a >= 0 && b >= 0) [swapped[a], swapped[b]] = [flipped[b], flipped[a]];
   return ensureCaptaincy(swapped, armband);
 }
 
