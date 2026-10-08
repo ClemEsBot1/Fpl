@@ -13,7 +13,7 @@ import { summariseAccuracy } from './lib/accuracy.js';
 import { buildRecap, lastFinishedGw, leagueSlide, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { Bookmark, CalendarRange, Camera, Download, GitCompareArrows, History, House, Info, Radio, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
+import { Bookmark, CalendarRange, Camera, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
@@ -62,6 +62,7 @@ const leagueChunk = chunk(() => import('./screens/MiniLeagueScreen.jsx'));
 const recapChunk = chunk(() => import('./components/GwRecap.jsx'));
 const toolsChunk = chunk(() => import('./screens/ToolScreens.jsx'));
 const liveChunk = chunk(() => import('./screens/LiveScreen.jsx'));
+const adminChunk = chunk(() => import('./screens/AdminScreen.jsx'));
 const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk, recapChunk, toolsChunk, liveChunk];
 // For fetching a screen ahead of time; a failure shows up when it's opened.
 const preload = source => () => { source.load().catch(() => {}); };
@@ -82,6 +83,7 @@ const GwRecap = lazyScreen(recapChunk, 'GwRecap');
 const FixturesScreen = lazyScreen(toolsChunk, 'FixturesScreen');
 const CompareScreen = lazyScreen(toolsChunk, 'CompareScreen');
 const LiveScreen = lazyScreen(liveChunk, 'LiveScreen');
+const AdminScreen = lazyScreen(adminChunk, 'AdminScreen');
 
 // Shown instead of a blank page when a screen fails to render — most
 // likely its code couldn't be downloaded (offline, or the app was updated
@@ -118,6 +120,7 @@ function navSectionFor(stage, resultsData) {
     case 'fixtures': return 'fixtures';
     case 'compare': return 'compare';
     case 'live': return 'live';
+    case 'admin': return 'admin';
     case 'results':
       if (!resultsData) return null;
       if (resultsData.isOptimalBuild) return 'best';
@@ -182,7 +185,7 @@ function writeParams(values) {
 
 // The screen open is kept in the address too (?view=team, and ?team=123
 // for someone else's team), so a reload opens it again rather than Home.
-const RESTORABLE_VIEWS = ['team', 'league', 'screenshot', 'best', 'build', 'lookback', 'saved', 'fixtures', 'compare', 'live'];
+const RESTORABLE_VIEWS = ['team', 'league', 'screenshot', 'best', 'build', 'lookback', 'saved', 'fixtures', 'compare', 'live', 'admin'];
 
 // Players picked to compare (Compare players), kept on this device.
 const COMPARE_KEY = 'fpl_compare';
@@ -398,7 +401,7 @@ export default function FPLSquadChecker() {
 
   // Signed-in responses carry the account and its saved teams.
   function applyAccount(data) {
-    setSession({ username: data.username, email: data.email || '' });
+    setSession({ username: data.username, email: data.email || '', admin: !!data.admin });
     if (Array.isArray(data.teams)) setSavedTeams(data.teams);
     else fetchSavedTeams();
   }
@@ -1675,6 +1678,7 @@ export default function FPLSquadChecker() {
     ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', desc: 'Past gameweeks against the best XI', group: 'Tools', Icon: History, run: handleViewHindsight }] : []),
     { id: 'saved', label: 'Saved teams', desc: 'Team IDs and squads on your account', group: 'Tools', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
     { id: 'about', label: 'About this app', desc: 'What it does and how it predicts', group: 'App', Icon: Info, run: () => setStage('welcome') },
+    ...(session && session.admin ? [{ id: 'admin', label: 'Admin', desc: 'Model, data, reports and users', group: 'App', Icon: ShieldCheck, run: () => setStage('admin') }] : []),
     ...(install ? [{ id: 'install', label: 'Install the app', desc: 'Open it full screen, like an app', group: 'App', Icon: Download, run: install }] : []),
   ];
   // After a reload, reopen the screen that was open (see readViewParam).
@@ -1693,7 +1697,7 @@ export default function FPLSquadChecker() {
   }, [stage]);
 
   const showNav = stage !== 'welcome' && stage !== 'boot';
-  const wideStage = ['home', 'welcome', 'league', 'customBuild', 'fixtures', 'compare', 'live'].includes(stage);
+  const wideStage = ['home', 'welcome', 'league', 'customBuild', 'fixtures', 'compare', 'live', 'admin'].includes(stage);
   const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
   lastNavRef.current = activeNav;
 
@@ -1864,6 +1868,9 @@ export default function FPLSquadChecker() {
             {stage === 'compare' && liveStatic && (
               <CompareScreen staticData={liveStatic} compareIds={compareIds} onToggleCompare={toggleCompare} onClear={() => setCompareIds([])} />
             )}
+            {stage === 'admin' && (session && session.admin
+              ? <AdminScreen session={session} />
+              : <ErrorScreen message="This page is for admins only." retryLabel="Home" onRetry={() => setStage('home')} />)}
             {stage === 'myTeams' && (
               <MyTeamsScreen
                 teams={savedTeams}

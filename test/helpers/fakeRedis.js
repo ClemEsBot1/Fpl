@@ -19,6 +19,11 @@ export function fakeRedis() {
   };
   const redis = {
     async keys() { return data.keys(); },
+    // One page with every match: ['0', keys]. Only `prefix*` patterns.
+    async scan(cursor, match, pattern) {
+      const prefix = String(pattern || '*').replace(/\*$/, '');
+      return ['0', [...data.keys()].filter(k => k.startsWith(prefix))];
+    },
     async eval(script, numKeys, key, expected, next) {
       assert.equal(script, COMPARE_AND_SET_SCRIPT);
       if (data.get(key) !== expected) return 0;
