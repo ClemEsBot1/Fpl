@@ -1,7 +1,7 @@
 // "Best XI: last gameweek" — what was predicted vs. what scored best.
 import { AlertTriangle, Info, RotateCcw } from 'lucide-react';
 import { POSITION_LABELS, fmtPrice, fmtPts } from '../lib/format.js';
-import { POSITION_ORDER } from '../lib/predictions.js';
+import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 
 /* ----------------------------------------------------------------------------
    HINDSIGHT: BEST XI FOR A CLOSED GAMEWEEK
@@ -38,10 +38,21 @@ export function HindsightPlayerRow({ slot, teamsById }) {
 export function HindsightSquadColumn({ title, squad, score, teamsById }) {
   const starters = squad.filter(s => s.isStarting);
   const bench = squad.filter(s => !s.isStarting);
-  const grouped = POSITION_ORDER.map(posId => ({
-    posId,
-    players: starters.filter(s => s.player.positionId === posId),
-  })).filter(g => g.players.length > 0);
+  const card = slot => {
+    const mult = slot.isStarting ? (slot.multiplier || 1) : 1;
+    const club = teamsById[slot.player.team];
+    const pts = slot.actualPoints ?? 0;
+    return (
+      <PlayerCard
+        key={slot.player.id}
+        slot={slot}
+        team={club}
+        points={slot.played === false ? '–' : pts * mult}
+        pointsTone={slot.played === false ? null : pts >= 6 ? 'high' : pts <= 1 ? 'low' : null}
+        info={club ? club.short_name : ''}
+      />
+    );
+  };
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -49,20 +60,7 @@ export function HindsightSquadColumn({ title, squad, score, teamsById }) {
         <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: 0 }}>{title}</div>
         <div className="fpl-mono" style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(score)} <span style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', fontWeight: 500 }}>PTS</span></div>
       </div>
-      {/* Dark panels per position, the same as Best squad and My team. */}
-      {grouped.map(g => (
-        <div key={g.posId} style={{ marginBottom: 10 }}>
-          <div className="fpl-section-title">{POSITION_LABELS[g.posId]}</div>
-          <div className="fpl-block" style={{ borderTop: 'none' }}>
-            {g.players.map(slot => <HindsightPlayerRow key={slot.player.id} slot={slot} teamsById={teamsById} />)}
-          </div>
-        </div>
-      ))}
-      {bench.length > 0 && (
-        <div className="fpl-block fpl-mono" style={{ fontSize: '0.7rem', color: 'var(--ink-dim)', padding: '10px 12px' }}>
-          Bench: {bench.map(s => s.player.webName).join(', ')}
-        </div>
-      )}
+      <Pitch starters={starters} bench={bench} card={card} compact />
     </div>
   );
 }

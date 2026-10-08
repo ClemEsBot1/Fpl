@@ -202,4 +202,7 @@ test('a benched captain hands the armband on', () => {
   assert.equal(byId(15).multiplier, 1);
   assert.equal(byId(8).isCaptain, true, 'the vice-captain takes over');
   assert.equal(byId(8).multiplier, 2);
+  // The benched player takes the other's place in the order.
+  assert.equal(next.findIndex(s => s.player.id === 13), squad.findIndex(s => s.player.id === 15));
+  assert.equal(next.findIndex(s => s.player.id === 15), squad.findIndex(s => s.player.id === 13));
 });
