@@ -256,9 +256,23 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   const predicted = isBlankThisEvent ? 0 : Math.max(0, (epWindow + otherTerm * fixtureMult * availMult + oddsWindow * playing) * congestionMult);
   const nextMatchPredicted = Math.max(0, (epThisEvent + otherTerm * nextFixtureMult * availMult + oddsThisEvent * playing) * congestionMult);
   const baseAvail = Math.max(0, epPerMatch + otherTerm * availMult);
+  // Each of the next PLAN_GWS gameweeks on its own, for planning transfers
+  // week by week: [{ event, points }], the first being nextMatchPredicted.
+  // Later weeks use ep_next per match and the same fixture difficulty,
+  // availability and odds as the 4-week average.
+  const byGw = [];
+  for (let k = 0; k < PLAN_GWS; k++) {
+    const event = firstEvent + k;
+    if (event > 38) break;
+    const points = k === 0
+      ? nextMatchPredicted
+      : Math.max(0, fixtures.filter(f => f.event === event).reduce((sum, f) => sum + (epPerMatch + otherTerm * availMult) * fixtureMultFor(f) + oddsNudgeFor(event) * playing, 0));
+    byGw.push({ event, points: Math.round(points * 10) / 10 });
+  }
   return {
     predicted: Math.round(predicted * 10) / 10,
     nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
+    byGw,
     baseAvail,
     availNote,
     fixtureMult,
@@ -555,6 +569,9 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     totalPlayers: Number(bootstrap.total_players) || 0,
   };
 }
+
+// Gameweeks predicted one by one for the transfer plan (byGw).
+export const PLAN_GWS = 5;
 
 // Gameweeks counted as "recent" for minutes played.
 export const RECENT_MINUTES_GWS = 4;

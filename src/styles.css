@@ -877,3 +877,17 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-acc-pos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .fpl-acc-pos span { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); font-size: 0.72rem; color: var(--ink-dim); }
 .fpl-acc-pos b { color: var(--ink); margin-right: 4px; font-weight: 600; }
+
+/* The transfer plan over the next few gameweeks. */
+.fpl-plan { padding: 14px; margin-top: 12px; display: grid; gap: 10px; }
+.fpl-plan-h { margin: 0; font-size: 0.95rem; }
+.fpl-plan-weeks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fpl-plan-weeks li { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
+.fpl-plan-gw { color: var(--ink-dim); font-size: 0.75rem; }
+.fpl-plan-moves { display: grid; gap: 2px; min-width: 0; }
+.fpl-plan-move { overflow-wrap: anywhere; }
+.fpl-plan-move svg { vertical-align: -1px; color: var(--ink-dim); }
+.fpl-plan-ft { white-space: nowrap; font-size: 0.72rem; }
+.fpl-plan-hit { color: var(--red); font-weight: 700; }
+.fpl-plan-gain { color: var(--lime); }
+.fpl-plan .fpl-btn { justify-self: start; }

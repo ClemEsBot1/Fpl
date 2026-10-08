@@ -9,6 +9,7 @@ import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
 import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
+import { planTransfers } from '../lib/transferPlan.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
@@ -200,6 +201,57 @@ export function BenchOrderTip({ squad, onApply }) {
       </span>
       <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onApply(tip.order)}>Use it</button>
     </div>
+  );
+}
+
+// Transfers planned over the next few gameweeks (src/lib/transferPlan.js):
+// what to do each week, rolling or taking a hit where that pays, against
+// keeping the squad as it is. This week's moves can be made from here.
+export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers, predictionsById, onMakeMoves }) {
+  const plan = useMemo(() => {
+    const pointsById = {};
+    let events = [];
+    allPlayers.forEach(p => {
+      const byGw = predictionsById[p.id] && predictionsById[p.id].byGw;
+      if (!byGw) return;
+      pointsById[p.id] = byGw.map(w => w.points);
+      if (byGw.length > events.length) events = byGw.map(w => w.event);
+    });
+    return planTransfers({ squadPlayers: squad.map(s => s.player), bankTenths, freeTransfers, allPlayers, pointsById, events });
+  }, [squad, bankTenths, freeTransfers, allPlayers, predictionsById]);
+  if (!plan) return null;
+  const first = plan.weeks[0];
+  return (
+    <section className="fpl-block fpl-plan" aria-labelledby="plan-h">
+      <h3 id="plan-h" className="fpl-plan-h">Plan for the next {plan.weeks.length} gameweeks</h3>
+      <ol className="fpl-plan-weeks">
+        {plan.weeks.map(w => (
+          <li key={w.event}>
+            <span className="fpl-mono fpl-plan-gw">GW{w.event}</span>
+            <span className="fpl-plan-moves">
+              {w.moves.length ? w.moves.map(m => (
+                <span key={m.out.id} className="fpl-plan-move">
+                  {m.out.webName} <ArrowRight size={12} aria-label="for" /> <b>{m.in.webName}</b>
+                </span>
+              )) : <span className="fpl-meta">Roll the transfer</span>}
+            </span>
+            <span className="fpl-mono fpl-meta fpl-plan-ft">
+              {w.freeBefore} free{w.hits ? <b className="fpl-plan-hit"> −{w.hits * 4}</b> : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="fpl-meta" style={{ margin: 0 }}>
+        {plan.gain > 0
+          ? <><b className="fpl-plan-gain">+{fmtPts(plan.gain)} pts</b> over these weeks against making no transfers, hits included.</>
+          : 'No transfers beat keeping this squad over these weeks.'}
+      </p>
+      {first.moves.length && onMakeMoves ? (
+        <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onMakeMoves(first.moves)}>
+          Make the GW{first.event} {first.moves.length === 1 ? 'transfer' : 'transfers'}
+        </button>
+      ) : null}
+    </section>
   );
 }
 
@@ -1207,6 +1259,14 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           {visibleSuggestions.map((s, i) => (
             <TransferCard key={i} suggestion={s} onApply={canEdit ? applySwap : null} />
           ))}
+          <TransferPlanCard
+            squad={squad}
+            bankTenths={bankTenths}
+            freeTransfers={freeTransfers}
+            allPlayers={allPlayers}
+            predictionsById={predictionsById}
+            onMakeMoves={moves => applyPlanned_(Object.fromEntries(moves.map(m => [m.out.id, m.in])))}
+          />
         </div>
       )}
 
