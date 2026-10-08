@@ -2,11 +2,11 @@
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Anchor, Armchair, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
+import { Anchor, Armchair, Scale, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { fmtPrice, fmtPts } from '../lib/format.js';
-import { expectedPositions, forEachLimited, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { expectedPositions, forEachLimited, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
 
 const LEAGUE_KEY = 'fpl_league_id';
 // Members' teams are fetched a few at a time, so a 50-team league doesn't
@@ -137,9 +137,57 @@ function LeagueAnalysis({ members, teams, playersById, liveGwId, total }) {
   );
 }
 
+// Where your team differs from the league's this week: the players you
+// have more of than the league (your edge), the ones it has more of (the
+// threat), and against the team just above you.
+function LeagueDifferentials({ members, teams, youEntry, liveGwId }) {
+  const d = useMemo(() => leagueDifferentials(members, teams, youEntry), [members, teams, youEntry]);
+  if (!d) return null;
+  const list = (rows, sign) => (
+    <ul className="fpl-diff-list">
+      {rows.map(r => (
+        <li key={r.player.id}>
+          <span className="fpl-diff-name">{r.player.webName}</span>
+          <span className="fpl-mono fpl-meta">you ×{r.yours} · league ×{r.eo.toFixed(1)}</span>
+          <span className={`fpl-mono fpl-diff-swing${sign > 0 ? ' is-up' : ' is-down'}`}>{sign > 0 ? '+' : '−'}{fmtPts(Math.abs(r.swing))}</span>
+        </li>
+      ))}
+      {!rows.length ? <li className="fpl-meta">None</li> : null}
+    </ul>
+  );
+  const r = d.rival;
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="diff-h">
+      <div className="fpl-home-team-head">
+        <h2 id="diff-h" className="fpl-home-h"><Scale size={18} aria-hidden="true" /> Your differentials</h2>
+        <span className="fpl-mono fpl-home-meta">{d.counted} teams</span>
+      </div>
+      {r ? (
+        <p className="fpl-home-text fpl-diff-rival">
+          {r.ahead ? <><b>{r.teamName}</b> is {r.gap} pts ahead. </> : <>You lead <b>{r.teamName}</b> by {r.gap} pts. </>}
+          Your differing players are predicted to {r.swing >= 0 ? 'gain' : 'lose'} you <b className={r.swing >= 0 ? 'fpl-diff-up' : 'fpl-diff-down'}>{fmtPts(Math.abs(r.swing))} pts</b> on them this week
+          {r.yourEdge.length ? <> (yours: {r.yourEdge.map(x => x.player.webName).join(', ')}</> : <> (</>}
+          {r.theirEdge.length ? <>{r.yourEdge.length ? '; ' : ''}theirs: {r.theirEdge.map(x => x.player.webName).join(', ')})</> : ')'}.
+        </p>
+      ) : null}
+      <div className="fpl-diff-grid">
+        <div>
+          <h3 className="fpl-home-sub">Your edge</h3>
+          {list(d.edges, 1)}
+        </div>
+        <div>
+          <h3 className="fpl-home-sub">The threat</h3>
+          {list(d.threats, -1)}
+        </div>
+      </div>
+      <p className="fpl-home-hint">×1.4 means the league scores that player's points 1.4 times on average (a captain counts twice, the bench not at all). The number is the points he's predicted to swing for you against the league in Gameweek {liveGwId || '–'}.</p>
+    </section>
+  );
+}
+
 // One league's standings with each member's predicted points; mounted
 // afresh for each league picked.
-function LeagueTable({ leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam }) {
+function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam }) {
   // A gameweek that has started is shown as it stood after it; the one
   // being planned with the latest points and its predictions.
   const started = !!(gwId && targetGwId && gwId < targetGwId);
@@ -276,7 +324,7 @@ function LeagueTable({ leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinis
               </>
             ) : (
               <>
-                {liveGwId ? `Live is each team's points so far in Gameweek ${liveGwId}, before automatic subs. ` : ''}
+                {liveGwId ? `Live is each team's points so far in Gameweek ${liveGwId}, with bonus from the bonus points system until it's confirmed and automatic subs. ` : ''}
                 Predicted is each team's starting XI for {gwName || 'the next gameweek'}, captain doubled.
                 Expected is the position if every team scores its prediction.
               </>
@@ -286,9 +334,14 @@ function LeagueTable({ leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinis
         </>
       )}
     </section>
+    <div className="fpl-league-side">
     {standings.status === 'ready' && standings.data.members.length > 1 && (
       <LeagueAnalysis members={shownMembers} teams={teams} playersById={playersById} liveGwId={liveGwId} total={standings.data.members.length} />
     )}
+    {standings.status === 'ready' && homeTeamId && standings.data.members.some(m => String(m.entry) === String(homeTeamId)) && (
+      <LeagueDifferentials members={shownMembers} teams={teams} youEntry={standings.data.members.find(m => String(m.entry) === String(homeTeamId)).entry} liveGwId={gwId} />
+    )}
+    </div>
     </div>
   );
 }
@@ -360,7 +413,7 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
 
       {leagueId && (
         // Mounted afresh for each league and gameweek.
-        <LeagueTable key={`${leagueId}-${gwId}`} leagueId={leagueId} gwId={gwId} targetGwId={targetGwId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} />
+        <LeagueTable key={`${leagueId}-${gwId}`} homeTeamId={homeTeamId} leagueId={leagueId} gwId={gwId} targetGwId={targetGwId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} />
       )}
     </div>
   );

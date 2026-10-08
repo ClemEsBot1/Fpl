@@ -813,6 +813,17 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-seg button.is-on { background: rgba(255,255,255,0.14); color: var(--ink); }
 .fpl-seg button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .fpl-team-pitch { display: grid; gap: 10px; margin-bottom: 18px; }
+.fpl-captain-card { padding: 12px; margin-bottom: 16px; border-left: 3px solid; display: flex; gap: 10px; align-items: flex-start; }
+.fpl-captain-picks { display: grid; gap: 8px; margin-top: 10px; }
+.fpl-captain-pick { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: baseline; }
+.fpl-captain-pick-label { grid-row: span 2; font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); min-width: 84px; }
+.fpl-captain-pick-name { font-weight: 700; }
+.fpl-captain-pick .fpl-meta { grid-column: 2; }
+.fpl-captain-pick .fpl-link { grid-column: 3; grid-row: 1 / span 2; align-self: center; white-space: nowrap; }
+.fpl-bench-tip { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(206,255,16,0.08); border: 1px solid rgba(206,255,16,0.35); font-size: 0.85rem; line-height: 1.4; }
+.fpl-bench-tip > svg { flex: none; color: var(--lime); }
+.fpl-bench-tip > span { flex: 1; min-width: 0; }
+.fpl-bench-tip .fpl-btn { flex: none; padding: 7px 12px; font-size: 0.8rem; }
 .fpl-sub-banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255,90,90,0.16); border: 1px solid rgba(255,90,90,0.5); font-size: 0.85rem; }
 .fpl-sheet .fpl-dialog-card { display: grid; gap: 14px; }
 .fpl-sheet-head { display: flex; align-items: center; gap: 14px; padding-right: 28px; }
@@ -861,3 +872,126 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 }
 .fpl-builder-page { padding: 20px 16px 100px; }
 @media (min-width: 900px) { .fpl-builder-page { padding: 28px 32px 60px; } }
+
+/* Typical miss by position, under the accuracy facts. */
+.fpl-acc-pos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.fpl-acc-pos span { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-acc-pos b { color: var(--ink); margin-right: 4px; font-weight: 600; }
+
+/* The transfer plan over the next few gameweeks. */
+.fpl-plan { padding: 14px; margin-top: 12px; display: grid; gap: 10px; }
+.fpl-plan-h { margin: 0; font-size: 0.95rem; }
+.fpl-plan-weeks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fpl-plan-weeks li { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
+.fpl-plan-gw { color: var(--ink-dim); font-size: 0.75rem; }
+.fpl-plan-moves { display: grid; gap: 2px; min-width: 0; }
+.fpl-plan-move { overflow-wrap: anywhere; }
+.fpl-plan-move svg { vertical-align: -1px; color: var(--ink-dim); }
+.fpl-plan-ft { white-space: nowrap; font-size: 0.72rem; }
+.fpl-plan-hit { color: var(--red); font-weight: 700; }
+.fpl-plan-gain { color: var(--lime); }
+.fpl-plan .fpl-btn { justify-self: start; }
+
+/* Tool screens: Fixtures, Compare players, Live. */
+.fpl-tool { padding: 20px 16px 100px; display: grid; gap: 14px; min-width: 0; }
+@media (min-width: 900px) { .fpl-tool { padding: 28px 32px 60px; } }
+.fpl-tool-head { display: grid; gap: 4px; }
+.fpl-tool-h { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.5rem; letter-spacing: -0.01em; }
+.fpl-tool-sub { margin: 0; color: var(--ink-dim); font-size: 0.9rem; line-height: 1.5; max-width: 62ch; }
+.fpl-tool-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.fpl-tool-note { margin: 0; font-size: 0.85rem; color: var(--ink-dim); }
+.fpl-tool-note b { color: var(--ink); }
+.fpl-tool-card { padding: 14px; display: grid; gap: 12px; min-width: 0; }
+
+.fpl-ticker-full { min-width: 560px; }
+.fpl-ticker-full thead th.is-double { color: var(--lime); }
+.fpl-ticker-full thead th.is-blank { color: var(--amber); }
+.fpl-ticker-full td { min-width: 52px; }
+.fpl-ticker-fx.is-small { padding: 3px 2px; font-size: 0.62rem; }
+.fpl-ticker-club { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 4px 0 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.fpl-ticker-shirt { display: inline-block; width: 22px; height: 22px; }
+.fpl-ticker-shirt .fpl-shirt { width: 100%; height: 100%; object-fit: contain; }
+.fpl-ticker-chev { color: var(--ink-dim); transition: transform 160ms ease; }
+.fpl-ticker-club[aria-expanded="true"] .fpl-ticker-chev { transform: rotate(180deg); }
+.fpl-ticker-detail td { padding: 4px 0 10px; }
+.fpl-ticker-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-ticker-legend i { width: 18px; height: 10px; border-radius: 3px; }
+.fpl-ticker-legend-note { margin-left: auto; }
+
+.fpl-club-players { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; }
+.fpl-club-table { width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; }
+.fpl-club-table th, .fpl-club-table td { padding: 5px 6px; text-align: left; white-space: nowrap; }
+.fpl-club-table thead th { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
+.fpl-club-table tbody tr + tr { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-club-pts { color: var(--lime); font-weight: 700; }
+.fpl-club-flag { color: var(--amber); font-weight: 700; }
+.fpl-compare-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 0.72rem; }
+.fpl-compare-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.fpl-compare-add { max-width: 420px; }
+.fpl-compare-wrap { overflow-x: auto; }
+.fpl-compare { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: calc(130px + var(--cols) * 120px); }
+.fpl-compare col:first-child, .fpl-compare tbody th { width: 130px; }
+.fpl-compare thead th { vertical-align: top; padding: 0 6px 12px; text-align: center; font-weight: 400; }
+.fpl-compare thead th > span { display: block; }
+.fpl-compare-shirt { width: 56px; height: 56px; margin: 0 auto 4px; }
+.fpl-compare-shirt .fpl-shirt { width: 100%; height: 100%; object-fit: contain; }
+.fpl-compare-name { font-weight: 700; font-size: 1rem; overflow-wrap: anywhere; }
+.fpl-compare-flag { color: var(--amber); font-size: 0.72rem; margin-top: 2px; }
+.fpl-compare-remove { font-size: 0.75rem; margin-top: 4px; }
+.fpl-compare tbody th { text-align: left; font-weight: 500; font-size: 0.8rem; color: var(--ink-dim); padding: 7px 6px 7px 0; }
+.fpl-compare tbody td { text-align: center; padding: 7px 6px; font-size: 0.85rem; border-radius: 6px; }
+.fpl-compare tbody tr + tr > * { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-compare td.is-best { background: rgba(206,255,16,0.12); color: var(--lime); font-weight: 700; }
+.fpl-compare-fx { display: flex; justify-content: center; gap: 3px; margin-top: 3px; }
+.fpl-compare-fx .fpl-ticker-fx { min-width: 34px; }
+.fpl-ticker-full thead th:first-child, .fpl-ticker-full tbody th { width: 96px; }
+@media (max-width: 599px) {
+  .fpl-compare { min-width: calc(84px + var(--cols) * 86px); }
+  .fpl-compare col:first-child, .fpl-compare tbody th { width: 84px; font-size: 0.72rem; }
+  .fpl-compare thead th { padding: 0 3px 10px; }
+  .fpl-compare-shirt { width: 44px; height: 44px; }
+  .fpl-compare-name { font-size: 0.85rem; }
+  .fpl-compare tbody td { padding: 6px 3px; font-size: 0.78rem; }
+  .fpl-compare-fx .fpl-ticker-fx { min-width: 30px; }
+}
+
+/* Live gameweek. */
+.fpl-live-grid { display: grid; gap: 14px; min-width: 0; }
+@media (min-width: 1000px) { .fpl-live-grid { grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); align-items: start; } }
+.fpl-live-total { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.fpl-live-total > b { font-size: 2.6rem; line-height: 1; color: var(--lime); font-variant-numeric: tabular-nums; }
+.fpl-live-total .fpl-meta b { color: var(--ink); }
+.fpl-live-matches { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fpl-live-match { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid transparent; }
+.fpl-live-match.is-live { border-color: rgba(206,255,16,0.45); background: rgba(206,255,16,0.06); }
+.fpl-live-score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+.fpl-live-team { font-weight: 700; }
+.fpl-live-team:first-child { text-align: right; }
+.fpl-live-goals { font-size: 1.05rem; font-weight: 700; min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; }
+.fpl-live-status { font-size: 0.72rem; color: var(--ink-dim); text-align: right; white-space: nowrap; }
+.fpl-live-status.is-live { color: var(--lime); font-weight: 700; }
+.fpl-live-bonus { grid-column: 1 / -1; margin: 0; font-size: 0.78rem; line-height: 1.4; }
+
+/* Mini-league: analysis and differentials stacked beside the table. */
+.fpl-league-side { display: grid; gap: 16px; min-width: 0; align-content: start; }
+.fpl-diff-grid { display: grid; gap: 14px; }
+@media (min-width: 600px) { .fpl-diff-grid { grid-template-columns: 1fr 1fr; } }
+.fpl-diff-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.fpl-diff-list li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; align-items: baseline; font-size: 0.85rem; }
+.fpl-diff-list .fpl-meta { grid-column: 1; font-size: 0.7rem; }
+.fpl-diff-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.fpl-diff-swing { grid-column: 2; grid-row: 1 / span 2; font-weight: 700; }
+.fpl-diff-swing.is-up, .fpl-diff-up { color: var(--lime); }
+.fpl-diff-swing.is-down, .fpl-diff-down { color: var(--red); }
+.fpl-diff-rival { margin: 0; }
+
+/* Alerts on Home. */
+.fpl-alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fpl-alert { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border-left: 3px solid var(--sky); font-size: 0.85rem; line-height: 1.4; }
+.fpl-alert.is-warn { border-left-color: var(--amber); }
+.fpl-alert > svg { margin-top: 2px; color: var(--ink-dim); }
+.fpl-alert.is-warn > svg { color: var(--amber); }
+.fpl-alert b { display: block; }
+.fpl-alert .fpl-meta { display: block; font-size: 0.78rem; }
+.fpl-home-team-head .fpl-link[aria-pressed] { display: inline-flex; align-items: center; gap: 6px; }

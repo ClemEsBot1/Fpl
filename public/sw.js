@@ -88,3 +88,14 @@ self.addEventListener('fetch', event => {
     return refresh;
   })());
 });
+
+// Tapping a notification (see src/lib/notify.js) brings the app forward,
+// or opens it.
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (open.length) return open[0].focus();
+    return self.clients.openWindow('/');
+  })());
+});

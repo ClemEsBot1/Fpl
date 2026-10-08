@@ -1,7 +1,7 @@
 // Browser-side data loading: FPL data through the /api/fpl proxy, plus the
 // cached player-history and odds blobs.
-import { buildStaticDataFromRaw } from './predictions.js';
-import { applyAsOfStats } from './asOf.js';
+import { buildStaticDataFromRaw, getTargetEvent } from './predictions.js';
+import { applyAsOfStats, recentMinutesFromAsOf } from './asOf.js';
 
 // FPL turns some requests away when many arrive at once (a mini-league
 // loads several calls per team), and the proxy can time out. Those are
@@ -62,14 +62,30 @@ export async function fetchOdds() {
   }
 }
 
+// Minutes each player played in the last few gameweeks (api/recent-minutes),
+// for marking down players who have lost their place. Best-effort like the
+// two above: without it predictions just skip that step.
+export async function fetchRecentMinutes() {
+  try {
+    const r = await fetch('/api/recent-minutes', { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function loadStaticData() {
-  const [bootstrap, fixturesRaw, playerHistoryData, oddsData] = await Promise.all([
+  const [bootstrap, fixturesRaw, playerHistoryData, oddsData, recent] = await Promise.all([
     fetchFplJson('bootstrap-static/'),
     fetchFplJson('fixtures/'),
     fetchPlayerHistory(),
     fetchOdds(),
+    fetchRecentMinutes(),
   ]);
-  const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData });
+  const target = getTargetEvent(bootstrap.events);
+  const recentMinutesById = recent && target && recent.gwId === target.id ? recent.minutes : null;
+  const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData, recentMinutesById });
   // Kept so a past gameweek can be rebuilt "as of" its deadline.
   return { ...staticData, raw: { bootstrap, fixturesRaw, playerHistoryData } };
 }
@@ -84,7 +100,7 @@ export async function loadStaticDataAsOf(base, gwId) {
   const asOf = await r.json();
   const bootstrap = applyAsOfStats(base.raw.bootstrap, asOf);
   const staticData = buildStaticDataFromRaw(bootstrap, base.raw.fixturesRaw, {
-    forceGwId: gwId, playerHistoryData: base.raw.playerHistoryData, oddsData: null,
+    forceGwId: gwId, playerHistoryData: base.raw.playerHistoryData, oddsData: null, recentMinutesById: recentMinutesFromAsOf(asOf),
   });
   return { ...staticData, raw: base.raw, asOfGwId: gwId };
 }

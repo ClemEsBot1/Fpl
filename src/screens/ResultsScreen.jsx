@@ -7,6 +7,9 @@ import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
 import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
+import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
+import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
+import { planTransfers } from '../lib/transferPlan.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
@@ -38,7 +41,7 @@ export function PredictionBreakdown({ breakdown }) {
   const adjustmentRows = [];
   if (b.setPieceBonus) adjustmentRows.push(['Set-piece duty (pens/FKs/corners)', b.setPieceBonus]);
   if (b.xgAdjustment) adjustmentRows.push(['Underlying chances (xG/xA)', b.xgAdjustment]);
-  if (b.oddsAdjustment) adjustmentRows.push(['Bookmaker odds nudge', b.oddsAdjustment]);
+  if (b.oddsAdjustment) adjustmentRows.push(['Bookmaker odds (this gameweek, every match)', b.oddsAdjustment]);
 
   // Multipliers applied to the base above to reach the final predicted
   // figures — shown as ×values, not deltas, since that's what they are.
@@ -54,6 +57,7 @@ export function PredictionBreakdown({ breakdown }) {
   }
   if (b.availMult < 1) multRows.push(['Availability (not on ep_next)', `×${b.availMult.toFixed(2)}`]);
   if (b.congestionMult < 1) multRows.push(['Short rest', `×${b.congestionMult.toFixed(2)} (${b.restDays}d since last match)`]);
+  if (b.minutesMult < 1) multRows.push(['Fewer minutes lately', `×${b.minutesMult.toFixed(2)} (${Math.round((b.recentMinutesShare || 0) * 100)}% of the last 4 gameweeks' minutes)`]);
 
   return (
     <div className="fpl-block" style={{ padding: 12, marginTop: 2, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
@@ -178,6 +182,76 @@ export function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
         Vice-captain
       </label>
     </div>
+  );
+}
+
+// A better order for the outfield substitutes, when one is worth having:
+// FPL brings them on in order, so the likeliest scorer who can cover a
+// doubtful starter should be first (see src/lib/bench.js).
+export function BenchOrderTip({ squad, onApply }) {
+  const tip = useMemo(() => suggestBenchOrder(squad), [squad]);
+  if (!tip || tip.gain < 0.1) return null;
+  const name = id => squad.find(s => s.player.id === id).player.webName;
+  return (
+    <div className="fpl-bench-tip" role="status">
+      <ArrowUpDown size={16} aria-hidden="true" />
+      <span>
+        <b>Better bench order: {tip.order.map(name).join(', ')}.</b>{' '}
+        <span className="fpl-mono">+{fmtPts(tip.gain)} pts expected</span> if a doubtful starter misses out.
+      </span>
+      <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onApply(tip.order)}>Use it</button>
+    </div>
+  );
+}
+
+// Transfers planned over the next few gameweeks (src/lib/transferPlan.js):
+// what to do each week, rolling or taking a hit where that pays, against
+// keeping the squad as it is. This week's moves can be made from here.
+export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers, predictionsById, onMakeMoves }) {
+  const plan = useMemo(() => {
+    const pointsById = {};
+    let events = [];
+    allPlayers.forEach(p => {
+      const byGw = predictionsById[p.id] && predictionsById[p.id].byGw;
+      if (!byGw) return;
+      pointsById[p.id] = byGw.map(w => w.points);
+      if (byGw.length > events.length) events = byGw.map(w => w.event);
+    });
+    return planTransfers({ squadPlayers: squad.map(s => s.player), bankTenths, freeTransfers, allPlayers, pointsById, events });
+  }, [squad, bankTenths, freeTransfers, allPlayers, predictionsById]);
+  if (!plan) return null;
+  const first = plan.weeks[0];
+  return (
+    <section className="fpl-block fpl-plan" aria-labelledby="plan-h">
+      <h3 id="plan-h" className="fpl-plan-h">Plan for the next {plan.weeks.length} gameweeks</h3>
+      <ol className="fpl-plan-weeks">
+        {plan.weeks.map(w => (
+          <li key={w.event}>
+            <span className="fpl-mono fpl-plan-gw">GW{w.event}</span>
+            <span className="fpl-plan-moves">
+              {w.moves.length ? w.moves.map(m => (
+                <span key={m.out.id} className="fpl-plan-move">
+                  {m.out.webName} <ArrowRight size={12} aria-label="for" /> <b>{m.in.webName}</b>
+                </span>
+              )) : <span className="fpl-meta">Roll the transfer</span>}
+            </span>
+            <span className="fpl-mono fpl-meta fpl-plan-ft">
+              {w.freeBefore} free{w.hits ? <b className="fpl-plan-hit"> −{w.hits * 4}</b> : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="fpl-meta" style={{ margin: 0 }}>
+        {plan.gain > 0
+          ? <><b className="fpl-plan-gain">+{fmtPts(plan.gain)} pts</b> over these weeks against making no transfers, hits included.</>
+          : 'No transfers beat keeping this squad over these weeks.'}
+      </p>
+      {first.moves.length && onMakeMoves ? (
+        <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onMakeMoves(first.moves)}>
+          Make the GW{first.event} {first.moves.length === 1 ? 'transfer' : 'transfers'}
+        </button>
+      ) : null}
+    </section>
   );
 }
 
@@ -775,6 +849,11 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   })).filter(g => g.players.length > 0);
 
   const viewedGwName = (isPastGw && allEvents && data.gwId) ? ((allEvents.find(e => e.id === data.gwId) || {}).name) : null;
+  const captainPicks = useMemo(() => {
+    if (!captainSuggestion || isOptimalBuild) return null;
+    const options = captainOptions(starters);
+    return { safe: options[0], diff: differentialCaptain(options) };
+  }, [captainSuggestion, isOptimalBuild, starters]);
   const showCaptainSuggestion = captainSuggestion && (!captain || captain.player.id !== captainSuggestion.player.id) && captainSuggestion.nextMatchPredicted > (captain ? captain.nextMatchPredicted : 0) + 0.3;
 
   return (
@@ -877,15 +956,34 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         />
       )}
 
-            {captainSuggestion && !isOptimalBuild && (
-        <div className="fpl-block" style={{ padding: 12, marginBottom: 16, borderLeft: `3px solid ${showCaptainSuggestion ? 'var(--sky)' : 'var(--green)'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      {captainSuggestion && !isOptimalBuild && (
+        <div className="fpl-block fpl-captain-card" style={{ borderLeftColor: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)' }}>
           <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
-          <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '0.85rem', lineHeight: 1.5, minWidth: 0, flex: 1 }}>
             {showCaptainSuggestion ? (
               <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
             ) : (
               <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
             )}
+            {captainPicks ? (
+              <div className="fpl-captain-picks">
+                {[['Safe', captainPicks.safe], ['Differential', captainPicks.diff]].filter(([, o]) => o).map(([label, o]) => (
+                  <div key={label} className="fpl-captain-pick">
+                    <span className="fpl-mono fpl-captain-pick-label">{label}</span>
+                    <span className="fpl-captain-pick-name">{o.slot.player.webName}</span>
+                    <span className="fpl-mono fpl-meta">{fmtPts(o.expected)} pts · {Math.round(o.haul * 100)}% chance of 10+ · {o.owned.toFixed(1)}% owned</span>
+                    {canEdit && (!captain || captain.player.id !== o.slot.player.id) ? (
+                      <button type="button" className="fpl-link" onClick={() => applyCaptainChange(o.slot.player.id, 'captain')}>Captain him</button>
+                    ) : null}
+                  </div>
+                ))}
+                {captainPicks.diff ? (
+                  <p className="fpl-meta" style={{ margin: 0 }}>
+                    The differential is for climbing rank: fewer managers own {captainPicks.diff.slot.player.webName}, so if he hauls you gain on far more of them. The safe pick is the most points on average.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -962,6 +1060,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
               <p className="fpl-mono fpl-meta">Tap a player to see their details, change the armband, substitute or transfer them.</p>
             ) : null}
             <Pitch starters={starters} bench={bench} card={card} />
+            {canEdit && !subSlot ? <BenchOrderTip squad={squad} onApply={order => onSquadUpdate(applyBenchOrder(squad, order), bankTenths)} /> : null}
           </div>
         );
       })() : null}
@@ -1160,6 +1259,14 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           {visibleSuggestions.map((s, i) => (
             <TransferCard key={i} suggestion={s} onApply={canEdit ? applySwap : null} />
           ))}
+          <TransferPlanCard
+            squad={squad}
+            bankTenths={bankTenths}
+            freeTransfers={freeTransfers}
+            allPlayers={allPlayers}
+            predictionsById={predictionsById}
+            onMakeMoves={moves => applyPlanned_(Object.fromEntries(moves.map(m => [m.out.id, m.in])))}
+          />
         </div>
       )}
 

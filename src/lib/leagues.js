@@ -199,3 +199,75 @@ export function leagueHighlights(members, teams) {
   ];
   return { managers, players, counted: rows.length };
 }
+
+// A slot's armband multiplier for this week: 0 on the bench, 2 or 3 for the
+// captain, otherwise 1.
+const multOf = slot => (typeof slot.multiplier === 'number' ? slot.multiplier : slot.isStarting ? (slot.isCaptain ? 2 : 1) : 0);
+
+// Effective ownership in the league: for each player, the average
+// multiplier across members whose teams have loaded (a captain counts 2,
+// a benched player 0), so 1.2 means the league scores his points 1.2 times
+// on average. { counted, byId: { [id]: eo } }.
+export function leagueOwnership(members, teams) {
+  const ready = members.filter(m => teams[m.entry] && teams[m.entry].status === 'ready' && Array.isArray(teams[m.entry].squad) && teams[m.entry].squad.length);
+  const sum = {};
+  ready.forEach(m => teams[m.entry].squad.forEach(slot => { sum[slot.player.id] = (sum[slot.player.id] || 0) + multOf(slot); }));
+  const byId = {};
+  Object.entries(sum).forEach(([id, total]) => { byId[id] = total / ready.length; });
+  return { counted: ready.length, byId };
+}
+
+// Where your team differs from the league's this week, in expected points:
+// `edges` are players you have more of than the league (if they score, you
+// gain on most members), `threats` ones the league has more of. Each
+// { player, yours, eo, swing } with swing = (yours − eo) × predicted.
+// `rival` compares you with the member just above you (the one just below
+// if you lead): the points between you and what your differing players are
+// predicted to swing this week.
+export function leagueDifferentials(members, teams, youEntry, { limit = 5 } = {}) {
+  const you = teams[youEntry];
+  if (!you || you.status !== 'ready' || !Array.isArray(you.squad) || !you.squad.length) return null;
+  const { counted, byId } = leagueOwnership(members, teams);
+  if (counted < 2) return null;
+  const predictedOf = slot => slot.nextMatchPredicted ?? slot.predicted ?? 0;
+  const mine = new Map(you.squad.map(s => [s.player.id, s]));
+  const rows = new Map();
+  you.squad.forEach(s => rows.set(s.player.id, { player: s.player, yours: multOf(s), predicted: predictedOf(s) }));
+  members.forEach(m => {
+    const t = teams[m.entry];
+    if (!t || t.status !== 'ready' || !Array.isArray(t.squad)) return;
+    t.squad.forEach(s => { if (!rows.has(s.player.id)) rows.set(s.player.id, { player: s.player, yours: 0, predicted: predictedOf(s) }); });
+  });
+  const all = [...rows.values()].map(r => ({ ...r, eo: byId[r.player.id] || 0, swing: ((r.yours - (byId[r.player.id] || 0)) * r.predicted) }));
+  const round = v => Math.round(v * 10) / 10;
+  const edges = all.filter(r => r.swing > 0.05).sort((a, b) => b.swing - a.swing).slice(0, limit).map(r => ({ ...r, eo: round(r.eo), swing: round(r.swing) }));
+  const threats = all.filter(r => r.swing < -0.05).sort((a, b) => a.swing - b.swing).slice(0, limit).map(r => ({ ...r, eo: round(r.eo), swing: round(r.swing) }));
+
+  // The member just above you, or just below if you lead.
+  const order = [...members].sort((a, b) => a.rank - b.rank);
+  const at = order.findIndex(m => m.entry === youEntry);
+  let rival = null;
+  const other = at > 0 ? order[at - 1] : order[1];
+  const theirs = other && teams[other.entry];
+  if (at >= 0 && theirs && theirs.status === 'ready' && Array.isArray(theirs.squad)) {
+    const theirMult = new Map(theirs.squad.map(s => [s.player.id, s]));
+    const ids = new Set([...mine.keys(), ...theirMult.keys()]);
+    const diff = [...ids].map(id => {
+      const a = mine.get(id);
+      const b = theirMult.get(id);
+      const slot = a || b;
+      return { player: slot.player, swing: round((multOf(a || {}) - multOf(b || {})) * predictedOf(slot)) };
+    }).filter(d => Math.abs(d.swing) >= 0.05);
+    const you_ = order[at];
+    rival = {
+      teamName: other.teamName,
+      entry: other.entry,
+      ahead: at > 0,
+      gap: Math.abs((other.total || 0) - (you_.total || 0)),
+      swing: round(diff.reduce((s, d) => s + d.swing, 0)),
+      yourEdge: diff.filter(d => d.swing > 0).sort((a, b) => b.swing - a.swing).slice(0, 3),
+      theirEdge: diff.filter(d => d.swing < 0).sort((a, b) => a.swing - b.swing).slice(0, 3),
+    };
+  }
+  return { counted, edges, threats, rival };
+}

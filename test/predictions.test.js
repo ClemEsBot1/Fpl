@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM,
+  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
 } from '../src/lib/predictions.js';
 
 // A deterministic synthetic league: 20 clubs × 25 players, with prices and
@@ -199,8 +199,8 @@ test("ep_next isn't scaled for fitness a second time", () => {
   const fit = predictionFor({ ep_next: '6.0', status: 'a', chance_of_playing_next_round: null }).pred;
   const doubt = predictionFor({ ep_next: '6.0', status: 'd', chance_of_playing_next_round: 50 }).pred;
   // FPL already halves ep_next for a 50% player, so only the other inputs
-  // (55% of the base) are halved again here.
-  const epShare = 0.45 * 6.0;
+  // (40% of the base) are halved again here.
+  const epShare = DEFAULT_PREDICTION_WEIGHTS.epNext * 6.0;
   const expected = epShare + (fit.nextMatchPredicted - epShare) * 0.5;
   assert.ok(Math.abs(doubt.nextMatchPredicted - expected) < 0.11, `${doubt.nextMatchPredicted} vs ${expected}`);
 });
@@ -251,4 +251,43 @@ test('the app stays on the gameweek being played until its matches are over', ()
   events[1].finished = true;
   assert.equal(getDefaultEvent(events, now).id, 8, 'GW7 over: on to GW8');
   assert.equal(getDefaultEvent([ev(1, 3, false), ev(2, 10, false)], now).id, 1, 'before the season');
+});
+
+test('a player who has lost his place is marked down, one who has won one is not marked up', () => {
+  const base = { id: 1, positionId: 3, team: 1, epNext: 0, pointsPerGame: 6, appearanceShare: 1, form: 6, status: 'a', seasonMinutesShare: 0.9 };
+  const fixtures = { 1: [{ event: 10, opponent: 2, isHome: true, difficulty: 3 }] };
+  const opts = { targetEventId: 10 };
+  const regular = computePlayerPrediction({ ...base, recentMinutesShare: 0.9 }, fixtures, true, null, opts);
+  const benched = computePlayerPrediction({ ...base, recentMinutesShare: 0.3 }, fixtures, true, null, opts);
+  const unknown = computePlayerPrediction({ ...base, recentMinutesShare: null }, fixtures, true, null, opts);
+  const newStarter = computePlayerPrediction({ ...base, seasonMinutesShare: 0.4, recentMinutesShare: 1 }, fixtures, true, null, opts);
+  assert.ok(benched.nextMatchPredicted < regular.nextMatchPredicted * 0.75);
+  assert.equal(unknown.nextMatchPredicted, regular.nextMatchPredicted);
+  assert.equal(newStarter.nextMatchPredicted, regular.nextMatchPredicted);
+  assert.equal(benched.breakdown.minutesMult, 0.667);
+});
+
+test('recent minutes come from the gameweeks just before the target', () => {
+  const el = (id, minutes) => ({ id, stats: { minutes } });
+  const live = { 5: [el(1, 90)], 6: [el(1, 90)], 7: [el(1, 0)], 8: [el(1, 45), el(2, 90)], 9: [el(1, 90)] };
+  assert.deepEqual(recentMinutesFromLive(live, 9), { 1: 225, 2: 90 });
+});
+
+test('bookmaker odds count once per priced match, and only in the weeks priced', () => {
+  const base = { id: 1, positionId: 4, team: 1, epNext: 0, pointsPerGame: 4, appearanceShare: 1, form: 4, status: 'a' };
+  const fixtures = { 1: [10, 11, 12, 13].map(event => ({ event, opponent: 2, isHome: true, difficulty: 3 })) };
+  const opts = { targetEventId: 10 };
+  const none = computePlayerPrediction({ ...base }, fixtures, true, null, opts);
+  const thisWeek = computePlayerPrediction({ ...base, oddsByEvent: { 10: 0.4 } }, fixtures, true, null, opts);
+  const twoWeeks = computePlayerPrediction({ ...base, oddsByEvent: { 10: 0.4, 11: 0.4 } }, fixtures, true, null, opts);
+  assert.equal(Math.round((thisWeek.nextMatchPredicted - none.nextMatchPredicted) * 10) / 10, 0.4);
+  // The 4-week average gets a quarter of one week's nudge, not all of it.
+  assert.equal(Math.round((thisWeek.predicted - none.predicted) * 10) / 10, 0.1);
+  assert.equal(Math.round((twoWeeks.predicted - none.predicted) * 10) / 10, 0.2);
+  assert.equal(twoWeeks.nextMatchPredicted, thisWeek.nextMatchPredicted);
+  // A double gameweek's two priced matches both count.
+  const dgw = { 1: [{ event: 10, opponent: 2, isHome: true, difficulty: 3 }, { event: 10, opponent: 3, isHome: false, difficulty: 3 }] };
+  const dgwNone = computePlayerPrediction({ ...base }, dgw, true, null, opts);
+  const dgwOdds = computePlayerPrediction({ ...base, oddsByEvent: { 10: 0.4 } }, dgw, true, null, opts);
+  assert.equal(Math.round((dgwOdds.nextMatchPredicted - dgwNone.nextMatchPredicted) * 10) / 10, 0.8);
 });

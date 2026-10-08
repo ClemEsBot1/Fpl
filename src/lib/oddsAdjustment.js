@@ -16,11 +16,11 @@
      2. Clean-sheet nudge (GKP/DEF): favourites concede less on average, so
         their defenders/keeper get nudged up; underdogs down.
 
-   Bookmaker odds only exist for the next handful of days, so — unlike
-   set-piece duty, which is a standing trait — this only ever covers the very
-   next fixture, not the 4-game rolling window `predicted` otherwise uses.
-   That's a real limitation (see the note in predictions.js at the call site)
-   worth knowing about, not something this file can fix on its own.
+   Bookmaker odds only exist for the next week or so of matches, so —
+   unlike set-piece duty, which is a standing trait — the nudge covers only
+   the matches that have been priced (the target gameweek, and any of the
+   next one already priced); the rest of the 4-week window `predicted`
+   averages over goes without.
 ============================================================================ */
 
 export const ODDS_WEIGHTS = {
@@ -184,23 +184,21 @@ function extractH2hOdds(evt) {
   return { homeWinOdds: avg(home), drawOdds: avg(draw), awayWinOdds: avg(away) };
 }
 
-// oddsData: the matched-fixtures array this file produces above.
-// targetEventId: only the immediate next gameweek — bookmaker markets for
-// fixtures further out are thin/unreliable/often not posted yet, unlike
-// FPL's own fixture-difficulty rating which covers the full 4-game window
-// `predicted` uses. This is why the odds nudge only ever affects
-// nextMatchPredicted-scale decisions in practice, not the longer horizon.
-// Returns { [teamId]: [{ probs, isHome }, ...] } for teams playing that
-// gameweek — one entry per match, so a double gameweek keeps both.
-export function buildOddsByTeamForEvent(oddsData, targetEventId) {
+// Every gameweek from `fromEventId` on that has odds (bookmakers usually
+// price the next week or so of matches, which can reach into the gameweek
+// after the target): { [teamId]: { [event]: [{ probs, isHome }, ...] } }.
+export function buildOddsByTeam(oddsData, fromEventId) {
   const byTeam = {};
-  const add = (teamId, entry) => { (byTeam[teamId] || (byTeam[teamId] = [])).push(entry); };
+  const add = (teamId, event, entry) => {
+    const team = byTeam[teamId] || (byTeam[teamId] = {});
+    (team[event] || (team[event] = [])).push(entry);
+  };
   (oddsData || []).forEach(m => {
-    if (m.event !== targetEventId) return;
+    if (m.event < fromEventId) return;
     const probs = devigMatchOdds(m.homeWinOdds, m.drawOdds, m.awayWinOdds);
     if (!probs) return;
-    add(m.homeTeamId, { probs, isHome: true });
-    add(m.awayTeamId, { probs, isHome: false });
+    add(m.homeTeamId, m.event, { probs, isHome: true });
+    add(m.awayTeamId, m.event, { probs, isHome: false });
   });
   return byTeam;
 }

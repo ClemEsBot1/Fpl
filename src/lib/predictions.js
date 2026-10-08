@@ -10,7 +10,7 @@
 ============================================================================ */
 
 import { buildCareerBaselineByCode, buildLastSeasonStatsByCode } from './playerHistory.js';
-import { buildOddsByTeamForEvent, oddsAdjustmentForMatches } from './oddsAdjustment.js';
+import { buildOddsByTeam, oddsAdjustmentForMatches } from './oddsAdjustment.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
@@ -32,11 +32,19 @@ const BENCH_WEIGHT = 0.03;
 // the calibration script against a range of past gameweeks is how you'd
 // replace a guess here with an evidence-based one.
 export const DEFAULT_PREDICTION_WEIGHTS = {
-  epNext: 0.45, ppg: 0.35, form: 0.20,          // must sum to 1 — the post-GW5 blended formula
+  // Must sum to 1 — the post-GW5 blended formula. Backtested over 2022-23
+  // to 2025-26 (scripts/backtest.mjs, with BY_POS=1 per position): leaning
+  // more on ep_next and dropping form (which ep_next already contains)
+  // improved every position's error and the picked XI's points, from
+  // 0.45/0.35/0.20. The archive's expected points may carry a little
+  // late team news, which flatters ep_next there, so this stops at 0.6
+  // rather than the 0.9 the backtest liked best.
+  epNext: 0.6, ppg: 0.4, form: 0,
   xgRegression: 0.15,                            // how much of the xG/actual gap to credit, per computePlayerPrediction
   selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
   oddsAdjustment: 1.0,                           // scales the already-capped nudge from src/lib/oddsAdjustment.js; 1.0 = trust it at face value
   fixtureWindowGws: 4,                           // `predicted` averages over this many gameweeks (doubles count twice, blanks zero)
+  recentMinutes: 0.5,                            // how far fewer recent minutes (last 4 gameweeks) than over the season pull the non-ep_next part down; 0 = off
 };
 
 /* ----------------------------------------------------------------------------
@@ -128,14 +136,16 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   base += xgAdjustment;
 
   // Bookmaker-odds nudge (see src/lib/oddsAdjustment.js for the full
-  // reasoning): p.oddsAdjustment is pre-computed once per player in
-  // buildStaticDataFromRaw from that player's NEXT fixture's odds only —
-  // odds aren't available/reliable for fixtures further out the way FPL's
-  // own fixture-difficulty rating is, so unlike fixtureMult below (a 4-game
-  // average) this only ever reflects the immediate next match. Already
-  // capped small in computeOddsAdjustment; weights.oddsAdjustment just
-  // scales trust in it, same role xgRegression plays above.
-  base += (p.oddsAdjustment || 0) * weights.oddsAdjustment;
+  // reasoning): a points nudge per match, for each gameweek bookmakers have
+  // priced (p.oddsByEvent: { [event]: average nudge per match that week },
+  // from buildStaticDataFromRaw; p.oddsAdjustment is the target
+  // gameweek's). It's added per match below, so it only counts for the
+  // matches it was priced for: once for a single gameweek, twice for a
+  // double, and only for the weeks it covers in the 4-week average.
+  const oddsNudgeFor = event => {
+    if (p.oddsByEvent && typeof p.oddsByEvent[event] === 'number') return p.oddsByEvent[event] * weights.oddsAdjustment;
+    return event === options.targetEventId || options.targetEventId === undefined ? (p.oddsAdjustment || 0) * weights.oddsAdjustment : 0;
+  };
 
   // How much easier (>1) or harder (<1) a single fixture is than average,
   // from FPL's own 1-5 difficulty rating. (Opponent attack/defence strength
@@ -225,15 +235,44 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   const ruledOut = ['i', 's', 'u', 'n'].includes(p.status);
   const epThisEvent = isBlankThisEvent ? 0 : epTerm * (ruledOut ? availMult : 1);
   const epPerMatch = epThisEvent / Math.max(1, fixtureCountThisEvent);
-  const otherTerm = base - epTerm;
+  // Recent minutes against the season's: a player who has lost his place
+  // plays more like his last few weeks than his season average. Moves only
+  // the non-ep_next part, like availability, since FPL's ep_next already
+  // knows who has been starting. Only ever down: backtested over 2022-23 to
+  // 2025-26, crediting a player who has just won a place made predictions
+  // worse (form already catches it), while marking down one who has lost
+  // his improved the next gameweek's error and the picked XI's points.
+  let minutesMult = 1;
+  if (weights.recentMinutes > 0 && typeof p.recentMinutesShare === 'number' && typeof p.seasonMinutesShare === 'number' && p.seasonMinutesShare > 0.1) {
+    const ratio = Math.max(0.25, Math.min(1, p.recentMinutesShare / p.seasonMinutesShare));
+    minutesMult = 1 + weights.recentMinutes * (ratio - 1);
+  }
+  const otherTerm = (base - epTerm) * minutesMult;
   const laterInWindow = upcoming.filter(f => !thisEventFixtures.includes(f));
   const epWindow = (epThisEvent + epPerMatch * laterInWindow.reduce((s, f) => s + fixtureMultFor(f), 0)) / windowDivisor;
-  const predicted = isBlankThisEvent ? 0 : Math.max(0, (epWindow + otherTerm * fixtureMult * availMult) * congestionMult);
-  const nextMatchPredicted = Math.max(0, (epThisEvent + otherTerm * nextFixtureMult * availMult) * congestionMult);
+  const oddsThisEvent = thisEventFixtures.reduce((sum, f) => sum + oddsNudgeFor(f.event), 0);
+  const oddsWindow = upcoming.reduce((sum, f) => sum + oddsNudgeFor(f.event), 0) / windowDivisor;
+  const playing = availMult * minutesMult;
+  const predicted = isBlankThisEvent ? 0 : Math.max(0, (epWindow + otherTerm * fixtureMult * availMult + oddsWindow * playing) * congestionMult);
+  const nextMatchPredicted = Math.max(0, (epThisEvent + otherTerm * nextFixtureMult * availMult + oddsThisEvent * playing) * congestionMult);
   const baseAvail = Math.max(0, epPerMatch + otherTerm * availMult);
+  // Each of the next PLAN_GWS gameweeks on its own, for planning transfers
+  // week by week: [{ event, points }], the first being nextMatchPredicted.
+  // Later weeks use ep_next per match and the same fixture difficulty,
+  // availability and odds as the 4-week average.
+  const byGw = [];
+  for (let k = 0; k < PLAN_GWS; k++) {
+    const event = firstEvent + k;
+    if (event > 38) break;
+    const points = k === 0
+      ? nextMatchPredicted
+      : Math.max(0, fixtures.filter(f => f.event === event).reduce((sum, f) => sum + (epPerMatch + otherTerm * availMult) * fixtureMultFor(f) + oddsNudgeFor(event) * playing, 0));
+    byGw.push({ event, points: Math.round(points * 10) / 10 });
+  }
   return {
     predicted: Math.round(predicted * 10) / 10,
     nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
+    byGw,
     baseAvail,
     availNote,
     fixtureMult,
@@ -255,12 +294,14 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
       formEligible: !!(formEligible && form > 0),
       setPieceBonus: Math.round(setPieceBonus * 100) / 100,
       xgAdjustment: Math.round(xgAdjustment * 100) / 100,
-      oddsAdjustment: Math.round((p.oddsAdjustment || 0) * weights.oddsAdjustment * 100) / 100,
+      oddsAdjustment: Math.round(oddsThisEvent * 100) / 100,
       base: Math.round(base * 100) / 100,
       fixtureMult: Math.round(fixtureMult * 1000) / 1000,
       nextFixtureMult: Math.round(nextFixtureMult * 1000) / 1000,
       availMult: Math.round(availMult * 1000) / 1000,
       congestionMult: Math.round(congestionMult * 1000) / 1000,
+      minutesMult: Math.round(minutesMult * 1000) / 1000,
+      recentMinutesShare: typeof p.recentMinutesShare === 'number' ? Math.round(p.recentMinutesShare * 100) / 100 : null,
       restDays: typeof restDays === 'number' ? restDays : null,
       fixtureCountThisEvent,
       isBlankThisEvent,
@@ -375,16 +416,25 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   // numbers) — best-effort, like playerHistoryData: no odds fetched yet, or
   // the fetch/matching failed for this gameweek, just means oddsAdjustment
   // is 0 for everyone, same as before this feature existed.
-  const oddsByTeamForTargetEvent = buildOddsByTeamForEvent(options.oddsData, targetEvent.id);
+  const oddsByTeam = buildOddsByTeam(options.oddsData, targetEvent.id);
 
   // League matches each team has played before the target gameweek, for
-  // the share of them a player appeared in.
+  // the share of them a player appeared in, and in the last
+  // RECENT_MINUTES_GWS gameweeks, for the share of recent minutes played
+  // (options.recentMinutesById: minutes in those gameweeks, see
+  // recentMinutesFromLive).
   const teamMatchesPlayed = {};
+  const teamRecentMatches = {};
   fixturesRaw.forEach(f => {
     if (f.event === null || f.event === undefined || f.event >= targetEvent.id) return;
     teamMatchesPlayed[f.team_h] = (teamMatchesPlayed[f.team_h] || 0) + 1;
     teamMatchesPlayed[f.team_a] = (teamMatchesPlayed[f.team_a] || 0) + 1;
+    if (f.event >= targetEvent.id - RECENT_MINUTES_GWS) {
+      teamRecentMatches[f.team_h] = (teamRecentMatches[f.team_h] || 0) + 1;
+      teamRecentMatches[f.team_a] = (teamRecentMatches[f.team_a] || 0) + 1;
+    }
   });
+  const recentMinutesById = options.recentMinutesById || null;
 
   const allPlayers = bootstrap.elements.map(e => {
     const seasonPoints = e.total_points;
@@ -441,8 +491,12 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       expectedGoals: parseFloat(e.expected_goals) || 0,
       expectedAssists: parseFloat(e.expected_assists) || 0,
       appearanceShare: appearanceShareFor(seasonPoints, seasonPPG, teamMatchesPlayed[e.team]),
+      seasonMinutesShare: teamMatchesPlayed[e.team] ? Math.min(1, (Number(e.minutes) || 0) / (90 * teamMatchesPlayed[e.team])) : null,
+      recentMinutesShare: recentMinutesById && teamRecentMatches[e.team]
+        ? Math.min(1, (recentMinutesById[e.id] || 0) / (90 * teamRecentMatches[e.team])) : null,
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
-      oddsAdjustment: oddsAdjustmentForMatches(oddsByTeamForTargetEvent[e.team], e.element_type),
+      oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type)])),
+      oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type),
     };
   });
 
@@ -514,6 +568,22 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     seasonId: seasonIdFor(bootstrap.events),
     totalPlayers: Number(bootstrap.total_players) || 0,
   };
+}
+
+// Gameweeks predicted one by one for the transfer plan (byGw).
+export const PLAN_GWS = 5;
+
+// Gameweeks counted as "recent" for minutes played.
+export const RECENT_MINUTES_GWS = 4;
+
+// { [playerId]: minutes } over the gameweeks before `gwId` that count as
+// recent, from FPL's per-gameweek live data ({ [gw]: elements[] }).
+export function recentMinutesFromLive(liveByEvent, gwId) {
+  const out = {};
+  for (let gw = Math.max(1, gwId - RECENT_MINUTES_GWS); gw < gwId; gw++) {
+    for (const el of liveByEvent[gw] || []) out[el.id] = (out[el.id] || 0) + (Number(el.stats && el.stats.minutes) || 0);
+  }
+  return out;
 }
 
 // Share of the team's matches a player appeared in: appearances are total

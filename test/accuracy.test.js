@@ -28,6 +28,16 @@ test('the usual size of a miss comes from the spread of every miss', () => {
   assert.equal(s.missP90, 8);
 });
 
+test('the miss is also given for each position', () => {
+  const predicted = {};
+  const rows = [];
+  const positionById = {};
+  for (let id = 1; id <= 30; id++) { predicted[id] = 3; rows.push([id, id <= 10 ? 3 : 5]); positionById[id] = id <= 10 ? 2 : 4; }
+  const s = summariseAccuracy(predicted, live(rows), positionById);
+  assert.deepEqual(s.byPosition, { DEF: { players: 10, meanAbsError: 0 }, FWD: { players: 20, meanAbsError: 2 } });
+  assert.equal(summariseAccuracy(predicted, live(rows)).byPosition, null);
+});
+
 test('too few players to judge returns null', () => {
   assert.equal(summariseAccuracy({ 1: 2 }, live([[1, 2]])), null);
 });

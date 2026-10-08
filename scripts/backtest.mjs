@@ -23,7 +23,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, SQUAD_BUDGET } from '../src/lib/predictions.js';
+import { buildStaticDataFromRaw, buildOptimalTeam, hydrateSquadSnapshot, RECENT_MINUTES_GWS, SQUAD_BUDGET } from '../src/lib/predictions.js';
 
 const ARCHIVE = 'https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data';
 const CACHE = path.resolve(import.meta.dirname, '..', '.backtest-cache');
@@ -114,6 +114,15 @@ function bootstrapBefore(S, G) {
   return { teams: S.teams, events, elements, total_players: 0 };
 }
 
+// Minutes in the RECENT_MINUTES_GWS gameweeks before G.
+function recentMinutesBefore(S, G) {
+  const out = {};
+  for (let g = Math.max(1, G - RECENT_MINUTES_GWS); g < G; g++) {
+    for (const [id, r] of Object.entries(S.gws[g] || {})) out[id] = (out[id] || 0) + r.minutes;
+  }
+  return out;
+}
+
 // player-history.json without the tested season or anything after it.
 function historyBefore(history, season) {
   const players = {};
@@ -139,10 +148,11 @@ const mae = (x, y) => x.reduce((a, v, i) => a + Math.abs(v - y[i]), 0) / x.lengt
 
 function run(variant, seasons) {
   const nx = [], ny = [], wx = [], wy = [];
+  const byPos = {};
   let xiPts = 0, squad4 = 0, n = 0;
   for (const { S, hist } of seasons) {
     const staticAt = {};
-    const sd = G => (staticAt[G] ||= buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {} }));
+    const sd = G => (staticAt[G] ||= buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {}, recentMinutesById: recentMinutesBefore(S, G) }));
     for (let G = START; G <= END; G++) {
       if (!hasExpectedPoints(S, G)) continue;
       const data = sd(G);
@@ -153,6 +163,8 @@ function run(variant, seasons) {
         let later = 0;
         for (let g = G; g < G + 4; g++) later += S.gws[g]?.[p.id]?.pts || 0;
         wx.push(pred.predicted); wy.push(later / 4);
+        const b = (byPos[p.positionId] ||= { nx: [], ny: [], wx: [], wy: [] });
+        b.nx.push(pred.nextMatchPredicted); b.ny.push(S.gws[G][p.id]?.pts || 0); b.wx.push(pred.predicted); b.wy.push(later / 4);
       }
       const team = buildOptimalTeam(data, SQUAD_BUDGET);
       team.squad.forEach(s => { if (s.isStarting) xiPts += (S.gws[G][s.player.id]?.pts || 0) * s.multiplier; });
@@ -164,12 +176,43 @@ function run(variant, seasons) {
       n++;
     }
   }
+  if (process.env.BY_POS) {
+    return [1, 2, 3, 4].map(pos => {
+      const b = byPos[pos];
+      return { name: `${variant.name} ${['GKP', 'DEF', 'MID', 'FWD'][pos - 1]}`, n: b.nx.length, nextMAE: mae(b.nx, b.ny).toFixed(3), nextCorr: pearson(b.nx, b.ny).toFixed(4), winMAE: mae(b.wx, b.wy).toFixed(3), winCorr: pearson(b.wx, b.wy).toFixed(4) };
+    });
+  }
   return {
     name: variant.name,
     nextMAE: mae(nx, ny).toFixed(3), nextCorr: pearson(nx, ny).toFixed(4),
     winMAE: mae(wx, wy).toFixed(3), winCorr: pearson(wx, wy).toFixed(4),
     xiPerGw: (xiPts / n).toFixed(2), squad4PerGw: (squad4 / n / 4).toFixed(2),
   };
+}
+
+// HAUL_TABLE=1: how often a player scored 10+ in a gameweek, by position
+// group and how many points he was predicted for it (nextMatchPredicted),
+// for HAUL_RATES in src/lib/captaincy.js.
+function haulTable(seasons) {
+  const groups = { def: [1, 2], mid: [3], fwd: [4] };
+  const edges = [1, 2, 3, 4, 5, 6, 7, 8, 10];
+  const counts = {};
+  for (const { S, hist } of seasons) {
+    for (let G = START; G <= END; G++) {
+      if (!hasExpectedPoints(S, G)) continue;
+      const data = buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, recentMinutesById: recentMinutesBefore(S, G) });
+      for (const p of data.allPlayers) {
+        const x = data.predictionsById[p.id].nextMatchPredicted;
+        if (!(x >= 1)) continue;
+        const g = Object.keys(groups).find(k => groups[k].includes(p.positionId));
+        const b = edges.filter(e => x >= e).pop();
+        const c = (counts[`${g} ${b}`] ||= { n: 0, hauls: 0 });
+        c.n++;
+        if ((S.gws[G][p.id]?.pts || 0) >= 10) c.hauls++;
+      }
+    }
+  }
+  console.table(Object.fromEntries(Object.entries(counts).sort().map(([k, c]) => [k, { n: c.n, rate: (c.hauls / c.n).toFixed(3) }])));
 }
 
 const variants = process.argv[2] ? JSON.parse(process.argv[2]) : [{ name: 'current' }];
@@ -179,4 +222,5 @@ for (const s of SEASONS) {
   console.log(`Loading ${s}...`);
   seasons.push({ S: await loadSeason(s), hist: historyBefore(history, s) });
 }
-console.table(variants.map(v => run(v, seasons)));
+if (process.env.HAUL_TABLE) haulTable(seasons);
+else console.table(variants.flatMap(v => run(v, seasons)));
