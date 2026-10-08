@@ -1628,7 +1628,7 @@ export default function FPLSquadChecker() {
   }, [stage]);
 
   const showNav = stage !== 'welcome' && stage !== 'boot';
-  const wideStage = stage === 'home' || stage === 'welcome' || stage === 'league';
+  const wideStage = stage === 'home' || stage === 'welcome' || stage === 'league' || stage === 'customBuild';
   const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
   lastNavRef.current = activeNav;
 

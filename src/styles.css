@@ -847,3 +847,16 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-pitch.is-squad .fpl-pitch-mid, .fpl-pitch.is-squad .fpl-pitch-circle { top: 64%; }
 .fpl-pc-price + .fpl-pc-x { top: 18px; left: -2px; }
 .fpl-pitch.is-squad .fpl-pc-arm { display: none; }
+/* Build a squad: the pitch, then the picker and the rest; side by side on a computer. */
+.fpl-builder { display: grid; gap: 16px; align-items: start; }
+.fpl-builder-main { display: grid; gap: 8px; min-width: 0; }
+.fpl-builder-side { display: grid; gap: 0; min-width: 0; }
+.fpl-builder-pick { display: grid; gap: 8px; padding: 12px; margin-bottom: 16px; }
+.fpl-builder-pick-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+@media (min-width: 1000px) {
+  .fpl-builder { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); gap: 24px; }
+  .fpl-builder-side { position: sticky; top: calc(var(--fpl-header-h, 58px) + 16px); max-height: calc(100dvh - var(--fpl-header-h, 58px) - 32px); overflow-y: auto; padding-right: 4px; }
+  .fpl-builder .fpl-pitch { --card: 104px; --shirt: 68px; }
+}
+.fpl-builder-page { padding: 20px 16px 100px; }
+@media (min-width: 900px) { .fpl-builder-page { padding: 28px 32px 60px; } }
