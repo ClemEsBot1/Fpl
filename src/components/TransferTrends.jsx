@@ -29,7 +29,7 @@ function fmtCount(n) {
 // FPL's own status ("Very likely to rise"), or for an estimate the
 // change it would make ("+£0.1m likely").
 function PriceChip({ change }) {
-  if (!change) return <span className="fpl-trend-chip">No change</span>;
+  if (!change) return null;
   const rise = change.dir === 'rise';
   const Icon = rise ? ArrowUpRight : ArrowDownRight;
   const official = typeof change.percent === 'number';
@@ -64,7 +64,21 @@ function PriceChangeTimer() {
   );
 }
 
-function TrendRow({ row, stat, teamsById }) {
+// Transfers in (or out) over about the last hour, from
+// /api/transfer-trend; nothing until there's a snapshot to compare with.
+function HourChip({ hourly, player, stat }) {
+  if (!hourly || !hourly.byId || !hourly.minutes || (stat !== 'in' && stat !== 'out')) return null;
+  const d = hourly.byId[player.id];
+  const value = d ? (stat === 'in' ? d[0] : d[1]) : 0;
+  const span = hourly.minutes >= 50 && hourly.minutes <= 75 ? 'last hour' : `last ${hourly.minutes >= 60 ? `${Math.round(hourly.minutes / 60)}h` : `${hourly.minutes}m`}`;
+  return (
+    <span className={`fpl-trend-chip fpl-trend-hour${value ? ` is-${stat}` : ''}`} title={`Transfers ${stat} in the last ${hourly.minutes} minutes`}>
+      {value ? fmtCount(stat === 'in' ? value : -value) : 'None'} {span}
+    </span>
+  );
+}
+
+function TrendRow({ row, stat, teamsById, hourly }) {
   const { player, net, change } = row;
   const team = teamsById[player.team];
   const value = stat === 'in' ? player.transfersInEvent : stat === 'out' ? -player.transfersOutEvent : net;
@@ -79,6 +93,7 @@ function TrendRow({ row, stat, teamsById }) {
       </span>
       <span className="fpl-trend-side">
         <span className={`fpl-trend-count${negative ? ' is-out' : ''}`}>{count}</span>
+        <HourChip hourly={hourly} player={player} stat={stat} />
         <PriceChip change={change} />
       </span>
     </li>
@@ -148,14 +163,14 @@ function recapPanels(staticData, event, live, team, teamPending) {
 
 // The panels for the upcoming gameweek: transfers in and out, then the
 // highest predicted points of all players and on your team.
-function upcomingPanels(staticData, team, teamPending) {
+function upcomingPanels(staticData, team, teamPending, hourly) {
   const { allPlayers, predictionsById, teamsById } = staticData;
   const lists = [...buildPriceWatch(allPlayers, staticData.totalPlayers), ...buildTransferTrends(allPlayers, staticData.totalPlayers)];
   const transfers = lists.map(panel => ({
     id: panel.id, title: panel.title,
     body: panel.rows.length ? (
       <ol className="fpl-trend-list">
-        {panel.rows.map(row => <TrendRow key={row.player.id} row={row} stat={panel.stat} teamsById={teamsById} />)}
+        {panel.rows.map(row => <TrendRow key={row.player.id} row={row} stat={panel.stat} teamsById={teamsById} hourly={hourly} />)}
       </ol>
     ) : <p className="fpl-home-hint">{EMPTY[panel.id]}</p>,
   }));
@@ -174,10 +189,23 @@ function upcomingPanels(staticData, team, teamPending) {
 export function TransferTrends({ staticData, event, isPast, live, team, teamPending }) {
   const trackRef = useRef(null);
   const [current, setCurrent] = useState(0);
+  // Transfers over the last hour, refreshed every five minutes.
+  const [hourly, setHourly] = useState(null);
+  useEffect(() => {
+    if (isPast) return undefined;
+    let cancelled = false;
+    const load = () => fetch('/api/transfer-trend')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled) setHourly(d && d.byId ? d : null); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [isPast]);
   const panels = useMemo(() => {
     if (!staticData || !event) return [];
-    return isPast ? recapPanels(staticData, event, live, team, teamPending) : upcomingPanels(staticData, team, teamPending);
-  }, [staticData, event, isPast, live, team, teamPending]);
+    return isPast ? recapPanels(staticData, event, live, team, teamPending) : upcomingPanels(staticData, team, teamPending, hourly);
+  }, [staticData, event, isPast, live, team, teamPending, hourly]);
   if (!staticData) {
     return (
       <section className="fpl-glass fpl-home-card fpl-trends" aria-labelledby="trends-h" aria-busy="true">
@@ -229,7 +257,8 @@ export function TransferTrends({ staticData, event, isPast, live, team, teamPend
         ? "FPL only publishes transfer counts for the upcoming gameweek, so a past one shows its points instead."
         : hasOfficialPriceData(staticData.allPlayers)
           ? "Price status is FPL's own Price Change Predictor: 100% means FPL expects the change at 00:00 UK. It's a guide, not a promise."
-          : "Price changes are an estimate from net transfers and ownership; FPL doesn't publish its formula."}</p>
+          : "Price changes are an estimate from net transfers and ownership; FPL doesn't publish its formula."}
+        {!isPast && hourly ? ' "Last hour" is how many more transfers there have been since FPL\'s figures an hour ago.' : ''}</p>
     </section>
   );
 }
