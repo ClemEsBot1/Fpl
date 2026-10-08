@@ -3,7 +3,7 @@
 // Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
 import { useEffect, useMemo, useState } from 'react';
-import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, CalendarRange, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
+import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
 import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { buildAlerts } from '../lib/alerts.js';
@@ -219,6 +219,50 @@ function Alerts({ staticData, homeTeam }) {
   );
 }
 
+// The machine-learning model (scripts/ml/): when it was last retrained and
+// how its predictions did each finished gameweek, newest last.
+function ModelLearning() {
+  const [state, setState] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const get = path => fetch(path).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    Promise.all([get('/ml/predictions.json'), get('/ml/history.json')]).then(([pred, history]) => {
+      if (!cancelled) setState({ pred, weeks: (history && history.weeks) || [] });
+    });
+    return () => { cancelled = true; };
+  }, []);
+  if (!state || !state.pred) return null;
+  const { pred } = state;
+  const weeks = state.weeks.filter(w => w.season === pred.season).slice(-8);
+  const worst = Math.max(1, ...weeks.map(w => w.meanAbsError));
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="ml-h">
+      <div className="fpl-home-team-head">
+        <h2 id="ml-h" className="fpl-home-h"><BrainCircuit size={18} aria-hidden="true" /> How the model is learning</h2>
+        <span className="fpl-mono fpl-home-meta">GW{pred.gwId}</span>
+      </div>
+      <p className="fpl-home-text" style={{ margin: 0 }}>
+        Predictions come from a machine-learning model retrained every day on {Number(pred.trainedRows || 0).toLocaleString('en-GB')} player-gameweeks,
+        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Each finished gameweek is added, so it keeps learning.
+      </p>
+      {weeks.length ? (
+        <ol className="fpl-ml-weeks" aria-label="Typical miss per player, each gameweek">
+          {weeks.map(w => (
+            <li key={w.gwId}>
+              <span className="fpl-mono fpl-ml-gw">GW{w.gwId}</span>
+              <span className="fpl-ml-bar"><i style={{ width: `${(w.meanAbsError / worst) * 100}%` }} /></span>
+              <span className="fpl-mono">±{fmtPts(w.meanAbsError)}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="fpl-home-hint">Its first scored week shows here once Gameweek {pred.gwId} is over.</p>
+      )}
+      {weeks.length ? <p className="fpl-home-hint">Typical miss per player who played, from predictions made before each deadline. Shorter is better.</p> : null}
+    </section>
+  );
+}
+
 function PredictionCheck({ gwId, playersById }) {
   // The answer and which gameweek it was for: still loading while that
   // isn't the one asked for.
@@ -355,6 +399,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
           <Alerts staticData={staticData} homeTeam={homeTeam} />
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
           <PredictionCheck gwId={isPast && event.finished ? event.id : null} playersById={staticData && staticData.playersById} />
+          <ModelLearning />
         </div>
         {/* Keyed by gameweek so a new one starts on its first panel. */}
         <TransferTrends

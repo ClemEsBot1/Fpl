@@ -62,6 +62,13 @@ export function PredictionBreakdown({ breakdown }) {
   return (
     <div className="fpl-block" style={{ padding: 12, marginTop: 2, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
       <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8, letterSpacing: '0.03em' }}>WHY THIS PREDICTION</div>
+      {b.ml ? (
+        <p style={{ fontSize: '0.78rem', lineHeight: 1.5, margin: '0 0 10px' }}>
+          Predicted by the <b>machine-learning model</b>: <span className="fpl-mono">{fmtPts(b.ml.next)}</span> this gameweek.
+          It's retrained every day on six seasons of every player's gameweeks, learning from each finished week{b.availMult < 1 ? ', and scaled by FPL\'s availability flag' : ''}.
+          The formula below would have said <span className="fpl-mono">{fmtPts(b.ml.formulaNext)}</span>.
+        </p>
+      ) : null}
       {inputRows.map(([label, val], i) => (
         <div key={`in-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '3px 0' }}>
           <span className="fpl-dim">{label}</span>

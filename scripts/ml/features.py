@@ -1,0 +1,219 @@
+"""Features for the ML model, from seasons in the archive's CSV layout (see
+fpl_data.py).
+
+One row per (season, gameweek G, player, horizon k): the features use only
+gameweeks before G (what was known at G's deadline) and the fixture(s) in
+gameweek G + k; the target is the player's points in G + k. FPL's own
+expected points (xP) is left out on purpose: in the archive it was recorded
+after the gameweek and partly knows the result (see evaluate.py).
+"""
+import os
+
+import numpy as np
+import pandas as pd
+
+HORIZONS = 5  # this gameweek and the next four, as the transfer plan uses
+G = 39  # rounds 1..38
+
+STATS = ['total_points', 'minutes', 'bps', 'ict_index', 'threat', 'creativity', 'influence', 'goals_scored', 'assists',
+         'expected_goals', 'expected_assists', 'clean_sheets', 'starts', 'saves', 'goals_conceded']
+PER90 = ['bps', 'ict_index', 'threat', 'creativity', 'influence', 'goals_scored', 'assists', 'expected_goals',
+         'expected_assists', 'saves', 'clean_sheets', 'goals_conceded']
+ID_COLS = ['season', 'gw', 'id', 'code', 'k', 'target', 'known']
+
+
+def _read(path):
+    try:
+        return pd.read_csv(path, encoding='utf-8')
+    except UnicodeDecodeError:
+        return pd.read_csv(path, encoding='latin-1')
+
+
+def load_season(cache, season):
+    d = os.path.join(cache, season)
+    players = _read(os.path.join(d, 'players_raw.csv'))
+    players = players[players.element_type <= 4].reset_index(drop=True)
+    fixtures = _read(os.path.join(d, 'fixtures.csv'))
+    frames = []
+    for gw in range(1, 39):
+        p = os.path.join(d, 'gws', f'gw{gw}.csv')
+        if os.path.exists(p):
+            df = _read(p)
+            if len(df):
+                df['round'] = gw
+                frames.append(df)
+    gws = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=['element', 'round', 'fixture', 'was_home'])
+    return players, fixtures, gws
+
+
+def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
+    """Rows for one season. Gameweeks after `last_finished` have unknown
+    targets (known = False); with `predict_gw`, rows stop at that gameweek.
+    Returns (rows, this season's per-player rates for the next season's
+    prior)."""
+    players, fixtures, gws = load_season(cache, season)
+    ids = players.id.astype(int).values
+    idx = {pid: i for i, pid in enumerate(ids)}
+    n = len(ids)
+    fixtures = fixtures[pd.to_numeric(fixtures.event, errors='coerce').notna()].copy()
+    fixtures['event'] = fixtures.event.astype(int)
+    for c in ('team_h_score', 'team_a_score'):
+        fixtures[c] = pd.to_numeric(fixtures[c], errors='coerce')
+    fx_by_id = fixtures.set_index('id')
+
+    M = {s: np.zeros((n, G)) for s in STATS}
+    has = {}
+    value = np.full((n, G), np.nan)
+    selected = np.full((n, G), np.nan)
+    tbal = np.full((n, G), np.nan)
+    team_at = np.full((n, G), -1)
+    g = gws[gws.element.isin(idx.keys())].copy()
+    if len(g):
+        g['i'] = g.element.map(idx)
+        for s in STATS:
+            has[s] = s in g.columns and pd.to_numeric(g[s], errors='coerce').fillna(0).abs().sum() > 0
+            g[s] = pd.to_numeric(g[s], errors='coerce').fillna(0) if s in g.columns else 0.0
+        if not has['starts']:
+            g['starts'] = (g.minutes >= 60).astype(float)
+            has['starts'] = True
+        home = g.was_home.astype(str).str.lower().isin(['true', '1'])
+        g['team'] = np.where(home, g.fixture.map(fx_by_id.team_h), g.fixture.map(fx_by_id.team_a))
+        for c in ('value', 'selected', 'transfers_balance'):
+            g[c] = pd.to_numeric(g[c], errors='coerce') if c in g.columns else np.nan
+        agg = g.groupby(['i', 'round']).agg({**{s: 'sum' for s in STATS}, 'value': 'first', 'selected': 'first',
+                                              'transfers_balance': 'first', 'team': 'first'})
+        ii = agg.index.get_level_values(0).values
+        rr = agg.index.get_level_values(1).values
+        for s in STATS:
+            M[s][ii, rr] = agg[s].values
+        value[ii, rr] = agg.value.values / 10
+        selected[ii, rr] = agg.selected.values
+        tbal[ii, rr] = agg.transfers_balance.values
+        team_at[ii, rr] = agg.team.fillna(-1).astype(int).values
+    else:
+        has = {s: s in ('total_points', 'minutes', 'starts') for s in STATS}
+
+    base_team = players.team.astype(int).values
+    now_cost = players.now_cost.values / 10
+    for i in range(n):
+        last_team = base_team[i]
+        known_prices = np.where(~np.isnan(value[i, 1:]))[0]
+        last_price = value[i, known_prices[0] + 1] if len(known_prices) else now_cost[i]
+        last_sel, last_tb = np.nan, np.nan
+        for r in range(1, G):
+            if team_at[i, r] >= 0:
+                last_team = team_at[i, r]
+            else:
+                team_at[i, r] = last_team
+            if np.isnan(value[i, r]):
+                value[i, r] = last_price
+            else:
+                last_price = value[i, r]
+            if np.isnan(selected[i, r]):
+                selected[i, r] = last_sel
+            else:
+                last_sel = selected[i, r]
+            if np.isnan(tbal[i, r]):
+                tbal[i, r] = last_tb
+            else:
+                last_tb = tbal[i, r]
+    # The gameweek being predicted has no row yet: today's price.
+    if predict_gw and 1 <= predict_gw < G:
+        value[:, predict_gw] = now_cost
+
+    T = int(max(fixtures.team_h.max(), fixtures.team_a.max())) + 1
+    tgf = np.zeros((T, G)); tga = np.zeros((T, G)); tm = np.zeros((T, G))
+    for f in fixtures.itertuples():
+        if np.isnan(f.team_h_score) or np.isnan(f.team_a_score) or f.event > last_finished:
+            continue
+        tgf[f.team_h, f.event] += f.team_h_score; tga[f.team_h, f.event] += f.team_a_score; tm[f.team_h, f.event] += 1
+        tgf[f.team_a, f.event] += f.team_a_score; tga[f.team_a, f.event] += f.team_h_score; tm[f.team_a, f.event] += 1
+    fx_team = {}
+    for f in fixtures.itertuples():
+        fx_team.setdefault((f.team_h, f.event), []).append((f.team_a, 1, f.team_h_difficulty))
+        fx_team.setdefault((f.team_a, f.event), []).append((f.team_h, 0, f.team_a_difficulty))
+
+    cs = {s: np.cumsum(M[s], axis=1) for s in STATS}
+    cs_tm = np.cumsum(tm, axis=1); cs_gf = np.cumsum(tgf, axis=1); cs_ga = np.cumsum(tga, axis=1)
+
+    def win(arr, row, g0, w):
+        return arr[row, g0 - 1] - arr[row, max(0, g0 - 1 - w)]
+
+    out = []
+    codes = players.code.values
+    pos = players.element_type.values
+    last_g0 = min(38, predict_gw) if predict_gw else 38
+    for g0 in range(2, last_g0 + 1):
+        for i in range(n):
+            if not cs['minutes'][i, g0 - 1] and codes[i] not in prev_rates:
+                continue  # never played, no history: nothing to learn or say
+            t = team_at[i, g0 - 1]
+            team_matches = cs_tm[t, g0 - 1]
+            if team_matches == 0:
+                continue
+            feats = {
+                'season': season, 'gw': g0, 'id': int(ids[i]), 'code': int(codes[i]), 'pos': int(pos[i]),
+                'price': value[i, g0], 'selected': selected[i, g0], 'tbal': tbal[i, g0], 'gw_frac': g0 / 38,
+                'min_share_season': cs['minutes'][i, g0 - 1] / (90 * team_matches),
+                'pts_tm_season': cs['total_points'][i, g0 - 1] / team_matches,
+            }
+            for w in (1, 3, 5, 10):
+                tmw = win(cs_tm, t, g0, w)
+                feats[f'min_share_{w}'] = win(cs['minutes'], i, g0, w) / (90 * tmw) if tmw else np.nan
+                feats[f'pts_tm_{w}'] = win(cs['total_points'], i, g0, w) / tmw if tmw else np.nan
+                feats[f'starts_{w}'] = win(cs['starts'], i, g0, w) / tmw if tmw else np.nan
+            for s in PER90:
+                for w in (5, 38):
+                    m = win(cs['minutes'], i, g0, w)
+                    feats[f'{s}_p90_{w}'] = (win(cs[s], i, g0, w) / m * 90) if (m >= 90 and has.get(s)) else np.nan
+            for w in (5, 38):
+                tmw = win(cs_tm, t, g0, w)
+                feats[f'team_gf_{w}'] = win(cs_gf, t, g0, w) / tmw if tmw else np.nan
+                feats[f'team_ga_{w}'] = win(cs_ga, t, g0, w) / tmw if tmw else np.nan
+            pr = prev_rates.get(codes[i])
+            feats['prev_pts90'] = pr[0] if pr else np.nan
+            feats['prev_min'] = pr[1] if pr else np.nan
+            for k in range(HORIZONS):
+                gk = g0 + k
+                if gk > 38:
+                    break
+                fx = fx_team.get((t, gk), [])
+                row = dict(feats)
+                row['k'] = k
+                row['n_fix'] = len(fx)
+                if fx:
+                    row['home'] = float(np.mean([h for _, h, _ in fx]))
+                    row['fdr'] = float(np.mean([d for _, _, d in fx]))
+                    ogf, oga = [], []
+                    for o, _, _ in fx:
+                        tmw = win(cs_tm, o, g0, 10)
+                        ogf.append(win(cs_gf, o, g0, 10) / tmw if tmw else np.nan)
+                        oga.append(win(cs_ga, o, g0, 10) / tmw if tmw else np.nan)
+                    row['opp_gf_10'] = np.nanmean(ogf) if not np.all(np.isnan(ogf)) else np.nan
+                    row['opp_ga_10'] = np.nanmean(oga) if not np.all(np.isnan(oga)) else np.nan
+                else:
+                    row['home'] = row['fdr'] = row['opp_gf_10'] = row['opp_ga_10'] = np.nan
+                row['known'] = gk <= last_finished
+                row['target'] = M['total_points'][i, gk] if gk <= last_finished else np.nan
+                out.append(row)
+    rates = {}
+    end = min(38, last_finished)
+    for i in range(n):
+        m = cs['minutes'][i, end]
+        rates[codes[i]] = (cs['total_points'][i, end] / m * 90 if m >= 270 else np.nan, m)
+    return pd.DataFrame(out), rates
+
+
+def build(cache, seasons, current=None, last_finished=38, predict_gw=None):
+    """Every season's rows, in order (each season's prior comes from the one
+    before). Only `current` uses last_finished / predict_gw."""
+    frames, prev = [], {}
+    for s in seasons:
+        is_cur = s == current
+        df, prev = build_season(cache, s, prev, last_finished if is_cur else 38, predict_gw if is_cur else None)
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True)
+
+
+def feature_columns(df):
+    return [c for c in df.columns if c not in ID_COLS]

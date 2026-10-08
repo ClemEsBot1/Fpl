@@ -269,10 +269,29 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
       : Math.max(0, fixtures.filter(f => f.event === event).reduce((sum, f) => sum + (epPerMatch + otherTerm * availMult) * fixtureMultFor(f) + oddsNudgeFor(event) * playing, 0));
     byGw.push({ event, points: Math.round(points * 10) / 10 });
   }
+
+  // The machine-learning model's points (p.ml: this gameweek and each of
+  // the next four, from public/ml/predictions.json; see scripts/ml/), when
+  // there are some, take the place of the formula's. It learned from past
+  // seasons how often each kind of player plays, but not today's injury
+  // news, so FPL's availability flags still scale it. The formula's
+  // figures stay in the breakdown for comparison.
+  const ml = Array.isArray(p.ml) && p.ml.length ? p.ml : null;
+  let mlOut = null;
+  if (ml) {
+    const avail = availMult;
+    const week = ml.slice(0, windowGws);
+    mlOut = {
+      next: isBlankThisEvent ? 0 : ml[0] * avail,
+      predicted: isBlankThisEvent ? 0 : (week.reduce((s, v) => s + v, 0) / week.length) * avail,
+      byGw: ml.slice(0, PLAN_GWS).map((v, k) => ({ event: firstEvent + k, points: Math.round(v * avail * 10) / 10 })).filter(w => w.event <= 38),
+    };
+  }
   return {
-    predicted: Math.round(predicted * 10) / 10,
-    nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
-    byGw,
+    predicted: Math.round((mlOut ? mlOut.predicted : predicted) * 10) / 10,
+    nextMatchPredicted: Math.round((mlOut ? mlOut.next : nextMatchPredicted) * 10) / 10,
+    byGw: mlOut ? mlOut.byGw : byGw,
+    source: mlOut ? 'ml' : 'formula',
     baseAvail,
     availNote,
     fixtureMult,
@@ -286,6 +305,11 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     // multipliers themselves. Nothing here changes what predicted/
     // nextMatchPredicted equal; this is purely for explaining them.
     breakdown: {
+      ml: mlOut ? {
+        next: Math.round(mlOut.next * 10) / 10,
+        formulaNext: Math.round(nextMatchPredicted * 10) / 10,
+        formulaPredicted: Math.round(predicted * 10) / 10,
+      } : null,
       epNext: Math.round(epNext * 100) / 100,
       epNextShrunk: !!(epNextShrink && confidence < 1),
       ppg: Math.round(ppg * 100) / 100,
@@ -435,6 +459,9 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     }
   });
   const recentMinutesById = options.recentMinutesById || null;
+  // The ML model's predictions, when they're for this gameweek and season.
+  const ml = options.mlData;
+  const mlById = ml && ml.byId && ml.gwId === targetEvent.id && ml.season === seasonIdFor(bootstrap.events) ? ml.byId : null;
 
   const allPlayers = bootstrap.elements.map(e => {
     const seasonPoints = e.total_points;
@@ -497,6 +524,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
       oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type)])),
       oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type),
+      ml: mlById ? mlById[e.id] || null : null,
     };
   });
 
@@ -565,6 +593,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
 
   return {
     teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById,
+    mlBuiltAt: mlById ? ml.builtAt || null : null,
     seasonId: seasonIdFor(bootstrap.events),
     totalPlayers: Number(bootstrap.total_players) || 0,
   };

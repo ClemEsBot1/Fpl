@@ -71,6 +71,23 @@ async function fetchRecentMinutesServer(gwId) {
   }
 }
 
+// The ML model's predictions, deployed with the app as public/ml/
+// predictions.json (rebuilt daily by .github/workflows/ml-retrain.yml).
+// Best-effort like the others: without them the formula predicts.
+async function fetchMlServer(req) {
+  try {
+    const host = req.headers && req.headers.host;
+    if (!host) return null;
+    const proto = host.startsWith('localhost') ? 'http' : 'https';
+    const r = await fetch(`${proto}://${host}/ml/predictions.json`, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return data && data.byId ? data : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   // Authenticate both trigger sources with one check:
   //  - Vercel's own daily cron (see vercel.json) auto-sends this header using
@@ -100,11 +117,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const [bootstrap, fixturesRaw, playerHistoryData, oddsApiEvents] = await Promise.all([
+    const [bootstrap, fixturesRaw, playerHistoryData, oddsApiEvents, mlData] = await Promise.all([
       fetchFplJsonServer('bootstrap-static/'),
       fetchFplJsonServer('fixtures/'),
       fetchPlayerHistoryServer(),
       fetchOddsServer(),
+      fetchMlServer(req),
     ]);
     if (forceGwId !== null && !bootstrap.events.some(e => e.id === forceGwId)) {
       res.status(400).json({ error: 'unknown_gw' });
@@ -132,7 +150,7 @@ export default async function handler(req, res) {
 
     const plannedGw = forceGwId || (getTargetEvent(bootstrap.events) || {}).id;
     const recentMinutesById = plannedGw ? await fetchRecentMinutesServer(plannedGw) : null;
-    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData, recentMinutesById });
+    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData, recentMinutesById, mlData });
     const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
 
     // After the last deadline of the season there's no gameweek left to

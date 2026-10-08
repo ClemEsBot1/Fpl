@@ -9,6 +9,7 @@ import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClien
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
 import { forEachLimited, livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from './lib/leagues.js';
 import { liveTeamScore, projectedBonus, teamStates } from './lib/live.js';
+import { summariseAccuracy } from './lib/accuracy.js';
 import { buildRecap, lastFinishedGw, leagueSlide, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
@@ -1587,7 +1588,7 @@ export default function FPLSquadChecker() {
       const optional = promise => promise.catch(() => null);
       const event = staticData.allEvents.find(e => e.id === gwId) || null;
       const topEntry = event && event.highest_scoring_entry;
-      const [team, history, transfers, liveById, snap, accuracy, topPicks, topMeta] = await Promise.all([
+      const [team, history, transfers, liveById, snap, savedAccuracy, topPicks, topMeta] = await Promise.all([
         loadTeamForGw(teamId, gwId, staticData, { isStale }),
         optional(fetchFplJson(`entry/${teamId}/history/`)),
         optional(fetchFplJson(`entry/${teamId}/transfers/`)),
@@ -1599,6 +1600,21 @@ export default function FPLSquadChecker() {
         topEntry ? optional(fetchFplJson(`entry/${topEntry}/`)) : null,
       ]);
       if (!team || isStale()) return;
+      // How the predictions did across every player: from the ones saved
+      // before the deadline when there are some, otherwise worked out here
+      // from that gameweek's predictions (made only from what was known
+      // before it) and every player's points.
+      let accuracy = savedAccuracy;
+      if (!accuracy) {
+        const gwStatic = await optional(staticDataForGw(gwId));
+        if (gwStatic && !gwStatic.asOfFailedGwId) {
+          const predictedById = Object.fromEntries(Object.entries(gwStatic.predictionsById).map(([id, p]) => [id, p.predicted]));
+          const elements = Object.entries(liveById).map(([id, l]) => ({ id: Number(id), stats: { total_points: l.totalPoints, minutes: l.minutes } }));
+          const positionById = Object.fromEntries(gwStatic.allPlayers.map(p => [p.id, p.positionId]));
+          accuracy = summariseAccuracy(predictedById, elements, positionById);
+        }
+      }
+      if (isStale()) return;
       // The mini-leagues, while no later gameweek has started (their
       // standings are FPL's current ones). The one last picked on the
       // Mini-league screen is shown first if the team is in it; the others
