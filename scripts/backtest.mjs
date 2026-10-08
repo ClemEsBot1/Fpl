@@ -148,6 +148,7 @@ const mae = (x, y) => x.reduce((a, v, i) => a + Math.abs(v - y[i]), 0) / x.lengt
 
 function run(variant, seasons) {
   const nx = [], ny = [], wx = [], wy = [];
+  const byPos = {};
   let xiPts = 0, squad4 = 0, n = 0;
   for (const { S, hist } of seasons) {
     const staticAt = {};
@@ -162,6 +163,8 @@ function run(variant, seasons) {
         let later = 0;
         for (let g = G; g < G + 4; g++) later += S.gws[g]?.[p.id]?.pts || 0;
         wx.push(pred.predicted); wy.push(later / 4);
+        const b = (byPos[p.positionId] ||= { nx: [], ny: [], wx: [], wy: [] });
+        b.nx.push(pred.nextMatchPredicted); b.ny.push(S.gws[G][p.id]?.pts || 0); b.wx.push(pred.predicted); b.wy.push(later / 4);
       }
       const team = buildOptimalTeam(data, SQUAD_BUDGET);
       team.squad.forEach(s => { if (s.isStarting) xiPts += (S.gws[G][s.player.id]?.pts || 0) * s.multiplier; });
@@ -172,6 +175,12 @@ function run(variant, seasons) {
       }
       n++;
     }
+  }
+  if (process.env.BY_POS) {
+    return [1, 2, 3, 4].map(pos => {
+      const b = byPos[pos];
+      return { name: `${variant.name} ${['GKP', 'DEF', 'MID', 'FWD'][pos - 1]}`, n: b.nx.length, nextMAE: mae(b.nx, b.ny).toFixed(3), nextCorr: pearson(b.nx, b.ny).toFixed(4), winMAE: mae(b.wx, b.wy).toFixed(3), winCorr: pearson(b.wx, b.wy).toFixed(4) };
+    });
   }
   return {
     name: variant.name,
@@ -214,4 +223,4 @@ for (const s of SEASONS) {
   seasons.push({ S: await loadSeason(s), hist: historyBefore(history, s) });
 }
 if (process.env.HAUL_TABLE) haulTable(seasons);
-else console.table(variants.map(v => run(v, seasons)));
+else console.table(variants.flatMap(v => run(v, seasons)));

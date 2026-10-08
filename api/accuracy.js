@@ -43,7 +43,8 @@ export default async function handler(req, res) {
     }
 
     const live = await fplJson(`event/${gwId}/live/`);
-    const summary = summariseAccuracy(savedJson.predictedById || {}, live.elements || []);
+    const positionById = Object.fromEntries((bootstrap.elements || []).map(e => [e.id, e.element_type]));
+    const summary = summariseAccuracy(savedJson.predictedById || {}, live.elements || [], positionById);
     if (!summary) { notAvailable(res, { error: 'not_enough_data', gwId }); return; }
 
     res

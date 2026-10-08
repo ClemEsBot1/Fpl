@@ -32,7 +32,14 @@ const BENCH_WEIGHT = 0.03;
 // the calibration script against a range of past gameweeks is how you'd
 // replace a guess here with an evidence-based one.
 export const DEFAULT_PREDICTION_WEIGHTS = {
-  epNext: 0.45, ppg: 0.35, form: 0.20,          // must sum to 1 — the post-GW5 blended formula
+  // Must sum to 1 — the post-GW5 blended formula. Backtested over 2022-23
+  // to 2025-26 (scripts/backtest.mjs, with BY_POS=1 per position): leaning
+  // more on ep_next and dropping form (which ep_next already contains)
+  // improved every position's error and the picked XI's points, from
+  // 0.45/0.35/0.20. The archive's expected points may carry a little
+  // late team news, which flatters ep_next there, so this stops at 0.6
+  // rather than the 0.9 the backtest liked best.
+  epNext: 0.6, ppg: 0.4, form: 0,
   xgRegression: 0.15,                            // how much of the xG/actual gap to credit, per computePlayerPrediction
   selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
   oddsAdjustment: 1.0,                           // scales the already-capped nudge from src/lib/oddsAdjustment.js; 1.0 = trust it at face value

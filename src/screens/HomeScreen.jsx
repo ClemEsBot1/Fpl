@@ -191,6 +191,13 @@ function PredictionCheck({ gwId, playersById }) {
             <div><b>{fmtPts(d.averageActual)}</b><span>pts for the average player</span></div>
             <div><b>±{fmtPts(d.meanAbsError)}</b><span>typical miss per player</span></div>
           </div>
+          {d.byPosition && Object.keys(d.byPosition).length > 1 ? (
+            <div className="fpl-acc-pos" aria-label="Typical miss by position">
+              {Object.entries(d.byPosition).map(([pos, v]) => (
+                <span key={pos} className="fpl-mono"><b>{pos}</b> ±{fmtPts(v.meanAbsError)}</span>
+              ))}
+            </div>
+          ) : null}
           {topPick && (
             <p className="fpl-home-text">Our top pick, <b>{topPick.webName}</b>, was predicted {fmtPts(d.topPick.predicted)} and scored {d.topPick.actual}.</p>
           )}

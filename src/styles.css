@@ -872,3 +872,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 }
 .fpl-builder-page { padding: 20px 16px 100px; }
 @media (min-width: 900px) { .fpl-builder-page { padding: 28px 32px 60px; } }
+
+/* Typical miss by position, under the accuracy facts. */
+.fpl-acc-pos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.fpl-acc-pos span { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-acc-pos b { color: var(--ink); margin-right: 4px; font-weight: 600; }

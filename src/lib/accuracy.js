@@ -12,7 +12,8 @@ export function predictionsPathnameFor(gwId) {
 // Only players who actually played are scored — a prediction for someone
 // who didn't feature says more about team news after the deadline than
 // about the model.
-export function summariseAccuracy(predictedById, liveElements) {
+// positionById (optional): { [playerId]: 1-4 }, for the miss by position.
+export function summariseAccuracy(predictedById, liveElements, positionById = null) {
   const pairs = [];
   liveElements.forEach(el => {
     const predicted = predictedById[el.id];
@@ -45,7 +46,19 @@ export function summariseAccuracy(predictedById, liveElements) {
   const percentile = q => misses[Math.min(n - 1, Math.max(0, Math.ceil(q * n) - 1))];
 
   const round = (x, dp = 1) => Math.round(x * 10 ** dp) / 10 ** dp;
+
+  // The typical miss for each position: { GKP: { players, meanAbsError }, … }.
+  let byPosition = null;
+  if (positionById) {
+    byPosition = {};
+    [[1, 'GKP'], [2, 'DEF'], [3, 'MID'], [4, 'FWD']].forEach(([pos, label]) => {
+      const group = pairs.filter(p => positionById[p.id] === pos);
+      if (group.length) byPosition[label] = { players: group.length, meanAbsError: round(group.reduce((s, p) => s + Math.abs(p.predicted - p.actual), 0) / group.length) };
+    });
+  }
+
   return {
+    byPosition,
     playersCompared: n,
     meanAbsError: round(meanAbsError),
     missP50: round(percentile(0.5)),

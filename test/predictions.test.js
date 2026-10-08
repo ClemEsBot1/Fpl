@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive,
+  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
 } from '../src/lib/predictions.js';
 
 // A deterministic synthetic league: 20 clubs × 25 players, with prices and
@@ -199,8 +199,8 @@ test("ep_next isn't scaled for fitness a second time", () => {
   const fit = predictionFor({ ep_next: '6.0', status: 'a', chance_of_playing_next_round: null }).pred;
   const doubt = predictionFor({ ep_next: '6.0', status: 'd', chance_of_playing_next_round: 50 }).pred;
   // FPL already halves ep_next for a 50% player, so only the other inputs
-  // (55% of the base) are halved again here.
-  const epShare = 0.45 * 6.0;
+  // (40% of the base) are halved again here.
+  const epShare = DEFAULT_PREDICTION_WEIGHTS.epNext * 6.0;
   const expected = epShare + (fit.nextMatchPredicted - epShare) * 0.5;
   assert.ok(Math.abs(doubt.nextMatchPredicted - expected) < 0.11, `${doubt.nextMatchPredicted} vs ${expected}`);
 });
