@@ -7,6 +7,7 @@ import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
 import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
+import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
@@ -178,6 +179,25 @@ export function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
         <input type="checkbox" checked={!!slot.isViceCaptain} onChange={() => onSetVice(slot.player.id)} />
         Vice-captain
       </label>
+    </div>
+  );
+}
+
+// A better order for the outfield substitutes, when one is worth having:
+// FPL brings them on in order, so the likeliest scorer who can cover a
+// doubtful starter should be first (see src/lib/bench.js).
+export function BenchOrderTip({ squad, onApply }) {
+  const tip = useMemo(() => suggestBenchOrder(squad), [squad]);
+  if (!tip || tip.gain < 0.1) return null;
+  const name = id => squad.find(s => s.player.id === id).player.webName;
+  return (
+    <div className="fpl-bench-tip" role="status">
+      <ArrowUpDown size={16} aria-hidden="true" />
+      <span>
+        <b>Better bench order: {tip.order.map(name).join(', ')}.</b>{' '}
+        <span className="fpl-mono">+{fmtPts(tip.gain)} pts expected</span> if a doubtful starter misses out.
+      </span>
+      <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onApply(tip.order)}>Use it</button>
     </div>
   );
 }
@@ -963,6 +983,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
               <p className="fpl-mono fpl-meta">Tap a player to see their details, change the armband, substitute or transfer them.</p>
             ) : null}
             <Pitch starters={starters} bench={bench} card={card} />
+            {canEdit && !subSlot ? <BenchOrderTip squad={squad} onApply={order => onSquadUpdate(applyBenchOrder(squad, order), bankTenths)} /> : null}
           </div>
         );
       })() : null}
