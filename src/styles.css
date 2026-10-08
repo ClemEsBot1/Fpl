@@ -1005,3 +1005,46 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-ml-gw { color: var(--ink-dim); font-size: 0.72rem; }
 .fpl-ml-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
 .fpl-ml-bar i { display: block; height: 100%; border-radius: 4px; background: var(--lime); }
+
+/* Admin page. */
+.fpl-admin-grid { display: grid; gap: 14px; min-width: 0; }
+@media (min-width: 1000px) { .fpl-admin-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+.fpl-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fpl-admin-actions .fpl-btn { display: inline-flex; align-items: center; gap: 6px; }
+.fpl-btn-danger { color: var(--red); border-color: rgba(255,90,90,0.5); }
+.fpl-admin-warn { color: var(--amber); }
+.fpl-admin-msg { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.06); font-size: 0.85rem; grid-column: 1 / -1; }
+.fpl-admin-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.fpl-admin-table th, .fpl-admin-table td { text-align: left; padding: 5px 6px; }
+.fpl-admin-table thead th { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
+.fpl-admin-table tbody tr + tr { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-admin-runs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.8rem; }
+.fpl-admin-runs li { display: flex; gap: 10px; align-items: baseline; }
+.fpl-admin-runs .is-success { color: var(--green); }
+.fpl-admin-runs .is-failure { color: var(--red); }
+.fpl-admin-freshlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fpl-admin-fresh { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; font-size: 0.85rem; }
+.fpl-admin-fresh i { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+.fpl-admin-fresh.is-good i { background: var(--green); }
+.fpl-admin-fresh.is-warn i { background: var(--amber); }
+.fpl-admin-fresh .fpl-meta { font-size: 0.72rem; text-align: right; }
+.fpl-admin-check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; }
+.fpl-admin-reports { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+@media (min-width: 1000px) { .fpl-admin-reports { grid-template-columns: 1fr 1fr; } }
+.fpl-admin-report { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 12px; min-width: 0; }
+.fpl-admin-report.is-done { opacity: 0.6; }
+.fpl-admin-shot { display: block; width: 110px; height: 160px; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.06); }
+.fpl-admin-shot img { width: 100%; height: 100%; object-fit: cover; }
+.fpl-admin-report-body { display: grid; gap: 6px; align-content: start; min-width: 0; font-size: 0.85rem; overflow-wrap: anywhere; }
+.fpl-admin-fixes { margin: 0; padding-left: 16px; font-size: 0.8rem; }
+.fpl-admin-weeks { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; align-items: end; height: 110px; }
+.fpl-admin-weeks li { display: grid; grid-template-rows: 1fr auto auto; justify-items: center; height: 100%; gap: 2px; }
+.fpl-admin-weeks i { align-self: end; width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--lime); }
+.fpl-admin-weeks span { font-size: 0.72rem; }
+.fpl-admin-weeks small { font-size: 0.62rem; color: var(--ink-dim); }
+.fpl-admin-user { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); }
+.fpl-admin-badge { margin-left: 8px; padding: 1px 6px; border-radius: 4px; font: 600 0.66rem 'IBM Plex Mono', monospace; color: #05041A; background: var(--lime); }
+@media (max-width: 599px) {
+  .fpl-admin-report { grid-template-columns: 1fr; }
+  .fpl-admin-shot { width: 100%; height: 200px; }
+}

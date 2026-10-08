@@ -10,6 +10,10 @@ import {
 } from '../src/lib/auth.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { resetPasswordEmail } from '../src/lib/emails.js';
+import {
+  deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
+  setReportDone, signOutEverywhere, triggerRetrain, userStats,
+} from '../src/lib/adminServer.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
 // Failed logins are counted per username (protects one account from a
@@ -63,7 +67,65 @@ async function emailAvailable(redis, email, username) {
 // What every signed-in response carries: the account and its saved teams,
 // so the app doesn't need a second request for the teams.
 function account(record) {
-  return { ok: true, username: record.username, email: record.email || '', teams: Array.isArray(record.teams) ? record.teams : [] };
+  return {
+    ok: true, username: record.username, email: record.email || '', teams: Array.isArray(record.teams) ? record.teams : [],
+    ...(isAdmin(record.username) ? { admin: true } : {}),
+  };
+}
+
+// The admin page's requests (src/screens/AdminScreen.jsx): only for a
+// signed-in admin whose session is still current. `admin` (tests only)
+// replaces the network and Blob calls.
+async function handleAdmin(req, res, redis, secret, body, admin = {}) {
+  const session = getSessionFromRequest(req, secret);
+  const record = session ? await getJSON(redis, userKeyFor(session.username)) : null;
+  if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: 'not_logged_in' }); return; }
+  if (!isAdmin(record.username)) { res.status(403).json({ error: 'forbidden' }); return; }
+  const host = req.headers && req.headers.host;
+  const target = typeof body.username === 'string' ? body.username.trim() : '';
+  switch (body.op) {
+    case 'health':
+      res.status(200).json(await healthReport(redis, { host, ...admin }));
+      return;
+    case 'retrain':
+      res.status(200).json(await triggerRetrain(admin));
+      return;
+    case 'refresh':
+      res.status(200).json(await refreshBestSquad(host, admin));
+      return;
+    case 'reports':
+      res.status(200).json({ reports: await listReports(redis, admin) });
+      return;
+    case 'report_done':
+      if (typeof body.id !== 'string') break;
+      await setReportDone(redis, body.id, !!body.done);
+      res.status(200).json({ ok: true });
+      return;
+    case 'report_delete':
+      res.status(200).json({ ok: true, deleted: await deleteReport(redis, body.urls, admin) });
+      return;
+    case 'users':
+      res.status(200).json(await userStats(redis));
+      return;
+    case 'find_user':
+      res.status(200).json({ user: await findUser(redis, body.query) });
+      return;
+    case 'sign_out_user':
+      if (!target) break;
+      res.status(200).json({ user: await signOutEverywhere(redis, target) });
+      return;
+    case 'delete_user':
+      if (!target) break;
+      // Not your own account from here: that's what logging out is for.
+      if (normalizeUsername(target) === normalizeUsername(record.username)) {
+        res.status(400).json({ error: "You can't delete your own account here." });
+        return;
+      }
+      res.status(200).json({ ok: await deleteUser(redis, target) });
+      return;
+    default:
+  }
+  res.status(400).json({ error: 'unknown_admin_op' });
 }
 
 function signIn(res, record, secret) {
@@ -78,7 +140,7 @@ function storageFailed(res, e) {
 // `redisOverride` and `mailOverride` are never passed in production
 // (Vercel always calls `handler(req, res)`) — they exist purely so tests
 // can inject an in-memory Redis and capture emails instead of sending them.
-export default async function handler(req, res, redisOverride, mailOverride) {
+export default async function handler(req, res, redisOverride, mailOverride, adminOverride) {
   let secret;
   try {
     secret = requireSecret();
@@ -136,6 +198,15 @@ export default async function handler(req, res, redisOverride, mailOverride) {
     return;
   }
 
+  if (action === 'admin') {
+    try {
+      await handleAdmin(req, res, redis, secret, body, adminOverride);
+    } catch (e) {
+      storageFailed(res, e);
+    }
+    return;
+  }
+
   if (action === 'register') {
     const { password } = body;
     // A stray space (a phone keyboard, a paste) isn't part of the name.
@@ -172,7 +243,7 @@ export default async function handler(req, res, redisOverride, mailOverride) {
         res.status(409).json({ error: EMAIL_TAKEN });
         return;
       }
-      const record = { username, passwordHash: await hashPassword(password), teams: [], sessionVersion: 0 };
+      const record = { username, passwordHash: await hashPassword(password), teams: [], sessionVersion: 0, createdAt: new Date().toISOString() };
       if (emailCheck.email) record.email = emailCheck.email;
       // Created only if the username is still free: two sign-ups racing
       // for the same name can't overwrite one another.
