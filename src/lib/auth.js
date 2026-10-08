@@ -7,6 +7,8 @@ export const SESSION_COOKIE_NAME = 'fpl_session';
 // squads), so frequent re-logins would just be friction.
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
+// The shape any account name has; logins and lookups check only this, so
+// accounts made before the 6-character minimum keep working.
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 export function validateUsername(username) {
@@ -17,16 +19,37 @@ export function validateUsername(username) {
   return { ok: true };
 }
 
-// Applies to new accounts only — login never re-validates, so anyone who
-// signed up under the old 6-character minimum can still log in.
-export const MIN_PASSWORD_LENGTH = 8;
+// Usernames the rules for new accounts and passwords don't apply to.
+const EXEMPT_USERNAMES = ['clem'];
 
-export function validatePassword(password) {
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
-    return { ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+function isExempt(username) {
+  return typeof username === 'string' && EXEMPT_USERNAMES.includes(normalizeUsername(username));
+}
+
+export const MIN_USERNAME_LENGTH = 6;
+
+// A name for a new account: at least 6 characters (apart from the exempt
+// usernames).
+export function validateNewUsername(username) {
+  const shape = validateUsername(username);
+  if (!shape.ok || isExempt(username)) return shape;
+  if (username.length < MIN_USERNAME_LENGTH) {
+    return { ok: false, error: `Username must be ${MIN_USERNAME_LENGTH}-20 characters: letters, numbers, underscores only.` };
   }
-  if (password.length > 200) {
-    return { ok: false, error: 'Password is too long.' };
+  return { ok: true };
+}
+
+// Applies to new passwords only (sign-up and resets) — login never
+// re-validates, so older passwords keep working. `username` is the account
+// the password is for: the exempt usernames skip the rules.
+export const MIN_PASSWORD_LENGTH = 6;
+
+export function validatePassword(password, username) {
+  if (typeof password !== 'string' || !password) return { ok: false, error: 'Password is required.' };
+  if (password.length > 200) return { ok: false, error: 'Password is too long.' };
+  if (isExempt(username)) return { ok: true };
+  if (password.length < MIN_PASSWORD_LENGTH || !/[0-9]/.test(password)) {
+    return { ok: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters and include a number.` };
   }
   return { ok: true };
 }

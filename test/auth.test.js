@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import handler, { MAX_FAILED_LOGINS_PER_USER, MAX_FAILED_LOGINS_PER_IP, MAX_REGISTRATIONS_PER_IP, MAX_RESET_EMAILS_PER_USER } from '../api/auth.js';
-import { validatePassword } from '../src/lib/auth.js';
+import { validatePassword, validateNewUsername, hashPassword } from '../src/lib/auth.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
 
 process.env.JWT_SECRET = 'test-secret';
@@ -28,19 +28,33 @@ let redis;
 beforeEach(async () => {
   sent = [];
   redis = fakeRedis();
-  const r = await call(redis, { action: 'register', username: 'clem', password: 'correct-horse' }, '198.51.100.9');
+  const r = await call(redis, { action: 'register', username: 'clem', password: 'correct-horse1' }, '198.51.100.9');
   assert.equal(r.status, 200);
 });
 
-test('new passwords need at least 8 characters', async () => {
-  assert.equal(validatePassword('1234567').ok, false);
-  assert.equal(validatePassword('12345678').ok, true);
-  const r = await call(redis, { action: 'register', username: 'shorty', password: 'abc123' });
+test('new passwords need 6 characters and a number; new usernames 6 characters; clem is exempt', async () => {
+  assert.equal(validatePassword('abc12').ok, false, 'too short');
+  assert.equal(validatePassword('abcdefgh').ok, false, 'no number');
+  assert.equal(validatePassword('abcde1').ok, true);
+  assert.equal(validatePassword('short', 'Clem').ok, true, 'clem skips the password rules');
+  assert.equal(validateNewUsername('sammy').ok, false);
+  assert.equal(validateNewUsername('sammy1').ok, true);
+  assert.equal(validateNewUsername('clem').ok, true);
+  assert.equal((await call(redis, { action: 'register', username: 'shortpass', password: 'abc12' })).status, 400);
+  assert.equal((await call(redis, { action: 'register', username: 'nonumber', password: 'abcdefgh' })).status, 400);
+  const r = await call(redis, { action: 'register', username: 'sammy', password: 'abcde1' });
   assert.equal(r.status, 400);
+  assert.match(r.body.error, /6-20 characters/);
+  assert.equal((await call(redis, { action: 'register', username: 'sammy1', password: 'abcde1' })).status, 200);
+});
+
+test('accounts from before the username minimum still sign in', async () => {
+  await redis.set('user:sam', JSON.stringify({ username: 'sam', passwordHash: await hashPassword('old') }));
+  assert.equal((await call(redis, { action: 'login', username: 'sam', password: 'old' })).status, 200);
 });
 
 test('correct password logs in and sets a session cookie', async () => {
-  const r = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' });
+  const r = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' });
   assert.equal(r.status, 200);
   assert.match(r.headers['Set-Cookie'], /HttpOnly/);
 });
@@ -50,39 +64,39 @@ test('an account locks after too many wrong passwords, even with the right one',
     const r = await call(redis, { action: 'login', username: 'clem', password: 'wrong' }, `192.0.2.${i}`);
     assert.equal(r.status, 401);
   }
-  const blocked = await call(redis, { action: 'login', username: 'CLEM', password: 'correct-horse' });
+  const blocked = await call(redis, { action: 'login', username: 'CLEM', password: 'correct-horse1' });
   assert.equal(blocked.status, 429, 'usernames are case-insensitive, so the limit is too');
 });
 
 test('logging in works with the account email as well as the username', async () => {
-  await call(redis, { action: 'register', username: 'mailer', password: 'correct-horse', email: 'Mailer@Example.com' }, '198.51.100.10');
-  const r = await call(redis, { action: 'login', username: ' mailer@example.COM ', password: 'correct-horse' });
+  await call(redis, { action: 'register', username: 'mailer', password: 'correct-horse1', email: 'Mailer@Example.com' }, '198.51.100.10');
+  const r = await call(redis, { action: 'login', username: ' mailer@example.COM ', password: 'correct-horse1' });
   assert.equal(r.status, 200);
   assert.equal(r.body.username, 'mailer');
   assert.equal((await call(redis, { action: 'login', username: 'mailer@example.com', password: 'wrong' })).status, 401);
-  assert.equal((await call(redis, { action: 'login', username: 'nobody@example.com', password: 'correct-horse' })).status, 401);
+  assert.equal((await call(redis, { action: 'login', username: 'nobody@example.com', password: 'correct-horse1' })).status, 401);
 });
 
 test('a successful login clears earlier failures', async () => {
   for (let i = 0; i < MAX_FAILED_LOGINS_PER_USER - 1; i++) await call(redis, { action: 'login', username: 'clem', password: 'wrong' });
-  assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' })).status, 200);
+  assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' })).status, 200);
   assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'wrong' })).status, 401);
-  assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' })).status, 200);
+  assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' })).status, 200);
 });
 
 test('one IP guessing across many accounts gets blocked', async () => {
   for (let i = 0; i < MAX_FAILED_LOGINS_PER_IP; i++) {
     await call(redis, { action: 'login', username: `user${i}`, password: 'wrong' }, '203.0.113.50');
   }
-  const r = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' }, '203.0.113.50');
+  const r = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' }, '203.0.113.50');
   assert.equal(r.status, 429);
-  const elsewhere = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' }, '203.0.113.51');
+  const elsewhere = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' }, '203.0.113.51');
   assert.equal(elsewhere.status, 200);
 });
 
 test('sign-ups per IP are capped', async () => {
   for (let i = 0; i < MAX_REGISTRATIONS_PER_IP; i++) {
-    assert.equal((await call(redis, { action: 'register', username: `new${i}`, password: 'password123' }, '203.0.113.77')).status, 200);
+    assert.equal((await call(redis, { action: 'register', username: `newbie${i}`, password: 'password123' }, '203.0.113.77')).status, 200);
   }
   assert.equal((await call(redis, { action: 'register', username: 'onemore', password: 'password123' }, '203.0.113.77')).status, 429);
 });
@@ -91,24 +105,24 @@ test('sign-ups per IP are capped', async () => {
 const cookieFrom = r => ({ cookie: r.headers['Set-Cookie'].split(';')[0] });
 
 test('email is optional at sign-up, and stored trimmed and lower-cased', async () => {
-  const withEmail = await call(redis, { action: 'register', username: 'mailer', password: 'correct-horse', email: '  Mailer@Example.COM ' });
+  const withEmail = await call(redis, { action: 'register', username: 'mailer', password: 'correct-horse1', email: '  Mailer@Example.COM ' });
   assert.equal(withEmail.status, 200);
   assert.equal(withEmail.body.email, 'mailer@example.com');
   const me = await call(redis, undefined, undefined, cookieFrom(withEmail), 'GET');
   assert.equal(me.body.email, 'mailer@example.com');
 
-  const login = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' });
+  const login = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' });
   assert.equal(login.body.email, '', 'accounts without one still work');
 });
 
 test('a malformed email is rejected at sign-up', async () => {
-  const r = await call(redis, { action: 'register', username: 'badmail', password: 'correct-horse', email: 'not-an-email' });
+  const r = await call(redis, { action: 'register', username: 'badmail', password: 'correct-horse1', email: 'not-an-email' });
   assert.equal(r.status, 400);
   assert.match(r.body.error, /valid email/);
 });
 
 test('a logged-in user can add, change and remove their email', async () => {
-  const login = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' });
+  const login = await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' });
   const cookie = cookieFrom(login);
   const added = await call(redis, { action: 'set_email', email: 'clem@example.com' }, undefined, cookie);
   assert.equal(added.status, 200);
@@ -122,7 +136,7 @@ test('a logged-in user can add, change and remove their email', async () => {
   assert.equal((await call(redis, undefined, undefined, cookie, 'GET')).body.email, '');
 
   // Changing the email never touches the password.
-  assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse' })).status, 200);
+  assert.equal((await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' })).status, 200);
 });
 
 test('setting an email needs a session', async () => {
@@ -134,7 +148,7 @@ test('setting an email needs a session', async () => {
 const tokenFromLastEmail = () => new URL(sent.at(-1).text.match(/https:\S+/)[0]).searchParams.get('reset');
 
 test('forgot password by username or email sends a one-time link that sets a new password', async () => {
-  await call(redis, { action: 'register', username: 'Resetter', password: 'old-password', email: 'reset@example.com' });
+  await call(redis, { action: 'register', username: 'Resetter', password: 'old-password1', email: 'reset@example.com' });
 
   const byName = await call(redis, { action: 'forgot_password', identifier: 'resetter' });
   assert.equal(byName.status, 200);
@@ -150,15 +164,15 @@ test('forgot password by username or email sends a one-time link that sets a new
   const tooShort = await call(redis, { action: 'reset_password', token, password: 'short' });
   assert.equal(tooShort.status, 400);
 
-  const done = await call(redis, { action: 'reset_password', token, password: 'brand-new-password' });
+  const done = await call(redis, { action: 'reset_password', token, password: 'brand-new-password1' });
   assert.equal(done.status, 200);
   assert.equal(done.body.username, 'Resetter');
   assert.match(done.headers['Set-Cookie'], /HttpOnly/, 'logs you straight in');
 
-  assert.equal((await call(redis, { action: 'login', username: 'resetter', password: 'old-password' })).status, 401);
-  assert.equal((await call(redis, { action: 'login', username: 'resetter', password: 'brand-new-password' })).status, 200);
+  assert.equal((await call(redis, { action: 'login', username: 'resetter', password: 'old-password1' })).status, 401);
+  assert.equal((await call(redis, { action: 'login', username: 'resetter', password: 'brand-new-password1' })).status, 200);
 
-  const reused = await call(redis, { action: 'reset_password', token, password: 'another-password' });
+  const reused = await call(redis, { action: 'reset_password', token, password: 'another-password1' });
   assert.equal(reused.status, 400, 'a link only works once');
 });
 
@@ -177,7 +191,7 @@ test('forgot password says when no account matches or it has no email', async ()
 });
 
 test('the reset confirmation shows a masked address', async () => {
-  await call(redis, { action: 'register', username: 'masked', password: 'correct-horse', email: 'masked@example.com' });
+  await call(redis, { action: 'register', username: 'masked', password: 'correct-horse1', email: 'masked@example.com' });
   const r = await call(redis, { action: 'forgot_password', identifier: 'masked' });
   assert.equal(r.status, 200);
   assert.match(r.body.message, /m\*\*\*@example\.com/);
@@ -185,19 +199,19 @@ test('the reset confirmation shows a masked address', async () => {
 });
 
 test('reset links expire and made-up tokens are rejected', async () => {
-  await call(redis, { action: 'register', username: 'expiry', password: 'old-password', email: 'expiry@example.com' });
+  await call(redis, { action: 'register', username: 'expiry', password: 'old-password1', email: 'expiry@example.com' });
   await call(redis, { action: 'forgot_password', identifier: 'expiry' });
   const token = tokenFromLastEmail();
   // Push the stored expiry into the past.
   const key = [...(await redis.keys())].find(k => k.startsWith('pwreset:'));
   const entry = JSON.parse(await redis.get(key));
   await redis.set(key, JSON.stringify({ ...entry, expiresAt: Date.now() - 1 }));
-  assert.equal((await call(redis, { action: 'reset_password', token, password: 'brand-new-password' })).status, 400);
-  assert.equal((await call(redis, { action: 'reset_password', token: 'made-up', password: 'brand-new-password' })).status, 400);
+  assert.equal((await call(redis, { action: 'reset_password', token, password: 'brand-new-password1' })).status, 400);
+  assert.equal((await call(redis, { action: 'reset_password', token: 'made-up', password: 'brand-new-password1' })).status, 400);
 });
 
 test('reset emails per account are capped', async () => {
-  await call(redis, { action: 'register', username: 'spammed', password: 'old-password', email: 'spammed@example.com' });
+  await call(redis, { action: 'register', username: 'spammed', password: 'old-password1', email: 'spammed@example.com' });
   for (let i = 0; i < MAX_RESET_EMAILS_PER_USER + 2; i++) {
     const r = await call(redis, { action: 'forgot_password', identifier: 'spammed' }, `192.0.2.${i}`);
     assert.equal(r.status, i < MAX_RESET_EMAILS_PER_USER ? 200 : 429);
@@ -206,13 +220,13 @@ test('reset emails per account are capped', async () => {
 });
 
 test('an email can only belong to one account, and is freed when changed', async () => {
-  await call(redis, { action: 'register', username: 'first', password: 'correct-horse', email: 'shared@example.com' });
-  const second = await call(redis, { action: 'register', username: 'second', password: 'correct-horse', email: 'Shared@example.com' });
+  await call(redis, { action: 'register', username: 'firstuser', password: 'correct-horse1', email: 'shared@example.com' });
+  const second = await call(redis, { action: 'register', username: 'second', password: 'correct-horse1', email: 'Shared@example.com' });
   assert.equal(second.status, 409);
 
-  const login = await call(redis, { action: 'login', username: 'first', password: 'correct-horse' });
+  const login = await call(redis, { action: 'login', username: 'firstuser', password: 'correct-horse1' });
   await call(redis, { action: 'set_email', email: 'moved@example.com' }, undefined, cookieFrom(login));
-  const retry = await call(redis, { action: 'register', username: 'second', password: 'correct-horse', email: 'shared@example.com' });
+  const retry = await call(redis, { action: 'register', username: 'second', password: 'correct-horse1', email: 'shared@example.com' });
   assert.equal(retry.status, 200);
 
   // The old address no longer resets the first account.

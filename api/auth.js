@@ -1,7 +1,7 @@
 import { getRedis, getJSON, createJSON, updateJSON } from '../src/lib/redis.js';
 import { clientIp, bump, release, reset } from '../src/lib/rateLimit.js';
 import {
-  validateUsername, validatePassword, normalizeEmail,
+  validateUsername, validateNewUsername, validatePassword, normalizeEmail,
   hashPassword, verifyPassword, signSessionToken,
   buildSessionCookie, buildClearedSessionCookie, getSessionFromRequest,
   sessionMatchesRecord, isJsonRequest,
@@ -211,9 +211,9 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     const { password } = body;
     // A stray space (a phone keyboard, a paste) isn't part of the name.
     const username = typeof body.username === 'string' ? body.username.trim() : body.username;
-    const usernameCheck = validateUsername(username);
+    const usernameCheck = validateNewUsername(username);
     if (!usernameCheck.ok) { res.status(400).json({ error: usernameCheck.error }); return; }
-    const passwordCheck = validatePassword(password);
+    const passwordCheck = validatePassword(password, username);
     if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
     const emailCheck = normalizeEmail(body.email);
     if (!emailCheck.ok) { res.status(400).json({ error: emailCheck.error }); return; }
@@ -404,15 +404,20 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
   if (action === 'reset_password') {
     const { token, password } = body;
     if (typeof token !== 'string' || !token || token.length > 200) { res.status(400).json({ error: RESET_INVALID }); return; }
-    const passwordCheck = validatePassword(password);
-    if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
+    const parse = raw => { try { return raw ? JSON.parse(raw) : null; } catch { return null; } };
     try {
+      // The password rules depend on the account, so look at the link
+      // first without using it up: a password that fails them can be fixed
+      // and sent again with the same link.
+      const resetKey = resetKeyFor(token);
+      const peek = parse(await redis.get(resetKey));
+      if (!peek || !(peek.expiresAt > Date.now())) { res.status(400).json({ error: RESET_INVALID }); return; }
+      const passwordCheck = validatePassword(password, peek.username);
+      if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
       // Read and delete in one step, so the same link can't be used twice
       // even by two requests at once.
-      const resetKey = resetKeyFor(token);
       const [[, raw]] = await redis.multi().get(resetKey).del(resetKey).exec();
-      let entry = null;
-      try { entry = raw ? JSON.parse(raw) : null; } catch { entry = null; }
+      const entry = parse(raw);
       if (!entry || !(entry.expiresAt > Date.now())) { res.status(400).json({ error: RESET_INVALID }); return; }
 
       // Hash before touching the record, so the read-modify-write below is

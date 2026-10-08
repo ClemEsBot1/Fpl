@@ -125,13 +125,12 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
                 type="password"
                 className="fpl-mono"
                 autoComplete="new-password"
-                minLength={8}
                 aria-describedby="auth-new-password-hint"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 style={inputStyle}
               />
-              <div id="auth-new-password-hint" className="fpl-mono" style={hintStyle}>At least 8 characters.</div>
+              <div id="auth-new-password-hint" className="fpl-mono" style={hintStyle}>At least 6 characters, including a number.</div>
             </>
           )}
 
@@ -142,26 +141,29 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
                 id="auth-username"
                 className="fpl-mono"
                 autoComplete="username"
+                aria-describedby={mode === 'register' ? 'auth-username-hint' : undefined}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 autoCapitalize="none"
                 autoCorrect="off"
                 style={inputStyle}
               />
+              {mode === 'register' && (
+                <div id="auth-username-hint" className="fpl-mono" style={hintStyle}>6-20 characters: letters, numbers, underscores.</div>
+              )}
               <label htmlFor="auth-password" className="fpl-mono" style={labelStyle}>PASSWORD</label>
               <input
                 id="auth-password"
                 type="password"
                 className="fpl-mono"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                minLength={mode === 'login' ? undefined : 8}
                 aria-describedby={mode === 'login' ? undefined : 'auth-password-hint'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 style={inputStyle}
               />
               {mode === 'register' && (
-                <div id="auth-password-hint" className="fpl-mono" style={hintStyle}>At least 8 characters.</div>
+                <div id="auth-password-hint" className="fpl-mono" style={hintStyle}>At least 6 characters, including a number.</div>
               )}
               {mode === 'login' && (
                 <button type="button" onClick={() => setMode('forgot')} className="fpl-mono" style={{ ...linkStyle, width: 'auto', display: 'block', margin: '-6px 0 14px auto', padding: 0, fontSize: '0.7rem' }}>
