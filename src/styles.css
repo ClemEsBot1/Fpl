@@ -1088,3 +1088,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-chip-name { font-weight: 700; }
 .fpl-chip-gw { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--blue); }
 .fpl-chip-reason { margin: 0; font-size: 0.8rem; color: var(--ink-dim); line-height: 1.45; }
+
+/* Player insight: likely-range reason chips in the breakdown */
+.fpl-insight-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.fpl-insight-chip { font-size: 0.64rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(4, 249, 252, 0.14); color: var(--blue); border: 1px solid rgba(4, 249, 252, 0.3); }
