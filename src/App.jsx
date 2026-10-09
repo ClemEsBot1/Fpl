@@ -13,7 +13,7 @@ import { summariseAccuracy } from './lib/accuracy.js';
 import { buildRecap, lastFinishedGw, leagueSlide, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { Bookmark, CalendarRange, Camera, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
+import { Bookmark, CalendarRange, Camera, Compass, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
@@ -82,6 +82,7 @@ const AuthDialog = lazyScreen(accountChunk, 'AuthDialog');
 const GwRecap = lazyScreen(recapChunk, 'GwRecap');
 const FixturesScreen = lazyScreen(toolsChunk, 'FixturesScreen');
 const CompareScreen = lazyScreen(toolsChunk, 'CompareScreen');
+const ExploreScreen = lazyScreen(toolsChunk, 'ExploreScreen');
 const LiveScreen = lazyScreen(liveChunk, 'LiveScreen');
 const AdminScreen = lazyScreen(adminChunk, 'AdminScreen');
 
@@ -119,6 +120,7 @@ function navSectionFor(stage, resultsData) {
     case 'league': return 'league';
     case 'fixtures': return 'fixtures';
     case 'compare': return 'compare';
+    case 'explore': return 'explore';
     case 'live': return 'live';
     case 'admin': return 'admin';
     case 'results':
@@ -185,7 +187,7 @@ function writeParams(values) {
 
 // The screen open is kept in the address too (?view=team, and ?team=123
 // for someone else's team), so a reload opens it again rather than Home.
-const RESTORABLE_VIEWS = ['team', 'league', 'screenshot', 'best', 'build', 'lookback', 'saved', 'fixtures', 'compare', 'live', 'admin'];
+const RESTORABLE_VIEWS = ['team', 'league', 'screenshot', 'best', 'build', 'lookback', 'saved', 'fixtures', 'compare', 'explore', 'live', 'admin'];
 
 // Players picked to compare (Compare players), kept on this device.
 const COMPARE_KEY = 'fpl_compare';
@@ -1675,6 +1677,7 @@ export default function FPLSquadChecker() {
     { id: 'build', label: 'Build a squad', desc: 'Pick your own and preview chips', group: 'Tools', Icon: Wand2, run: handleStartCustomBuild },
     { id: 'fixtures', label: 'Fixtures', desc: 'Every club\'s next 8 gameweeks', group: 'Tools', Icon: CalendarRange, run: () => setStage('fixtures') },
     { id: 'compare', label: 'Compare players', desc: 'Up to 3 players side by side', group: 'Tools', Icon: GitCompareArrows, run: () => setStage('compare') },
+    { id: 'explore', label: 'Explore', desc: 'Search players, price moves and chip timing', group: 'Tools', Icon: Compass, run: () => setStage('explore') },
     ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', desc: 'Past gameweeks against the best XI', group: 'Tools', Icon: History, run: handleViewHindsight }] : []),
     { id: 'saved', label: 'Saved teams', desc: 'Team IDs and squads on your account', group: 'Tools', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
     { id: 'about', label: 'About this app', desc: 'What it does and how it predicts', group: 'App', Icon: Info, run: () => setStage('welcome') },
@@ -1697,7 +1700,7 @@ export default function FPLSquadChecker() {
   }, [stage]);
 
   const showNav = stage !== 'welcome' && stage !== 'boot';
-  const wideStage = ['home', 'welcome', 'league', 'customBuild', 'fixtures', 'compare', 'live', 'admin'].includes(stage);
+  const wideStage = ['home', 'welcome', 'league', 'customBuild', 'fixtures', 'compare', 'explore', 'live', 'admin'].includes(stage);
   const activeNav = navSectionFor(stage, resultsData) || lastNavRef.current;
   lastNavRef.current = activeNav;
 
@@ -1850,7 +1853,7 @@ export default function FPLSquadChecker() {
                 onAddTeamId={() => setStage('home')}
               />
             )}
-            {(stage === 'fixtures' || stage === 'compare' || stage === 'live') && !liveStatic && <LoadingScreen message="Loading fixtures and players…" />}
+            {(stage === 'fixtures' || stage === 'compare' || stage === 'explore' || stage === 'live') && !liveStatic && <LoadingScreen message="Loading fixtures and players…" />}
             {stage === 'live' && liveStatic && liveGwIdFor(liveStatic) && (
               <LiveScreen
                 key={leagueWeekGw}
@@ -1867,6 +1870,9 @@ export default function FPLSquadChecker() {
             )}
             {stage === 'compare' && liveStatic && (
               <CompareScreen staticData={liveStatic} compareIds={compareIds} onToggleCompare={toggleCompare} onClear={() => setCompareIds([])} />
+            )}
+            {stage === 'explore' && liveStatic && (
+              <ExploreScreen staticData={liveStatic} compareIds={compareIds} onToggleCompare={toggleCompare} />
             )}
             {stage === 'admin' && (session && session.admin
               ? <AdminScreen session={session} />
