@@ -2,7 +2,7 @@ import { getRedis, getJSON, createJSON, updateJSON } from '../src/lib/redis.js';
 import { clientIp, bump, release, reset } from '../src/lib/rateLimit.js';
 import {
   validateUsername, validateNewUsername, validatePassword, normalizeEmail,
-  hashPassword, verifyPassword, signSessionToken,
+  hashPassword, verifyPassword, signSessionToken, generateAuthId,
   buildSessionCookie, buildClearedSessionCookie, getSessionFromRequest,
   sessionMatchesRecord, isJsonRequest,
   userKeyFor, normalizeUsername, emailKeyFor,
@@ -129,12 +129,16 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
 }
 
 function signIn(res, record, secret) {
-  res.setHeader('Set-Cookie', buildSessionCookie(signSessionToken(record.username, secret, record.sessionVersion || 0)));
+  res.setHeader('Set-Cookie', buildSessionCookie(signSessionToken(record.username, secret, record.sessionVersion || 0, record.authId)));
   res.status(200).json(account(record));
 }
 
 function storageFailed(res, e) {
-  res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+  // Log the real cause server-side, but don't return it: error messages can
+  // carry internal hostnames, connection strings or other infrastructure
+  // details that a client has no business seeing.
+  console.error('storage_failed:', (e && e.stack) || e);
+  res.status(502).json({ error: 'storage_failed' });
 }
 
 // `redisOverride` and `mailOverride` are never passed in production
@@ -243,7 +247,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
         res.status(409).json({ error: EMAIL_TAKEN });
         return;
       }
-      const record = { username, passwordHash: await hashPassword(password), teams: [], sessionVersion: 0, createdAt: new Date().toISOString() };
+      const record = { username, passwordHash: await hashPassword(password), teams: [], sessionVersion: 0, authId: generateAuthId(), createdAt: new Date().toISOString() };
       if (emailCheck.email) record.email = emailCheck.email;
       // Created only if the username is still free: two sign-ups racing
       // for the same name can't overwrite one another.

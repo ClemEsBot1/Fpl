@@ -106,11 +106,25 @@ export async function verifyPassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
+// A random id minted once per account at sign-up and stored on the record.
+// It ties a session token to that specific account, so a token issued for
+// one account can never be valid for a different account that later happens
+// to have the same username (e.g. after the first was deleted and the name
+// re-registered). Accounts created before this existed have no authId; such
+// tokens fall back to the sessionVersion check alone (see below).
+export function generateAuthId() {
+  return randomBytes(16).toString('base64url');
+}
+
 // `sessionVersion` is copied from the user record. Resetting the password
 // bumps the record's version, which signs out every session made before
 // it (sessions are otherwise stateless tokens that nothing can revoke).
-export function signSessionToken(username, secret, sessionVersion = 0) {
-  return jwt.sign({ username, sv: sessionVersion }, secret, { expiresIn: SESSION_MAX_AGE_SECONDS });
+// `authId`, when the record has one, is embedded so the token is bound to
+// that account and not just its name.
+export function signSessionToken(username, secret, sessionVersion = 0, authId) {
+  const payload = { username, sv: sessionVersion };
+  if (authId) payload.aid = authId;
+  return jwt.sign(payload, secret, { expiresIn: SESSION_MAX_AGE_SECONDS });
 }
 
 // Returns { username, sv } on a valid, unexpired token, or null otherwise —
@@ -122,16 +136,27 @@ export function verifySessionToken(token, secret) {
   try {
     const payload = jwt.verify(token, secret);
     if (!payload || typeof payload.username !== 'string') return null;
-    return { username: payload.username, sv: Number.isInteger(payload.sv) ? payload.sv : 0 };
+    return {
+      username: payload.username,
+      sv: Number.isInteger(payload.sv) ? payload.sv : 0,
+      aid: typeof payload.aid === 'string' ? payload.aid : null,
+    };
   } catch {
     return null;
   }
 }
 
 // Whether a session token is still valid for the user's stored record
-// (false once the password has been reset since the token was issued).
+// (false once the password has been reset since the token was issued, or if
+// the token was issued for a different account that merely shared this
+// name). The authId must match when the record carries one; records from
+// before authIds existed accept a token with no authId, so existing
+// sessions aren't logged out — but any account created or re-registered
+// since gets a fresh authId that an older token can't match.
 export function sessionMatchesRecord(session, record) {
-  return !!session && !!record && (record.sessionVersion || 0) === (session.sv || 0);
+  if (!session || !record) return false;
+  if ((record.sessionVersion || 0) !== (session.sv || 0)) return false;
+  return (record.authId || null) === (session.aid || null);
 }
 
 // State-changing requests must be JSON. Browsers only send JSON across

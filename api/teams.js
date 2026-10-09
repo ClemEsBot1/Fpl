@@ -9,7 +9,11 @@ function requireSecret() {
 }
 
 function storageFailed(res, e) {
-  res.status(502).json({ error: 'storage_failed', detail: String((e && e.message) || e) });
+  // Log the real cause server-side, but don't return it: error messages can
+  // carry internal hostnames, connection strings or other infrastructure
+  // details that a client has no business seeing.
+  console.error('storage_failed:', (e && e.stack) || e);
+  res.status(502).json({ error: 'storage_failed' });
 }
 
 // `redisOverride` is never passed in production — tests inject an

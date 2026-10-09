@@ -121,6 +121,37 @@ test('a password reset signs out sessions from before it', async () => {
   assert.equal((await request(teamsHandler, { method: 'GET', cookie: cookieOf(reset) })).status, 200, 'the new session works');
 });
 
+test('a session cookie does not carry over to a re-registered username', async () => {
+  // clem signs in, the account is removed (as an admin delete would), and
+  // someone else claims the freed name.
+  const oldCookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }));
+  assert.equal((await request(teamsHandler, { method: 'GET', cookie: oldCookie })).status, 200);
+  await redis.del('user:clem');
+  const fresh = await auth({ action: 'register', username: 'clem', password: 'different-pass1', email: 'new@example.com' }, { ip: '198.51.100.40' });
+  assert.equal(fresh.status, 200);
+
+  // The old cookie must not authenticate as the new account.
+  const me = await request(authHandler, { method: 'GET', cookie: oldCookie });
+  assert.equal(me.status, 401);
+  assert.equal((await request(teamsHandler, { method: 'GET', cookie: oldCookie })).status, 401);
+  // The new owner's own session works.
+  assert.equal((await request(authHandler, { method: 'GET', cookie: cookieOf(fresh) })).body.email, 'new@example.com');
+});
+
+test('a storage failure is not echoed back to the client', async () => {
+  const broken = {
+    ...redis,
+    async get(k) { if (String(k).startsWith('user:')) throw new Error('ENOTFOUND redis.internal secret=hunter2'); return redis.get(k); },
+  };
+  const got = await new Promise(resolve => {
+    const res = { headers: {}, statusCode: 200, setHeader() { return this; }, status(c) { this.statusCode = c; return this; }, json(b) { resolve({ status: this.statusCode, body: b }); } };
+    authHandler({ method: 'POST', body: { action: 'login', username: 'nobody', password: 'x' }, headers: { 'content-type': 'application/json', 'x-forwarded-for': '7.7.7.7' } }, res, broken);
+  });
+  assert.equal(got.status, 502);
+  assert.equal(got.body.error, 'storage_failed');
+  assert.equal(got.body.detail, undefined, 'the internal error text must not be returned');
+});
+
 test('a reset link used twice at once only works once', async () => {
   await auth({ action: 'forgot_password', identifier: 'clem' });
   const token = tokenFromLastEmail();
