@@ -2,11 +2,12 @@
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Anchor, Armchair, Scale, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
+import { Anchor, Armchair, Scale, Swords, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
+import './headToHead.css';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { fmtPrice, fmtPts } from '../lib/format.js';
-import { expectedPositions, forEachLimited, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { expectedPositions, forEachLimited, headToHead, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
 
 const LEAGUE_KEY = 'fpl_league_id';
 // Members' teams are fetched a few at a time, so a 50-team league doesn't
@@ -185,6 +186,66 @@ function LeagueDifferentials({ members, teams, youEntry, liveGwId }) {
   );
 }
 
+// One column of a head-to-head: the players only this side has.
+function H2hColumn({ title, rows, teamsById }) {
+  return (
+    <div className="fpl-h2h-col">
+      <h3 className="fpl-home-sub">{title}</h3>
+      <ul className="fpl-h2h-list">
+        {rows.length ? rows.map(r => (
+          <li key={r.player.id} className={r.starting ? '' : 'is-bench'}>
+            <span className="fpl-h2h-name">{r.player.webName}<span className="fpl-meta"> · {teamsById[r.player.team]?.short_name}</span>{!r.starting ? <span className="fpl-meta"> · bench</span> : null}</span>
+            <span className="fpl-mono fpl-h2h-pts">{fmtPts(r.predicted)}</span>
+          </li>
+        )) : <li className="fpl-meta">Same as you</li>}
+      </ul>
+    </div>
+  );
+}
+
+// Pick any rival in the league and see who you share, who's unique to each
+// side, each XI's predicted total and the edge from the differing players.
+function HeadToHead({ members, teams, youEntry, teamsById }) {
+  const others = useMemo(() => members.filter(m => String(m.entry) !== String(youEntry)), [members, youEntry]);
+  const [rivalEntry, setRivalEntry] = useState(null);
+  const chosen = rivalEntry != null && others.some(m => String(m.entry) === String(rivalEntry)) ? rivalEntry : (others[0] ? others[0].entry : null);
+  const youTeam = teams[youEntry];
+  const rivalTeam = chosen != null ? teams[chosen] : null;
+  const h = useMemo(
+    () => (youTeam && youTeam.status === 'ready' && rivalTeam && rivalTeam.status === 'ready' ? headToHead(youTeam, rivalTeam) : null),
+    [youTeam, rivalTeam],
+  );
+  if (!others.length || !youTeam || youTeam.status !== 'ready') return null;
+  const rivalName = (others.find(m => String(m.entry) === String(chosen)) || {}).teamName || 'Rival';
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="h2h-h">
+      <div className="fpl-home-team-head">
+        <h2 id="h2h-h" className="fpl-home-h"><Swords size={18} aria-hidden="true" /> Head-to-head</h2>
+        <label className="fpl-h2h-pick">
+          <span className="fpl-sr-only">Rival</span>
+          <select className="fpl-input" value={chosen ?? ''} onChange={e => setRivalEntry(Number(e.target.value))}>
+            {others.map(m => <option key={m.entry} value={m.entry}>{m.teamName}</option>)}
+          </select>
+        </label>
+      </div>
+      {h ? (
+        <>
+          <p className="fpl-home-text" style={{ margin: 0 }}>
+            Your XI is predicted <b>{fmtPts(h.yourXiTotal)}</b> to {rivalName}'s <b>{fmtPts(h.theirXiTotal)}</b>.
+            {' '}From the players only one of you owns, you're predicted to {h.edge >= 0 ? 'gain' : 'lose'}
+            {' '}<b className={h.edge >= 0 ? 'fpl-diff-up' : 'fpl-diff-down'}>{fmtPts(Math.abs(h.edge))} pts</b> this week.
+          </p>
+          <div className="fpl-h2h-grid">
+            <H2hColumn title="Only you" rows={h.yourOnly} teamsById={teamsById} />
+            <H2hColumn title={`Only ${rivalName}`} rows={h.theirOnly} teamsById={teamsById} />
+          </div>
+          <p className="fpl-home-hint">{h.shared.length} players shared. Captains: you {h.yourCaptain ? h.yourCaptain.webName : '–'}, {rivalName} {h.theirCaptain ? h.theirCaptain.webName : '–'}.</p>
+        </>
+      ) : <p className="fpl-home-text" style={{ margin: 0 }}>Loading {rivalName}'s team…</p>}
+    </section>
+  );
+}
+
 // One league's standings with each member's predicted points; mounted
 // afresh for each league picked.
 function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam }) {
@@ -340,6 +401,9 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
     )}
     {standings.status === 'ready' && homeTeamId && standings.data.members.some(m => String(m.entry) === String(homeTeamId)) && (
       <LeagueDifferentials members={shownMembers} teams={teams} youEntry={standings.data.members.find(m => String(m.entry) === String(homeTeamId)).entry} liveGwId={gwId} />
+    )}
+    {standings.status === 'ready' && homeTeamId && standings.data.members.some(m => String(m.entry) === String(homeTeamId)) && (
+      <HeadToHead members={shownMembers} teams={teams} youEntry={standings.data.members.find(m => String(m.entry) === String(homeTeamId)).entry} teamsById={teamsById} />
     )}
     </div>
     </div>
