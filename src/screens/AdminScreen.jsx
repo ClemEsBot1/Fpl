@@ -2,7 +2,7 @@
 // src/lib/adminServer.js). Every request goes through /api/auth, which
 // checks the session belongs to an admin before doing anything.
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BrainCircuit, Camera, Check, ExternalLink, RefreshCw, Search, ShieldCheck, Trash2, Undo2, UserX, Users } from 'lucide-react';
+import { Activity, BrainCircuit, Camera, Check, ExternalLink, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { fmtPts } from '../lib/format.js';
 
@@ -118,6 +118,27 @@ function Health() {
           <button type="button" className="fpl-btn" onClick={load} disabled={!!busy}>Reload</button>
         </div>
         {!d.canRefresh ? <p className="fpl-meta" style={{ margin: 0 }}>CRON_SECRET isn't set, so the best squad can't be rebuilt from here.</p> : null}
+      </section>
+      <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-errors">
+        <h2 id="adm-errors" className="fpl-home-h"><TriangleAlert size={18} aria-hidden="true" /> Recent server errors</h2>
+        {d.errors && d.errors.length ? (
+          <>
+            <ul className="fpl-admin-errlist">
+              {d.errors.map((e, i) => (
+                <li key={i}>
+                  <span className="fpl-admin-err-where">{e.where}</span>
+                  <span className="fpl-admin-err-msg fpl-mono">{e.message}</span>
+                  <span className="fpl-meta">{ago(e.at)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="fpl-admin-actions">
+              <button type="button" className="fpl-btn" disabled={!!busy} onClick={() => run('clear_errors', 'Error log cleared.')}>
+                <Trash2 size={15} aria-hidden="true" /> {busy === 'clear_errors' ? 'Clearing…' : 'Clear log'}
+              </button>
+            </div>
+          </>
+        ) : <p className="fpl-meta" style={{ margin: 0 }}>No errors logged. Storage failures in sign-in and saved teams show up here.</p>}
       </section>
       {message ? <p className="fpl-admin-msg" role="status">{message}</p> : null}
     </div>

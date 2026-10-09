@@ -16,6 +16,25 @@ export function fakeRedis() {
     incr(k) { const n = Number(data.get(k) || 0) + 1; data.set(k, String(n)); return n; },
     decr(k) { const n = Number(data.get(k) || 0) - 1; data.set(k, String(n)); return n; },
     del(k) { return data.delete(k) ? 1 : 0; },
+    // List commands (used by src/lib/errorLog.js). Values are kept as an
+    // array under the key; LPUSH prepends, matching ioredis order.
+    lpush(k, ...vals) {
+      const list = Array.isArray(data.get(k)) ? data.get(k) : [];
+      vals.forEach(v => list.unshift(String(v)));
+      data.set(k, list);
+      return list.length;
+    },
+    ltrim(k, start, stop) {
+      const list = Array.isArray(data.get(k)) ? data.get(k) : [];
+      const end = stop < 0 ? list.length + stop + 1 : stop + 1;
+      data.set(k, list.slice(start, end));
+      return 'OK';
+    },
+    lrange(k, start, stop) {
+      const list = Array.isArray(data.get(k)) ? data.get(k) : [];
+      const end = stop < 0 ? list.length + stop + 1 : stop + 1;
+      return list.slice(start, end);
+    },
   };
   const redis = {
     async keys() { return data.keys(); },

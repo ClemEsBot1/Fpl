@@ -2,6 +2,8 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import authHandler, { MAX_FAILED_LOGINS_PER_IP, MAX_FAILED_LOGINS_PER_USER, MAX_REGISTRATIONS_PER_IP } from '../api/auth.js';
 import teamsHandler from '../api/teams.js';
+import { signSessionToken } from '../src/lib/auth.js';
+import { recentErrors } from '../src/lib/errorLog.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
 
 process.env.JWT_SECRET = 'test-secret';
@@ -150,6 +152,31 @@ test('a storage failure is not echoed back to the client', async () => {
   assert.equal(got.status, 502);
   assert.equal(got.body.error, 'storage_failed');
   assert.equal(got.body.detail, undefined, 'the internal error text must not be returned');
+});
+
+test('a session from before account IDs existed still works on its own account', async () => {
+  // A record with no authId (made before the fix) and a token with no aid.
+  await redis.set('user:legacy', JSON.stringify({ username: 'legacy', passwordHash: 'x', sessionVersion: 0 }));
+  const token = signSessionToken('legacy', 'test-secret', 0); // no authId
+  const me = await request(authHandler, { method: 'GET', cookie: `fpl_session=${token}` });
+  assert.equal(me.status, 200, 'the existing session is not logged out by the account-binding change');
+  assert.equal(me.body.username, 'legacy');
+});
+
+test('a storage failure is recorded in the admin error log', async () => {
+  const cookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }));
+  // Shares the same underlying store (so the log write lands where
+  // recentErrors reads), but the user read throws.
+  const broken = {
+    ...redis,
+    async get(k) { if (String(k).startsWith('user:')) throw new Error('redis unreachable'); return redis.get(k); },
+  };
+  await new Promise(resolve => {
+    const res = { headers: {}, statusCode: 200, setHeader() { return this; }, status(c) { this.statusCode = c; return this; }, json() { resolve(); } };
+    teamsHandler({ method: 'GET', headers: { cookie } }, res, broken);
+  });
+  const logged = await recentErrors(redis);
+  assert.ok(logged.some(e => e.where === 'teams' && /unreachable/.test(e.message)), 'the failure is in the error log');
 });
 
 test('a reset link used twice at once only works once', async () => {

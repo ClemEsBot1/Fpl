@@ -1,6 +1,7 @@
 import { getRedis, getJSON, updateJSON } from '../src/lib/redis.js';
 import { getSessionFromRequest, sessionMatchesRecord, isJsonRequest, userKeyFor, generateEntryId } from '../src/lib/auth.js';
 import { buildEntryFromBody, mergeEntry } from '../src/lib/teams.js';
+import { recordError } from '../src/lib/errorLog.js';
 
 function requireSecret() {
   const secret = process.env.JWT_SECRET;
@@ -8,11 +9,13 @@ function requireSecret() {
   return secret;
 }
 
-function storageFailed(res, e) {
+function storageFailed(res, e, redis) {
   // Log the real cause server-side, but don't return it: error messages can
   // carry internal hostnames, connection strings or other infrastructure
-  // details that a client has no business seeing.
+  // details that a client has no business seeing. Also record it to the
+  // admin error log (best-effort).
   console.error('storage_failed:', (e && e.stack) || e);
+  recordError(redis, 'teams', e);
   res.status(502).json({ error: 'storage_failed' });
 }
 
@@ -46,7 +49,7 @@ export default async function handler(req, res, redisOverride) {
       if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: 'not_logged_in' }); return; }
       res.status(200).json({ ok: true, teams: record.teams || [] });
     } catch (e) {
-      storageFailed(res, e);
+      storageFailed(res, e, redis);
     }
     return;
   }
@@ -80,7 +83,7 @@ export default async function handler(req, res, redisOverride) {
       if (!outcome.ok) { res.status(400).json({ error: outcome.error }); return; }
       res.status(200).json({ ok: true, teams: outcome.teams });
     } catch (e) {
-      storageFailed(res, e);
+      storageFailed(res, e, redis);
     }
     return;
   }
@@ -97,6 +100,6 @@ export default async function handler(req, res, redisOverride) {
     if (updated === undefined || signedOut) { res.status(401).json({ error: 'not_logged_in' }); return; }
     res.status(200).json({ ok: true, teams: Array.isArray(updated.teams) ? updated.teams : [] });
   } catch (e) {
-    storageFailed(res, e);
+    storageFailed(res, e, redis);
   }
 }

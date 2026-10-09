@@ -7,6 +7,7 @@
 import { del as blobDel, head as blobHead, list as blobList } from '@vercel/blob';
 import { getJSON, setJSON, updateJSON } from './redis.js';
 import { emailKeyFor, normalizeUsername, userKeyFor } from './auth.js';
+import { recentErrors } from './errorLog.js';
 
 const FPL = 'https://fantasy.premierleague.com/api/';
 const REPORTS_PREFIX = 'screenshot-reports/';
@@ -220,6 +221,7 @@ export async function healthReport(redis, { host, fetchImpl = fetch, blob = { he
     retrain: { canTrigger: !!token, runs, actionsUrl: `https://github.com/${GITHUB_REPO()}/actions/workflows/${ML_WORKFLOW}` },
     data: { odds, playerHistory, bestSquad: squad, savedPredictions: saved, transferSnapshots: snapshots },
     canRefresh: !!process.env.CRON_SECRET,
+    errors: await recentErrors(redis, 25),
   };
 }
 
