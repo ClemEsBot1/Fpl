@@ -316,3 +316,22 @@ test('the ML model predicts when its file is for this gameweek and season', () =
   assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, gwId: target + 1 } }).predictionsById[fit.id].source, 'formula');
   assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, season: '1999-00' } }).predictionsById[fit.id].source, 'formula');
 });
+
+test('a player ruled out is predicted 0, machine-learning figure included', async () => {
+  const { computePlayerPrediction } = await import('../src/lib/predictions.js');
+  const fixturesByTeam = { 1: [{ event: 6, opponent: 2, isHome: true, difficulty: 3 }] };
+  const base = { team: 1, positionId: 3, epNext: 6, pointsPerGame: 6, form: 6, appearanceShare: 1, ml: [5, 5, 5, 5, 5] };
+  const opts = { targetEventId: 6 };
+  const injured = computePlayerPrediction({ ...base, status: 'i', chanceNext: 0 }, fixturesByTeam, true, null, opts);
+  assert.equal(injured.nextMatchPredicted, 0);
+  assert.equal(injured.predicted, 0);
+  assert.equal(injured.source, 'ml');
+  const noChance = computePlayerPrediction({ ...base, status: 'i', chanceNext: null }, fixturesByTeam, true, null, opts);
+  assert.equal(noChance.nextMatchPredicted, 0, 'injured with no chance given counts as ruled out');
+  const zeroPct = computePlayerPrediction({ ...base, status: 'd', chanceNext: 0 }, fixturesByTeam, true, null, opts);
+  assert.equal(zeroPct.nextMatchPredicted, 0, '0% chance of playing is 0, whatever the status');
+  const half = computePlayerPrediction({ ...base, status: 'i', chanceNext: 50 }, fixturesByTeam, true, null, opts);
+  assert.equal(half.nextMatchPredicted, 2.5, 'a 50% chance halves the ML figure');
+  const fit = computePlayerPrediction({ ...base, status: 'a', chanceNext: null }, fixturesByTeam, true, null, opts);
+  assert.equal(fit.nextMatchPredicted, 5);
+});

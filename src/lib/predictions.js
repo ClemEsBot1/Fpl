@@ -197,12 +197,17 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     ? 0
     : thisEventFixtures.reduce((sum, f, i) => sum + fixtureMultFor(f) * (i === 0 ? 1 : DOUBLE_FIXTURE_DISCOUNT), 0);
 
+  // A player FPL rules out (0% chance of playing, or injured/suspended with
+  // no chance given) is predicted 0: he won't play, so nothing he could
+  // score counts. This scales the machine-learning figure too (see mlOut
+  // below), which otherwise doesn't know about injuries at all.
   let availMult = 1;
   let availNote = null;
-  if (p.status === 'i') { availMult = 0.05; availNote = 'Injured'; }
-  else if (p.status === 's') { availMult = 0.05; availNote = 'Suspended'; }
+  const hasChance = typeof p.chanceNext === 'number' && p.chanceNext !== null;
+  if (p.status === 'i') { availMult = hasChance ? p.chanceNext / 100 : 0; availNote = 'Injured'; }
+  else if (p.status === 's') { availMult = hasChance ? p.chanceNext / 100 : 0; availNote = 'Suspended'; }
   else if (p.status === 'u' || p.status === 'n') { availMult = 0; availNote = 'Unavailable'; }
-  else if (typeof p.chanceNext === 'number' && p.chanceNext !== null) {
+  else if (hasChance) {
     availMult = p.chanceNext / 100;
     if (p.chanceNext <= 75) availNote = `${p.chanceNext}% chance of playing`;
   } else if (p.status === 'd') {
