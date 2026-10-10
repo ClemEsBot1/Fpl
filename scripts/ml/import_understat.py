@@ -14,6 +14,7 @@ fetched about one a second.
 """
 import codecs
 import csv
+import http.cookiejar
 import json
 import os
 import re
@@ -30,15 +31,35 @@ FIELDS = ['match_id', 'date', 'h_team', 'a_team', 'player_id', 'player', 'team',
           'xa', 'key_passes', 'goals', 'assists', 'pens_taken']
 
 
-def get(url):
+# The JSON endpoints want the cookies the home page sets.
+OPENER = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+_warmed = False
+
+
+def get(url, api=False):
+    global _warmed
+    if not _warmed:
+        try:
+            OPENER.open(urllib.request.Request(BASE + '/', headers={'User-Agent': HEADERS['User-Agent']}), timeout=30).read()
+        except Exception as e:  # noqa: BLE001
+            print(f'  home page: {e}', flush=True)
+        _warmed = True
+    headers = HEADERS if api else {'User-Agent': HEADERS['User-Agent']}
     for attempt in range(3):
         try:
-            req = urllib.request.Request(url, headers=HEADERS)
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with OPENER.open(urllib.request.Request(url, headers=headers), timeout=30) as r:
                 return r.read().decode('utf-8', 'replace')
         except Exception as e:  # noqa: BLE001
             print(f'  {url}: {e} (attempt {attempt + 1})', flush=True)
             time.sleep(3 * (attempt + 1))
+    return None
+
+
+def api_json(path):
+    raw = get(BASE + path, api=True)
+    if raw and raw.lstrip().startswith(('{', '[')):
+        return json.loads(raw)
+    print(f'  {path}: not JSON: {(raw or "")[:200]!r}', flush=True)
     return None
 
 
@@ -52,10 +73,10 @@ def embedded(html, name):
 
 def league_matches(year):
     """Finished matches of the season starting in `year`: [{id, date, h, a}]."""
-    data = embedded(get(f'{BASE}/league/EPL/{year}'), 'datesData')
-    if data is None:  # the newer JSON endpoint
-        raw = get(f'{BASE}/getLeagueData/EPL/{year}')
-        data = json.loads(raw).get('dates') if raw and raw.strip().startswith('{') else None
+    d = api_json(f'/getLeagueData/EPL/{year}')
+    data = d.get('dates') if isinstance(d, dict) else None
+    if data is None:  # the older page layout, with the data in the HTML
+        data = embedded(get(f'{BASE}/league/EPL/{year}'), 'datesData')
     if data is None:
         raise RuntimeError(f'no match list for {year}: the page layout may have changed')
     return [{'id': m['id'], 'date': m['datetime'][:10], 'h': m['h']['title'], 'a': m['a']['title']}
@@ -63,13 +84,11 @@ def league_matches(year):
 
 
 def match_rows(m):
-    html = get(f'{BASE}/match/{m["id"]}')
-    rosters, shots = embedded(html, 'rostersData'), embedded(html, 'shotsData')
-    if rosters is None:
-        raw = get(f'{BASE}/getMatchData/{m["id"]}')
-        if raw and raw.strip().startswith('{'):
-            d = json.loads(raw)
-            rosters, shots = d.get('rosters'), d.get('shots')
+    d = api_json(f'/getMatchData/{m["id"]}')
+    rosters, shots = (d.get('rosters'), d.get('shots')) if isinstance(d, dict) else (None, None)
+    if rosters is None:  # the older page layout
+        html = get(f'{BASE}/match/{m["id"]}')
+        rosters, shots = embedded(html, 'rostersData'), embedded(html, 'shotsData')
     if rosters is None:
         return None
     pens = {}
