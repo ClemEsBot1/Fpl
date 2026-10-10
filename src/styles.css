@@ -1049,6 +1049,12 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   .fpl-admin-shot { width: 100%; height: 200px; }
 }
 
+/* Admin: recent server errors */
+.fpl-admin-errlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fpl-admin-errlist li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.8rem; }
+.fpl-admin-err-where { font-weight: 700; color: var(--amber); }
+.fpl-admin-err-msg { color: var(--ink-dim); word-break: break-word; min-width: 0; }
+@media (max-width: 520px) { .fpl-admin-errlist li { grid-template-columns: 1fr; gap: 2px; } }
 /* Explore: player table, price-change forecast, chip timing */
 .fpl-tool-h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.05rem; letter-spacing: -0.01em; }
 .fpl-explore-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }

@@ -10,6 +10,7 @@ import {
 } from '../src/lib/auth.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { resetPasswordEmail } from '../src/lib/emails.js';
+import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
   deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
   setReportDone, signOutEverywhere, triggerRetrain, userStats,
@@ -107,6 +108,10 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
     case 'users':
       res.status(200).json(await userStats(redis));
       return;
+    case 'clear_errors':
+      await clearErrors(redis);
+      res.status(200).json({ ok: true });
+      return;
     case 'find_user':
       res.status(200).json({ user: await findUser(redis, body.query) });
       return;
@@ -133,11 +138,13 @@ function signIn(res, record, secret) {
   res.status(200).json(account(record));
 }
 
-function storageFailed(res, e) {
+function storageFailed(res, e, redis) {
   // Log the real cause server-side, but don't return it: error messages can
   // carry internal hostnames, connection strings or other infrastructure
-  // details that a client has no business seeing.
+  // details that a client has no business seeing. Also record it to the
+  // admin error log (best-effort) so it shows up on the admin page.
   console.error('storage_failed:', (e && e.stack) || e);
+  recordError(redis, 'auth', e);
   res.status(502).json({ error: 'storage_failed' });
 }
 
@@ -206,7 +213,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     try {
       await handleAdmin(req, res, redis, secret, body, adminOverride);
     } catch (e) {
-      storageFailed(res, e);
+      storageFailed(res, e, redis);
     }
     return;
   }
@@ -260,7 +267,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       signIn(res, record, secret);
     } catch (e) {
       await giveBack();
-      storageFailed(res, e);
+      storageFailed(res, e, redis);
     }
     return;
   }
@@ -315,7 +322,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       }
       signIn(res, record, secret);
     } catch (e) {
-      storageFailed(res, e);
+      storageFailed(res, e, redis);
     }
     return;
   }
@@ -349,7 +356,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       if (emailCheck.email) await redis.set(emailKeyFor(emailCheck.email), normalizeUsername(updated.username));
       res.status(200).json(account(updated));
     } catch (e) {
-      storageFailed(res, e);
+      storageFailed(res, e, redis);
     }
     return;
   }
@@ -436,7 +443,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       await reset(redis, `ratelimit:login:user:${entry.username}`);
       signIn(res, updated, secret);
     } catch (e) {
-      storageFailed(res, e);
+      storageFailed(res, e, redis);
     }
     return;
   }
