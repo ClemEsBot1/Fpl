@@ -5,7 +5,7 @@ import { ArrowLeftRight, ArrowRight, ArrowUpDown, Bell, Bookmark, Check, CheckCi
 import { DifficultyChips } from '../components/common.jsx';
 import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
-import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch, searchKey } from '../lib/format.js';
+import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
 import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
@@ -901,7 +901,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           )}
           {isPastGw && data.entryHistory && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--lime)', marginTop: 2, fontWeight: 600 }}>
-              Scored {data.entryHistory.points} pts{data.entryHistory.event_transfers_cost ? ` (−${data.entryHistory.event_transfers_cost} hit)` : ''}
+              Scored {officialGwPoints(data)} pts{data.entryHistory.event_transfers_cost ? ` (−${data.entryHistory.event_transfers_cost} hit)` : ''}
               {data.entryHistory.rank ? ` · GW rank ${data.entryHistory.rank.toLocaleString('en-GB')}` : ''}
             </div>
           )}

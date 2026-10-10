@@ -46,10 +46,10 @@ test('team loads run a few at a time and report every result', async () => {
   assert.deepEqual(seen.sort((a, b) => a[0] - b[0]), [[1, 10, null], [2, 20, null], [3, null, 'nope'], [4, 40, null], [5, 50, null]]);
 });
 
-test('live points count multipliers and take off the hit', () => {
+test('live points count multipliers and leave the hit to the season total', () => {
   const picks = { picks: [{ element: 1, multiplier: 2 }, { element: 2, multiplier: 1 }, { element: 3, multiplier: 0 }], entry_history: { event_transfers_cost: 4 } };
   const live = { 1: { totalPoints: 10 }, 2: { totalPoints: 3 }, 3: { totalPoints: 15 } };
-  assert.equal(livePointsFor(picks, live), 19);
+  assert.equal(livePointsFor(picks, live), 23);
   assert.equal(livePointsFor(null, live), null);
 });
 
@@ -138,6 +138,10 @@ test('a league as it stood after an earlier gameweek comes from each history', (
   const live = membersAtGw(members, { ...teams, 1: { ...teams[1], livePoints: 70 } }, 5, { finished: false });
   assert.equal(live[0].total, 270);
   assert.equal(live[0].rank, 1);
+  // A transfer hit comes off the total, not the week's points.
+  const hit = membersAtGw(members, { ...teams, 1: { ...teams[1], livePoints: 70, liveHit: 4 } }, 5, { finished: false });
+  assert.equal(hit[0].eventTotal, 70);
+  assert.equal(hit[0].total, 266);
 });
 
 test('league ownership counts captains twice and the bench not at all', async () => {

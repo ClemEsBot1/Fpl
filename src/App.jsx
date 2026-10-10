@@ -1523,11 +1523,11 @@ export default function FPLSquadChecker() {
     ]);
     if (!result) return null;
     const seasonSoFar = history && Array.isArray(history.current)
-      ? history.current.map(r => ({ event: r.event, points: r.points - (r.event_transfers_cost || 0), total: r.total_points })) : null;
+      ? history.current.map(r => ({ event: r.event, points: r.points, hit: r.event_transfers_cost || 0, total: r.total_points })) : null;
     // A finished week's points from FPL's own record, which counts
     // automatic subs; one still being played from the picks and live scores.
     const weekRow = seasonSoFar && weekGw && isGwFinished(staticData, weekGw) ? seasonSoFar.find(r => r.event === weekGw) : null;
-    if (result.notStarted) return { squad: [], xiTotal: 0, livePoints: null, notStarted: true, history: seasonSoFar, stats: null };
+    if (result.notStarted) return { squad: [], xiTotal: 0, livePoints: null, liveHit: 0, notStarted: true, history: seasonSoFar, stats: null };
     // The week's picks: already loaded when that's the gameweek shown.
     const livePicks = !weekGw ? null : (started && result.picks ? result.picks : await optional(`entry/${entryId}/event/${weekGw}/picks/`));
     // While the week is on, score it as FPL will settle it: projected
@@ -1538,7 +1538,10 @@ export default function FPLSquadChecker() {
       : null;
     return {
       squad: result.squad, xiTotal: predictedXiTotal(result.squad),
+      // The week's points, like FPL's, before any transfer hit (liveHit),
+      // which comes off the season total.
       livePoints: weekRow ? weekRow.points : liveNow !== null ? liveNow : weekGw ? livePointsFor(livePicks, liveById) : null,
+      liveHit: weekRow ? weekRow.hit : (livePicks && livePicks.entry_history && livePicks.entry_history.event_transfers_cost) || 0,
       picksFromGwId: result.entryMeta.picksFromGwId || null, edited: !!result.entryMeta.savedChanges,
       history: seasonSoFar,
       // For the league analysis (most captained, best transfers and so on).

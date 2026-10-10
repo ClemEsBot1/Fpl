@@ -50,14 +50,13 @@ export async function forEachLimited(items, limit, fn, onEach) {
 
 // A team's points so far in a gameweek from its picks and FPL's live
 // scores: each pick's points times its multiplier (0 on the bench, 2 or 3
-// for the captain, 1 for everyone under Bench Boost), less any transfer
-// hit. Automatic substitutions aren't applied: FPL only confirms them
-// once the gameweek is over.
+// for the captain, 1 for everyone under Bench Boost). A transfer hit isn't
+// taken off: like FPL, it counts against the season total, not the week
+// (team.liveHit). Automatic substitutions aren't applied: FPL only
+// confirms them once the gameweek is over.
 export function livePointsFor(picks, liveById) {
   if (!picks || !Array.isArray(picks.picks)) return null;
-  const points = picks.picks.reduce((sum, p) => sum + ((liveById[p.element] && liveById[p.element].totalPoints) || 0) * (p.multiplier || 0), 0);
-  const hit = (picks.entry_history && picks.entry_history.event_transfers_cost) || 0;
-  return points - hit;
+  return picks.picks.reduce((sum, p) => sum + ((liveById[p.element] && liveById[p.element].totalPoints) || 0) * (p.multiplier || 0), 0);
 }
 
 // Where each member is expected to be after the next gameweek: their total
@@ -75,7 +74,7 @@ export function expectedPositions(members, teams, { beforeWeek = false } = {}) {
     if (beforeWeek) {
       return typeof m.totalBefore === 'number' ? { entry: m.entry, projected: m.totalBefore + (ready ? team.xiTotal || 0 : 0) } : null;
     }
-    const live = ready && typeof team.livePoints === 'number' ? team.livePoints : null;
+    const live = ready && typeof team.livePoints === 'number' ? team.livePoints - (team.liveHit || 0) : null;
     const base = live === null ? m.total : m.total - (m.eventTotal || 0) + live;
     return { entry: m.entry, projected: base + (ready ? team.xiTotal : 0) };
   }).filter(Boolean);
@@ -100,7 +99,7 @@ function rankBy(list, valueOf) {
 
 // A league as it stood after gameweek `gwId`, for a gameweek that has
 // started: each member's total, points that week and position after it and
-// before it, from their FPL history (team.history: [{ event, points, total }]).
+// before it, from their FPL history (team.history: [{ event, points, hit, total }]).
 // For a gameweek still being played (`finished` false) the week's live
 // points stand in for FPL's figure. Members whose history hasn't loaded
 // have null positions and totals.
@@ -114,7 +113,7 @@ export function membersAtGw(members, teams, gwId, { finished = true } = {}) {
     const totalBefore = earlier.length ? earlier[earlier.length - 1].total : 0;
     const live = !finished && typeof team.livePoints === 'number' ? team.livePoints : null;
     const eventTotal = live !== null ? live : (at ? at.points : 0);
-    const total = live !== null ? totalBefore + live : (at ? at.total : totalBefore);
+    const total = live !== null ? totalBefore + live - (team.liveHit || 0) : (at ? at.total : totalBefore);
     return { ...m, total, totalBefore, eventTotal };
   });
   const known = rows.filter(r => r.total !== null);
