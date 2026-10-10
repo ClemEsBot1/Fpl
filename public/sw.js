@@ -89,6 +89,18 @@ self.addEventListener('fetch', event => {
   })());
 });
 
+// An alert pushed by the server (src/lib/push.js) while the app is closed.
+// Its tag is the alert's id, so one already shown by the open app is
+// replaced rather than doubled.
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { /* not JSON */ }
+  if (!data.title) return;
+  event.waitUntil(self.registration.showNotification(data.title, {
+    body: data.body || '', tag: data.tag, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
+  }));
+});
+
 // Tapping a notification (see src/lib/notify.js) brings the app forward,
 // or opens it.
 self.addEventListener('notificationclick', event => {

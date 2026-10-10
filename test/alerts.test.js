@@ -39,3 +39,22 @@ test('your flagged players and price moves, injuries first', () => {
   const changed = buildAlerts(data(48, [{ ...players[0], news: 'Knock - 50% chance of playing' }]), [1], NOW)[0].id;
   assert.notEqual(changed, again);
 });
+
+test("a squad player's prediction dropping since first seen this gameweek is flagged", async () => {
+  const { predictionBaseline } = await import('../src/lib/alerts.js');
+  const withPred = (pts, note = null) => ({
+    ...data(48, [{ id: 7, webName: 'Watkins', status: 'a' }]),
+    predictionsById: { 7: { nextMatchPredicted: pts, availNote: note } },
+  });
+  const first = predictionBaseline(null, withPred(6), [7]);
+  assert.deepEqual(first, { gwId: 8, byId: { 7: 6 } });
+  // Seen again later: the first figure stays.
+  assert.deepEqual(predictionBaseline(first, withPred(3), [7]), first);
+  assert.deepEqual(buildAlerts(withPred(5.5), [7], NOW, { baseline: first }), [], 'a small dip is not flagged');
+  const [drop] = buildAlerts(withPred(2.4, '50% chance of playing'), [7], NOW, { baseline: first });
+  assert.equal(drop.kind, 'drop');
+  assert.equal(drop.title, "Watkins's prediction is down to 2.4 pts");
+  assert.match(drop.body, /^He was predicted 6\.0 pts for Gameweek 8 when you first looked\. 50% chance of playing\./);
+  // A new gameweek starts afresh.
+  assert.deepEqual(buildAlerts(withPred(2.4), [7], NOW, { baseline: { gwId: 7, byId: { 7: 6 } } }), []);
+});

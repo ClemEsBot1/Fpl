@@ -9,6 +9,7 @@ import {
   createResetToken, resetKeyFor, RESET_TOKEN_TTL_SECONDS,
 } from '../src/lib/auth.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
+import { pushHandler } from '../src/lib/push.js';
 import { resetPasswordEmail } from '../src/lib/emails.js';
 import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
@@ -152,6 +153,10 @@ function storageFailed(res, e, redis) {
 // (Vercel always calls `handler(req, res)`) — they exist purely so tests
 // can inject an in-memory Redis and capture emails instead of sending them.
 export default async function handler(req, res, redisOverride, mailOverride, adminOverride) {
+  // Push notifications live here too (src/lib/push.js), so they don't need
+  // a serverless function of their own.
+  if (req.query && req.query.push) return pushHandler(req, res, redisOverride ? { redis: redisOverride } : {});
+
   let secret;
   try {
     secret = requireSecret();

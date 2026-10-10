@@ -1091,7 +1091,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                       ))}
                     </tbody>
                   </table>
-                  <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Likely range: the model's low and high score for him this week (1 in 10 below, 1 in 10 above). Tap a name to give him the armband.</p>
+                  <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Likely range: the model's low and high score for him this week (1 in 10 below, 1 in 10 above).{canEdit ? ' Tap a name to give him the armband.' : ''}</p>
                 </details>
               </div>
             ) : null}

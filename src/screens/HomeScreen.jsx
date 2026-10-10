@@ -6,10 +6,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
-import { buildAlerts } from '../lib/alerts.js';
+import { buildAlerts, predictionBaseline } from '../lib/alerts.js';
 import { weeklyPicks } from '../lib/weeklyPicks.js';
 import { Shirt as ShirtKit } from '../components/Pitch.jsx';
-import { notificationState, notifyNewAlerts, setNotifications } from '../lib/notify.js';
+import { notificationState, notifyNewAlerts, setNotifications, stopPush, syncPush } from '../lib/notify.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
 import { SkeletonRows } from '../components/common.jsx';
 
@@ -166,7 +166,10 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
 // How last gameweek's predictions (or the picked gameweek's, once it's
 // over) compared with what players scored. Hidden when there's nothing
 // saved for it.
-const ALERT_ICONS = { deadline: AlarmClock, rise: TrendingUp, fall: TrendingDown, news: TriangleAlert };
+const ALERT_ICONS = { deadline: AlarmClock, rise: TrendingUp, fall: TrendingDown, news: TriangleAlert, drop: TrendingDown };
+// This device's record of the squad's predictions as first seen this
+// gameweek (src/lib/alerts.js, predictionBaseline).
+const BASELINE_KEY = 'fpl_pred_baseline';
 
 // Alerts for your team (src/lib/alerts.js), with a switch for sending them
 // as notifications. Rechecked every minute.
@@ -179,12 +182,25 @@ function Alerts({ staticData, homeTeam }) {
     return () => clearInterval(id);
   }, []);
   const squad = homeTeam.status === 'ready' && homeTeam.data ? homeTeam.data.squad : null;
-  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now), [staticData, squad, now]);
+  // Predictions as first seen this gameweek, for flagging a drop.
+  const baseline = useMemo(() => {
+    if (!staticData || !squad) return null;
+    let previous = null;
+    try { previous = JSON.parse(localStorage.getItem(BASELINE_KEY) || 'null'); } catch { /* none */ }
+    const next = predictionBaseline(previous, staticData, squad.map(s => s.player.id));
+    try { localStorage.setItem(BASELINE_KEY, JSON.stringify(next)); } catch { /* not saved */ }
+    return previous && previous.gwId === next.gwId ? previous : null;
+  }, [staticData, squad]);
+  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now, { baseline }), [staticData, squad, now, baseline]);
   useEffect(() => { notifyNewAlerts(alerts); }, [alerts]);
+  // With notifications on, the server is told this squad, so it can push
+  // its alerts with the app closed.
+  useEffect(() => { if (notify === 'on' && squad) syncPush(squad.map(s => s.player.id)); }, [notify, squad]);
   if (!staticData || !homeTeam.teamId) return null;
   const toggle = async () => {
     const next = await setNotifications(notify !== 'on');
     if (next === 'on') await notifyNewAlerts(alerts, { markOnly: true });
+    else stopPush();
     setNotify(next);
   };
   return (
@@ -215,7 +231,7 @@ function Alerts({ staticData, homeTeam }) {
       {alerts.length > 4 ? (
         <button type="button" className="fpl-link" style={{ justifySelf: 'start' }} onClick={() => setShowAll(v => !v)}>{showAll ? 'Show fewer' : `Show all ${alerts.length}`}</button>
       ) : null}
-      {notify === 'on' ? <p className="fpl-home-hint">Notifications come while the app is open or running on your phone.</p> : null}
+      {notify === 'on' ? <p className="fpl-home-hint">Notifications come to this device.</p> : null}
       {notify === 'blocked' ? <p className="fpl-home-hint">Your browser is blocking notifications for this site; allow them in its site settings.</p> : null}
     </section>
   );
