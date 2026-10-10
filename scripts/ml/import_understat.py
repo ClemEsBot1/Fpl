@@ -14,6 +14,7 @@ fetched about one a second.
 """
 import codecs
 import csv
+import gzip
 import http.cookiejar
 import json
 import os
@@ -48,7 +49,10 @@ def get(url, api=False):
     for attempt in range(3):
         try:
             with OPENER.open(urllib.request.Request(url, headers=headers), timeout=30) as r:
-                return r.read().decode('utf-8', 'replace')
+                body = r.read()
+            if body[:2] == b'\x1f\x8b':  # sent gzipped whether asked or not
+                body = gzip.decompress(body)
+            return body.decode('utf-8', 'replace')
         except Exception as e:  # noqa: BLE001
             print(f'  {url}: {e} (attempt {attempt + 1})', flush=True)
             time.sleep(3 * (attempt + 1))
