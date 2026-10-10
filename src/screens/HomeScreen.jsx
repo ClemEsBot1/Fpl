@@ -6,10 +6,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
-import { buildAlerts } from '../lib/alerts.js';
+import { buildAlerts, predictionBaseline } from '../lib/alerts.js';
 import { weeklyPicks } from '../lib/weeklyPicks.js';
 import { Shirt as ShirtKit } from '../components/Pitch.jsx';
-import { notificationState, notifyNewAlerts, setNotifications } from '../lib/notify.js';
+import { notificationState, notifyNewAlerts, setNotifications, stopPush, syncPush } from '../lib/notify.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
 import { SkeletonRows } from '../components/common.jsx';
 
@@ -166,7 +166,10 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
 // How last gameweek's predictions (or the picked gameweek's, once it's
 // over) compared with what players scored. Hidden when there's nothing
 // saved for it.
-const ALERT_ICONS = { deadline: AlarmClock, rise: TrendingUp, fall: TrendingDown, news: TriangleAlert };
+const ALERT_ICONS = { deadline: AlarmClock, rise: TrendingUp, fall: TrendingDown, news: TriangleAlert, drop: TrendingDown };
+// This device's record of the squad's predictions as first seen this
+// gameweek (src/lib/alerts.js, predictionBaseline).
+const BASELINE_KEY = 'fpl_pred_baseline';
 
 // Alerts for your team (src/lib/alerts.js), with a switch for sending them
 // as notifications. Rechecked every minute.
@@ -179,12 +182,25 @@ function Alerts({ staticData, homeTeam }) {
     return () => clearInterval(id);
   }, []);
   const squad = homeTeam.status === 'ready' && homeTeam.data ? homeTeam.data.squad : null;
-  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now), [staticData, squad, now]);
+  // Predictions as first seen this gameweek, for flagging a drop.
+  const baseline = useMemo(() => {
+    if (!staticData || !squad) return null;
+    let previous = null;
+    try { previous = JSON.parse(localStorage.getItem(BASELINE_KEY) || 'null'); } catch { /* none */ }
+    const next = predictionBaseline(previous, staticData, squad.map(s => s.player.id));
+    try { localStorage.setItem(BASELINE_KEY, JSON.stringify(next)); } catch { /* not saved */ }
+    return previous && previous.gwId === next.gwId ? previous : null;
+  }, [staticData, squad]);
+  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now, { baseline }), [staticData, squad, now, baseline]);
   useEffect(() => { notifyNewAlerts(alerts); }, [alerts]);
+  // With notifications on, the server is told this squad, so it can push
+  // its alerts with the app closed.
+  useEffect(() => { if (notify === 'on' && squad) syncPush(squad.map(s => s.player.id)); }, [notify, squad]);
   if (!staticData || !homeTeam.teamId) return null;
   const toggle = async () => {
     const next = await setNotifications(notify !== 'on');
     if (next === 'on') await notifyNewAlerts(alerts, { markOnly: true });
+    else stopPush();
     setNotify(next);
   };
   return (
@@ -215,15 +231,19 @@ function Alerts({ staticData, homeTeam }) {
       {alerts.length > 4 ? (
         <button type="button" className="fpl-link" style={{ justifySelf: 'start' }} onClick={() => setShowAll(v => !v)}>{showAll ? 'Show fewer' : `Show all ${alerts.length}`}</button>
       ) : null}
-      {notify === 'on' ? <p className="fpl-home-hint">Notifications come while the app is open or running on your phone.</p> : null}
+      {notify === 'on' ? <p className="fpl-home-hint">Notifications come to this device.</p> : null}
       {notify === 'blocked' ? <p className="fpl-home-hint">Your browser is blocking notifications for this site; allow them in its site settings.</p> : null}
     </section>
   );
 }
 
-// The machine-learning model (scripts/ml/): when it was last retrained and
-// how its predictions did each finished gameweek, newest last.
-function ModelLearning() {
+// The model's walk-forward test, from scripts/ml/evaluate.py's docstring.
+const BACKTEST = { mlXi: 64.4, formulaXi: 54.8, mlCorr: 0.54, formulaCorr: 0.44 };
+
+// The machine-learning model (scripts/ml/): when it was last retrained, how
+// its predictions did each finished gameweek (newest last) and its biggest
+// misses the last one, and how it did when tested on past seasons.
+function ModelLearning({ playersById }) {
   const [state, setState] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -237,6 +257,7 @@ function ModelLearning() {
   const { pred } = state;
   const weeks = state.weeks.filter(w => w.season === pred.season).slice(-8);
   const worst = Math.max(1, ...weeks.map(w => w.meanAbsError));
+  const last = weeks[weeks.length - 1] || null;
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="ml-h">
       <div className="fpl-home-team-head">
@@ -261,6 +282,28 @@ function ModelLearning() {
         <p className="fpl-home-hint">Its first scored week shows here once Gameweek {pred.gwId} is over.</p>
       )}
       {weeks.length ? <p className="fpl-home-hint">Typical miss per player who played, from predictions made before each deadline. Shorter is better.</p> : null}
+      {last && Array.isArray(last.misses) && last.misses.length ? (
+        <details className="fpl-ml-misses">
+          <summary>GW{last.gwId}: biggest misses{typeof last.correlation === 'number' ? ` (correlation ${last.correlation.toFixed(2)})` : ''}</summary>
+          <table className="fpl-mini-table">
+            <caption className="fpl-sr-only">Gameweek {last.gwId}: predicted and actual points, biggest misses</caption>
+            <thead><tr><th scope="col">Player</th><th scope="col">Predicted</th><th scope="col">Scored</th></tr></thead>
+            <tbody>
+              {last.misses.map(([id, predicted, actual]) => (
+                <tr key={id}>
+                  <th scope="row">{(playersById && playersById[id] && playersById[id].webName) || `Player ${id}`}</th>
+                  <td className="fpl-mono">{fmtPts(predicted)}</td>
+                  <td className={`fpl-mono ${actual > predicted ? 'is-up' : 'is-down'}`}>{actual}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      ) : null}
+      <p className="fpl-home-hint">
+        Tested on 2022-23 to 2025-26, predicting each week from earlier ones only: the best XI it picks scored {BACKTEST.mlXi} pts a gameweek, against {BACKTEST.formulaXi} for the formula it replaced
+        (correlation with points {BACKTEST.mlCorr} vs {BACKTEST.formulaCorr}).
+      </p>
     </section>
   );
 }
@@ -433,7 +476,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
           <WeeklyPicks staticData={staticData} />
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
           <PredictionCheck gwId={isPast && event.finished ? event.id : null} playersById={staticData && staticData.playersById} />
-          <ModelLearning />
+          <ModelLearning playersById={staticData && staticData.playersById} />
         </div>
         {/* Keyed by gameweek so a new one starts on its first panel. */}
         <TransferTrends

@@ -9,6 +9,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" />
+    <!-- The data every start-up loads (src/lib/fplClient.js, loadStaticData),
+         fetched while the app's JavaScript is still downloading. Each URL
+         must match the one the app asks for exactly. -->
+    <link rel="preload" as="fetch" href="/api/fpl?path=bootstrap-static%2F" crossorigin />
+    <link rel="preload" as="fetch" href="/api/fpl?path=fixtures%2F" crossorigin />
+    <link rel="preload" as="fetch" href="/ml/predictions.json" crossorigin />
+    <link rel="preload" as="fetch" href="/api/odds" crossorigin />
+    <link rel="preload" as="fetch" href="/api/recent-minutes" crossorigin />
+    <link rel="preload" as="fetch" href="/api/player-history" crossorigin />
     <meta name="theme-color" content="#0a081e" />
     <!-- Installable app (Android "Install app", iOS "Add to Home Screen") -->
     <link rel="manifest" href="/manifest.webmanifest" />

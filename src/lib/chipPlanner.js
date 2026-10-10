@@ -10,7 +10,10 @@
 // It works from the fixture list alone (not your squad), so it answers "the
 // best week for this chip" rather than "how many points you'd gain". A
 // double gameweek is one where some teams play twice; a blank is one where
-// several teams don't play at all.
+// several teams don't play at all. squadChipWeeks, at the end, does answer
+// it for your own squad.
+
+import { xiPointsForWeek } from './transferPlan.js';
 
 // How many teams playing twice makes a gameweek worth a Bench Boost or
 // Triple Captain, and how many teams missing makes a Free Hit worth it.
@@ -98,4 +101,26 @@ export function planChips(staticData, { horizon = 12 } = {}) {
   }
 
   return { benchBoost, tripleCaptain, freeHit, wildcard };
+}
+
+// The same question for your own squad, from its predictions week by week
+// (each player's byGw): what Bench Boost and Triple Captain would add in
+// each of the next few gameweeks. Bench Boost adds the four left out of the
+// best XI; Triple Captain adds the captain's points once more.
+// players: the 15 player objects. pointsById: { [id]: [week 0, week 1, …] }.
+// events: the gameweek of each week. Returns { weeks: [{ event, benchBoost,
+// tripleCaptain }], benchBoost, tripleCaptain }, the last two being the
+// best week for each ({ event, gain }), or null with nothing to go on.
+export function squadChipWeeks(players, pointsById, events) {
+  if (!players.length || !events.length) return { weeks: [], benchBoost: null, tripleCaptain: null };
+  const pointsOf = (p, k) => ((pointsById[p.id] || [])[k] || 0);
+  const round = v => Math.round(v * 10) / 10;
+  const weeks = events.map((event, k) => {
+    const all = players.map(p => pointsOf(p, k));
+    const captain = Math.max(0, ...all);
+    const xi = xiPointsForWeek(players, pointsOf, k);
+    return { event, benchBoost: round(Math.max(0, all.reduce((s, v) => s + v, 0) + captain - xi)), tripleCaptain: round(captain) };
+  });
+  const best = key => weeks.reduce((top, w) => (!top || w[key] > top.gain ? { event: w.event, gain: w[key] } : top), null);
+  return { weeks, benchBoost: best('benchBoost'), tripleCaptain: best('tripleCaptain') };
 }

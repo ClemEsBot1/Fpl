@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gameweekShapes, planChips } from '../src/lib/chipPlanner.js';
+import { gameweekShapes, planChips, squadChipWeeks } from '../src/lib/chipPlanner.js';
 
 // Build staticData.fixturesByTeam for `teams` teams over a set of events,
 // where `doubles[event]` teams play twice and `blanks[event]` teams don't
@@ -61,4 +61,17 @@ test('a small double is suggested but not marked strong, and skips a wildcard', 
   assert.equal(plan.benchBoost.event, 12);
   assert.equal(plan.benchBoost.strength, 'ok');
   assert.equal(plan.wildcard, null, 'wildcard only before a big double');
+});
+
+test("a squad's chip weeks: Bench Boost adds the four outside the best XI, Triple Captain the captain once more", () => {
+  // 2 GKP, 5 DEF, 5 MID, 3 FWD scoring 1..15 in GW7.
+  const pos = [1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4];
+  const players = pos.map((positionId, i) => ({ id: i + 1, positionId }));
+  const pointsById = Object.fromEntries(players.map((p, i) => [p.id, [i + 1, 1, 2]]));
+  const plan = squadChipWeeks(players, pointsById, [7, 8, 9]);
+  // Left out in GW7: the 1-point keeper and 3, 4 and 8.
+  assert.deepEqual(plan.weeks[0], { event: 7, benchBoost: 16, tripleCaptain: 15 });
+  assert.deepEqual(plan.benchBoost, { event: 7, gain: 16 });
+  assert.deepEqual(plan.tripleCaptain, { event: 7, gain: 15 });
+  assert.deepEqual(squadChipWeeks([], {}, []), { weeks: [], benchBoost: null, tripleCaptain: null });
 });

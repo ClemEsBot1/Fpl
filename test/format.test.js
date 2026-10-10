@@ -12,4 +12,5 @@ test("a gameweek still being played uses the live points, not FPL's lagging figu
   const allEvents = [{ id: 6, finished: false }, { id: 5, finished: true }];
   assert.equal(officialGwPoints({ gwId: 6, allEvents, entryHistory: { points: 0, event_transfers_cost: 4 }, actualXiTotal: 40 }), 40);
   assert.equal(officialGwPoints({ gwId: 5, allEvents, entryHistory: { points: 64 }, actualXiTotal: 61 }), 64);
+  assert.equal(officialGwPoints({ gwId: 6, allEvents, entryHistory: { points: 0 }, actualXiTotal: 40, liveTotal: 46 }), 46, 'the settled live score when there is one');
 });

@@ -780,7 +780,9 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-pc { position: relative; width: var(--card); flex: 0 1 var(--card); min-width: 0; transition: opacity 160ms ease, transform 160ms ease-out; }
 .fpl-pc-body { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; cursor: pointer; border-radius: 8px; padding: 4px 0 0; outline-offset: 2px; }
 .fpl-pc-body:disabled { cursor: default; }
-.fpl-pc-body:focus-visible { outline: 2px solid var(--ink); }
+/* A dark ring inside a light one, so focus shows on the green pitch and on
+   the dark bench alike. */
+.fpl-pc-body:focus-visible { outline: 2px solid #05041A; box-shadow: 0 0 0 4px #FBFAFF; }
 .fpl-pc-body:active:not(:disabled) { transform: scale(0.97); }
 .fpl-pc-shirt { position: relative; width: var(--shirt); height: var(--shirt); margin-bottom: 2px; }
 .fpl-shirt { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 3px 4px rgba(5,4,26,0.35)); user-select: none; }
@@ -799,7 +801,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-pc-tag { position: absolute; left: -6px; bottom: 0; padding: 1px 4px; border-radius: 6px; background: var(--green); color: #05041A; font-size: 0.56rem; font-weight: 700; }
 .fpl-pc-price { display: block; margin-bottom: 2px; text-align: center; font-size: 0.66rem; font-weight: 700; color: #FBFAFF; text-shadow: 0 1px 2px rgba(5,4,26,0.6); }
 .fpl-pc-x { position: absolute; left: 0; top: 0; z-index: 1; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: rgba(5,4,26,0.75); color: #FBFAFF; cursor: pointer; }
-.fpl-pc-x:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.fpl-pc-x:focus-visible { outline: 2px solid #05041A; outline-offset: 0; box-shadow: 0 0 0 4px #FBFAFF; }
 @media (hover: hover) and (pointer: fine) { .fpl-pc-x:hover { background: #FF5A5A; } }
 .fpl-pc-plus { position: absolute; inset: 0; display: grid; place-items: center; color: #FBFAFF; }
 .fpl-pc.is-empty .fpl-pc-name { background: rgba(5,4,26,0.55); color: #FBFAFF; border-radius: 4px; }
@@ -1107,3 +1109,21 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 /* Player insight: likely-range reason chips in the breakdown */
 .fpl-insight-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .fpl-insight-chip { font-size: 0.64rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(4, 249, 252, 0.14); color: var(--blue); border: 1px solid rgba(4, 249, 252, 0.3); }
+
+/* Chip value by gameweek (Results, chip timing) */
+.fpl-mini-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+.fpl-mini-table th, .fpl-mini-table td { text-align:right; padding:4px 6px; border-bottom:1px solid var(--line); }
+.fpl-mini-table th:first-child, .fpl-mini-table td:first-child { text-align:left; }
+.fpl-mini-table thead th { font-weight:400; color:var(--ink-dim); font-size:0.66rem; letter-spacing:0.04em; text-transform:uppercase; }
+.fpl-mini-table .is-best { color:var(--lime); font-weight:700; }
+.fpl-captain-compare { margin-top:6px; }
+.fpl-captain-compare summary { cursor:pointer; font-size:0.8rem; color:var(--sky); }
+.fpl-captain-compare summary:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+.fpl-captain-compare table { margin-top:6px; }
+.fpl-captain-compare th[scope="row"] { font-weight:600; }
+.fpl-ml-misses { margin-top:8px; }
+.fpl-ml-misses summary { cursor:pointer; font-size:0.8rem; color:var(--sky); }
+.fpl-ml-misses summary:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+.fpl-ml-misses table { margin-top:6px; }
+.fpl-mini-table .is-up { color:var(--lime); }
+.fpl-mini-table .is-down { color:var(--red, #ff6b6b); }

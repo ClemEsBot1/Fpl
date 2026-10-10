@@ -42,6 +42,13 @@ function flagFor(player, availNote) {
 export function PlayerCard({ slot, team, info, points, pointsTone, state, onClick, onRemove, price, tag, label }) {
   const { player } = slot;
   const flag = flagFor(player, slot.availNote);
+  // What the card shows only as badges and colours, read out too.
+  const extras = [
+    slot.isCaptain ? 'captain' : slot.isViceCaptain ? 'vice-captain' : null,
+    flag && slot.availNote ? slot.availNote : null,
+    state === 'eligible' ? 'can swap with the selected player' : state === 'dim' ? "can't swap with the selected player" : null,
+  ].filter(Boolean).join(', ');
+  const baseLabel = label || `${player.webName}${info ? `, ${info}` : ''}${points !== undefined && points !== null ? `, ${points} points` : ''}`;
   return (
     <div className={`fpl-pc${state ? ` is-${state}` : ''}`}>
       {price !== undefined ? <span className="fpl-pc-price fpl-mono">{fmtPrice(price)}</span> : null}
@@ -53,7 +60,7 @@ export function PlayerCard({ slot, team, info, points, pointsTone, state, onClic
         className="fpl-pc-body"
         onClick={onClick}
         disabled={!onClick}
-        aria-label={label || `${player.webName}${info ? `, ${info}` : ''}${points !== undefined ? `, ${points} points` : ''}`}
+        aria-label={extras ? `${baseLabel}, ${extras}` : baseLabel}
         aria-pressed={state === 'selected' ? true : undefined}
       >
         <span className="fpl-pc-shirt">
