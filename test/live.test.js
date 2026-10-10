@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bonusFromBps, liveTeamScore, projectedBonus, teamStates } from '../src/lib/live.js';
+import { bonusFromBps, liveBonusRace, liveTeamScore, projectedBonus, teamStates } from '../src/lib/live.js';
 
 test('bonus follows FPL tie rules', () => {
   const b = list => bonusFromBps(list.map((value, i) => ({ element: i + 1, value })));
@@ -80,4 +80,22 @@ test('bench boost counts all fifteen and makes no substitutions', () => {
   const r = liveTeamScore({ picks: picksWith({ active_chip: 'bboost' }), liveById: played({ 2: { minutes: 0, totalPoints: 0 } }), bonus: {}, states: allDone, playersById });
   assert.ok(!r.rows.some(x => x.subIn));
   assert.equal(r.total, 13 * 2 + 4 - 4);
+});
+
+test('the live bonus race ranks by BPS across live matches and flags owned players', () => {
+  const stats = (bps) => ({ identifier: 'bps', h: bps.h, a: bps.a });
+  const fixtures = [
+    // live match, no confirmed bonus
+    { id: 1, started: true, finished: false, finished_provisional: false, stats: [stats({ h: [{ element: 10, value: 40 }, { element: 11, value: 30 }], a: [{ element: 12, value: 20 }] })] },
+    // confirmed bonus already → excluded
+    { id: 2, started: true, finished: true, finished_provisional: true, stats: [{ identifier: 'bonus', h: [{ element: 99, value: 3 }], a: [] }, { identifier: 'bps', h: [{ element: 99, value: 99 }], a: [] }] },
+    // not started → excluded
+    { id: 3, started: false, stats: [] },
+  ];
+  const race = liveBonusRace(fixtures, { ownedIds: [11], limit: 5 });
+  assert.deepEqual(race.map(r => r.element), [10, 11, 12]);
+  assert.equal(race[0].bonus, 3);
+  assert.equal(race[1].bonus, 2);
+  assert.equal(race[1].owned, true);
+  assert.equal(race.some(r => r.element === 99), false, 'confirmed and unstarted matches are left out');
 });

@@ -31,6 +31,27 @@ export function projectedBonus(fixtures) {
   return out;
 }
 
+// The live bonus-points race: across every started match whose bonus FPL
+// hasn't confirmed yet, the players earning the most BPS right now and the
+// bonus (3/2/1) they'd get if the match ended now, highest BPS first.
+// `ownedIds` flags the players in your team. Confirmed matches are left out
+// — their bonus is already settled. Returns [{ element, bps, bonus, owned }].
+export function liveBonusRace(fixtures, { limit = 10, ownedIds = [] } = {}) {
+  const owned = new Set((ownedIds || []).map(Number));
+  const rows = [];
+  (fixtures || []).forEach(f => {
+    if (!f.started || f.finished || f.finished_provisional) return;
+    if (statList(f, 'bonus').length) return; // already confirmed
+    const bps = statList(f, 'bps');
+    if (!bps.length) return;
+    const bonus = bonusFromBps(bps);
+    bps.forEach(e => {
+      rows.push({ element: e.element, bps: e.value, bonus: bonus[e.element] || 0, owned: owned.has(Number(e.element)) });
+    });
+  });
+  return rows.sort((a, b) => b.bps - a.bps).slice(0, limit);
+}
+
 // Where each club is in the gameweek: 'waiting' (a match still to start),
 // 'playing' or 'done' (every match over). A double gameweek is 'done' only
 // once both are over.
