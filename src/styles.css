@@ -1049,6 +1049,15 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   .fpl-admin-shot { width: 100%; height: 200px; }
 }
 
+/* Home: picks of the week (captain + differential) */
+.fpl-picks { display: grid; gap: 10px; }
+.fpl-pick { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--panel-alt); border: 1px solid var(--line); }
+.fpl-pick-label { display: inline-flex; align-items: center; gap: 4px; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); font-weight: 700; white-space: nowrap; }
+.fpl-pick-kit { width: 22px; height: 22px; display: inline-flex; }
+.fpl-pick-kit svg { width: 100%; height: 100%; }
+.fpl-pick-name { font-weight: 600; min-width: 0; font-size: 0.85rem; }
+.fpl-pick-meta { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--ink-dim); white-space: nowrap; }
+@media (max-width: 420px) { .fpl-pick { grid-template-columns: auto 1fr auto; } .fpl-pick-label { grid-column: 1 / -1; } }
 /* Admin: recent server errors */
 .fpl-admin-errlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .fpl-admin-errlist li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.8rem; }

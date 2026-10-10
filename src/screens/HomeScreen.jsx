@@ -3,10 +3,12 @@
 // Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
 import { useEffect, useMemo, useState } from 'react';
-import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
-import { DIFF_COLORS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
+import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
+import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { buildAlerts } from '../lib/alerts.js';
+import { weeklyPicks } from '../lib/weeklyPicks.js';
+import { Shirt as ShirtKit } from '../components/Pitch.jsx';
 import { notificationState, notifyNewAlerts, setNotifications } from '../lib/notify.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
 import { SkeletonRows } from '../components/common.jsx';
@@ -370,6 +372,37 @@ function FixtureTicker({ staticData, fromGw }) {
   );
 }
 
+// One pick row (captain or differential).
+function WeeklyPick({ icon: Icon, label, entry, meta, teamsById }) {
+  return (
+    <div className="fpl-pick">
+      <span className="fpl-pick-label"><Icon size={13} aria-hidden="true" /> {label}</span>
+      <span className="fpl-pick-kit"><ShirtKit team={teamsById[entry.player.team]} isKeeper={entry.player.positionId === 1} /></span>
+      <span className="fpl-pick-name">{entry.player.webName}<span className="fpl-meta"> · {teamsById[entry.player.team]?.short_name} · {POSITION_LABELS[entry.player.positionId]}</span></span>
+      <span className="fpl-pick-meta">{meta}</span>
+    </div>
+  );
+}
+
+// Captain and differential pick of the week, from every available player.
+function WeeklyPicks({ staticData }) {
+  const picks = useMemo(() => weeklyPicks(staticData), [staticData]);
+  if (!staticData || !picks) return null;
+  const { captain, differential } = picks;
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="picks-h">
+      <h2 id="picks-h" className="fpl-home-h"><Crown size={18} aria-hidden="true" /> Picks of the week</h2>
+      <div className="fpl-picks">
+        <WeeklyPick icon={Crown} label="Captain" entry={captain} meta={`${fmtPts(captain.predicted)} pred`} teamsById={staticData.teamsById} />
+        {differential
+          ? <WeeklyPick icon={Target} label="Differential" entry={differential} meta={`${differential.owned.toFixed(1)}% owned`} teamsById={staticData.teamsById} />
+          : <p className="fpl-home-text" style={{ margin: 0 }}>No stand-out differential this week — the best picks are all widely owned.</p>}
+      </div>
+      <p className="fpl-meta" style={{ margin: 0 }}>From this gameweek's predictions across every available player.</p>
+    </section>
+  );
+}
+
 export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetryTeam, recapGw, onOpenRecap }) {
   const target = staticData && staticData.targetEvent;
   // Everything on Home is for the gameweek picked in the header.
@@ -397,6 +430,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
         <div className="fpl-home-main">
           <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
           <Alerts staticData={staticData} homeTeam={homeTeam} />
+          <WeeklyPicks staticData={staticData} />
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
           <PredictionCheck gwId={isPast && event.finished ? event.id : null} playersById={staticData && staticData.playersById} />
           <ModelLearning />
