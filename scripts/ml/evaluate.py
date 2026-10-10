@@ -10,12 +10,16 @@ seasons and, retrained every gameweek, that season's finished weeks.
 
   python scripts/ml/evaluate.py --leak-check   # why the archive's xP is left out
 
-Results (2022-23 to 2025-26, 42,199 player-gameweeks, retrained weekly):
-                          formula   ML
-  next-gameweek corr       0.443   0.520
-  4-week corr              0.558   0.649
-  4-week typical miss      1.091   1.001
-  best XI pts/gameweek     54.8    63.0
+Results (2022-23 to 2025-26, 42,199 player-gameweeks, retrained weekly;
+predictions scored as the app serves them, a player ruled out at the
+deadline being 0 that week):
+                          formula   ML before   ML now
+  next-gameweek corr       0.443     0.520      0.540
+  4-week corr              0.558     0.649      0.669
+  4-week typical miss      1.091     1.001      0.968
+  best XI pts/gameweek     54.8      63.0       64.4
+"ML now" adds betting odds, club Elo, injury history and the two-stage
+model (retrain.py's CONFIG); compare.py tests each change on its own.
 """
 import argparse
 import json
