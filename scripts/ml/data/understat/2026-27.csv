@@ -1,0 +1,1539 @@
+match_id,date,h_team,a_team,player_id,player,team,h_a,minutes,shots,xg,npxg,xa,key_passes,goals,assists,pens_taken
+31180,2026-08-21,Arsenal,Coventry,9676,David Raya,Arsenal,h,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,7298,Ben White,Arsenal,h,90,1,0.129,0.129,0.1872,2,0,1,0
+31180,2026-08-21,Arsenal,Coventry,10024,Cristhian Mosquera,Arsenal,h,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,5613,Gabriel,Arsenal,h,90,1,0.0287,0.0287,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,8129,Riccardo Calafiori,Arsenal,h,83,1,0.0837,0.0837,0.0984,1,0,1,0
+31180,2026-08-21,Arsenal,Coventry,12272,Myles Lewis-Skelly,Arsenal,h,90,1,0.0477,0.0477,0.0518,1,0,0,0
+31180,2026-08-21,Arsenal,Coventry,5553,Declan Rice,Arsenal,h,70,2,0.0399,0.0399,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,7322,Bukayo Saka,Arsenal,h,70,3,0.7763,0.7763,0.047,2,1,0,0
+31180,2026-08-21,Arsenal,Coventry,2517,Martin Odegaard,Arsenal,h,78,3,0.231,0.231,0.2856,3,1,0,0
+31180,2026-08-21,Arsenal,Coventry,9746,Christos Tzolis,Arsenal,h,78,4,0.2377,0.2377,0.1918,3,0,0,0
+31180,2026-08-21,Arsenal,Coventry,5220,Kai Havertz,Arsenal,h,90,1,0.0984,0.0984,0.0477,1,1,0,0
+31180,2026-08-21,Arsenal,Coventry,7526,Martín Zubimendi,Arsenal,h,20,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,8706,Eberechi Eze,Arsenal,h,12,1,0.0375,0.0375,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,5304,Mikel Merino,Arsenal,h,12,2,0.1443,0.1443,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,9911,Piero Hincapié,Arsenal,h,7,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,11357,Noni Madueke,Arsenal,h,20,0,0.0,0.0,0.249,4,0,0,0
+31180,2026-08-21,Arsenal,Coventry,12760,Carl Rushworth,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,14742,Milan van Ewijk,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,12955,Aurèle Amenda,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,8483,Bobby Thomas,Coventry,a,90,1,0.0079,0.0079,0.0324,1,0,0,0
+31180,2026-08-21,Arsenal,Coventry,14743,Jay Dasilva,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,1045,Matt Grimes,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,9977,Loum Tchaouna,Coventry,a,84,2,0.0451,0.0451,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,14744,Caleb Yirenkyi,Coventry,a,64,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,9681,Frank Onyeka,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,14745,Brandon Thomas-Asante,Coventry,a,72,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,8582,Ellis Simms,Coventry,a,72,0,0.0,0.0,0.0128,1,0,0,0
+31180,2026-08-21,Arsenal,Coventry,7814,Taiwo Awoniyi,Coventry,a,18,0,0.0,0.0,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,14746,Victor Torp,Coventry,a,26,0,0.0,0.0,0.5053,1,0,0,0
+31180,2026-08-21,Arsenal,Coventry,14747,Jack Rudoni,Coventry,a,18,1,0.5053,0.5053,0.0,0,0,0,0
+31180,2026-08-21,Arsenal,Coventry,11839,Gustavo Hamer,Coventry,a,6,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,14758,Konstantinos Tzolakis,Hull,h,90,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,14759,Lewie Coyle,Hull,h,72,0,0.0,0.0,0.029,1,0,0,0
+31181,2026-08-22,Hull,Manchester United,4490,Semi Ajayi,Hull,h,66,1,0.7059,0.7059,0.0,0,1,0,0
+31181,2026-08-22,Hull,Manchester United,12286,Nobel Mendy,Hull,h,66,1,0.5256,0.5256,0.0,0,1,0,0
+31181,2026-08-22,Hull,Manchester United,7703,John Egan,Hull,h,90,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,7277,Ryan John Giles,Hull,h,87,1,0.0301,0.0301,0.0263,1,0,0,0
+31181,2026-08-22,Hull,Manchester United,14760,Mohamed Belloumi,Hull,h,90,2,0.0463,0.0463,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,14761,Matt Crooks,Hull,h,90,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,14762,Regan Slater,Hull,h,90,0,0.0,0.0,0.5256,1,0,1,0
+31181,2026-08-22,Hull,Manchester United,14763,Elliot Stroud,Hull,h,73,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,1736,Oliver McBurnie,Hull,h,90,2,0.4368,0.4368,0.0715,2,0,0,0
+31181,2026-08-22,Hull,Manchester United,884,Matt Targett,Hull,h,3,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,14765,Lucas Herrington,Hull,h,24,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,9499,Cody Drameh,Hull,h,18,1,0.0414,0.0414,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,14764,Liam Millar,Hull,h,17,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,559,Paddy McNair,Hull,h,24,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,14056,Senne Lammens,Manchester United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,10696,Noussair Mazraoui,Manchester United,a,82,1,0.0906,0.0906,0.1055,2,0,0,0
+31181,2026-08-22,Hull,Manchester United,1687,Harry Maguire,Manchester United,a,90,2,0.0577,0.0577,0.5053,2,0,0,0
+31181,2026-08-22,Hull,Manchester United,13080,Ayden Heaven,Manchester United,a,90,2,0.1322,0.1322,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,1006,Luke Shaw,Manchester United,a,90,0,0.0,0.0,0.2302,4,0,0,0
+31181,2026-08-22,Hull,Manchester United,5956,Youri Tielemans,Manchester United,a,69,1,0.0308,0.0308,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,11808,Andrey Santos,Manchester United,a,69,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,6552,Bryan Mbeumo,Manchester United,a,90,4,0.5505,0.5505,0.1213,1,0,0,0
+31181,2026-08-22,Hull,Manchester United,1228,Bruno Fernandes,Manchester United,a,90,3,0.041,0.041,0.1659,3,0,0,0
+31181,2026-08-22,Hull,Manchester United,11944,Patrick Dorgu,Manchester United,a,48,3,0.624,0.624,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,7080,Matheus Cunha,Manchester United,a,82,3,0.186,0.186,0.4507,2,0,0,0
+31181,2026-08-22,Hull,Manchester United,556,Marcus Rashford,Manchester United,a,42,0,0.0,0.0,0.0844,4,0,0,0
+31181,2026-08-22,Hull,Manchester United,7281,Diogo Dalot,Manchester United,a,8,0,0.0,0.0,0.0239,1,0,0,0
+31181,2026-08-22,Hull,Manchester United,14198,Shea Lacey,Manchester United,a,8,0,0.0,0.0,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,11974,Benjamin Sesko,Manchester United,a,21,1,0.0396,0.0396,0.0,0,0,0,0
+31181,2026-08-22,Hull,Manchester United,11174,Kobbie Mainoo,Manchester United,a,21,1,0.0263,0.0263,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,741,Jordan Pickford,Everton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,11331,Merlin Röhl,Everton,h,90,0,0.0,0.0,0.0855,1,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,8476,Jarrad Branthwaite,Everton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,1665,James Tarkowski,Everton,h,90,1,0.0486,0.0486,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,10291,Vitalii Mykolenko,Everton,h,90,0,0.0,0.0,0.0281,1,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,12757,Harrison Armstrong,Everton,h,90,0,0.0,0.0,0.0691,1,0,1,0
+31182,2026-08-22,Everton,Crystal Palace,14769,Hayden Hackney,Everton,h,83,1,0.0381,0.0381,0.0317,1,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,9307,Iliman Ndiaye,Everton,h,90,2,0.2191,0.2191,0.6093,3,0,1,0
+31182,2026-08-22,Everton,Crystal Palace,9739,Kiernan Dewsbury-Hall,Everton,h,90,3,0.1914,0.1914,0.1189,2,1,0,0
+31182,2026-08-22,Everton,Crystal Palace,12573,Tyrique George,Everton,h,88,5,0.2401,0.2401,0.135,2,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,12916,Thierno Barry,Everton,h,83,2,0.5888,0.5888,0.1336,1,1,0,0
+31182,2026-08-22,Everton,Crystal Palace,10760,Brennan Johnson,Everton,h,2,0,0.0,0.0,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,9983,Beto,Everton,h,7,1,0.0654,0.0654,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,7438,James Garner,Everton,h,7,0,0.0,0.0,0.0593,1,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,11297,Carlos Alcaraz,Everton,h,1,1,0.0593,0.0593,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,7702,Dean Henderson,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,13091,Jaydee Canvot,Crystal Palace,a,90,1,0.0194,0.0194,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,8430,Chris Richards,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,11167,Chadi Riad,Crystal Palace,a,77,0,0.0,0.0,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,12408,Daniel Muñoz,Crystal Palace,a,59,2,0.3286,0.3286,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,8214,Tyrick Mitchell,Crystal Palace,a,90,0,0.0,0.0,0.0287,1,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,6145,Daichi Kamada,Crystal Palace,a,90,0,0.0,0.0,0.2972,2,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,12409,Adam Wharton,Crystal Palace,a,90,0,0.0,0.0,0.3266,2,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,6482,Eddie Nketiah,Crystal Palace,a,60,1,0.3072,0.3072,1.3189,2,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,6756,Dwight McNeil,Crystal Palace,a,67,1,0.025,0.025,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,5735,Jean-Philippe Mateta,Crystal Palace,a,67,2,1.3189,1.3189,0.025,1,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,11070,Jørgen Strand Larsen,Crystal Palace,a,23,1,0.1436,0.1436,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,9024,Yeremi Pino,Crystal Palace,a,30,2,0.0481,0.0481,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,7931,Takehiro Tomiyasu,Crystal Palace,a,13,0,0.0,0.0,0.0,0,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,14770,Anan Khalaili,Crystal Palace,a,31,0,0.0,0.0,0.1631,2,0,0,0
+31182,2026-08-22,Everton,Crystal Palace,8006,Evann Guessand,Crystal Palace,a,23,1,0.0401,0.0401,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,9960,Kjell Scherpen,Ipswich,h,90,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,8756,Dara O&#039;Shea,Ipswich,h,90,0,0.0,0.0,0.0479,2,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,12745,Jacob Greaves,Ipswich,h,90,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,3203,Issa Diop,Ipswich,h,90,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,8919,Leif Davis,Ipswich,h,90,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,14771,Marcelino Núñez,Ipswich,h,82,1,0.0555,0.0555,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,1537,Sasa Lukic,Ipswich,h,90,0,0.0,0.0,0.0643,1,0,1,0
+31183,2026-08-22,Ipswich,Sunderland,12911,Abdul Fatawu,Ipswich,h,68,0,0.0,0.0,0.6891,2,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,11058,Julio Enciso,Ipswich,h,73,3,0.2033,0.2033,0.5669,1,0,1,0
+31183,2026-08-22,Ipswich,Sunderland,14772,Daizen Maeda,Ipswich,h,82,1,0.6158,0.6158,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,14082,Emersonn,Ipswich,h,68,3,0.6148,0.6148,0.1301,2,1,0,0
+31183,2026-08-22,Ipswich,Sunderland,13019,Jack Clarke,Ipswich,h,17,2,0.0951,0.0951,0.0,0,1,0,0
+31183,2026-08-22,Ipswich,Sunderland,10485,Guemissongui Ouattara,Ipswich,h,8,0,0.0,0.0,0.0308,1,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,14773,Sindre Egeli,Ipswich,h,8,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,1790,Chuba Akpom,Ipswich,h,22,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,10166,Kasey McAteer,Ipswich,h,22,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,13712,Robin Roefs,Sunderland,a,90,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,5680,Thomas Meunier,Sunderland,a,90,2,0.0463,0.0463,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,14099,Luke O&#039;Nien,Sunderland,a,69,1,0.0212,0.0212,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,13715,Dan Ballard,Sunderland,a,90,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,7432,Reinildo,Sunderland,a,90,0,0.0,0.0,0.1719,2,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,204,Granit Xhaka,Sunderland,a,90,0,0.0,0.0,0.0483,2,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,13716,Noah Sadiki,Sunderland,a,90,1,0.2881,0.2881,0.0557,2,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,13713,Trai Hume,Sunderland,a,82,2,0.0537,0.0537,0.807,3,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,8651,Enzo Le Fée,Sunderland,a,82,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,14424,Nilson Angulo,Sunderland,a,61,2,0.117,0.117,0.0,0,1,0,0
+31183,2026-08-22,Ipswich,Sunderland,9789,Brian Brobbey,Sunderland,a,69,2,0.6359,0.6359,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,9767,Habib Diarra,Sunderland,a,8,1,0.0154,0.0154,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,8986,Omar Alderete,Sunderland,a,21,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,13719,Chris Rigg,Sunderland,a,8,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,7148,Wilson Isidor,Sunderland,a,21,0,0.0,0.0,0.0,0,0,0,0
+31183,2026-08-22,Ipswich,Sunderland,13717,Chemsdine Talbi,Sunderland,a,29,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,6903,Matz Sels,Nottingham Forest,h,90,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,12123,Murillo,Nottingham Forest,h,90,0,0.0,0.0,0.1052,2,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,6174,Nikola Milenkovic,Nottingham Forest,h,90,2,0.1239,0.1239,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,13779,Jair,Nottingham Forest,h,90,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,725,Ola Aina,Nottingham Forest,h,76,2,0.0375,0.0375,0.2105,3,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,8204,Neco Williams,Nottingham Forest,h,90,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,5722,Ibrahim Sangare,Nottingham Forest,h,90,1,0.0148,0.0148,0.0177,1,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,10126,James McAtee,Nottingham Forest,h,76,0,0.0,0.0,0.1798,3,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,8662,Dan Ndoye,Nottingham Forest,h,64,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,6857,Morgan Gibbs-White,Nottingham Forest,h,90,3,0.1435,0.1435,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,13778,Igor Jesus,Nottingham Forest,h,90,3,0.2782,0.2782,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,7783,Xaver Schlager,Nottingham Forest,h,14,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,8056,Arnaud Kalimuendo Muinga,Nottingham Forest,h,1,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,4456,Chris Wood,Nottingham Forest,h,26,1,0.0589,0.0589,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,8401,Luca Netz,Nottingham Forest,h,14,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,9077,James Trafford,Leeds,a,90,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,13879,Tarik Muharemovic,Leeds,a,90,1,0.0602,0.0602,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,6377,Joe Rodon,Leeds,a,90,1,0.0336,0.0336,0.0978,1,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,6807,Jaka Bijol,Leeds,a,90,2,0.0831,0.0831,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,9205,Jayden Bogle,Leeds,a,90,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,7753,James Justin,Leeds,a,90,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,6369,Ethan Ampadu,Leeds,a,90,0,0.0,0.0,0.0798,2,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,9910,Anton Stach,Leeds,a,90,3,0.1105,0.1105,0.0,0,1,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,5596,Harry Wilson,Leeds,a,68,0,0.0,0.0,0.0185,1,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,10751,Brenden Aaronson,Leeds,a,84,1,0.0185,0.0185,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,5555,Dominic Calvert-Lewin,Leeds,a,90,3,0.1604,0.1604,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,7078,Sean Longstaff,Leeds,a,6,0,0.0,0.0,0.0,0,0,0,0
+31184,2026-08-22,Nottingham Forest,Leeds,11966,Noah Okafor,Leeds,a,22,0,0.0,0.0,0.0602,1,0,0,0
+31185,2026-08-22,Brentford,Tottenham,7904,Caoimhin Kelleher,Brentford,h,90,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,11281,Michael Kayode,Brentford,h,77,4,0.8161,0.8161,0.0,0,1,0,0
+31185,2026-08-22,Brentford,Tottenham,9677,Kristoffer Ajer,Brentford,h,90,1,0.0753,0.0753,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,9733,Nathan Collins,Brentford,h,90,2,0.5043,0.5043,0.0554,2,0,0,0
+31185,2026-08-22,Brentford,Tottenham,10809,Keane Lewis-Potter,Brentford,h,90,2,0.5777,0.5777,0.0179,1,1,0,0
+31185,2026-08-22,Brentford,Tottenham,13917,Mamadou Sangaré,Brentford,h,77,1,0.0392,0.0392,0.5642,2,0,1,0
+31185,2026-08-22,Brentford,Tottenham,9680,Vitaly Janelt,Brentford,h,90,2,0.488,0.488,0.0837,2,1,0,0
+31185,2026-08-22,Brentford,Tottenham,9662,Dango Ouattara,Brentford,h,68,2,0.0298,0.0298,0.1656,2,0,0,0
+31185,2026-08-22,Brentford,Tottenham,7166,Mathias Jensen,Brentford,h,68,2,0.0874,0.0874,0.595,3,0,0,0
+31185,2026-08-22,Brentford,Tottenham,9156,Kevin Schade,Brentford,h,90,5,0.436,0.436,0.0439,1,0,0,0
+31185,2026-08-22,Brentford,Tottenham,13222,Thiago,Brentford,h,84,2,0.9062,0.1462,0.0,0,0,0,1
+31185,2026-08-22,Brentford,Tottenham,468,Callum Wilson,Brentford,h,6,1,0.0847,0.0847,0.1435,1,0,0,0
+31185,2026-08-22,Brentford,Tottenham,11772,Yehor Yarmolyuk,Brentford,h,22,1,0.0276,0.0276,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,10746,Jaidon Anthony,Brentford,h,22,1,0.0162,0.0162,0.1872,3,0,0,0
+31185,2026-08-22,Brentford,Tottenham,8859,Mikkel Damsgaard,Brentford,h,13,0,0.0,0.0,0.16,2,0,0,0
+31185,2026-08-22,Brentford,Tottenham,8942,Aaron Hickey,Brentford,h,13,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,13348,Antonín Kinsky,Tottenham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,10184,Archie Gray,Tottenham,a,87,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,10864,Marcos Senesi,Tottenham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,10807,Jan Paul van Hecke,Tottenham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,1688,Andrew Robertson,Tottenham,a,90,0,0.0,0.0,0.2465,1,0,0,0
+31185,2026-08-22,Brentford,Tottenham,7958,Sandro Tonali,Tottenham,a,90,2,0.0268,0.0268,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,12912,Lucas Bergvall,Tottenham,a,47,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,12603,Mikey Moore,Tottenham,a,69,3,0.6096,0.6096,0.017,1,0,0,0
+31185,2026-08-22,Brentford,Tottenham,9040,Conor Gallagher,Tottenham,a,47,1,0.0168,0.0168,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,9780,Mathys Tel,Tottenham,a,90,2,0.0614,0.0614,0.0265,2,0,0,0
+31185,2026-08-22,Brentford,Tottenham,6026,Richarlison,Tottenham,a,69,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,6108,Rodrigo Bentancur,Tottenham,a,43,0,0.0,0.0,0.0222,1,0,0,0
+31185,2026-08-22,Brentford,Tottenham,8831,Iyenoma Destiny Udogie,Tottenham,a,3,0,0.0,0.0,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,1679,Dominic Solanke,Tottenham,a,21,1,0.0417,0.0417,0.0,0,0,0,0
+31185,2026-08-22,Brentford,Tottenham,12948,Mateus Fernandes,Tottenham,a,43,0,0.0,0.0,0.3631,2,0,0,0
+31185,2026-08-22,Brentford,Tottenham,6818,James Maddison,Tottenham,a,21,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,11711,Bart Verbruggen,Brighton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,12758,Mats Wieffer,Brighton,h,83,1,0.0814,0.0814,0.0734,2,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,6048,Lewis Dunk,Brighton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,13725,Luka Vuskovic,Brighton,h,90,2,0.3672,0.3672,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,3645,Olivier Boscagli,Brighton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,11385,Yasin Ayari,Brighton,h,69,2,0.0825,0.0825,0.1103,1,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,239,Pascal Groß,Brighton,h,90,0,0.0,0.0,0.4772,4,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,13364,Diego Gómez,Brighton,h,90,3,0.2317,0.2317,0.813,2,0,1,0
+31186,2026-08-23,Brighton,Aston Villa,11269,Jack Hinshelwood,Brighton,h,69,3,1.4014,1.4014,0.1009,1,2,0,0
+31186,2026-08-23,Brighton,Aston Villa,13711,Maxim De Cuyper,Brighton,h,83,4,1.3795,1.3795,0.1411,3,1,0,0
+31186,2026-08-23,Brighton,Aston Villa,6937,Georginio Rutter,Brighton,h,90,2,0.0695,0.0695,0.9076,1,0,1,0
+31186,2026-08-23,Brighton,Aston Villa,14118,Charalampos Kostoulas,Brighton,h,21,2,0.3382,0.3382,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,14856,Malick Yalcouyé,Brighton,h,1,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,14854,Costinha,Brighton,h,21,2,0.052,0.052,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,13792,Ibrahim Osman,Brighton,h,7,0,0.0,0.0,0.0281,1,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,14855,Zadok Yohanna,Brighton,h,7,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,9614,Marco Bizot,Aston Villa,a,90,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,8864,Matthew Cash,Aston Villa,a,90,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,6221,Pau Torres,Aston Villa,a,79,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,6080,Victor Lindelöf,Aston Villa,a,90,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,11807,Ian Maatsen,Aston Villa,a,87,1,0.0254,0.0254,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,11384,João Gomes,Aston Villa,a,39,0,0.0,0.0,0.0346,1,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,5789,Boubacar Kamara,Aston Villa,a,90,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,7723,John McGinn,Aston Villa,a,87,1,0.0346,0.0346,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,592,Ross Barkley,Aston Villa,a,79,1,0.0977,0.0977,0.0974,2,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,14193,George Hemmings,Aston Villa,a,90,0,0.0,0.0,0.0254,1,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,2203,Emiliano Buendía,Aston Villa,a,90,3,0.1175,0.1175,0.0977,1,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,8872,Matteo Ruggeri,Aston Villa,a,3,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,10552,Alejandro Garnacho,Aston Villa,a,1,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,10025,Lamare Bogarde,Aston Villa,a,11,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,14446,Alysson Edward,Aston Villa,a,3,0,0.0,0.0,0.0,0,0,0,0
+31186,2026-08-23,Brighton,Aston Villa,1024,Tyrone Mings,Aston Villa,a,11,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,1116,Gianluigi Donnarumma,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,10847,Rico Lewis,Manchester City,h,59,1,0.3494,0.3494,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,11763,Abduqodir Khusanov,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,8961,Rúben Dias,Manchester City,h,90,0,0.0,0.0,0.0267,1,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,9790,Josko Gvardiol,Manchester City,h,90,1,0.4088,0.4088,0.0,0,1,0,0
+31187,2026-08-23,Manchester City,Bournemouth,9154,Elliot Anderson,Manchester City,h,65,0,0.0,0.0,0.5327,1,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,7603,Marc Guehi,Manchester City,h,90,2,0.6469,0.6469,0.4802,1,1,0,0
+31187,2026-08-23,Manchester City,Bournemouth,6055,Phil Foden,Manchester City,h,84,2,0.101,0.101,0.5124,2,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,11592,Nico O&#039;Reilly,Manchester City,h,65,1,0.163,0.163,0.0556,1,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,11363,Antoine Semenyo,Manchester City,h,90,1,0.0513,0.0513,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,8260,Erling Haaland,Manchester City,h,90,5,0.754,0.754,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,8094,Mathis Cherki,Manchester City,h,25,0,0.0,0.0,0.656,4,0,2,0
+31187,2026-08-23,Manchester City,Bournemouth,11000,Matheus Nunes,Manchester City,h,31,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,2254,Mateo Kovacic,Manchester City,h,25,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,675,Jack Grealish,Manchester City,h,6,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,12032,Djordje Petrovic,Bournemouth,a,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,825,Adam Smith,Bournemouth,a,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,10747,James Hill,Bournemouth,a,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,14859,António Silva,Bournemouth,a,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,8640,Adrien Truffert,Bournemouth,a,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,1789,Lewis Cook,Bournemouth,a,78,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,12149,Alex Scott,Bournemouth,a,90,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,14395,Rayan,Bournemouth,a,90,1,0.0671,0.0671,0.0786,1,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,6963,Justin Kluivert,Bournemouth,a,77,1,0.0786,0.0786,0.0386,1,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,10741,Marcus Tavernier,Bournemouth,a,90,2,0.4793,0.4793,0.0825,1,1,0,0
+31187,2026-08-23,Manchester City,Bournemouth,12963,Evanilson,Bournemouth,a,77,0,0.0,0.0,0.4408,1,0,1,0
+31187,2026-08-23,Manchester City,Bournemouth,14374,Alex Tóth,Bournemouth,a,13,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,11231,Ben Doak,Bournemouth,a,1,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,7352,Tyler Adams,Bournemouth,a,12,0,0.0,0.0,0.0,0,0,0,0
+31187,2026-08-23,Manchester City,Bournemouth,9509,Daniel Jebbison,Bournemouth,a,13,1,0.0825,0.0825,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,14874,Lukás Hornícek,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,13456,Amar Dedic,Newcastle United,h,90,1,0.058,0.058,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,8635,Sven Botman,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,8378,Malick Thiaw,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,10216,Lewis Hall,Newcastle United,h,90,0,0.0,0.0,0.6305,1,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,11386,Lewis Miley,Newcastle United,h,77,1,0.0499,0.0499,0.0823,2,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,14875,Sean Steur,Newcastle United,h,57,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,9524,Anthony Elanga,Newcastle United,h,77,2,0.2813,0.2813,0.0,0,1,0,0
+31188,2026-08-23,Newcastle United,Liverpool,5786,Yoane Wissa,Newcastle United,h,90,4,0.9699,0.9699,0.0722,1,0,1,0
+31188,2026-08-23,Newcastle United,Liverpool,6681,Harvey Barnes,Newcastle United,h,90,1,0.0602,0.0602,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,9556,William Osula,Newcastle United,h,57,2,0.059,0.059,0.2569,1,0,1,0
+31188,2026-08-23,Newcastle United,Liverpool,76,Fabian Schär,Newcastle United,h,1,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,6630,Joe Willock,Newcastle United,h,33,1,0.0722,0.0722,0.3008,1,1,0,0
+31188,2026-08-23,Newcastle United,Liverpool,6063,Jacob Murphy,Newcastle United,h,13,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,13214,Aladji Bamba,Newcastle United,h,13,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,8941,Jacob Ramsey,Newcastle United,h,33,1,0.0905,0.0905,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,1257,Alisson,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,9328,Jeremie Frimpong,Liverpool,a,90,1,0.0135,0.0135,0.1118,3,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,11545,Jérémy Jacquet,Liverpool,a,71,0,0.0,0.0,0.0159,1,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,833,Virgil van Dijk,Liverpool,a,90,2,0.1229,0.1229,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,11709,Milos Kerkez,Liverpool,a,90,2,0.0383,0.0383,0.0243,1,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,9788,Dominik Szoboszlai,Liverpool,a,90,3,0.8315,0.0715,0.1454,3,1,0,1
+31188,2026-08-23,Newcastle United,Liverpool,10697,Ryan Gravenberch,Liverpool,a,79,2,0.0557,0.0557,0.0149,1,0,1,0
+31188,2026-08-23,Newcastle United,Liverpool,13692,Rio Ngumoha,Liverpool,a,64,1,0.0507,0.0507,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,8397,Florian Wirtz,Liverpool,a,64,3,0.225,0.225,0.0272,1,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,11296,Cody Gakpo,Liverpool,a,90,6,0.2258,0.2258,0.2319,3,1,0,0
+31188,2026-08-23,Newcastle United,Liverpool,5232,Alexander Isak,Liverpool,a,90,4,1.4107,1.4107,0.0405,1,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,12434,Lewis Koumas,Liverpool,a,11,1,0.052,0.052,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,8379,Alexis Mac Allister,Liverpool,a,26,0,0.0,0.0,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,13279,Víctor Muñoz,Liverpool,a,26,2,0.1094,0.1094,0.0,0,0,0,0
+31188,2026-08-23,Newcastle United,Liverpool,8091,Ronald Araújo,Liverpool,a,19,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,181,Bernd Leno,Fulham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,6157,Timothy Castagne,Fulham,h,90,1,0.0721,0.0721,0.169,2,0,1,0
+31189,2026-08-24,Fulham,Chelsea,8489,Jorge Cuenca,Fulham,h,90,0,0.0,0.0,0.2412,2,0,0,0
+31189,2026-08-24,Fulham,Chelsea,11728,Calvin Bassey,Fulham,h,90,1,0.0179,0.0179,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,8940,Antonee Robinson,Fulham,h,84,1,0.2032,0.2032,0.0477,1,0,0,0
+31189,2026-08-24,Fulham,Chelsea,8285,Sander Berge,Fulham,h,75,1,0.0369,0.0369,0.04,2,0,0,0
+31189,2026-08-24,Fulham,Chelsea,500,Alex Iwobi,Fulham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,11903,Oscar Bobb,Fulham,h,69,0,0.0,0.0,0.1413,1,0,0,0
+31189,2026-08-24,Fulham,Chelsea,12410,Joshua King,Fulham,h,90,3,0.1187,0.1187,0.0398,1,1,0,0
+31189,2026-08-24,Fulham,Chelsea,14352,César Palacios,Fulham,h,75,2,0.16,0.16,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,12035,Gonzalo García,Fulham,h,90,3,0.8005,0.8005,0.0,0,1,0,0
+31189,2026-08-24,Fulham,Chelsea,6837,Ryan Sessegnon,Fulham,h,15,1,0.0381,0.0381,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,11594,Shea Charles,Fulham,h,21,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,10717,Rodrigo Muniz,Fulham,h,6,1,0.0156,0.0156,0.0233,1,0,0,0
+31189,2026-08-24,Fulham,Chelsea,14030,Kevin,Fulham,h,15,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,9098,Robert Sánchez,Chelsea,a,90,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,12535,Josh Acheampong,Chelsea,a,90,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,8853,Maxence Lacroix,Chelsea,a,90,0,0.0,0.0,0.4456,1,0,1,0
+31189,2026-08-24,Fulham,Chelsea,10805,Levi Colwill,Chelsea,a,90,1,0.0463,0.0463,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,9017,Malo Gusto,Chelsea,a,78,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,13776,Jorrel Hato,Chelsea,a,67,1,0.0349,0.0349,0.5851,1,0,0,0
+31189,2026-08-24,Fulham,Chelsea,10004,Romeo Lavia,Chelsea,a,67,1,0.5851,0.5851,0.1766,2,0,0,0
+31189,2026-08-24,Fulham,Chelsea,8067,Reece James,Chelsea,a,90,2,0.0831,0.0831,0.0349,1,0,0,0
+31189,2026-08-24,Fulham,Chelsea,12412,Morgan Rogers,Chelsea,a,84,3,0.5567,0.5567,0.2769,5,1,0,0
+31189,2026-08-24,Fulham,Chelsea,8497,Cole Palmer,Chelsea,a,85,5,0.5731,0.5731,0.5675,3,1,1,0
+31189,2026-08-24,Fulham,Chelsea,8272,João Pedro,Chelsea,a,90,4,0.6747,0.6747,0.3549,2,1,1,0
+31189,2026-08-24,Fulham,Chelsea,11356,Enzo Fernández,Chelsea,a,23,0,0.0,0.0,0.0553,1,0,0,0
+31189,2026-08-24,Fulham,Chelsea,11087,Pep Chavarría,Chelsea,a,23,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,6382,Pedro Neto,Chelsea,a,12,1,0.0553,0.0553,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,13775,Estêvão,Chelsea,a,5,0,0.0,0.0,0.0,0,0,0,0
+31189,2026-08-24,Fulham,Chelsea,14923,Geovany Quenda,Chelsea,a,6,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,7702,Dean Henderson,Crystal Palace,h,90,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,13091,Jaydee Canvot,Crystal Palace,h,90,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,7931,Takehiro Tomiyasu,Crystal Palace,h,75,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,8430,Chris Richards,Crystal Palace,h,90,1,0.0243,0.0243,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,14770,Anan Khalaili,Crystal Palace,h,76,1,0.016,0.016,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,8214,Tyrick Mitchell,Crystal Palace,h,90,2,0.2371,0.2371,0.4899,2,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,6145,Daichi Kamada,Crystal Palace,h,90,1,0.0435,0.0435,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,12409,Adam Wharton,Crystal Palace,h,90,0,0.0,0.0,0.2899,2,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,6482,Eddie Nketiah,Crystal Palace,h,69,2,0.5112,0.5112,0.016,1,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,9024,Yeremi Pino,Crystal Palace,h,69,1,0.0537,0.0537,0.0652,2,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,11070,Jørgen Strand Larsen,Crystal Palace,h,64,1,0.0409,0.0409,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,6885,Axel Disasi,Crystal Palace,h,15,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,6756,Dwight McNeil,Crystal Palace,h,21,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,9011,Óscar Mingueza,Crystal Palace,h,14,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,8006,Evann Guessand,Crystal Palace,h,26,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,14934,Zavier Gozo,Crystal Palace,h,21,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,1116,Gianluigi Donnarumma,Manchester City,a,90,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,11763,Abduqodir Khusanov,Manchester City,a,90,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,8961,Rúben Dias,Manchester City,a,90,1,0.0779,0.0779,0.2691,2,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,7603,Marc Guehi,Manchester City,a,90,0,0.0,0.0,0.0368,1,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,9790,Josko Gvardiol,Manchester City,a,76,0,0.0,0.0,0.0721,2,0,1,0
+31190,2026-08-28,Crystal Palace,Manchester City,9154,Elliot Anderson,Manchester City,a,83,2,0.0498,0.0498,0.3418,1,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,11592,Nico O&#039;Reilly,Manchester City,a,90,1,0.0096,0.0096,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,6055,Phil Foden,Manchester City,a,90,3,0.8338,0.8338,0.6815,3,0,2,0
+31190,2026-08-28,Crystal Palace,Manchester City,8094,Mathis Cherki,Manchester City,a,83,3,0.6022,0.6022,0.566,3,2,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,11363,Antoine Semenyo,Manchester City,a,90,2,0.1277,0.1277,0.491,3,0,1,0
+31190,2026-08-28,Crystal Palace,Manchester City,8260,Erling Haaland,Manchester City,a,90,5,0.6867,0.6867,0.0,0,2,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,12162,Ayyoub Bouaddi,Manchester City,a,7,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,13380,Vitor Reis,Manchester City,a,1,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,14935,Kaden Braithwaite,Manchester City,a,1,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,2254,Mateo Kovacic,Manchester City,a,14,0,0.0,0.0,0.0,0,0,0,0
+31190,2026-08-28,Crystal Palace,Manchester City,14097,Ryan McAidoo,Manchester City,a,7,1,0.181,0.181,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,1257,Alisson,Liverpool,h,90,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,9328,Jeremie Frimpong,Liverpool,h,74,0,0.0,0.0,0.0432,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,833,Virgil van Dijk,Liverpool,h,90,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,11545,Jérémy Jacquet,Liverpool,h,80,0,0.0,0.0,0.0135,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,11709,Milos Kerkez,Liverpool,h,74,0,0.0,0.0,0.0161,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,9788,Dominik Szoboszlai,Liverpool,h,90,3,0.1008,0.1008,0.1202,2,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8379,Alexis Mac Allister,Liverpool,h,80,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,11296,Cody Gakpo,Liverpool,h,74,0,0.0,0.0,0.7244,2,0,1,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8397,Florian Wirtz,Liverpool,h,90,2,0.1828,0.1828,0.0613,1,0,1,0
+31191,2026-08-29,Liverpool,Nottingham Forest,13279,Víctor Muñoz,Liverpool,h,90,4,0.187,0.187,0.1025,1,1,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,5232,Alexander Isak,Liverpool,h,90,3,0.7643,0.7643,0.0619,1,1,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,10697,Ryan Gravenberch,Liverpool,h,16,0,0.0,0.0,0.0478,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,12203,Treymaurice Nyoni,Liverpool,h,10,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8091,Ronald Araújo,Liverpool,h,10,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8852,Konstantinos Tsimikas,Liverpool,h,16,1,0.0444,0.0444,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,13692,Rio Ngumoha,Liverpool,h,16,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,6903,Matz Sels,Nottingham Forest,a,90,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,12123,Murillo,Nottingham Forest,a,90,1,0.0761,0.0761,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,6174,Nikola Milenkovic,Nottingham Forest,a,90,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,13779,Jair,Nottingham Forest,a,90,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,725,Ola Aina,Nottingham Forest,a,89,0,0.0,0.0,0.1072,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8204,Neco Williams,Nottingham Forest,a,90,1,0.2365,0.2365,0.1479,2,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,10126,James McAtee,Nottingham Forest,a,90,0,0.0,0.0,0.2299,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,7783,Xaver Schlager,Nottingham Forest,a,90,2,0.0442,0.0442,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8662,Dan Ndoye,Nottingham Forest,a,69,3,0.6472,0.6472,0.9351,2,1,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,6857,Morgan Gibbs-White,Nottingham Forest,a,90,1,0.7612,0.0012,0.2842,1,1,1,1
+31191,2026-08-29,Liverpool,Nottingham Forest,13778,Igor Jesus,Nottingham Forest,a,90,3,1.0424,1.0424,0.1331,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8868,Liam Delap,Nottingham Forest,a,21,1,0.0718,0.0718,0.2365,1,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8252,Nicolás Domínguez,Nottingham Forest,a,1,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,6456,Callum Hudson-Odoi,Nottingham Forest,a,1,0,0.0,0.0,0.0,0,0,0,0
+31191,2026-08-29,Liverpool,Nottingham Forest,8401,Luca Netz,Nottingham Forest,a,1,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,12760,Carl Rushworth,Coventry,h,90,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14742,Milan van Ewijk,Coventry,h,90,0,0.0,0.0,0.1232,2,0,0,0
+31192,2026-08-29,Coventry,Hull,12955,Aurèle Amenda,Coventry,h,90,1,0.0111,0.0111,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,8483,Bobby Thomas,Coventry,h,80,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14743,Jay Dasilva,Coventry,h,90,1,0.0954,0.0954,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14744,Caleb Yirenkyi,Coventry,h,73,1,0.0298,0.0298,0.0582,1,0,0,0
+31192,2026-08-29,Coventry,Hull,1045,Matt Grimes,Coventry,h,90,1,0.025,0.025,0.0111,1,0,0,0
+31192,2026-08-29,Coventry,Hull,9977,Loum Tchaouna,Coventry,h,61,1,0.0281,0.0281,0.1298,1,0,0,0
+31192,2026-08-29,Coventry,Hull,14747,Jack Rudoni,Coventry,h,73,1,0.0253,0.0253,0.1401,2,0,0,0
+31192,2026-08-29,Coventry,Hull,14981,Ephron Mason-Clark,Coventry,h,60,0,0.0,0.0,0.0298,1,0,0,0
+31192,2026-08-29,Coventry,Hull,7814,Taiwo Awoniyi,Coventry,h,90,4,0.9399,0.9399,0.0503,2,0,0,0
+31192,2026-08-29,Coventry,Hull,11839,Gustavo Hamer,Coventry,h,17,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14749,Tatsuhiro Sakamoto,Coventry,h,29,1,0.0278,0.0278,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,9678,Ethan Pinnock,Coventry,h,10,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14745,Brandon Thomas-Asante,Coventry,h,30,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14746,Victor Torp,Coventry,h,17,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14758,Konstantinos Tzolakis,Hull,a,90,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14759,Lewie Coyle,Hull,a,48,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,12286,Nobel Mendy,Hull,a,61,1,0.011,0.011,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,7703,John Egan,Hull,a,90,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,4490,Semi Ajayi,Hull,a,90,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,7277,Ryan John Giles,Hull,a,90,0,0.0,0.0,0.072,1,0,0,0
+31192,2026-08-29,Coventry,Hull,14760,Mohamed Belloumi,Hull,a,85,1,0.072,0.072,0.2583,1,0,1,0
+31192,2026-08-29,Coventry,Hull,14762,Regan Slater,Hull,a,90,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14982,Hidemasa Morita,Hull,a,48,0,0.0,0.0,0.0186,1,0,0,0
+31192,2026-08-29,Coventry,Hull,14763,Elliot Stroud,Hull,a,61,1,0.0186,0.0186,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,1736,Oliver McBurnie,Hull,a,90,0,0.0,0.0,0.0933,1,0,0,0
+31192,2026-08-29,Coventry,Hull,8685,Mohamed Ali-Cho,Hull,a,5,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14764,Liam Millar,Hull,a,29,3,0.3581,0.3581,0.0,0,1,0,0
+31192,2026-08-29,Coventry,Hull,9499,Cody Drameh,Hull,a,42,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,8372,Lucas Gourna Douath,Hull,a,42,0,0.0,0.0,0.0,0,0,0,0
+31192,2026-08-29,Coventry,Hull,14765,Lucas Herrington,Hull,a,29,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,12032,Djordje Petrovic,Bournemouth,h,90,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,825,Adam Smith,Bournemouth,h,90,0,0.0,0.0,0.0555,1,0,0,0
+31193,2026-08-29,Bournemouth,Everton,14859,António Silva,Bournemouth,h,90,1,0.1402,0.1402,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,10747,James Hill,Bournemouth,h,90,0,0.0,0.0,0.6926,2,0,0,0
+31193,2026-08-29,Bournemouth,Everton,8640,Adrien Truffert,Bournemouth,h,90,0,0.0,0.0,0.1387,2,0,0,0
+31193,2026-08-29,Bournemouth,Everton,12149,Alex Scott,Bournemouth,h,89,2,0.1632,0.1632,0.2179,2,1,0,0
+31193,2026-08-29,Bournemouth,Everton,1789,Lewis Cook,Bournemouth,h,71,0,0.0,0.0,0.0256,1,0,0,0
+31193,2026-08-29,Bournemouth,Everton,14395,Rayan,Bournemouth,h,90,5,0.8022,0.8022,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,6963,Justin Kluivert,Bournemouth,h,83,4,0.815,0.815,0.1614,2,0,0,0
+31193,2026-08-29,Bournemouth,Everton,10741,Marcus Tavernier,Bournemouth,h,90,2,0.1255,0.1255,0.0888,2,0,0,0
+31193,2026-08-29,Bournemouth,Everton,12963,Evanilson,Bournemouth,h,83,3,0.2484,0.2484,0.3883,2,0,1,0
+31193,2026-08-29,Bournemouth,Everton,6820,David Brooks,Bournemouth,h,7,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,7352,Tyler Adams,Bournemouth,h,19,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,10744,Ryan Christie,Bournemouth,h,1,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,11186,Alvaro Rodríguez,Bournemouth,h,7,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,741,Jordan Pickford,Everton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,11331,Merlin Röhl,Everton,a,89,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,8476,Jarrad Branthwaite,Everton,a,90,1,0.2326,0.2326,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,1665,James Tarkowski,Everton,a,90,1,0.0669,0.0669,0.014,1,1,0,0
+31193,2026-08-29,Bournemouth,Everton,10291,Vitalii Mykolenko,Everton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,7438,James Garner,Everton,a,64,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,12757,Harrison Armstrong,Everton,a,89,0,0.0,0.0,0.405,1,0,0,0
+31193,2026-08-29,Bournemouth,Everton,9307,Iliman Ndiaye,Everton,a,90,2,0.029,0.029,0.0102,1,0,0,0
+31193,2026-08-29,Bournemouth,Everton,9739,Kiernan Dewsbury-Hall,Everton,a,90,2,0.0502,0.0502,0.4039,4,0,0,0
+31193,2026-08-29,Bournemouth,Everton,12573,Tyrique George,Everton,a,64,2,0.0258,0.0258,0.0149,1,0,0,0
+31193,2026-08-29,Bournemouth,Everton,12916,Thierno Barry,Everton,a,72,3,1.145,1.145,0.0165,1,0,0,0
+31193,2026-08-29,Bournemouth,Everton,10760,Brennan Johnson,Everton,a,26,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,11297,Carlos Alcaraz,Everton,a,1,1,0.0796,0.0796,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,9983,Beto,Everton,a,18,1,0.0443,0.0443,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,9554,Tim Iroegbunam,Everton,a,1,0,0.0,0.0,0.0,0,0,0,0
+31193,2026-08-29,Bournemouth,Everton,14769,Hayden Hackney,Everton,a,26,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,13348,Antonín Kinsky,Tottenham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,10184,Archie Gray,Tottenham,h,69,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,10050,Micky van de Ven,Tottenham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,10807,Jan Paul van Hecke,Tottenham,h,90,1,0.2979,0.2979,0.0546,1,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,1688,Andrew Robertson,Tottenham,h,69,1,0.0637,0.0637,0.0353,1,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,6108,Rodrigo Bentancur,Tottenham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,7958,Sandro Tonali,Tottenham,h,76,1,0.0614,0.0614,0.1619,2,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,6912,Pedro Porro,Tottenham,h,90,4,0.2066,0.2066,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,12948,Mateus Fernandes,Tottenham,h,90,1,0.0188,0.0188,0.378,3,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,9780,Mathys Tel,Tottenham,h,69,3,0.1714,0.1714,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,8393,Omar Marmoush,Tottenham,h,90,3,0.109,0.109,0.1604,3,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,8831,Iyenoma Destiny Udogie,Tottenham,h,21,0,0.0,0.0,0.1275,1,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,12603,Mikey Moore,Tottenham,h,21,1,0.0172,0.0172,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,12027,Mohammed Kudus,Tottenham,h,21,1,0.0546,0.0546,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,1679,Dominic Solanke,Tottenham,h,14,1,0.1275,0.1275,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,14874,Lukás Hornícek,Newcastle United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,13456,Amar Dedic,Newcastle United,a,90,0,0.0,0.0,0.1412,2,0,1,0
+31194,2026-08-29,Tottenham,Newcastle United,8635,Sven Botman,Newcastle United,a,90,1,0.0147,0.0147,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,8378,Malick Thiaw,Newcastle United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,10216,Lewis Hall,Newcastle United,a,90,1,0.0564,0.0564,0.0189,1,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,9802,Nico González,Newcastle United,a,72,0,0.0,0.0,0.0283,2,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,11386,Lewis Miley,Newcastle United,a,90,0,0.0,0.0,0.0403,1,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,9524,Anthony Elanga,Newcastle United,a,83,2,0.1412,0.1412,0.1151,1,1,0,0
+31194,2026-08-29,Tottenham,Newcastle United,6630,Joe Willock,Newcastle United,a,72,3,0.1104,0.1104,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,6681,Harvey Barnes,Newcastle United,a,90,1,0.055,0.055,0.1129,2,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,5786,Yoane Wissa,Newcastle United,a,83,2,0.6225,0.6225,0.055,1,1,0,0
+31194,2026-08-29,Tottenham,Newcastle United,8117,Nick Woltemade,Newcastle United,a,18,1,0.0189,0.0189,0.5075,1,0,1,0
+31194,2026-08-29,Tottenham,Newcastle United,8941,Jacob Ramsey,Newcastle United,a,7,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,14875,Sean Steur,Newcastle United,a,18,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,13427,Bazoumana Touré,Newcastle United,a,1,0,0.0,0.0,0.0,0,0,0,0
+31194,2026-08-29,Tottenham,Newcastle United,6063,Jacob Murphy,Newcastle United,a,7,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,13712,Robin Roefs,Sunderland,h,90,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,5680,Thomas Meunier,Sunderland,h,90,1,0.0136,0.0136,0.0114,1,0,0,0
+31195,2026-08-30,Sunderland,Fulham,13715,Dan Ballard,Sunderland,h,90,1,0.0114,0.0114,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,5659,Nordi Mukiele,Sunderland,h,90,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,7432,Reinildo,Sunderland,h,90,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,204,Granit Xhaka,Sunderland,h,90,0,0.0,0.0,0.4075,4,0,0,0
+31195,2026-08-30,Sunderland,Fulham,13716,Noah Sadiki,Sunderland,h,90,1,0.0194,0.0194,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,13713,Trai Hume,Sunderland,h,90,0,0.0,0.0,0.0136,1,0,0,0
+31195,2026-08-30,Sunderland,Fulham,8651,Enzo Le Fée,Sunderland,h,90,4,0.2025,0.2025,0.5389,1,0,0,0
+31195,2026-08-30,Sunderland,Fulham,14424,Nilson Angulo,Sunderland,h,66,0,0.0,0.0,0.0489,1,0,0,0
+31195,2026-08-30,Sunderland,Fulham,9789,Brian Brobbey,Sunderland,h,65,1,0.0341,0.0341,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,7148,Wilson Isidor,Sunderland,h,25,3,1.0179,1.0179,0.0,0,1,0,0
+31195,2026-08-30,Sunderland,Fulham,11461,Romaine Mundle,Sunderland,h,1,1,0.2635,0.2635,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,9767,Habib Diarra,Sunderland,h,18,0,0.0,0.0,0.4508,1,0,1,0
+31195,2026-08-30,Sunderland,Fulham,13719,Chris Rigg,Sunderland,h,6,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,181,Bernd Leno,Fulham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,6157,Timothy Castagne,Fulham,a,69,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,11728,Calvin Bassey,Fulham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,6314,Joachim Andersen,Fulham,a,90,0,0.0,0.0,0.0606,1,0,0,0
+31195,2026-08-30,Sunderland,Fulham,8940,Antonee Robinson,Fulham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,500,Alex Iwobi,Fulham,a,90,1,0.0127,0.0127,0.4228,2,0,0,0
+31195,2026-08-30,Sunderland,Fulham,8285,Sander Berge,Fulham,a,84,0,0.0,0.0,0.3431,2,0,0,0
+31195,2026-08-30,Sunderland,Fulham,11903,Oscar Bobb,Fulham,a,69,0,0.0,0.0,0.0296,1,0,0,0
+31195,2026-08-30,Sunderland,Fulham,12410,Joshua King,Fulham,a,90,2,0.3194,0.3194,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,14352,César Palacios,Fulham,a,78,1,0.0296,0.0296,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,12035,Gonzalo García,Fulham,a,90,3,0.5128,0.5128,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,7230,Emile Smith-Rowe,Fulham,a,12,1,0.0606,0.0606,0.0901,2,0,0,0
+31195,2026-08-30,Sunderland,Fulham,14030,Kevin,Fulham,a,6,0,0.0,0.0,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,6837,Ryan Sessegnon,Fulham,a,21,1,0.03,0.03,0.0,0,0,0,0
+31195,2026-08-30,Sunderland,Fulham,11594,Shea Charles,Fulham,a,21,2,0.0624,0.0624,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,4401,Emiliano Martinez,Chelsea,h,90,0,0.0,0.0,0.2397,2,0,0,0
+31196,2026-08-30,Chelsea,Brighton,10805,Levi Colwill,Chelsea,h,74,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,7589,Wesley Fofana,Chelsea,h,70,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,8853,Maxence Lacroix,Chelsea,h,90,1,0.0128,0.0128,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,6382,Pedro Neto,Chelsea,h,70,2,0.7144,0.7144,0.6695,2,1,0,0
+31196,2026-08-30,Chelsea,Brighton,13776,Jorrel Hato,Chelsea,h,90,0,0.0,0.0,0.5879,2,0,1,0
+31196,2026-08-30,Chelsea,Brighton,10004,Romeo Lavia,Chelsea,h,70,1,0.6449,0.6449,0.0,0,1,0,0
+31196,2026-08-30,Chelsea,Brighton,9017,Malo Gusto,Chelsea,h,90,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,8497,Cole Palmer,Chelsea,h,90,4,0.9098,0.9098,0.1129,2,1,0,0
+31196,2026-08-30,Chelsea,Brighton,12412,Morgan Rogers,Chelsea,h,90,3,0.1791,0.1791,1.4559,4,0,1,0
+31196,2026-08-30,Chelsea,Brighton,8272,João Pedro,Chelsea,h,90,5,1.3812,1.3812,0.1269,2,1,1,0
+31196,2026-08-30,Chelsea,Brighton,9453,Moisés Caicedo,Chelsea,h,14,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,8067,Reece James,Chelsea,h,20,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,11087,Pep Chavarría,Chelsea,h,16,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,12498,Valentín Barco,Chelsea,h,6,1,0.0745,0.0745,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,12535,Josh Acheampong,Chelsea,h,20,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,11711,Bart Verbruggen,Brighton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,12758,Mats Wieffer,Brighton,a,82,1,0.0345,0.0345,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,13725,Luka Vuskovic,Brighton,a,90,2,0.0248,0.0248,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,6048,Lewis Dunk,Brighton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,13066,Ferdi Kadioglu,Brighton,a,90,1,0.0212,0.0212,0.0098,1,0,0,0
+31196,2026-08-30,Chelsea,Brighton,3645,Olivier Boscagli,Brighton,a,90,1,0.043,0.043,0.1698,1,0,0,0
+31196,2026-08-30,Chelsea,Brighton,239,Pascal Groß,Brighton,a,90,1,0.0453,0.0453,0.4949,2,1,0,0
+31196,2026-08-30,Chelsea,Brighton,13364,Diego Gómez,Brighton,a,90,5,0.7564,0.7564,0.3122,1,0,0,0
+31196,2026-08-30,Chelsea,Brighton,14856,Malick Yalcouyé,Brighton,a,76,2,0.6474,0.6474,0.2635,1,1,0,0
+31196,2026-08-30,Chelsea,Brighton,13711,Maxim De Cuyper,Brighton,a,90,1,0.0438,0.0438,0.015,1,0,0,0
+31196,2026-08-30,Chelsea,Brighton,14118,Charalampos Kostoulas,Brighton,a,82,1,0.2635,0.2635,0.0438,1,0,0,0
+31196,2026-08-30,Chelsea,Brighton,14854,Costinha,Brighton,a,8,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,14857,Promise David,Brighton,a,8,0,0.0,0.0,0.0,0,0,0,0
+31196,2026-08-30,Chelsea,Brighton,13792,Ibrahim Osman,Brighton,a,14,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,9077,James Trafford,Leeds,h,90,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,6377,Joe Rodon,Leeds,h,33,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,13879,Tarik Muharemovic,Leeds,h,90,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,6807,Jaka Bijol,Leeds,h,49,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,9205,Jayden Bogle,Leeds,h,71,0,0.0,0.0,0.0175,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,7753,James Justin,Leeds,h,90,1,0.0175,0.0175,0.043,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,9910,Anton Stach,Leeds,h,90,1,0.0597,0.0597,0.0251,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,6369,Ethan Ampadu,Leeds,h,90,1,0.0134,0.0134,0.0394,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,10751,Brenden Aaronson,Leeds,h,49,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,11966,Noah Okafor,Leeds,h,72,2,0.0781,0.0781,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,5555,Dominic Calvert-Lewin,Leeds,h,90,1,0.7724,0.7724,0.0,0,1,0,0
+31197,2026-08-30,Leeds,Brentford,13834,Ao Tanaka,Leeds,h,41,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,5595,Daniel James,Leeds,h,19,4,0.1872,0.1872,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,212,Nico Elvedi,Leeds,h,57,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,6544,Lukas Nmecha,Leeds,h,18,1,0.0394,0.0394,0.86,2,0,1,0
+31197,2026-08-30,Leeds,Brentford,5596,Harry Wilson,Leeds,h,41,1,0.0127,0.0127,0.0315,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,7904,Caoimhin Kelleher,Brentford,a,90,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,11281,Michael Kayode,Brentford,a,90,1,0.023,0.023,0.0582,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,9733,Nathan Collins,Brentford,a,90,3,0.1036,0.1036,0.0168,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,9677,Kristoffer Ajer,Brentford,a,90,0,0.0,0.0,0.053,2,0,0,0
+31197,2026-08-30,Leeds,Brentford,10809,Keane Lewis-Potter,Brentford,a,90,1,0.0111,0.0111,0.1508,2,0,1,0
+31197,2026-08-30,Leeds,Brentford,9680,Vitaly Janelt,Brentford,a,90,0,0.0,0.0,0.047,2,0,0,0
+31197,2026-08-30,Leeds,Brentford,13917,Mamadou Sangaré,Brentford,a,90,3,0.2048,0.2048,0.0602,2,0,0,0
+31197,2026-08-30,Leeds,Brentford,10746,Jaidon Anthony,Brentford,a,64,2,0.1058,0.1058,0.0548,2,0,0,0
+31197,2026-08-30,Leeds,Brentford,8859,Mikkel Damsgaard,Brentford,a,72,2,0.0597,0.0597,0.142,2,0,0,0
+31197,2026-08-30,Leeds,Brentford,9156,Kevin Schade,Brentford,a,90,3,0.2593,0.2593,0.0769,1,1,0,0
+31197,2026-08-30,Leeds,Brentford,13222,Thiago,Brentford,a,90,5,0.8914,0.8914,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,9679,Rico Henry,Brentford,a,1,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,9662,Dango Ouattara,Brentford,a,26,1,0.0148,0.0148,0.2325,1,0,0,0
+31197,2026-08-30,Leeds,Brentford,8942,Aaron Hickey,Brentford,a,1,0,0.0,0.0,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,468,Callum Wilson,Brentford,a,1,1,0.0666,0.0666,0.0,0,0,0,0
+31197,2026-08-30,Leeds,Brentford,11772,Yehor Yarmolyuk,Brentford,a,18,0,0.0,0.0,0.023,1,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,14056,Senne Lammens,Manchester United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,7281,Diogo Dalot,Manchester United,h,76,4,0.227,0.227,0.4152,3,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,10802,Lisandro Martínez,Manchester United,h,90,1,0.0149,0.0149,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,1687,Harry Maguire,Manchester United,h,90,1,0.0311,0.0311,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,1006,Luke Shaw,Manchester United,h,75,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,11174,Kobbie Mainoo,Manchester United,h,82,3,0.1283,0.1283,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,5956,Youri Tielemans,Manchester United,h,90,3,0.1992,0.1992,0.1644,4,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,6552,Bryan Mbeumo,Manchester United,h,90,5,1.4529,1.4529,0.3549,3,1,0,0
+31198,2026-08-30,Manchester United,Ipswich,1228,Bruno Fernandes,Manchester United,h,90,8,2.2063,1.4463,0.4536,3,3,1,1
+31198,2026-08-30,Manchester United,Ipswich,556,Marcus Rashford,Manchester United,h,82,4,0.4157,0.4157,0.0873,3,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,7080,Matheus Cunha,Manchester United,h,82,2,0.1146,0.1146,0.5839,2,0,1,0
+31198,2026-08-30,Manchester United,Ipswich,11974,Benjamin Sesko,Manchester United,h,8,0,0.0,0.0,0.0985,1,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,11944,Patrick Dorgu,Manchester United,h,8,2,0.2855,0.2855,0.0855,1,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,10564,Leny Yoro,Manchester United,h,14,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,10696,Noussair Mazraoui,Manchester United,h,15,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,11808,Andrey Santos,Manchester United,h,8,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,9960,Kjell Scherpen,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,8756,Dara O&#039;Shea,Ipswich,a,90,1,0.0188,0.0188,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,3203,Issa Diop,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,12745,Jacob Greaves,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,8919,Leif Davis,Ipswich,a,90,2,0.6606,0.6606,0.1087,1,1,0,0
+31198,2026-08-30,Manchester United,Ipswich,1537,Sasa Lukic,Ipswich,a,75,1,0.038,0.038,0.0213,1,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,14771,Marcelino Núñez,Ipswich,a,64,0,0.0,0.0,0.038,1,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,12911,Abdul Fatawu,Ipswich,a,85,0,0.0,0.0,0.6795,3,0,1,0
+31198,2026-08-30,Manchester United,Ipswich,11058,Julio Enciso,Ipswich,a,90,3,0.55,0.55,0.4293,1,0,1,0
+31198,2026-08-30,Manchester United,Ipswich,14772,Daizen Maeda,Ipswich,a,75,1,0.1087,0.1087,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,14082,Emersonn,Ipswich,a,48,0,0.0,0.0,0.5151,1,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,8325,Exequiel Palacios,Ipswich,a,26,0,0.0,0.0,0.0136,1,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,1790,Chuba Akpom,Ipswich,a,42,1,0.4293,0.4293,0.0,0,1,0,0
+31198,2026-08-30,Manchester United,Ipswich,10166,Kasey McAteer,Ipswich,a,5,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,4391,Darnell Furlong,Ipswich,a,15,0,0.0,0.0,0.0,0,0,0,0
+31198,2026-08-30,Manchester United,Ipswich,10485,Guemissongui Ouattara,Ipswich,a,15,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,12781,Zion Suzuki,Aston Villa,h,90,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,8864,Matthew Cash,Aston Villa,h,79,1,0.0784,0.0784,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,6080,Victor Lindelöf,Aston Villa,h,90,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,6221,Pau Torres,Aston Villa,h,90,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,11807,Ian Maatsen,Aston Villa,h,90,2,0.0823,0.0823,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,592,Ross Barkley,Aston Villa,h,79,1,0.0361,0.0361,0.0823,2,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,5789,Boubacar Kamara,Aston Villa,h,90,0,0.0,0.0,0.0274,1,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,7723,John McGinn,Aston Villa,h,90,2,0.0577,0.0577,0.0784,1,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,2203,Emiliano Buendía,Aston Villa,h,90,1,0.0274,0.0274,0.0207,1,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,14193,George Hemmings,Aston Villa,h,72,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,10048,Nicolas Jackson,Aston Villa,h,72,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,14446,Alysson Edward,Aston Villa,h,18,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,5584,Aaron Wan-Bissaka,Aston Villa,h,11,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,10552,Alejandro Garnacho,Aston Villa,h,11,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,702,Tammy Abraham,Aston Villa,h,18,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,9676,David Raya,Arsenal,a,90,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,7298,Ben White,Arsenal,a,90,0,0.0,0.0,0.0351,1,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,10024,Cristhian Mosquera,Arsenal,a,80,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,5613,Gabriel,Arsenal,a,90,1,0.3273,0.3273,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,8129,Riccardo Calafiori,Arsenal,a,90,1,0.0487,0.0487,0.9378,1,0,1,0
+31199,2026-08-31,Aston Villa,Arsenal,5553,Declan Rice,Arsenal,a,86,0,0.0,0.0,0.0862,2,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,12272,Myles Lewis-Skelly,Arsenal,a,72,1,0.0472,0.0472,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,7322,Bukayo Saka,Arsenal,a,90,2,0.9753,0.9753,0.0,0,1,0,0
+31199,2026-08-31,Aston Villa,Arsenal,2517,Martin Odegaard,Arsenal,a,72,1,0.0909,0.0909,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,9746,Christos Tzolis,Arsenal,a,47,0,0.0,0.0,0.0472,1,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,5220,Kai Havertz,Arsenal,a,90,1,0.0351,0.0351,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,8327,Bruno Guimarães,Arsenal,a,18,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,8706,Eberechi Eze,Arsenal,a,43,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,5304,Mikel Merino,Arsenal,a,18,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,7726,Ezri Konsa Ngoyo,Arsenal,a,10,0,0.0,0.0,0.0,0,0,0,0
+31199,2026-08-31,Aston Villa,Arsenal,7526,Martín Zubimendi,Arsenal,a,4,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,9960,Kjell Scherpen,Ipswich,h,90,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,8756,Dara O&#039;Shea,Ipswich,h,90,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,12745,Jacob Greaves,Ipswich,h,90,0,0.0,0.0,0.0525,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,3203,Issa Diop,Ipswich,h,90,0,0.0,0.0,0.0285,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,8919,Leif Davis,Ipswich,h,90,1,0.075,0.075,0.1678,2,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,1537,Sasa Lukic,Ipswich,h,90,0,0.0,0.0,0.0139,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,8325,Exequiel Palacios,Ipswich,h,80,0,0.0,0.0,0.0915,2,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,12911,Abdul Fatawu,Ipswich,h,81,2,0.0343,0.0343,0.1171,2,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,11058,Julio Enciso,Ipswich,h,90,6,0.2568,0.2568,0.0343,2,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,14772,Daizen Maeda,Ipswich,h,68,1,0.0599,0.0599,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,14082,Emersonn,Ipswich,h,68,1,0.1079,0.1079,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,13729,Zian Flemming,Ipswich,h,22,1,0.014,0.014,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,10166,Kasey McAteer,Ipswich,h,9,1,0.0215,0.0215,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,10485,Guemissongui Ouattara,Ipswich,h,10,0,0.0,0.0,0.0215,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,13019,Jack Clarke,Ipswich,h,22,1,0.0285,0.0285,0.0568,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,1257,Alisson,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,8091,Ronald Araújo,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,833,Virgil van Dijk,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,11545,Jérémy Jacquet,Liverpool,a,90,0,0.0,0.0,0.0266,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,11709,Milos Kerkez,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,8379,Alexis Mac Allister,Liverpool,a,86,2,0.0834,0.0834,0.0622,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,9788,Dominik Szoboszlai,Liverpool,a,90,3,0.1481,0.1481,0.1541,2,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,13279,Víctor Muñoz,Liverpool,a,66,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,8397,Florian Wirtz,Liverpool,a,90,2,0.146,0.146,0.0644,2,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,11296,Cody Gakpo,Liverpool,a,90,1,0.1188,0.1188,0.3181,3,0,2,0
+31200,2026-09-04,Ipswich,Liverpool,5232,Alexander Isak,Liverpool,a,66,2,0.2479,0.2479,0.0,0,2,0,0
+31200,2026-09-04,Ipswich,Liverpool,10016,Bradley Barcola,Liverpool,a,24,0,0.0,0.0,0.1188,1,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,12203,Treymaurice Nyoni,Liverpool,a,4,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,10697,Ryan Gravenberch,Liverpool,a,24,0,0.0,0.0,0.0,0,0,0,0
+31200,2026-09-04,Ipswich,Liverpool,12434,Lewis Koumas,Liverpool,a,1,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,14874,Lukás Hornícek,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,13456,Amar Dedic,Newcastle United,h,90,2,0.1595,0.1595,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,8378,Malick Thiaw,Newcastle United,h,90,0,0.0,0.0,0.0675,1,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,8635,Sven Botman,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,10216,Lewis Hall,Newcastle United,h,90,1,0.0295,0.0295,0.0242,1,0,1,0
+31201,2026-09-05,Newcastle United,Bournemouth,11386,Lewis Miley,Newcastle United,h,66,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,9802,Nico González,Newcastle United,h,80,0,0.0,0.0,0.0156,1,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,9524,Anthony Elanga,Newcastle United,h,81,0,0.0,0.0,0.564,3,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,6630,Joe Willock,Newcastle United,h,66,2,0.4356,0.4356,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,6681,Harvey Barnes,Newcastle United,h,90,2,0.0918,0.0918,0.0,0,1,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,5786,Yoane Wissa,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,8941,Jacob Ramsey,Newcastle United,h,24,1,0.0592,0.0592,0.0,0,1,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,14875,Sean Steur,Newcastle United,h,10,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,9512,Valentino Livramento,Newcastle United,h,1,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,6063,Jacob Murphy,Newcastle United,h,9,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,13051,Matias Fernandez-Pardo,Newcastle United,h,24,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,12032,Djordje Petrovic,Bournemouth,a,90,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,825,Adam Smith,Bournemouth,a,90,1,0.0195,0.0195,0.0797,2,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,10747,James Hill,Bournemouth,a,90,0,0.0,0.0,0.0308,2,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,14859,António Silva,Bournemouth,a,90,1,0.0163,0.0163,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,8640,Adrien Truffert,Bournemouth,a,90,1,0.0194,0.0194,0.1422,1,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,7352,Tyler Adams,Bournemouth,a,79,0,0.0,0.0,0.0245,1,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,12149,Alex Scott,Bournemouth,a,90,2,0.0794,0.0794,0.0389,2,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,14395,Rayan,Bournemouth,a,90,1,0.0522,0.0522,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,6963,Justin Kluivert,Bournemouth,a,79,2,0.054,0.054,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,10741,Marcus Tavernier,Bournemouth,a,90,5,0.8657,0.8657,0.0295,1,1,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,12963,Evanilson,Bournemouth,a,90,3,0.5122,0.5122,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,6820,David Brooks,Bournemouth,a,11,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,10744,Ryan Christie,Bournemouth,a,1,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,9509,Daniel Jebbison,Bournemouth,a,1,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,1789,Lewis Cook,Bournemouth,a,11,0,0.0,0.0,0.0,0,0,0,0
+31201,2026-09-05,Newcastle United,Bournemouth,11231,Ben Doak,Bournemouth,a,1,1,0.0609,0.0609,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,1116,Gianluigi Donnarumma,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,11763,Abduqodir Khusanov,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,7603,Marc Guehi,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,8961,Rúben Dias,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,9790,Josko Gvardiol,Manchester City,h,90,1,0.0088,0.0088,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,9154,Elliot Anderson,Manchester City,h,90,1,0.0175,0.0175,0.0327,1,0,0,0
+31202,2026-09-05,Manchester City,Coventry,11356,Enzo Fernández,Manchester City,h,77,2,0.1738,0.1738,0.0994,1,0,0,0
+31202,2026-09-05,Manchester City,Coventry,11363,Antoine Semenyo,Manchester City,h,90,2,0.0828,0.0828,0.5137,3,0,1,0
+31202,2026-09-05,Manchester City,Coventry,8094,Mathis Cherki,Manchester City,h,67,3,0.2379,0.2379,0.5329,3,0,0,0
+31202,2026-09-05,Manchester City,Coventry,9307,Iliman Ndiaye,Manchester City,h,88,1,0.0327,0.0327,0.0597,1,0,0,0
+31202,2026-09-05,Manchester City,Coventry,8260,Erling Haaland,Manchester City,h,90,4,1.0202,1.0202,0.628,1,1,0,0
+31202,2026-09-05,Manchester City,Coventry,6055,Phil Foden,Manchester City,h,23,1,0.628,0.628,0.0563,1,0,0,0
+31202,2026-09-05,Manchester City,Coventry,14097,Ryan McAidoo,Manchester City,h,2,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,12162,Ayyoub Bouaddi,Manchester City,h,13,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,12760,Carl Rushworth,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,9678,Ethan Pinnock,Coventry,a,90,1,0.0588,0.0588,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,12955,Aurèle Amenda,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,8483,Bobby Thomas,Coventry,a,90,5,0.1442,0.1442,0.5406,3,0,0,0
+31202,2026-09-05,Manchester City,Coventry,14742,Milan van Ewijk,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,14743,Jay Dasilva,Coventry,a,86,0,0.0,0.0,0.0269,1,0,0,0
+31202,2026-09-05,Manchester City,Coventry,9681,Frank Onyeka,Coventry,a,64,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,1045,Matt Grimes,Coventry,a,90,1,0.0164,0.0164,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,14981,Ephron Mason-Clark,Coventry,a,72,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,14747,Jack Rudoni,Coventry,a,64,1,0.4385,0.4385,0.0841,2,0,0,0
+31202,2026-09-05,Manchester City,Coventry,7814,Taiwo Awoniyi,Coventry,a,72,1,0.2945,0.2945,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,14744,Caleb Yirenkyi,Coventry,a,26,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,14745,Brandon Thomas-Asante,Coventry,a,18,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,11839,Gustavo Hamer,Coventry,a,4,0,0.0,0.0,0.0,0,0,0,0
+31202,2026-09-05,Manchester City,Coventry,9977,Loum Tchaouna,Coventry,a,26,2,0.0537,0.0537,0.0405,2,0,0,0
+31202,2026-09-05,Manchester City,Coventry,8582,Ellis Simms,Coventry,a,18,1,0.4884,0.4884,0.0105,1,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,6903,Matz Sels,Nottingham Forest,h,90,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,6174,Nikola Milenkovic,Nottingham Forest,h,90,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,13779,Jair,Nottingham Forest,h,90,1,0.0132,0.0132,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,12123,Murillo,Nottingham Forest,h,90,2,0.1806,0.1806,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,725,Ola Aina,Nottingham Forest,h,60,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,8204,Neco Williams,Nottingham Forest,h,90,0,0.0,0.0,0.087,1,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,7783,Xaver Schlager,Nottingham Forest,h,90,1,0.0176,0.0176,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,10126,James McAtee,Nottingham Forest,h,90,3,0.1078,0.1078,0.5125,5,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,6857,Morgan Gibbs-White,Nottingham Forest,h,90,3,0.435,0.435,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,8662,Dan Ndoye,Nottingham Forest,h,60,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,8868,Liam Delap,Nottingham Forest,h,75,1,0.0458,0.0458,0.1169,2,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,12408,Daniel Muñoz,Nottingham Forest,h,30,1,0.0317,0.0317,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,4456,Chris Wood,Nottingham Forest,h,15,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,13778,Igor Jesus,Nottingham Forest,h,30,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,14775,Ousmane Diomande,Nottingham Forest,h,1,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,13348,Antonín Kinsky,Tottenham,a,90,0,0.0,0.0,0.0461,1,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,6912,Pedro Porro,Tottenham,a,90,2,0.0198,0.0198,0.4163,3,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,10050,Micky van de Ven,Tottenham,a,90,2,0.6857,0.6857,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,10807,Jan Paul van Hecke,Tottenham,a,90,2,0.0902,0.0902,0.0062,1,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,8831,Iyenoma Destiny Udogie,Tottenham,a,62,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,7958,Sandro Tonali,Tottenham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,6108,Rodrigo Bentancur,Tottenham,a,90,1,0.0346,0.0346,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,11735,Sávio,Tottenham,a,62,1,0.0391,0.0391,0.6257,1,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,9040,Conor Gallagher,Tottenham,a,85,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,9780,Mathys Tel,Tottenham,a,75,0,0.0,0.0,0.0477,1,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,8393,Omar Marmoush,Tottenham,a,85,3,0.4833,0.4833,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,12027,Mohammed Kudus,Tottenham,a,28,0,0.0,0.0,0.1317,1,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,1679,Dominic Solanke,Tottenham,a,5,1,0.1317,0.1317,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,12948,Mateus Fernandes,Tottenham,a,5,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,1688,Andrew Robertson,Tottenham,a,28,0,0.0,0.0,0.0,0,0,0,0
+31203,2026-09-05,Nottingham Forest,Tottenham,11305,Mykhailo Mudryk,Tottenham,a,15,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,181,Bernd Leno,Fulham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,6157,Timothy Castagne,Fulham,h,90,3,0.5828,0.5828,0.2032,2,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,11728,Calvin Bassey,Fulham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,6314,Joachim Andersen,Fulham,h,90,0,0.0,0.0,0.0966,2,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,8940,Antonee Robinson,Fulham,h,83,2,0.0768,0.0768,0.0733,2,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,11594,Shea Charles,Fulham,h,83,0,0.0,0.0,0.1791,3,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,500,Alex Iwobi,Fulham,h,87,1,0.0531,0.0531,0.1347,1,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,11903,Oscar Bobb,Fulham,h,83,3,0.3942,0.3942,0.7532,4,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,12410,Joshua King,Fulham,h,90,2,0.2208,0.2208,0.2143,2,1,0,0
+31204,2026-09-05,Fulham,Crystal Palace,14352,César Palacios,Fulham,h,66,5,0.9081,0.9081,0.0274,1,1,0,0
+31204,2026-09-05,Fulham,Crystal Palace,12035,Gonzalo García,Fulham,h,90,5,0.3012,0.3012,0.0992,1,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,8285,Sander Berge,Fulham,h,24,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,7230,Emile Smith-Rowe,Fulham,h,7,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,11911,Hugo Larsson,Fulham,h,7,1,0.0915,0.0915,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,10717,Rodrigo Muniz,Fulham,h,3,2,0.2029,0.2029,0.0915,1,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,6837,Ryan Sessegnon,Fulham,h,7,1,0.0686,0.0686,0.0893,1,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,7702,Dean Henderson,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,8430,Chris Richards,Crystal Palace,a,90,1,0.0335,0.0335,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,13091,Jaydee Canvot,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,6885,Axel Disasi,Crystal Palace,a,90,0,0.0,0.0,0.0335,1,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,14770,Anan Khalaili,Crystal Palace,a,90,2,0.3637,0.3637,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,8214,Tyrick Mitchell,Crystal Palace,a,78,3,0.7889,0.7889,0.0155,1,2,0,0
+31204,2026-09-05,Fulham,Crystal Palace,12409,Adam Wharton,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,14376,Quinten Timber,Crystal Palace,a,78,1,0.0155,0.0155,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,6145,Daichi Kamada,Crystal Palace,a,90,0,0.0,0.0,0.4266,2,0,1,0
+31204,2026-09-05,Fulham,Crystal Palace,9024,Yeremi Pino,Crystal Palace,a,90,1,0.4146,0.4146,0.8899,3,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,6482,Eddie Nketiah,Crystal Palace,a,50,1,0.5262,0.5262,0.3963,1,0,1,0
+31204,2026-09-05,Fulham,Crystal Palace,9011,Óscar Mingueza,Crystal Palace,a,1,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,15045,Darío Osorio,Crystal Palace,a,1,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,6104,Will Hughes,Crystal Palace,a,12,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,11070,Jørgen Strand Larsen,Crystal Palace,a,40,0,0.0,0.0,0.0,0,0,0,0
+31204,2026-09-05,Fulham,Crystal Palace,782,Ben Chilwell,Crystal Palace,a,12,1,0.3881,0.3881,0.0,0,1,0,0
+31205,2026-09-05,Brentford,Sunderland,7904,Caoimhin Kelleher,Brentford,h,90,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,11281,Michael Kayode,Brentford,h,54,1,0.0168,0.0168,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,9677,Kristoffer Ajer,Brentford,h,90,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,9733,Nathan Collins,Brentford,h,16,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,10809,Keane Lewis-Potter,Brentford,h,90,3,0.4302,0.4302,0.5748,3,0,0,0
+31205,2026-09-05,Brentford,Sunderland,13917,Mamadou Sangaré,Brentford,h,54,2,0.1222,0.1222,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,9680,Vitaly Janelt,Brentford,h,90,1,0.3617,0.3617,0.0,0,1,0,0
+31205,2026-09-05,Brentford,Sunderland,9662,Dango Ouattara,Brentford,h,54,0,0.0,0.0,0.0165,1,0,0,0
+31205,2026-09-05,Brentford,Sunderland,8859,Mikkel Damsgaard,Brentford,h,90,0,0.0,0.0,0.3886,2,0,0,0
+31205,2026-09-05,Brentford,Sunderland,9156,Kevin Schade,Brentford,h,90,0,0.0,0.0,0.0161,1,0,0,0
+31205,2026-09-05,Brentford,Sunderland,13222,Thiago,Brentford,h,90,2,0.501,0.501,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,468,Callum Wilson,Brentford,h,1,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,11772,Yehor Yarmolyuk,Brentford,h,36,1,0.0161,0.0161,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,10746,Jaidon Anthony,Brentford,h,36,1,0.0292,0.0292,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,14788,Jannik Schuster,Brentford,h,74,1,0.1086,0.1086,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,8942,Aaron Hickey,Brentford,h,36,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,13712,Robin Roefs,Sunderland,a,90,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,5659,Nordi Mukiele,Sunderland,a,90,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,5261,Kevin Danso,Sunderland,a,90,0,0.0,0.0,0.0498,1,0,0,0
+31205,2026-09-05,Brentford,Sunderland,13715,Dan Ballard,Sunderland,a,90,1,0.0498,0.0498,0.1216,1,0,0,0
+31205,2026-09-05,Brentford,Sunderland,7432,Reinildo,Sunderland,a,90,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,13716,Noah Sadiki,Sunderland,a,82,3,0.555,0.555,0.3508,1,0,0,0
+31205,2026-09-05,Brentford,Sunderland,204,Granit Xhaka,Sunderland,a,90,1,0.0634,0.0634,0.0886,2,0,0,0
+31205,2026-09-05,Brentford,Sunderland,5680,Thomas Meunier,Sunderland,a,72,1,0.3508,0.3508,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,8651,Enzo Le Fée,Sunderland,a,90,3,0.832,0.072,0.0,0,1,0,1
+31205,2026-09-05,Brentford,Sunderland,14424,Nilson Angulo,Sunderland,a,72,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,9789,Brian Brobbey,Sunderland,a,90,3,0.2102,0.2102,0.5499,3,0,0,0
+31205,2026-09-05,Brentford,Sunderland,13713,Trai Hume,Sunderland,a,18,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,12336,Malick Fofana,Sunderland,a,8,0,0.0,0.0,0.0,0,0,0,0
+31205,2026-09-05,Brentford,Sunderland,7148,Wilson Isidor,Sunderland,a,18,2,0.0937,0.0937,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,11711,Bart Verbruggen,Brighton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,13066,Ferdi Kadioglu,Brighton,h,79,2,0.0791,0.0791,0.0196,1,0,0,0
+31206,2026-09-05,Brighton,Leeds,6048,Lewis Dunk,Brighton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,13725,Luka Vuskovic,Brighton,h,90,2,0.3858,0.3858,0.0,0,1,0,0
+31206,2026-09-05,Brighton,Leeds,3645,Olivier Boscagli,Brighton,h,90,0,0.0,0.0,0.6315,5,0,0,0
+31206,2026-09-05,Brighton,Leeds,11385,Yasin Ayari,Brighton,h,90,2,0.1272,0.1272,0.0174,1,0,0,0
+31206,2026-09-05,Brighton,Leeds,239,Pascal Groß,Brighton,h,90,5,0.8145,0.8145,0.0808,1,0,0,0
+31206,2026-09-05,Brighton,Leeds,13364,Diego Gómez,Brighton,h,90,4,0.1018,0.1018,0.0791,2,0,0,0
+31206,2026-09-05,Brighton,Leeds,14856,Malick Yalcouyé,Brighton,h,90,1,0.0335,0.0335,0.112,2,0,0,0
+31206,2026-09-05,Brighton,Leeds,13711,Maxim De Cuyper,Brighton,h,78,0,0.0,0.0,0.3656,1,0,1,0
+31206,2026-09-05,Brighton,Leeds,14118,Charalampos Kostoulas,Brighton,h,90,3,0.2058,0.2058,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,8717,Pascal Struijk,Brighton,h,1,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,14854,Costinha,Brighton,h,11,0,0.0,0.0,0.0699,1,0,0,0
+31206,2026-09-05,Brighton,Leeds,14857,Promise David,Brighton,h,12,1,0.5202,0.5202,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,9077,James Trafford,Leeds,a,90,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,13879,Tarik Muharemovic,Leeds,a,90,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,212,Nico Elvedi,Leeds,a,90,0,0.0,0.0,0.7818,2,0,0,0
+31206,2026-09-05,Brighton,Leeds,7753,James Justin,Leeds,a,90,2,0.1029,0.1029,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,9205,Jayden Bogle,Leeds,a,62,1,0.9669,0.9669,0.0,0,1,0,0
+31206,2026-09-05,Brighton,Leeds,9944,Gabriel Gudmundsson,Leeds,a,90,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,9910,Anton Stach,Leeds,a,90,1,0.4998,0.4998,0.0194,1,0,0,0
+31206,2026-09-05,Brighton,Leeds,13834,Ao Tanaka,Leeds,a,74,2,0.6083,0.6083,0.9669,1,0,1,0
+31206,2026-09-05,Brighton,Leeds,6369,Ethan Ampadu,Leeds,a,90,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,11966,Noah Okafor,Leeds,a,63,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,5555,Dominic Calvert-Lewin,Leeds,a,74,2,0.6989,0.6989,0.0835,1,0,0,0
+31206,2026-09-05,Brighton,Leeds,6807,Jaka Bijol,Leeds,a,28,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,10751,Brenden Aaronson,Leeds,a,27,0,0.0,0.0,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,6544,Lukas Nmecha,Leeds,a,16,2,0.1622,0.1622,0.0,0,0,0,0
+31206,2026-09-05,Brighton,Leeds,5596,Harry Wilson,Leeds,a,16,0,0.0,0.0,0.1622,2,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14758,Konstantinos Tzolakis,Hull,h,90,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14759,Lewie Coyle,Hull,h,65,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,4490,Semi Ajayi,Hull,h,90,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,12286,Nobel Mendy,Hull,h,72,2,0.0235,0.0235,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,7703,John Egan,Hull,h,90,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,7277,Ryan John Giles,Hull,h,90,0,0.0,0.0,0.3031,2,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14760,Mohamed Belloumi,Hull,h,83,2,0.0429,0.0429,0.0137,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14762,Regan Slater,Hull,h,90,2,0.0305,0.0305,0.0222,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,8372,Lucas Gourna Douath,Hull,h,83,0,0.0,0.0,0.061,2,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14763,Elliot Stroud,Hull,h,64,1,0.0403,0.0403,0.0324,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,1736,Oliver McBurnie,Hull,h,90,3,0.357,0.357,0.3182,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,8685,Mohamed Ali-Cho,Hull,h,7,1,0.3182,0.3182,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14765,Lucas Herrington,Hull,h,18,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,13136,Brooke Norton-Cuffy,Hull,h,25,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,12843,Sorba Thomas,Hull,h,26,0,0.0,0.0,0.0412,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14767,Jens Hjertø-Dahl,Hull,h,7,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,12781,Zion Suzuki,Aston Villa,a,90,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,8864,Matthew Cash,Aston Villa,a,86,0,0.0,0.0,0.044,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,6080,Victor Lindelöf,Aston Villa,a,90,0,0.0,0.0,0.0731,2,0,0,0
+31207,2026-09-05,Hull,Aston Villa,1024,Tyrone Mings,Aston Villa,a,90,3,0.1534,0.1534,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,11807,Ian Maatsen,Aston Villa,a,76,0,0.0,0.0,0.1132,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,592,Ross Barkley,Aston Villa,a,90,4,0.1584,0.1584,0.3415,2,0,0,0
+31207,2026-09-05,Hull,Aston Villa,5789,Boubacar Kamara,Aston Villa,a,90,0,0.0,0.0,0.0155,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,7723,John McGinn,Aston Villa,a,90,1,0.4635,0.4635,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,2203,Emiliano Buendía,Aston Villa,a,76,2,0.4544,0.4544,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14193,George Hemmings,Aston Villa,a,76,1,0.2613,0.2613,0.3991,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,10048,Nicolas Jackson,Aston Villa,a,86,2,0.1572,0.1572,0.4635,1,0,0,0
+31207,2026-09-05,Hull,Aston Villa,8872,Matteo Ruggeri,Aston Villa,a,14,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,702,Tammy Abraham,Aston Villa,a,4,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,10552,Alejandro Garnacho,Aston Villa,a,14,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,5584,Aaron Wan-Bissaka,Aston Villa,a,4,0,0.0,0.0,0.0,0,0,0,0
+31207,2026-09-05,Hull,Aston Villa,14446,Alysson Edward,Aston Villa,a,14,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,741,Jordan Pickford,Everton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,11331,Merlin Röhl,Everton,h,78,0,0.0,0.0,0.3399,1,0,0,0
+31208,2026-09-06,Everton,Manchester United,8476,Jarrad Branthwaite,Everton,h,90,2,0.0842,0.0842,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,1665,James Tarkowski,Everton,h,90,1,0.0111,0.0111,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,10291,Vitalii Mykolenko,Everton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,7438,James Garner,Everton,h,80,0,0.0,0.0,0.0202,2,0,0,0
+31208,2026-09-06,Everton,Manchester United,12757,Harrison Armstrong,Everton,h,90,2,0.0939,0.0939,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,10760,Brennan Johnson,Everton,h,69,1,0.071,0.071,0.067,2,0,0,0
+31208,2026-09-06,Everton,Manchester United,9739,Kiernan Dewsbury-Hall,Everton,h,90,4,0.1673,0.1673,0.0917,2,0,0,0
+31208,2026-09-06,Everton,Manchester United,12573,Tyrique George,Everton,h,90,1,0.0483,0.0483,0.2151,3,1,0,0
+31208,2026-09-06,Everton,Manchester United,12916,Thierno Barry,Everton,h,90,4,0.4888,0.4888,0.0165,1,0,0,0
+31208,2026-09-06,Everton,Manchester United,1750,Ainsley Maitland-Niles,Everton,h,10,1,0.026,0.026,0.0,0,1,0,0
+31208,2026-09-06,Everton,Manchester United,14769,Hayden Hackney,Everton,h,12,1,0.045,0.045,0.0821,2,0,1,0
+31208,2026-09-06,Everton,Manchester United,675,Jack Grealish,Everton,h,21,1,0.0207,0.0207,0.0421,1,0,0,0
+31208,2026-09-06,Everton,Manchester United,14056,Senne Lammens,Manchester United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,7281,Diogo Dalot,Manchester United,a,87,1,0.0152,0.0152,0.0444,2,0,0,0
+31208,2026-09-06,Everton,Manchester United,10802,Lisandro Martínez,Manchester United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,1687,Harry Maguire,Manchester United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,1006,Luke Shaw,Manchester United,a,90,1,0.0382,0.0382,0.4091,1,0,1,0
+31208,2026-09-06,Everton,Manchester United,11174,Kobbie Mainoo,Manchester United,a,87,0,0.0,0.0,0.0606,2,0,1,0
+31208,2026-09-06,Everton,Manchester United,5956,Youri Tielemans,Manchester United,a,90,2,0.0444,0.0444,0.0176,1,0,0,0
+31208,2026-09-06,Everton,Manchester United,6552,Bryan Mbeumo,Manchester United,a,90,2,0.1078,0.1078,0.0689,1,1,0,0
+31208,2026-09-06,Everton,Manchester United,1228,Bruno Fernandes,Manchester United,a,90,4,0.1303,0.1303,0.0608,2,0,0,0
+31208,2026-09-06,Everton,Manchester United,556,Marcus Rashford,Manchester United,a,73,0,0.0,0.0,0.087,1,0,0,0
+31208,2026-09-06,Everton,Manchester United,7080,Matheus Cunha,Manchester United,a,73,2,0.1046,0.1046,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,11944,Patrick Dorgu,Manchester United,a,17,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,11974,Benjamin Sesko,Manchester United,a,17,2,0.4317,0.4317,0.0,0,1,0,0
+31208,2026-09-06,Everton,Manchester United,10564,Leny Yoro,Manchester United,a,3,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,11808,Andrey Santos,Manchester United,a,3,0,0.0,0.0,0.0,0,0,0,0
+31208,2026-09-06,Everton,Manchester United,10696,Noussair Mazraoui,Manchester United,a,1,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,9676,David Raya,Arsenal,h,90,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,7298,Ben White,Arsenal,h,90,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,7726,Ezri Konsa Ngoyo,Arsenal,h,90,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,5613,Gabriel,Arsenal,h,90,2,0.656,0.656,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,8129,Riccardo Calafiori,Arsenal,h,71,2,0.5634,0.5634,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,12272,Myles Lewis-Skelly,Arsenal,h,71,1,0.0632,0.0632,0.0883,1,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,5553,Declan Rice,Arsenal,h,90,1,0.0429,0.0429,0.0354,1,0,1,0
+31209,2026-09-06,Arsenal,Chelsea,7322,Bukayo Saka,Arsenal,h,90,4,0.5469,0.5469,0.0429,1,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,2517,Martin Odegaard,Arsenal,h,81,2,0.6883,0.6883,0.9539,4,1,0,0
+31209,2026-09-06,Arsenal,Chelsea,9746,Christos Tzolis,Arsenal,h,90,0,0.0,0.0,0.8055,4,0,1,0
+31209,2026-09-06,Arsenal,Chelsea,5220,Kai Havertz,Arsenal,h,82,3,0.1985,0.1985,0.2875,3,1,0,0
+31209,2026-09-06,Arsenal,Chelsea,5304,Mikel Merino,Arsenal,h,9,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,11357,Noni Madueke,Arsenal,h,1,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,7526,Martín Zubimendi,Arsenal,h,19,1,0.1104,0.1104,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,9911,Piero Hincapié,Arsenal,h,19,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,7254,Viktor Gyokeres,Arsenal,h,8,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,4401,Emiliano Martinez,Chelsea,a,90,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,8853,Maxence Lacroix,Chelsea,a,90,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,12535,Josh Acheampong,Chelsea,a,90,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,7589,Wesley Fofana,Chelsea,a,90,0,0.0,0.0,0.0281,2,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,6382,Pedro Neto,Chelsea,a,85,1,0.0978,0.0978,0.0624,2,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,13776,Jorrel Hato,Chelsea,a,64,0,0.0,0.0,0.0367,1,0,1,0
+31209,2026-09-06,Arsenal,Chelsea,8067,Reece James,Chelsea,a,90,3,0.0598,0.0598,0.0163,1,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,10004,Romeo Lavia,Chelsea,a,64,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,12412,Morgan Rogers,Chelsea,a,90,3,0.1093,0.1093,0.0378,1,1,0,0
+31209,2026-09-06,Arsenal,Chelsea,8497,Cole Palmer,Chelsea,a,90,3,0.0793,0.0793,0.0297,1,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,8272,João Pedro,Chelsea,a,90,1,0.0163,0.0163,0.1572,2,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,501,Danny Welbeck,Chelsea,a,1,0,0.0,0.0,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,9017,Malo Gusto,Chelsea,a,26,1,0.0382,0.0382,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,13775,Estêvão,Chelsea,a,5,1,0.0297,0.0297,0.0,0,0,0,0
+31209,2026-09-06,Arsenal,Chelsea,11087,Pep Chavarría,Chelsea,a,26,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,12032,Djordje Petrovic,Bournemouth,h,90,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,825,Adam Smith,Bournemouth,h,90,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,14859,António Silva,Bournemouth,h,90,2,1.0323,1.0323,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,10747,James Hill,Bournemouth,h,90,0,0.0,0.0,0.0266,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,8640,Adrien Truffert,Bournemouth,h,90,2,0.0849,0.0849,0.0929,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,12149,Alex Scott,Bournemouth,h,90,1,0.2926,0.2926,0.1768,4,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,7352,Tyler Adams,Bournemouth,h,88,1,0.016,0.016,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,14395,Rayan,Bournemouth,h,88,5,0.6682,0.6682,0.016,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,6963,Justin Kluivert,Bournemouth,h,72,3,0.1289,0.1289,0.0,0,1,0,0
+31210,2026-09-12,Bournemouth,Brentford,10741,Marcus Tavernier,Bournemouth,h,89,4,0.2242,0.2242,1.1642,4,1,0,0
+31210,2026-09-12,Bournemouth,Brentford,12963,Evanilson,Bournemouth,h,90,0,0.0,0.0,0.3928,3,0,1,0
+31210,2026-09-12,Bournemouth,Brentford,1789,Lewis Cook,Bournemouth,h,2,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,11186,Alvaro Rodríguez,Bournemouth,h,1,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,6820,David Brooks,Bournemouth,h,1,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,10744,Ryan Christie,Bournemouth,h,18,0,0.0,0.0,0.076,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,11231,Ben Doak,Bournemouth,h,2,2,0.121,0.121,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,7904,Caoimhin Kelleher,Brentford,a,90,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,8942,Aaron Hickey,Brentford,a,77,1,0.0416,0.0416,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,9677,Kristoffer Ajer,Brentford,a,90,1,0.0519,0.0519,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,14788,Jannik Schuster,Brentford,a,90,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,10809,Keane Lewis-Potter,Brentford,a,66,1,0.0379,0.0379,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,9680,Vitaly Janelt,Brentford,a,90,0,0.0,0.0,0.0379,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,13917,Mamadou Sangaré,Brentford,a,90,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,10746,Jaidon Anthony,Brentford,a,66,0,0.0,0.0,0.1433,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,11772,Yehor Yarmolyuk,Brentford,a,66,0,0.0,0.0,0.3288,1,0,1,0
+31210,2026-09-12,Bournemouth,Brentford,9156,Kevin Schade,Brentford,a,90,2,0.4406,0.4406,0.0,0,2,0,0
+31210,2026-09-12,Bournemouth,Brentford,13222,Thiago,Brentford,a,90,1,0.1433,0.1433,0.0416,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,11281,Michael Kayode,Brentford,a,13,0,0.0,0.0,0.0579,1,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,8859,Mikkel Damsgaard,Brentford,a,24,1,0.0579,0.0579,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,13723,El Hadji Malick Diouf,Brentford,a,24,0,0.0,0.0,0.0,0,0,0,0
+31210,2026-09-12,Bournemouth,Brentford,9662,Dango Ouattara,Brentford,a,24,1,0.021,0.021,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,12781,Zion Suzuki,Aston Villa,h,90,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,5584,Aaron Wan-Bissaka,Aston Villa,h,90,0,0.0,0.0,0.0963,1,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,6221,Pau Torres,Aston Villa,h,24,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,6080,Victor Lindelöf,Aston Villa,h,90,1,0.6032,0.6032,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,11807,Ian Maatsen,Aston Villa,h,90,2,0.1448,0.1448,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,5789,Boubacar Kamara,Aston Villa,h,90,0,0.0,0.0,0.0485,1,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,592,Ross Barkley,Aston Villa,h,67,1,0.0182,0.0182,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,7723,John McGinn,Aston Villa,h,90,0,0.0,0.0,0.2693,2,0,1,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,2203,Emiliano Buendía,Aston Villa,h,67,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,14193,George Hemmings,Aston Villa,h,50,0,0.0,0.0,0.0182,1,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,10048,Nicolas Jackson,Aston Villa,h,50,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,702,Tammy Abraham,Aston Villa,h,40,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,12733,Ibrahim Mbaye,Aston Villa,h,23,1,0.0243,0.0243,0.0523,1,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,14446,Alysson Edward,Aston Villa,h,40,1,0.2451,0.2451,0.0,0,1,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,1024,Tyrone Mings,Aston Villa,h,66,1,0.0523,0.0523,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,13102,Johan Manzambi,Aston Villa,h,23,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,6903,Matz Sels,Nottingham Forest,a,90,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,14775,Ousmane Diomande,Nottingham Forest,a,90,1,0.0436,0.0436,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,12123,Murillo,Nottingham Forest,a,90,0,0.0,0.0,0.014,1,0,1,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,725,Ola Aina,Nottingham Forest,a,90,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,12408,Daniel Muñoz,Nottingham Forest,a,90,1,0.1852,0.1852,0.2147,4,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,8204,Neco Williams,Nottingham Forest,a,90,2,0.1363,0.1363,0.1852,1,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,10126,James McAtee,Nottingham Forest,a,86,2,0.0331,0.0331,0.1981,2,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,7783,Xaver Schlager,Nottingham Forest,a,90,1,0.044,0.044,0.0203,1,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,6857,Morgan Gibbs-White,Nottingham Forest,a,90,2,0.1135,0.1135,1.2427,7,0,1,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,8662,Dan Ndoye,Nottingham Forest,a,79,5,0.9071,0.9071,0.6288,1,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,8868,Liam Delap,Nottingham Forest,a,90,6,0.8008,0.8008,0.1394,1,1,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,13778,Igor Jesus,Nottingham Forest,a,11,1,0.5251,0.5251,0.036,1,1,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,4456,Chris Wood,Nottingham Forest,a,1,0,0.0,0.0,0.0,0,0,0,0
+31211,2026-09-12,Aston Villa,Nottingham Forest,5722,Ibrahim Sangare,Nottingham Forest,a,4,1,0.0081,0.0081,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,4401,Emiliano Martinez,Chelsea,h,90,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,9017,Malo Gusto,Chelsea,h,80,1,0.0252,0.0252,0.0322,1,0,0,0
+31212,2026-09-12,Chelsea,Hull,10805,Levi Colwill,Chelsea,h,90,0,0.0,0.0,0.0132,1,0,0,0
+31212,2026-09-12,Chelsea,Hull,7589,Wesley Fofana,Chelsea,h,88,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,13776,Jorrel Hato,Chelsea,h,48,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,10004,Romeo Lavia,Chelsea,h,72,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,8067,Reece James,Chelsea,h,90,3,0.1083,0.1083,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,6382,Pedro Neto,Chelsea,h,88,1,0.0716,0.0716,0.0252,1,0,0,0
+31212,2026-09-12,Chelsea,Hull,8497,Cole Palmer,Chelsea,h,90,3,0.1141,0.1141,0.7878,3,0,1,0
+31212,2026-09-12,Chelsea,Hull,12412,Morgan Rogers,Chelsea,h,90,2,0.376,0.376,0.0,0,1,0,0
+31212,2026-09-12,Chelsea,Hull,8272,João Pedro,Chelsea,h,90,1,0.4453,0.4453,0.105,1,1,1,0
+31212,2026-09-12,Chelsea,Hull,8853,Maxence Lacroix,Chelsea,h,2,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,13775,Estêvão,Chelsea,h,2,1,0.0734,0.0734,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,12498,Valentín Barco,Chelsea,h,18,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,501,Danny Welbeck,Chelsea,h,10,0,0.0,0.0,0.0734,1,0,0,0
+31212,2026-09-12,Chelsea,Hull,11087,Pep Chavarría,Chelsea,h,42,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,14758,Konstantinos Tzolakis,Hull,a,90,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,14759,Lewie Coyle,Hull,a,84,1,0.0776,0.0776,0.0333,1,0,0,0
+31212,2026-09-12,Chelsea,Hull,12286,Nobel Mendy,Hull,a,61,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,7703,John Egan,Hull,a,90,1,0.0234,0.0234,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,4490,Semi Ajayi,Hull,a,90,1,0.2259,0.2259,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,7277,Ryan John Giles,Hull,a,90,0,0.0,0.0,0.6199,2,0,1,0
+31212,2026-09-12,Chelsea,Hull,14760,Mohamed Belloumi,Hull,a,62,3,0.3669,0.3669,0.0776,1,2,0,0
+31212,2026-09-12,Chelsea,Hull,14761,Matt Crooks,Hull,a,71,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,14762,Regan Slater,Hull,a,90,1,0.0333,0.0333,0.2729,2,0,0,0
+31212,2026-09-12,Chelsea,Hull,14763,Elliot Stroud,Hull,a,62,1,0.014,0.014,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,1736,Oliver McBurnie,Hull,a,84,1,0.6129,0.6129,0.0375,1,0,1,0
+31212,2026-09-12,Chelsea,Hull,9554,Tim Iroegbunam,Hull,a,19,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,14765,Lucas Herrington,Hull,a,29,0,0.0,0.0,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,12843,Sorba Thomas,Hull,a,28,1,0.0216,0.0216,0.044,1,0,0,0
+31212,2026-09-12,Chelsea,Hull,13136,Brooke Norton-Cuffy,Hull,a,6,1,0.067,0.067,0.0,0,0,0,0
+31212,2026-09-12,Chelsea,Hull,8685,Mohamed Ali-Cho,Hull,a,28,2,0.3814,0.3814,0.0234,1,0,0,0
+31212,2026-09-12,Chelsea,Hull,13330,Robinio Vaz,Hull,a,6,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,5652,Walter Benítez,Crystal Palace,h,90,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,12779,Honest Ahanor,Crystal Palace,h,90,0,0.0,0.0,0.0522,1,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,6885,Axel Disasi,Crystal Palace,h,33,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,8430,Chris Richards,Crystal Palace,h,90,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,14770,Anan Khalaili,Crystal Palace,h,90,4,0.534,0.534,0.04,1,1,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,8214,Tyrick Mitchell,Crystal Palace,h,82,0,0.0,0.0,0.0379,1,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,14376,Quinten Timber,Crystal Palace,h,90,2,0.177,0.177,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,12409,Adam Wharton,Crystal Palace,h,82,1,0.0116,0.0116,0.0474,1,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,9024,Yeremi Pino,Crystal Palace,h,36,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,6145,Daichi Kamada,Crystal Palace,h,89,0,0.0,0.0,0.1124,2,0,2,0
+31213,2026-09-12,Crystal Palace,Ipswich,11070,Jørgen Strand Larsen,Crystal Palace,h,89,3,0.149,0.149,0.1248,1,1,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,2182,Jefferson Lerma,Crystal Palace,h,1,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,14934,Zavier Gozo,Crystal Palace,h,1,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,782,Ben Chilwell,Crystal Palace,h,8,1,0.0679,0.0679,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,6104,Will Hughes,Crystal Palace,h,8,0,0.0,0.0,0.0679,1,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,7931,Takehiro Tomiyasu,Crystal Palace,h,54,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,9960,Kjell Scherpen,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,8756,Dara O&#039;Shea,Ipswich,a,90,0,0.0,0.0,0.1475,2,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,3203,Issa Diop,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,12745,Jacob Greaves,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,8919,Leif Davis,Ipswich,a,90,2,0.5054,0.5054,0.3936,1,1,1,0
+31213,2026-09-12,Crystal Palace,Ipswich,1537,Sasa Lukic,Ipswich,a,82,0,0.0,0.0,0.2108,2,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,8325,Exequiel Palacios,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,12911,Abdul Fatawu,Ipswich,a,67,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,11058,Julio Enciso,Ipswich,a,90,2,0.0935,0.0935,0.0346,1,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,13019,Jack Clarke,Ipswich,a,68,1,0.148,0.148,0.0307,1,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,14082,Emersonn,Ipswich,a,68,3,0.5411,0.5411,0.4708,1,1,1,0
+31213,2026-09-12,Crystal Palace,Ipswich,14772,Daizen Maeda,Ipswich,a,22,0,0.0,0.0,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,13729,Zian Flemming,Ipswich,a,22,3,0.7986,0.7986,0.0,0,1,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,9415,Jaden Philogene-Bidace,Ipswich,a,23,1,0.0103,0.0103,0.0,0,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,8969,Florentino Luís,Ipswich,a,8,0,0.0,0.0,0.064,2,0,0,0
+31213,2026-09-12,Crystal Palace,Ipswich,10485,Guemissongui Ouattara,Ipswich,a,1,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,1257,Alisson,Liverpool,h,90,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,8091,Ronald Araújo,Liverpool,h,73,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,11545,Jérémy Jacquet,Liverpool,h,90,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,833,Virgil van Dijk,Liverpool,h,90,0,0.0,0.0,0.0113,1,0,0,0
+31214,2026-09-12,Liverpool,Fulham,8852,Konstantinos Tsimikas,Liverpool,h,47,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,9788,Dominik Szoboszlai,Liverpool,h,90,2,0.0568,0.0568,0.9992,4,0,0,0
+31214,2026-09-12,Liverpool,Fulham,10697,Ryan Gravenberch,Liverpool,h,61,1,0.0188,0.0188,0.0474,1,0,0,0
+31214,2026-09-12,Liverpool,Fulham,13279,Víctor Muñoz,Liverpool,h,61,1,0.1808,0.1808,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,8397,Florian Wirtz,Liverpool,h,90,3,0.1803,0.1803,0.1215,2,0,0,0
+31214,2026-09-12,Liverpool,Fulham,10016,Bradley Barcola,Liverpool,h,73,1,0.3173,0.3173,0.0601,1,0,0,0
+31214,2026-09-12,Liverpool,Fulham,5232,Alexander Isak,Liverpool,h,90,3,0.6301,0.6301,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,11296,Cody Gakpo,Liverpool,h,29,1,0.0671,0.0671,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,13692,Rio Ngumoha,Liverpool,h,17,1,0.3357,0.3357,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,9328,Jeremie Frimpong,Liverpool,h,17,0,0.0,0.0,0.4028,2,0,0,0
+31214,2026-09-12,Liverpool,Fulham,8379,Alexis Mac Allister,Liverpool,h,29,1,0.0113,0.0113,0.1277,2,0,0,0
+31214,2026-09-12,Liverpool,Fulham,11709,Milos Kerkez,Liverpool,h,43,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,181,Bernd Leno,Fulham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,6157,Timothy Castagne,Fulham,a,73,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,11728,Calvin Bassey,Fulham,a,90,1,0.0687,0.0687,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,13837,David Affengruber,Fulham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,8940,Antonee Robinson,Fulham,a,90,1,0.0465,0.0465,0.1358,2,0,0,0
+31214,2026-09-12,Liverpool,Fulham,8285,Sander Berge,Fulham,a,90,0,0.0,0.0,0.0289,1,0,0,0
+31214,2026-09-12,Liverpool,Fulham,11594,Shea Charles,Fulham,a,90,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,11903,Oscar Bobb,Fulham,a,64,0,0.0,0.0,0.096,2,0,0,0
+31214,2026-09-12,Liverpool,Fulham,12410,Joshua King,Fulham,a,78,4,0.229,0.229,0.3759,1,0,0,0
+31214,2026-09-12,Liverpool,Fulham,500,Alex Iwobi,Fulham,a,78,2,0.1817,0.1817,0.1124,2,0,0,0
+31214,2026-09-12,Liverpool,Fulham,12035,Gonzalo García,Fulham,a,78,1,0.3759,0.3759,0.097,1,0,0,0
+31214,2026-09-12,Liverpool,Fulham,10717,Rodrigo Muniz,Fulham,a,12,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,5973,Kenny Tete,Fulham,a,26,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,14030,Kevin,Fulham,a,17,1,0.0289,0.0289,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,7230,Emile Smith-Rowe,Fulham,a,12,0,0.0,0.0,0.0,0,0,0,0
+31214,2026-09-12,Liverpool,Fulham,11911,Hugo Larsson,Fulham,a,12,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,13348,Antonín Kinsky,Tottenham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,10184,Archie Gray,Tottenham,h,87,2,0.0652,0.0652,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,10050,Micky van de Ven,Tottenham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,10807,Jan Paul van Hecke,Tottenham,h,90,1,0.2947,0.2947,0.0162,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,1688,Andrew Robertson,Tottenham,h,90,1,0.0377,0.0377,0.3436,2,0,0,0
+31215,2026-09-12,Tottenham,Everton,7958,Sandro Tonali,Tottenham,h,90,2,0.0651,0.0651,0.0177,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,6108,Rodrigo Bentancur,Tottenham,h,65,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,11735,Sávio,Tottenham,h,90,2,0.1005,0.1005,0.1698,4,0,0,0
+31215,2026-09-12,Tottenham,Everton,12948,Mateus Fernandes,Tottenham,h,65,3,0.0997,0.0997,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,8393,Omar Marmoush,Tottenham,h,79,1,0.0157,0.0157,0.0377,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,1679,Dominic Solanke,Tottenham,h,65,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,6818,James Maddison,Tottenham,h,11,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,12912,Lucas Bergvall,Tottenham,h,25,1,0.0372,0.0372,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,12027,Mohammed Kudus,Tottenham,h,25,0,0.0,0.0,0.0445,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,5590,Tosin Adarabioyo,Tottenham,h,3,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,9780,Mathys Tel,Tottenham,h,25,1,0.0211,0.0211,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,741,Jordan Pickford,Everton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,1750,Ainsley Maitland-Niles,Everton,a,77,1,0.02,0.02,0.0756,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,1665,James Tarkowski,Everton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,8476,Jarrad Branthwaite,Everton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,10291,Vitalii Mykolenko,Everton,a,90,0,0.0,0.0,0.1174,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,7438,James Garner,Everton,a,90,1,0.0546,0.0546,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,10760,Brennan Johnson,Everton,a,77,1,0.3461,0.3461,0.1332,2,0,0,0
+31215,2026-09-12,Tottenham,Everton,9739,Kiernan Dewsbury-Hall,Everton,a,90,3,0.4354,0.4354,0.3461,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,12757,Harrison Armstrong,Everton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,12573,Tyrique George,Everton,a,67,1,0.0433,0.0433,0.3749,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,12916,Thierno Barry,Everton,a,90,5,0.7011,0.7011,0.0572,1,0,0,0
+31215,2026-09-12,Tottenham,Everton,12014,Jake O&#039;Brien,Everton,a,13,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,675,Jack Grealish,Everton,a,23,0,0.0,0.0,0.0,0,0,0,0
+31215,2026-09-12,Tottenham,Everton,14769,Hayden Hackney,Everton,a,13,0,0.0,0.0,0.0396,1,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,13712,Robin Roefs,Sunderland,h,90,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,5659,Nordi Mukiele,Sunderland,h,90,4,1.0849,1.0849,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,13715,Dan Ballard,Sunderland,h,90,1,0.021,0.021,0.0298,1,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,5261,Kevin Danso,Sunderland,h,90,0,0.0,0.0,0.0201,1,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,7432,Reinildo,Sunderland,h,90,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,204,Granit Xhaka,Sunderland,h,90,0,0.0,0.0,0.5186,3,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,13716,Noah Sadiki,Sunderland,h,90,1,0.0298,0.0298,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,5680,Thomas Meunier,Sunderland,h,77,3,0.1447,0.1447,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,8651,Enzo Le Fée,Sunderland,h,90,3,0.7899,0.0299,0.5396,2,0,0,1
+31216,2026-09-12,Sunderland,Arsenal,14424,Nilson Angulo,Sunderland,h,71,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,9789,Brian Brobbey,Sunderland,h,90,0,0.0,0.0,0.0094,1,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,7148,Wilson Isidor,Sunderland,h,19,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,12336,Malick Fofana,Sunderland,h,13,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,9676,David Raya,Arsenal,a,90,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,7298,Ben White,Arsenal,a,47,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,5613,Gabriel,Arsenal,a,90,1,0.0152,0.0152,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,7726,Ezri Konsa Ngoyo,Arsenal,a,90,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,8129,Riccardo Calafiori,Arsenal,a,90,1,0.0851,0.0851,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,5553,Declan Rice,Arsenal,a,82,0,0.0,0.0,0.4053,3,0,1,0
+31216,2026-09-12,Sunderland,Arsenal,12272,Myles Lewis-Skelly,Arsenal,a,47,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,7322,Bukayo Saka,Arsenal,a,90,4,1.3099,0.5499,0.0398,1,1,0,1
+31216,2026-09-12,Sunderland,Arsenal,2517,Martin Odegaard,Arsenal,a,86,0,0.0,0.0,0.7324,5,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,9746,Christos Tzolis,Arsenal,a,82,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,5220,Kai Havertz,Arsenal,a,90,3,0.4972,0.4972,0.0504,1,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,5304,Mikel Merino,Arsenal,a,4,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,8327,Bruno Guimarães,Arsenal,a,43,2,0.0817,0.0817,0.0,0,1,0,0
+31216,2026-09-12,Sunderland,Arsenal,7526,Martín Zubimendi,Arsenal,a,8,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,11707,Jurriën Timber,Arsenal,a,43,0,0.0,0.0,0.0,0,0,0,0
+31216,2026-09-12,Sunderland,Arsenal,8706,Eberechi Eze,Arsenal,a,8,0,0.0,0.0,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,12760,Carl Rushworth,Coventry,h,90,0,0.0,0.0,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,12955,Aurèle Amenda,Coventry,h,90,0,0.0,0.0,0.0709,1,0,0,0
+31217,2026-09-13,Coventry,Brighton,9678,Ethan Pinnock,Coventry,h,90,1,0.0276,0.0276,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,8483,Bobby Thomas,Coventry,h,90,3,0.0962,0.0962,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,14742,Milan van Ewijk,Coventry,h,90,0,0.0,0.0,0.0256,1,0,0,0
+31217,2026-09-13,Coventry,Brighton,14743,Jay Dasilva,Coventry,h,90,0,0.0,0.0,0.3673,2,0,0,0
+31217,2026-09-13,Coventry,Brighton,1045,Matt Grimes,Coventry,h,85,1,0.0284,0.0284,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,9681,Frank Onyeka,Coventry,h,74,1,0.0441,0.0441,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,14747,Jack Rudoni,Coventry,h,74,2,0.3673,0.3673,0.3262,4,0,0,0
+31217,2026-09-13,Coventry,Brighton,14981,Ephron Mason-Clark,Coventry,h,61,3,0.3164,0.3164,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,7814,Taiwo Awoniyi,Coventry,h,54,1,0.0936,0.0936,0.1039,1,0,0,0
+31217,2026-09-13,Coventry,Brighton,14746,Victor Torp,Coventry,h,5,0,0.0,0.0,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,12847,Sidiki Chérif,Coventry,h,29,0,0.0,0.0,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,14745,Brandon Thomas-Asante,Coventry,h,16,2,0.1012,0.1012,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,14744,Caleb Yirenkyi,Coventry,h,16,0,0.0,0.0,0.0303,1,0,0,0
+31217,2026-09-13,Coventry,Brighton,11711,Bart Verbruggen,Brighton,a,90,0,0.0,0.0,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,13066,Ferdi Kadioglu,Brighton,a,90,0,0.0,0.0,0.1146,1,0,0,0
+31217,2026-09-13,Coventry,Brighton,13725,Luka Vuskovic,Brighton,a,79,2,0.1227,0.1227,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,6048,Lewis Dunk,Brighton,a,90,1,0.0203,0.0203,0.0,0,1,0,0
+31217,2026-09-13,Coventry,Brighton,3645,Olivier Boscagli,Brighton,a,79,1,0.0097,0.0097,0.0241,1,0,0,0
+31217,2026-09-13,Coventry,Brighton,239,Pascal Groß,Brighton,a,90,2,0.7853,0.0253,0.6556,6,1,2,1
+31217,2026-09-13,Coventry,Brighton,11385,Yasin Ayari,Brighton,a,90,4,0.2664,0.2664,0.0,0,1,0,0
+31217,2026-09-13,Coventry,Brighton,13364,Diego Gómez,Brighton,a,85,2,0.129,0.129,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,14856,Malick Yalcouyé,Brighton,a,66,3,0.5305,0.5305,0.0097,1,1,0,0
+31217,2026-09-13,Coventry,Brighton,13711,Maxim De Cuyper,Brighton,a,90,1,0.0292,0.0292,0.4955,4,0,1,0
+31217,2026-09-13,Coventry,Brighton,14118,Charalampos Kostoulas,Brighton,a,85,3,0.7741,0.7741,0.0,0,1,0,0
+31217,2026-09-13,Coventry,Brighton,13206,Matt O&#039;Riley,Brighton,a,5,0,0.0,0.0,0.0292,1,0,0,0
+31217,2026-09-13,Coventry,Brighton,13792,Ibrahim Osman,Brighton,a,11,2,0.1361,0.1361,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,8717,Pascal Struijk,Brighton,a,11,0,0.0,0.0,0.0,0,0,0,0
+31217,2026-09-13,Coventry,Brighton,13078,Chema Andres,Brighton,a,24,1,0.0089,0.0089,0.0203,1,0,1,0
+31217,2026-09-13,Coventry,Brighton,14854,Costinha,Brighton,a,5,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,14056,Senne Lammens,Manchester United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,7281,Diogo Dalot,Manchester United,h,90,1,0.0202,0.0202,0.012,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,1687,Harry Maguire,Manchester United,h,90,2,0.0484,0.0484,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,10802,Lisandro Martínez,Manchester United,h,90,1,0.0249,0.0249,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,11944,Patrick Dorgu,Manchester United,h,90,0,0.0,0.0,0.0249,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,11174,Kobbie Mainoo,Manchester United,h,90,1,0.0227,0.0227,0.1452,3,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,5956,Youri Tielemans,Manchester United,h,69,0,0.0,0.0,0.0242,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,6552,Bryan Mbeumo,Manchester United,h,90,3,0.4469,0.4469,0.0814,2,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,1228,Bruno Fernandes,Manchester United,h,90,1,0.019,0.019,0.0227,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,556,Marcus Rashford,Manchester United,h,85,3,0.2151,0.2151,0.0336,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,7080,Matheus Cunha,Manchester United,h,90,3,0.1075,0.1075,0.0717,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,11974,Benjamin Sesko,Manchester United,h,21,1,0.0387,0.0387,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,8044,Joshua Zirkzee,Manchester United,h,5,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,1116,Gianluigi Donnarumma,Manchester City,a,90,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,11000,Matheus Nunes,Manchester City,a,90,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,8961,Rúben Dias,Manchester City,a,90,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,7603,Marc Guehi,Manchester City,a,90,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,9790,Josko Gvardiol,Manchester City,a,90,1,0.0155,0.0155,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,11356,Enzo Fernández,Manchester City,a,84,2,0.1447,0.1447,0.3822,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,9154,Elliot Anderson,Manchester City,a,90,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,6055,Phil Foden,Manchester City,a,22,0,0.0,0.0,0.0419,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,8094,Mathis Cherki,Manchester City,a,48,1,0.0177,0.0177,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,11363,Antoine Semenyo,Manchester City,a,90,0,0.0,0.0,0.1028,1,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,8260,Erling Haaland,Manchester City,a,90,2,0.9629,0.9629,0.0,0,1,0,0
+31218,2026-09-13,Manchester United,Manchester City,9307,Iliman Ndiaye,Manchester City,a,42,0,0.0,0.0,0.0,0,0,0,0
+31218,2026-09-13,Manchester United,Manchester City,11592,Nico O&#039;Reilly,Manchester City,a,6,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,9077,James Trafford,Leeds,h,90,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,7753,James Justin,Leeds,h,90,0,0.0,0.0,0.1978,2,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,13879,Tarik Muharemovic,Leeds,h,90,0,0.0,0.0,0.4843,1,0,1,0
+31219,2026-09-14,Leeds,Newcastle United,212,Nico Elvedi,Leeds,h,90,1,0.0644,0.0644,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,9205,Jayden Bogle,Leeds,h,85,3,0.2305,0.2305,0.029,1,1,0,0
+31219,2026-09-14,Leeds,Newcastle United,9944,Gabriel Gudmundsson,Leeds,h,75,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,9910,Anton Stach,Leeds,h,90,1,0.4177,0.4177,0.1333,3,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,13834,Ao Tanaka,Leeds,h,74,1,0.0605,0.0605,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,6369,Ethan Ampadu,Leeds,h,90,1,0.0307,0.0307,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,11966,Noah Okafor,Leeds,h,74,2,0.0911,0.0911,0.0605,1,1,0,0
+31219,2026-09-14,Leeds,Newcastle United,5555,Dominic Calvert-Lewin,Leeds,h,80,4,1.3172,1.3172,0.0802,1,1,1,0
+31219,2026-09-14,Leeds,Newcastle United,6544,Lukas Nmecha,Leeds,h,10,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,5595,Daniel James,Leeds,h,5,2,0.0781,0.0781,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,10751,Brenden Aaronson,Leeds,h,16,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,5596,Harry Wilson,Leeds,h,16,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,8190,Melvin Bard,Leeds,h,15,0,0.0,0.0,0.0416,1,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,7078,Sean Longstaff,Leeds,h,1,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,14874,Lukás Hornícek,Newcastle United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,13456,Amar Dedic,Newcastle United,a,60,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,8635,Sven Botman,Newcastle United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,8378,Malick Thiaw,Newcastle United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,10216,Lewis Hall,Newcastle United,a,90,1,0.0126,0.0126,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,11386,Lewis Miley,Newcastle United,a,82,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,9802,Nico González,Newcastle United,a,18,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,6063,Jacob Murphy,Newcastle United,a,59,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,13051,Matias Fernandez-Pardo,Newcastle United,a,59,0,0.0,0.0,0.0126,1,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,6681,Harvey Barnes,Newcastle United,a,90,2,0.56,0.56,0.0533,1,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,5786,Yoane Wissa,Newcastle United,a,90,1,0.0533,0.0533,0.611,2,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,14875,Sean Steur,Newcastle United,a,72,0,0.0,0.0,0.0193,1,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,13427,Bazoumana Touré,Newcastle United,a,31,1,0.0854,0.0854,0.0,0,1,0,0
+31219,2026-09-14,Leeds,Newcastle United,6630,Joe Willock,Newcastle United,a,31,2,0.0855,0.0855,0.0151,1,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,13214,Aladji Bamba,Newcastle United,a,8,0,0.0,0.0,0.0,0,0,0,0
+31219,2026-09-14,Leeds,Newcastle United,9512,Valentino Livramento,Newcastle United,a,30,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,7904,Caoimhin Kelleher,Brentford,h,90,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,11281,Michael Kayode,Brentford,h,70,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,9677,Kristoffer Ajer,Brentford,h,90,0,0.0,0.0,0.1044,1,0,0,0
+31220,2026-09-18,Brentford,Chelsea,14788,Jannik Schuster,Brentford,h,90,0,0.0,0.0,0.8324,1,0,1,0
+31220,2026-09-18,Brentford,Chelsea,10809,Keane Lewis-Potter,Brentford,h,82,2,0.0941,0.0941,0.0212,1,0,0,0
+31220,2026-09-18,Brentford,Chelsea,11772,Yehor Yarmolyuk,Brentford,h,70,1,0.0242,0.0242,0.0676,1,0,0,0
+31220,2026-09-18,Brentford,Chelsea,9680,Vitaly Janelt,Brentford,h,90,1,0.0119,0.0119,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,10746,Jaidon Anthony,Brentford,h,82,1,0.8324,0.8324,0.0402,1,1,0,0
+31220,2026-09-18,Brentford,Chelsea,8859,Mikkel Damsgaard,Brentford,h,88,1,0.0212,0.0212,0.3358,1,0,0,0
+31220,2026-09-18,Brentford,Chelsea,9156,Kevin Schade,Brentford,h,90,3,0.5111,0.5111,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,13222,Thiago,Brentford,h,90,3,0.6115,0.6115,0.0242,1,1,0,0
+31220,2026-09-18,Brentford,Chelsea,13917,Mamadou Sangaré,Brentford,h,20,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,13723,El Hadji Malick Diouf,Brentford,h,8,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,9501,Fabio Carvalho,Brentford,h,2,1,0.5489,0.5489,0.0,0,1,0,0
+31220,2026-09-18,Brentford,Chelsea,9662,Dango Ouattara,Brentford,h,8,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,8942,Aaron Hickey,Brentford,h,20,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,4401,Emiliano Martinez,Chelsea,a,90,0,0.0,0.0,0.0295,1,0,0,0
+31220,2026-09-18,Brentford,Chelsea,7589,Wesley Fofana,Chelsea,a,72,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,10805,Levi Colwill,Chelsea,a,90,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,8853,Maxence Lacroix,Chelsea,a,90,1,0.2882,0.2882,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,6382,Pedro Neto,Chelsea,a,88,2,0.1266,0.1266,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,11087,Pep Chavarría,Chelsea,a,90,1,0.0295,0.0295,0.0691,2,0,0,0
+31220,2026-09-18,Brentford,Chelsea,605,Jordan Henderson,Chelsea,a,90,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,12498,Valentín Barco,Chelsea,a,88,1,0.055,0.055,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,12412,Morgan Rogers,Chelsea,a,90,4,0.2151,0.2151,0.0316,1,0,0,0
+31220,2026-09-18,Brentford,Chelsea,8497,Cole Palmer,Chelsea,a,90,2,0.1446,0.1446,0.3386,2,0,0,0
+31220,2026-09-18,Brentford,Chelsea,501,Danny Welbeck,Chelsea,a,72,0,0.0,0.0,0.13,2,0,0,0
+31220,2026-09-18,Brentford,Chelsea,13775,Estêvão,Chelsea,a,2,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,14923,Geovany Quenda,Chelsea,a,18,1,0.0316,0.0316,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,15091,Mahdi Nicoll-Jazuli,Chelsea,a,2,0,0.0,0.0,0.0,0,0,0,0
+31220,2026-09-18,Brentford,Chelsea,12535,Josh Acheampong,Chelsea,a,18,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,13348,Antonín Kinsky,Tottenham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,6912,Pedro Porro,Tottenham,h,18,1,0.0134,0.0134,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,10050,Micky van de Ven,Tottenham,h,90,1,0.0432,0.0432,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,10807,Jan Paul van Hecke,Tottenham,h,90,1,0.3565,0.3565,0.0308,1,1,0,0
+31221,2026-09-19,Tottenham,Aston Villa,1688,Andrew Robertson,Tottenham,h,90,0,0.0,0.0,0.4475,4,0,1,0
+31221,2026-09-19,Tottenham,Aston Villa,7958,Sandro Tonali,Tottenham,h,90,3,0.0955,0.0955,0.0203,1,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,6108,Rodrigo Bentancur,Tottenham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,11735,Sávio,Tottenham,h,90,3,0.2562,0.2562,0.3492,4,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,12948,Mateus Fernandes,Tottenham,h,54,2,0.0545,0.0545,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,8393,Omar Marmoush,Tottenham,h,90,1,0.041,0.041,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,1679,Dominic Solanke,Tottenham,h,74,2,0.0709,0.0709,0.1045,1,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,9040,Conor Gallagher,Tottenham,h,1,1,0.3785,0.3785,0.0,0,1,0,0
+31221,2026-09-19,Tottenham,Aston Villa,12912,Lucas Bergvall,Tottenham,h,1,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,12027,Mohammed Kudus,Tottenham,h,36,2,0.0801,0.0801,0.3785,1,0,1,0
+31221,2026-09-19,Tottenham,Aston Villa,6818,James Maddison,Tottenham,h,16,2,0.0901,0.0901,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,10184,Archie Gray,Tottenham,h,72,1,0.2615,0.2615,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,12781,Zion Suzuki,Aston Villa,a,90,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,5584,Aaron Wan-Bissaka,Aston Villa,a,54,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,6080,Victor Lindelöf,Aston Villa,a,90,0,0.0,0.0,0.0335,1,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,1024,Tyrone Mings,Aston Villa,a,90,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,8872,Matteo Ruggeri,Aston Villa,a,90,1,0.0246,0.0246,0.0264,1,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,5789,Boubacar Kamara,Aston Villa,a,90,1,0.0766,0.0766,0.7033,1,0,1,0
+31221,2026-09-19,Tottenham,Aston Villa,11384,João Gomes,Aston Villa,a,90,0,0.0,0.0,0.0246,1,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,7723,John McGinn,Aston Villa,a,90,0,0.0,0.0,0.1466,3,0,1,0
+31221,2026-09-19,Tottenham,Aston Villa,13102,Johan Manzambi,Aston Villa,a,80,4,0.8603,0.8603,0.433,2,1,1,0
+31221,2026-09-19,Tottenham,Aston Villa,2203,Emiliano Buendía,Aston Villa,a,90,3,0.1636,0.1636,0.1816,3,1,0,0
+31221,2026-09-19,Tottenham,Aston Villa,10048,Nicolas Jackson,Aston Villa,a,90,6,0.6381,0.6381,0.0739,1,1,0,0
+31221,2026-09-19,Tottenham,Aston Villa,8864,Matthew Cash,Aston Villa,a,36,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,592,Ross Barkley,Aston Villa,a,1,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,12733,Ibrahim Mbaye,Aston Villa,a,1,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,702,Tammy Abraham,Aston Villa,a,1,0,0.0,0.0,0.0,0,0,0,0
+31221,2026-09-19,Tottenham,Aston Villa,14193,George Hemmings,Aston Villa,a,10,0,0.0,0.0,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,14874,Lukás Hornícek,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,11386,Lewis Miley,Newcastle United,h,90,0,0.0,0.0,0.0235,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,8378,Malick Thiaw,Newcastle United,h,90,0,0.0,0.0,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,8635,Sven Botman,Newcastle United,h,90,1,0.0349,0.0349,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,10216,Lewis Hall,Newcastle United,h,90,2,0.2206,0.2206,0.086,2,1,0,0
+31223,2026-09-19,Newcastle United,Hull,14875,Sean Steur,Newcastle United,h,71,0,0.0,0.0,0.0964,2,0,0,0
+31223,2026-09-19,Newcastle United,Hull,6630,Joe Willock,Newcastle United,h,90,2,0.1609,0.1609,0.0,0,1,0,0
+31223,2026-09-19,Newcastle United,Hull,6063,Jacob Murphy,Newcastle United,h,90,2,0.0381,0.0381,0.1247,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,13051,Matias Fernandez-Pardo,Newcastle United,h,79,1,0.0524,0.0524,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,6681,Harvey Barnes,Newcastle United,h,90,2,0.0886,0.0886,0.2242,3,0,2,0
+31223,2026-09-19,Newcastle United,Hull,5786,Yoane Wissa,Newcastle United,h,90,2,0.7797,0.0197,0.0,0,0,0,1
+31223,2026-09-19,Newcastle United,Hull,13214,Aladji Bamba,Newcastle United,h,1,0,0.0,0.0,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,13427,Bazoumana Touré,Newcastle United,h,11,0,0.0,0.0,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,76,Fabian Schär,Newcastle United,h,19,0,0.0,0.0,0.0446,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,14758,Konstantinos Tzolakis,Hull,a,90,0,0.0,0.0,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,14759,Lewie Coyle,Hull,a,90,0,0.0,0.0,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,14765,Lucas Herrington,Hull,a,90,1,0.0149,0.0149,0.1409,2,0,0,0
+31223,2026-09-19,Newcastle United,Hull,7703,John Egan,Hull,a,83,1,0.0053,0.0053,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,4490,Semi Ajayi,Hull,a,90,1,0.0115,0.0115,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,7277,Ryan John Giles,Hull,a,90,0,0.0,0.0,0.0264,2,0,0,0
+31223,2026-09-19,Newcastle United,Hull,14760,Mohamed Belloumi,Hull,a,88,5,0.4245,0.4245,0.1638,2,0,1,0
+31223,2026-09-19,Newcastle United,Hull,14761,Matt Crooks,Hull,a,51,0,0.0,0.0,0.0854,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,14762,Regan Slater,Hull,a,83,1,0.0772,0.0772,0.0449,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,12843,Sorba Thomas,Hull,a,68,2,0.1055,0.1055,0.06,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,1736,Oliver McBurnie,Hull,a,90,3,0.2333,0.2333,0.0352,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,8372,Lucas Gourna Douath,Hull,a,7,1,0.0113,0.0113,0.0397,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,13330,Robinio Vaz,Hull,a,7,0,0.0,0.0,0.0359,1,0,0,0
+31223,2026-09-19,Newcastle United,Hull,8685,Mohamed Ali-Cho,Hull,a,22,1,0.0866,0.0866,0.0734,2,1,0,0
+31223,2026-09-19,Newcastle United,Hull,9339,Joe Gelhardt,Hull,a,2,3,0.0866,0.0866,0.0,0,0,0,0
+31223,2026-09-19,Newcastle United,Hull,9554,Tim Iroegbunam,Hull,a,39,2,0.1037,0.1037,0.0211,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,11711,Bart Verbruggen,Brighton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,13066,Ferdi Kadioglu,Brighton,h,77,1,0.0203,0.0203,0.3079,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,13725,Luka Vuskovic,Brighton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,8717,Pascal Struijk,Brighton,h,87,1,0.0785,0.0785,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,3645,Olivier Boscagli,Brighton,h,90,1,0.0144,0.0144,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,13078,Chema Andres,Brighton,h,86,2,0.5415,0.5415,0.0,0,1,0,0
+31224,2026-09-19,Brighton,Arsenal,239,Pascal Groß,Brighton,h,90,2,0.0968,0.0968,0.6191,2,1,1,0
+31224,2026-09-19,Brighton,Arsenal,13364,Diego Gómez,Brighton,h,87,0,0.0,0.0,0.0741,2,0,1,0
+31224,2026-09-19,Brighton,Arsenal,11385,Yasin Ayari,Brighton,h,90,2,0.4041,0.4041,0.0101,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,13711,Maxim De Cuyper,Brighton,h,90,1,0.024,0.024,0.1454,2,0,0,0
+31224,2026-09-19,Brighton,Arsenal,14118,Charalampos Kostoulas,Brighton,h,77,4,0.1931,0.1931,0.0251,1,1,1,0
+31224,2026-09-19,Brighton,Arsenal,6937,Georginio Rutter,Brighton,h,13,1,0.0669,0.0669,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,14856,Malick Yalcouyé,Brighton,h,4,1,0.2282,0.2282,0.5786,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,14854,Costinha,Brighton,h,13,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,13206,Matt O&#039;Riley,Brighton,h,3,1,0.5786,0.5786,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,9887,Michael Svoboda,Brighton,h,3,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,9676,David Raya,Arsenal,a,90,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,11707,Jurriën Timber,Arsenal,a,61,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,7726,Ezri Konsa Ngoyo,Arsenal,a,90,1,0.0776,0.0776,0.0361,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,5613,Gabriel,Arsenal,a,90,0,0.0,0.0,0.0309,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,8129,Riccardo Calafiori,Arsenal,a,90,2,0.0328,0.0328,0.0796,2,0,0,0
+31224,2026-09-19,Brighton,Arsenal,5553,Declan Rice,Arsenal,a,90,1,0.0076,0.0076,0.0151,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,8327,Bruno Guimarães,Arsenal,a,61,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,7322,Bukayo Saka,Arsenal,a,82,2,0.6651,0.6651,0.1765,3,0,0,0
+31224,2026-09-19,Brighton,Arsenal,2517,Martin Odegaard,Arsenal,a,74,1,0.072,0.072,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,9746,Christos Tzolis,Arsenal,a,74,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,5220,Kai Havertz,Arsenal,a,90,2,0.3505,0.3505,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,7254,Viktor Gyokeres,Arsenal,a,16,0,0.0,0.0,0.2693,1,0,0,0
+31224,2026-09-19,Brighton,Arsenal,5304,Mikel Merino,Arsenal,a,29,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,7526,Martín Zubimendi,Arsenal,a,29,2,0.0794,0.0794,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,8706,Eberechi Eze,Arsenal,a,16,0,0.0,0.0,0.0,0,0,0,0
+31224,2026-09-19,Brighton,Arsenal,13872,Max Dowman,Arsenal,a,8,0,0.0,0.0,0.0485,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,741,Jordan Pickford,Everton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,1750,Ainsley Maitland-Niles,Everton,h,90,0,0.0,0.0,0.3466,2,0,0,0
+31226,2026-09-19,Everton,Ipswich,8476,Jarrad Branthwaite,Everton,h,90,0,0.0,0.0,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,1665,James Tarkowski,Everton,h,90,1,0.0156,0.0156,0.3461,1,0,1,0
+31226,2026-09-19,Everton,Ipswich,10291,Vitalii Mykolenko,Everton,h,90,1,0.0858,0.0858,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,12757,Harrison Armstrong,Everton,h,90,2,0.0961,0.0961,0.4179,2,0,0,0
+31226,2026-09-19,Everton,Ipswich,7438,James Garner,Everton,h,90,2,0.0843,0.0843,0.0977,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,10760,Brennan Johnson,Everton,h,67,2,0.4987,0.4987,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,9739,Kiernan Dewsbury-Hall,Everton,h,90,6,0.6089,0.6089,0.2052,2,0,0,0
+31226,2026-09-19,Everton,Ipswich,675,Jack Grealish,Everton,h,80,0,0.0,0.0,0.525,5,0,0,0
+31226,2026-09-19,Everton,Ipswich,12916,Thierno Barry,Everton,h,90,3,0.93,0.93,0.0732,1,1,0,0
+31226,2026-09-19,Everton,Ipswich,12014,Jake O&#039;Brien,Everton,h,1,0,0.0,0.0,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,10586,Tyler Dibling,Everton,h,23,3,0.2497,0.2497,0.3951,2,0,0,0
+31226,2026-09-19,Everton,Ipswich,14769,Hayden Hackney,Everton,h,1,0,0.0,0.0,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,12573,Tyrique George,Everton,h,10,1,0.0219,0.0219,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,9251,Christian Walton,Ipswich,a,90,0,0.0,0.0,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,10485,Guemissongui Ouattara,Ipswich,a,90,1,0.011,0.011,0.0716,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,8756,Dara O&#039;Shea,Ipswich,a,90,0,0.0,0.0,0.0699,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,3203,Issa Diop,Ipswich,a,90,1,0.0699,0.0699,0.0273,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,8919,Leif Davis,Ipswich,a,90,1,0.507,0.507,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,1537,Sasa Lukic,Ipswich,a,74,0,0.0,0.0,0.1059,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,8325,Exequiel Palacios,Ipswich,a,82,0,0.0,0.0,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,12911,Abdul Fatawu,Ipswich,a,68,2,0.0278,0.0278,0.507,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,11058,Julio Enciso,Ipswich,a,75,3,0.237,0.237,0.0631,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,13019,Jack Clarke,Ipswich,a,67,0,0.0,0.0,0.1428,2,0,0,0
+31226,2026-09-19,Everton,Ipswich,14082,Emersonn,Ipswich,a,82,2,0.1022,0.1022,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,1790,Chuba Akpom,Ipswich,a,8,1,0.0716,0.0716,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,14772,Daizen Maeda,Ipswich,a,15,0,0.0,0.0,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,13729,Zian Flemming,Ipswich,a,8,1,0.0564,0.0564,0.0189,1,0,0,0
+31226,2026-09-19,Everton,Ipswich,9415,Jaden Philogene-Bidace,Ipswich,a,23,1,0.0189,0.0189,0.0,0,0,0,0
+31226,2026-09-19,Everton,Ipswich,8969,Florentino Luís,Ipswich,a,16,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,6903,Matz Sels,Nottingham Forest,h,90,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,14775,Ousmane Diomande,Nottingham Forest,h,74,1,0.0289,0.0289,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,12123,Murillo,Nottingham Forest,h,90,2,0.0897,0.0897,0.0653,2,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,13779,Jair,Nottingham Forest,h,90,1,0.0241,0.0241,0.0127,1,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,12408,Daniel Muñoz,Nottingham Forest,h,84,2,0.0873,0.0873,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,8204,Neco Williams,Nottingham Forest,h,90,3,0.0822,0.0822,0.1943,4,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,7783,Xaver Schlager,Nottingham Forest,h,90,2,0.0671,0.0671,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,10126,James McAtee,Nottingham Forest,h,84,4,0.178,0.178,0.019,1,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,6857,Morgan Gibbs-White,Nottingham Forest,h,90,0,0.0,0.0,0.5568,6,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,8662,Dan Ndoye,Nottingham Forest,h,60,3,0.1765,0.1765,0.1323,2,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,8868,Liam Delap,Nottingham Forest,h,90,4,0.2017,0.2017,0.1673,2,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,8401,Luca Netz,Nottingham Forest,h,6,0,0.0,0.0,0.0106,1,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,4456,Chris Wood,Nottingham Forest,h,16,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,13778,Igor Jesus,Nottingham Forest,h,30,2,0.3979,0.3979,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,5722,Ibrahim Sangare,Nottingham Forest,h,6,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,12760,Carl Rushworth,Coventry,a,90,0,0.0,0.0,0.2845,1,0,1,0
+31227,2026-09-19,Nottingham Forest,Coventry,14054,Stephen Mfuni,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,9678,Ethan Pinnock,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,8483,Bobby Thomas,Coventry,a,90,1,0.0431,0.0431,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,14744,Caleb Yirenkyi,Coventry,a,90,0,0.0,0.0,0.0813,1,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,14743,Jay Dasilva,Coventry,a,90,2,0.302,0.302,0.0284,1,1,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,9681,Frank Onyeka,Coventry,a,90,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,1045,Matt Grimes,Coventry,a,90,1,0.0149,0.0149,0.0742,1,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,14747,Jack Rudoni,Coventry,a,75,1,0.0861,0.0861,0.0431,1,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,14981,Ephron Mason-Clark,Coventry,a,47,1,0.0107,0.0107,0.1541,3,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,14745,Brandon Thomas-Asante,Coventry,a,90,3,0.1557,0.1557,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,9977,Loum Tchaouna,Coventry,a,43,1,0.0813,0.0813,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,14748,Joel Latibeaudiere,Coventry,a,1,0,0.0,0.0,0.0,0,0,0,0
+31227,2026-09-19,Nottingham Forest,Coventry,8582,Ellis Simms,Coventry,a,15,0,0.0,0.0,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,1116,Gianluigi Donnarumma,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,11000,Matheus Nunes,Manchester City,h,90,0,0.0,0.0,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,7603,Marc Guehi,Manchester City,h,90,1,0.0649,0.0649,0.0652,1,0,1,0
+31222,2026-09-20,Manchester City,Sunderland,8961,Rúben Dias,Manchester City,h,90,1,0.0852,0.0852,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,9790,Josko Gvardiol,Manchester City,h,90,0,0.0,0.0,0.7498,1,0,1,0
+31222,2026-09-20,Manchester City,Sunderland,9154,Elliot Anderson,Manchester City,h,90,1,0.0166,0.0166,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,11356,Enzo Fernández,Manchester City,h,90,1,0.06,0.06,0.0852,1,1,0,0
+31222,2026-09-20,Manchester City,Sunderland,9307,Iliman Ndiaye,Manchester City,h,80,2,0.1014,0.1014,0.5515,2,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,8094,Mathis Cherki,Manchester City,h,90,2,0.2009,0.2009,0.1014,2,1,0,0
+31222,2026-09-20,Manchester City,Sunderland,11363,Antoine Semenyo,Manchester City,h,90,2,0.1359,0.1359,0.3177,3,2,1,0
+31222,2026-09-20,Manchester City,Sunderland,8260,Erling Haaland,Manchester City,h,90,4,1.337,1.337,0.0,0,1,0,0
+31222,2026-09-20,Manchester City,Sunderland,11592,Nico O&#039;Reilly,Manchester City,h,1,1,0.55,0.55,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,8981,Jéremy Doku,Manchester City,h,10,1,0.1168,0.1168,0.55,1,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,13712,Robin Roefs,Sunderland,a,90,0,0.0,0.0,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,5659,Nordi Mukiele,Sunderland,a,90,1,0.0459,0.0459,0.372,2,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,5261,Kevin Danso,Sunderland,a,90,1,0.0525,0.0525,0.0146,1,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,13715,Dan Ballard,Sunderland,a,90,2,0.0965,0.0965,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,12841,Dayann Methalie,Sunderland,a,90,1,0.0146,0.0146,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,13716,Noah Sadiki,Sunderland,a,73,1,0.0217,0.0217,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,204,Granit Xhaka,Sunderland,a,90,0,0.0,0.0,0.336,3,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,5680,Thomas Meunier,Sunderland,a,84,0,0.0,0.0,0.5168,1,0,1,0
+31222,2026-09-20,Manchester City,Sunderland,8651,Enzo Le Fée,Sunderland,a,90,0,0.0,0.0,0.9064,5,0,1,0
+31222,2026-09-20,Manchester City,Sunderland,14424,Nilson Angulo,Sunderland,a,65,2,0.5813,0.5813,0.9301,1,0,1,0
+31222,2026-09-20,Manchester City,Sunderland,9789,Brian Brobbey,Sunderland,a,90,5,2.0372,2.0372,0.0459,1,3,0,0
+31222,2026-09-20,Manchester City,Sunderland,13713,Trai Hume,Sunderland,a,6,1,0.0973,0.0973,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,12336,Malick Fofana,Sunderland,a,25,3,0.4315,0.4315,0.0,0,0,0,0
+31222,2026-09-20,Manchester City,Sunderland,7148,Wilson Isidor,Sunderland,a,17,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,9077,James Trafford,Leeds,h,90,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,7753,James Justin,Leeds,h,90,1,0.0386,0.0386,0.3905,1,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,13879,Tarik Muharemovic,Leeds,h,90,4,0.3151,0.3151,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,212,Nico Elvedi,Leeds,h,90,1,0.0931,0.0931,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,9205,Jayden Bogle,Leeds,h,68,2,0.0551,0.0551,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,9944,Gabriel Gudmundsson,Leeds,h,90,0,0.0,0.0,0.04,1,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,9910,Anton Stach,Leeds,h,90,1,0.034,0.034,0.1079,1,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,13834,Ao Tanaka,Leeds,h,68,2,0.1308,0.1308,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,6369,Ethan Ampadu,Leeds,h,90,0,0.0,0.0,0.1275,2,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,11966,Noah Okafor,Leeds,h,77,1,0.0349,0.0349,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,5555,Dominic Calvert-Lewin,Leeds,h,90,1,0.3905,0.3905,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,6544,Lukas Nmecha,Leeds,h,13,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,10751,Brenden Aaronson,Leeds,h,22,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,10830,Jean Négoce,Leeds,h,1,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,5595,Daniel James,Leeds,h,22,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,5652,Walter Benítez,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,13091,Jaydee Canvot,Crystal Palace,a,90,0,0.0,0.0,0.0169,1,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,7931,Takehiro Tomiyasu,Crystal Palace,a,47,0,0.0,0.0,0.0187,1,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,8430,Chris Richards,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,14770,Anan Khalaili,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,8214,Tyrick Mitchell,Crystal Palace,a,90,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,14376,Quinten Timber,Crystal Palace,a,90,2,0.1119,0.1119,0.069,2,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,12409,Adam Wharton,Crystal Palace,a,90,3,0.0862,0.0862,0.05,2,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,6145,Daichi Kamada,Crystal Palace,a,90,3,0.4133,0.4133,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,9024,Yeremi Pino,Crystal Palace,a,83,2,0.1285,0.1285,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,11070,Jørgen Strand Larsen,Crystal Palace,a,83,1,0.0307,0.0307,0.0593,1,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,2182,Jefferson Lerma,Crystal Palace,a,43,1,0.3585,0.3585,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,5675,Ismaila Sarr,Crystal Palace,a,7,0,0.0,0.0,0.0,0,0,0,0
+31225,2026-09-20,Leeds,Crystal Palace,6482,Eddie Nketiah,Crystal Palace,a,7,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,12032,Djordje Petrovic,Bournemouth,h,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,825,Adam Smith,Bournemouth,h,75,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,10747,James Hill,Bournemouth,h,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,14859,António Silva,Bournemouth,h,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,8640,Adrien Truffert,Bournemouth,h,90,1,0.0113,0.0113,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,12149,Alex Scott,Bournemouth,h,90,2,0.0778,0.0778,0.1035,3,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,7352,Tyler Adams,Bournemouth,h,88,0,0.0,0.0,0.0451,1,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,14395,Rayan,Bournemouth,h,88,0,0.0,0.0,0.593,1,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,10744,Ryan Christie,Bournemouth,h,75,4,0.6965,0.6965,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,10741,Marcus Tavernier,Bournemouth,h,75,0,0.0,0.0,0.114,1,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,12963,Evanilson,Bournemouth,h,90,2,0.1591,0.1591,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,1789,Lewis Cook,Bournemouth,h,15,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,6820,David Brooks,Bournemouth,h,15,0,0.0,0.0,0.0374,2,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,9509,Daniel Jebbison,Bournemouth,h,15,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,14374,Alex Tóth,Bournemouth,h,2,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,11231,Ben Doak,Bournemouth,h,2,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,1257,Alisson,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,8091,Ronald Araújo,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,11545,Jérémy Jacquet,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,833,Virgil van Dijk,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,11709,Milos Kerkez,Liverpool,a,90,1,0.0418,0.0418,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,8379,Alexis Mac Allister,Liverpool,a,90,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,9788,Dominik Szoboszlai,Liverpool,a,81,2,0.1245,0.1245,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,11296,Cody Gakpo,Liverpool,a,90,2,0.12,0.12,0.3676,3,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,8397,Florian Wirtz,Liverpool,a,71,2,0.2282,0.2282,0.1568,3,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,10016,Bradley Barcola,Liverpool,a,72,1,0.0479,0.0479,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,5232,Alexander Isak,Liverpool,a,81,3,0.6817,0.6817,0.0479,1,1,0,0
+31228,2026-09-20,Bournemouth,Liverpool,12203,Treymaurice Nyoni,Liverpool,a,19,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,10697,Ryan Gravenberch,Liverpool,a,9,0,0.0,0.0,0.0,0,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,13279,Víctor Muñoz,Liverpool,a,18,0,0.0,0.0,0.1134,1,0,0,0
+31228,2026-09-20,Bournemouth,Liverpool,12434,Lewis Koumas,Liverpool,a,9,1,0.1134,0.1134,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,181,Bernd Leno,Fulham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,6157,Timothy Castagne,Fulham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,11728,Calvin Bassey,Fulham,h,90,1,0.0623,0.0623,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,13837,David Affengruber,Fulham,h,90,0,0.0,0.0,0.0546,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,8940,Antonee Robinson,Fulham,h,90,0,0.0,0.0,0.1441,2,0,0,0
+31229,2026-09-20,Fulham,Manchester United,11594,Shea Charles,Fulham,h,90,0,0.0,0.0,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,8285,Sander Berge,Fulham,h,77,1,0.0441,0.0441,0.0571,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,11903,Oscar Bobb,Fulham,h,71,1,0.1045,0.1045,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,12410,Joshua King,Fulham,h,80,3,0.4707,0.4707,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,500,Alex Iwobi,Fulham,h,71,2,0.4416,0.4416,0.958,5,0,0,0
+31229,2026-09-20,Fulham,Manchester United,12035,Gonzalo García,Fulham,h,80,3,0.5374,0.5374,0.3845,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,6314,Joachim Andersen,Fulham,h,10,0,0.0,0.0,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,14352,César Palacios,Fulham,h,19,0,0.0,0.0,0.0566,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,11911,Hugo Larsson,Fulham,h,13,0,0.0,0.0,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,10717,Rodrigo Muniz,Fulham,h,10,0,0.0,0.0,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,14030,Kevin,Fulham,h,19,1,0.0566,0.0566,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,14056,Senne Lammens,Manchester United,a,90,0,0.0,0.0,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,7281,Diogo Dalot,Manchester United,a,90,2,0.071,0.071,0.0583,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,10802,Lisandro Martínez,Manchester United,a,90,4,0.1217,0.1217,0.0164,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,1687,Harry Maguire,Manchester United,a,90,1,0.0232,0.0232,0.0435,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,1006,Luke Shaw,Manchester United,a,84,1,0.0147,0.0147,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,5956,Youri Tielemans,Manchester United,a,90,1,0.0888,0.0888,0.126,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,11174,Kobbie Mainoo,Manchester United,a,80,1,0.0586,0.0586,0.0294,1,0,0,0
+31229,2026-09-20,Fulham,Manchester United,6552,Bryan Mbeumo,Manchester United,a,90,5,0.3106,0.3106,0.5893,3,0,0,0
+31229,2026-09-20,Fulham,Manchester United,1228,Bruno Fernandes,Manchester United,a,90,3,0.6576,0.6576,0.1541,4,0,0,0
+31229,2026-09-20,Fulham,Manchester United,556,Marcus Rashford,Manchester United,a,77,6,0.6844,0.6844,0.1627,4,0,0,0
+31229,2026-09-20,Fulham,Manchester United,7080,Matheus Cunha,Manchester United,a,90,3,0.0474,0.0474,0.6531,3,1,0,0
+31229,2026-09-20,Fulham,Manchester United,7768,Mason Mount,Manchester United,a,10,1,0.0435,0.0435,0.0,0,0,0,0
+31229,2026-09-20,Fulham,Manchester United,11944,Patrick Dorgu,Manchester United,a,6,1,0.0639,0.0639,0.0157,1,0,1,0
+31229,2026-09-20,Fulham,Manchester United,8044,Joshua Zirkzee,Manchester United,a,13,0,0.0,0.0,0.0674,1,0,0,0
