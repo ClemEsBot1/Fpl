@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Radio, RefreshCw, Users } from 'lucide-react';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { SkeletonRows } from '../components/common.jsx';
-import { liveTeamScore, projectedBonus, teamStates, bonusFromBps } from '../lib/live.js';
+import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, liveBonusRace } from '../lib/live.js';
+import './liveBonus.css';
 
 const REFRESH_MS = 60 * 1000;
 
@@ -103,6 +104,8 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
   const { liveById, fixtures, picks, at } = state;
   const states = teamStates(fixtures);
   const score = picks ? liveTeamScore({ picks, liveById, bonus: projectedBonus(fixtures), states, playersById: staticData.playersById }) : null;
+  const ownedIds = picks && Array.isArray(picks.picks) ? picks.picks.map(p => p.element) : [];
+  const bonusRace = liveBonusRace(fixtures, { ownedIds, limit: 10 });
   const sortedFixtures = [...fixtures].sort((a, b) => {
     const rank = f => (f.started && !(f.finished || f.finished_provisional) ? 0 : !f.started ? 1 : 2);
     return rank(a) - rank(b) || new Date(a.kickoff_time) - new Date(b.kickoff_time);
@@ -170,6 +173,21 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
             </>
           )}
         </section>
+        {bonusRace.length ? (
+          <section className="fpl-glass fpl-tool-card" aria-labelledby="live-bonus">
+            <h2 id="live-bonus" className="fpl-home-h">Bonus race</h2>
+            <p className="fpl-meta" style={{ margin: 0 }}>If live matches ended now. Your players highlighted.</p>
+            <ul className="fpl-bonusrace">
+              {bonusRace.map(r => (
+                <li key={r.element} className={r.owned ? 'is-owned' : ''}>
+                  <span className="fpl-bonusrace-b">{r.bonus ? `+${r.bonus}` : '–'}</span>
+                  <span className="fpl-bonusrace-name">{(staticData.playersById[r.element] || {}).webName || '?'}</span>
+                  <span className="fpl-mono fpl-meta">{r.bps} BPS</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         <section className="fpl-glass fpl-tool-card" aria-labelledby="live-matches">
           <h2 id="live-matches" className="fpl-home-h">Matches</h2>
           <ul className="fpl-live-matches">
