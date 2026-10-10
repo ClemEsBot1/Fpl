@@ -168,3 +168,27 @@ test('league ownership counts captains twice and the bench not at all', async ()
   assert.equal(d.rival.swing, 5 + 5 - 5 - 12);
   assert.equal(leagueDifferentials(members, { 1: teams[1] }, 1), null, 'nobody to compare with');
 });
+
+test('head-to-head splits shared and unique players and totals the edge', async () => {
+  const { headToHead } = await import('../src/lib/leagues.js');
+  const p = id => ({ id, webName: `P${id}`, positionId: 3, team: 1 });
+  const slot = (id, { starting = true, captain = false, pred = 5 } = {}) => ({ player: p(id), isStarting: starting, isCaptain: captain, nextMatchPredicted: pred });
+  const you = { xiTotal: 50, squad: [slot(1, { captain: true, pred: 8 }), slot(2), slot(3, { starting: false, pred: 2 })] };
+  const rival = { xiTotal: 47, squad: [slot(1, { pred: 8 }), slot(4, { pred: 6, captain: true }), slot(5, { starting: false, pred: 1 })] };
+  const h = headToHead(you, rival);
+  assert.deepEqual(h.shared.map(s => s.player.id), [1]);
+  assert.deepEqual(h.yourOnly.map(s => s.player.id), [2, 3]);
+  assert.deepEqual(h.theirOnly.map(s => s.player.id), [4, 5]);
+  assert.equal(h.yourCaptain.id, 1);
+  assert.equal(h.theirCaptain.id, 4);
+  // Starting-only edge: yours 2 (5) vs theirs 4 (6) = -1.
+  assert.equal(h.edge, -1);
+  assert.equal(h.yourXiTotal, 50);
+  assert.equal(h.theirXiTotal, 47);
+});
+
+test('head-to-head needs both squads', async () => {
+  const { headToHead } = await import('../src/lib/leagues.js');
+  assert.equal(headToHead(null, { squad: [] }), null);
+  assert.equal(headToHead({ squad: [] }, { squad: [] }), null);
+});
