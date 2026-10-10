@@ -9,6 +9,7 @@ import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, playerMatchesSearch
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
 import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
+import { predictionRange, pickReasons } from '../lib/playerInsight.js';
 import { planTransfers } from '../lib/transferPlan.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
@@ -18,7 +19,31 @@ import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExp
 // toggle is open, and only for slots that carry a live breakdown (the two
 // synthetic "actual points" paths — hindsight and frozen past-gw snapshots
 // — don't have one, since there's no live formula to explain there).
-export function PredictionBreakdown({ breakdown }) {
+// A plain-language header for the breakdown: the likely low–high range for
+// this gameweek and a few reasons the player stands out. Shown only when
+// the prediction and player are passed (the full results rows); the recap
+// and older callers that pass only a breakdown skip it.
+function InsightHeader({ prediction, player }) {
+  if (!prediction || !player) return null;
+  const range = predictionRange(prediction, player);
+  const reasons = pickReasons(prediction, player);
+  if (range.ceiling <= 0 && !reasons.length) return null;
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+        <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.03em' }}>LIKELY THIS GW</span>
+        <span className="fpl-mono" style={{ fontSize: '0.8rem' }}>{fmtPts(range.floor)}–{fmtPts(range.ceiling)}<span className="fpl-dim" style={{ fontSize: '0.7rem' }}> (~{fmtPts(range.expected)})</span></span>
+      </div>
+      {reasons.length ? (
+        <div className="fpl-insight-reasons">
+          {reasons.map(r => <span key={r} className="fpl-insight-chip">{r}</span>)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function PredictionBreakdown({ breakdown, prediction, player }) {
   if (!breakdown) return null;
   const b = breakdown;
 
@@ -61,6 +86,7 @@ export function PredictionBreakdown({ breakdown }) {
 
   return (
     <div className="fpl-block" style={{ padding: 12, marginTop: 2, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
+      <InsightHeader prediction={prediction} player={player} />
       <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8, letterSpacing: '0.03em' }}>WHY THIS PREDICTION</div>
       {b.ml ? (
         <p style={{ fontSize: '0.78rem', lineHeight: 1.5, margin: '0 0 10px' }}>
@@ -163,7 +189,7 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
           <ChevronDown size={14} style={{ color: 'var(--ink-dim)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .12s' }} />
         )}
       </div>
-      {showWhy && <PredictionBreakdown breakdown={slot.breakdown} />}
+      {showWhy && <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent }} player={player} />}
     </>
   );
 }
@@ -590,7 +616,7 @@ function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit,
         {slot.breakdown ? (
           <>
             <button type="button" className="fpl-link" aria-expanded={showWhy} onClick={() => setShowWhy(v => !v)}>{showWhy ? 'Hide why' : 'Why this prediction?'}</button>
-            {showWhy ? <PredictionBreakdown breakdown={slot.breakdown} /> : null}
+            {showWhy ? <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent }} player={player} /> : null}
           </>
         ) : null}
         {canEdit ? (
