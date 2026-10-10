@@ -91,7 +91,7 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
       {b.ml ? (
         <p style={{ fontSize: '0.78rem', lineHeight: 1.5, margin: '0 0 10px' }}>
           Predicted by the <b>machine-learning model</b>: <span className="fpl-mono">{fmtPts(b.ml.next)}</span> this gameweek.
-          It's retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings, injury history and Understat xG, learning from each finished week{b.availMult < 1 ? ', and scaled by FPL\'s availability flag' : ''}.
+          It's retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings and injury history, learning from each finished week{b.availMult < 1 ? ', and scaled by FPL\'s availability flag' : ''}.
           The formula below would have said <span className="fpl-mono">{fmtPts(b.ml.formulaNext)}</span>.
         </p>
       ) : null}

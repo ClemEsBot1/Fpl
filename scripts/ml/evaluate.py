@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import features as F  # noqa: E402
 import matchdata as MD  # noqa: E402
 import model as ML  # noqa: E402
+from compare import served  # noqa: E402
 from retrain import CONFIG  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -78,7 +79,7 @@ def main():
             train = pd.concat([past, known])
             model = ML.train(train, CONFIG)
             part = cur[cur.gw.isin(block)].copy()
-            part['ml'] = model.predict(part)
+            part['ml'] = served(model, part)
             preds.append(part[['season', 'gw', 'id', 'k', 'ml', 'target']])
         print('tested', test, flush=True)
     P = pd.concat(preds)

@@ -73,8 +73,10 @@ def load_injuries(cache, current, today):
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 APP_URL = os.environ.get('APP_URL', 'https://fplchecker.vercel.app')
 # The variant that won the walk-forward comparison (compare.py; results in
-# evaluate.py's docstring). See model.py for what each setting does.
-CONFIG = dict(odds_dropout=0.15)
+# evaluate.py's docstring). See model.py for what each setting does. FPL's
+# deadline figures and Understat's xG are still collected but left out:
+# neither improved the best XI picked from the predictions.
+CONFIG = dict(two_stage=True, drop=('fpl_', 'us_'))
 
 
 def score_week(predictions, gw_csv):
