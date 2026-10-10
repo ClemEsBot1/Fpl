@@ -20,23 +20,19 @@ import os
 import sys
 from datetime import datetime, timezone
 
-import lightgbm as lgb
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import features as F  # noqa: E402
 import fpl_data  # noqa: E402
+import matchdata as MD  # noqa: E402
+import model as ML  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-PARAMS = dict(objective='regression', learning_rate=0.03, num_leaves=31, min_data_in_leaf=200, feature_fraction=0.8,
-              bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0, verbose=-1, seed=1, num_threads=0)
-ROUNDS = 300  # more over-fitted in the walk-forward test (evaluate.py)
-
-
-def train(rows):
-    cols = F.feature_columns(rows)
-    ds = lgb.Dataset(rows[cols], rows.target)
-    return lgb.train(PARAMS, ds, num_boost_round=ROUNDS), cols
+APP_URL = os.environ.get('APP_URL', 'https://fplchecker.vercel.app')
+# The variant that won the walk-forward comparison (compare.py; results in
+# evaluate.py's docstring). See model.py for what each setting does.
+CONFIG = dict(odds_dropout=0.15)
 
 
 def score_week(predictions, gw_csv):
@@ -61,7 +57,7 @@ def main(api=None, now=None):
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    seasons, current, target, last_finished, _ = fpl_data.prepare(args.cache, **({'api': api} if api else {}), now=now)
+    seasons, current, target, last_finished, bootstrap = fpl_data.prepare(args.cache, **({'api': api} if api else {}), now=now)
     print('seasons', seasons, 'predicting GW', target, 'last finished', last_finished, flush=True)
 
     # How last gameweek's predictions did, once it's over (once only).
@@ -84,11 +80,19 @@ def main(api=None, now=None):
     if not target:
         print('season over: nothing to predict')
     else:
-        rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target)
+        # Bookmaker odds and club Elo ratings (matchdata.py): the committed
+        # history plus this season's results and upcoming odds, fetched now.
+        if not api:
+            MD.download_current(args.cache, current, teams=bootstrap.get('teams'), app_url=APP_URL)
+        md = MD.MatchData((MD.DATA, os.path.join(args.cache, 'football-data')))
+        rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target, md=md)
         known = rows[rows.known]
-        model, cols = train(known)
+        model = ML.train(known, CONFIG)
         todo = rows[(rows.season == current) & (rows.gw == target)].copy()
-        todo['pred'] = model.predict(todo[cols]) if len(todo) else []
+        todo['pred'] = model.predict(todo) if len(todo) else []
+        if len(todo):
+            k0 = todo[todo.k == 0]
+            print('odds for', round(float(k0.odds_win.notna().mean()) * 100), '% of this gameweek\'s rows', flush=True)
         by_id = {}
         for pid, grp in todo.groupby('id'):
             preds = grp.sort_values('k').pred.tolist()
@@ -96,7 +100,7 @@ def main(api=None, now=None):
         if by_id:
             out = {
                 'season': current, 'gwId': int(target), 'builtAt': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-                'trainedRows': int(len(known)), 'model': 'lightgbm', 'byId': by_id,
+                'trainedRows': int(len(known)), 'model': 'lightgbm', 'config': CONFIG, 'byId': by_id,
             }
             for name in ('predictions.json', f'predictions-gw{target}.json'):
                 with open(os.path.join(args.out, name), 'w') as f:

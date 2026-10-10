@@ -22,13 +22,14 @@ import json
 import os
 import sys
 
-import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import features as F  # noqa: E402
-from retrain import PARAMS, ROUNDS  # noqa: E402
+import matchdata as MD  # noqa: E402
+import model as ML  # noqa: E402
+from retrain import CONFIG  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SEASONS = ['2020-21', '2021-22', '2022-23', '2023-24', '2024-25', '2025-26']
@@ -61,8 +62,8 @@ def main():
         leak_check(args.cache)
         return
 
-    rows = F.build(args.cache, SEASONS)
-    cols = F.feature_columns(rows)
+    rows = F.build(args.cache, SEASONS, md=MD.MatchData())
+    rows = rows[rows.known]
     preds = []
     for test in args.test.split(','):
         past = rows[rows.season.isin(SEASONS[:SEASONS.index(test)])]
@@ -73,9 +74,9 @@ def main():
             block = gws[i:i + step]
             known = cur[(cur.gw + cur.k) < block[0]]
             train = pd.concat([past, known])
-            model = lgb.train(PARAMS, lgb.Dataset(train[cols], train.target), num_boost_round=ROUNDS)
+            model = ML.train(train, CONFIG)
             part = cur[cur.gw.isin(block)].copy()
-            part['ml'] = model.predict(part[cols])
+            part['ml'] = model.predict(part)
             preds.append(part[['season', 'gw', 'id', 'k', 'ml', 'target']])
         print('tested', test, flush=True)
     P = pd.concat(preds)

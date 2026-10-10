@@ -82,9 +82,9 @@ def write_current_season(cache, bootstrap, fixtures, live_by_gw):
             w.writerow([e['id'], e['code'], e['element_type'], e['team'], e['now_cost'], e['web_name']])
     with open(os.path.join(d, 'teams.csv'), 'w', newline='') as f:
         w = csv.writer(f)
-        w.writerow(['id', 'short_name'])
+        w.writerow(['id', 'short_name', 'name'])
         for t in bootstrap['teams']:
-            w.writerow([t['id'], t['short_name']])
+            w.writerow([t['id'], t['short_name'], t['name']])
     with open(os.path.join(d, 'fixtures.csv'), 'w', newline='') as f:
         w = csv.writer(f)
         w.writerow(['id', 'event', 'team_h', 'team_a', 'team_h_score', 'team_a_score', 'team_h_difficulty', 'team_a_difficulty', 'kickoff_time', 'finished'])
