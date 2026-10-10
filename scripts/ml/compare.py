@@ -38,11 +38,13 @@ VARIANTS = {
     'all_poisson': dict(objective='poisson', drop=('fpl_', 'us_')),
     'all_decay': dict(decay=0.8, drop=('fpl_', 'us_')),
     'all_two_stage': dict(two_stage=True, drop=('fpl_', 'us_')),
-    # Second round, on the winner of the first (tweedie):
-    'tw_cal': dict(objective='tweedie', calibrate=True, drop=('fpl_', 'us_')),
-    'tw_fpl': dict(objective='tweedie', drop=('us_',)),  # FPL's deadline data, 2025-26 on
-    'tw_us': dict(objective='tweedie', drop=('fpl_',)),  # Understat
-    'tw_all': dict(objective='tweedie'),
+    # Second round, on two-stage: about tweedie's correlation, and the best
+    # XI picked from it scores the most points (scripts/backtest.mjs).
+    'ts_cal': dict(two_stage=True, calibrate=True, drop=('fpl_', 'us_')),
+    'ts_decay': dict(two_stage=True, decay=0.8, drop=('fpl_', 'us_')),
+    'ts_fpl': dict(two_stage=True, drop=('us_',)),  # FPL's deadline data, 2025-26 on
+    'ts_us': dict(two_stage=True, drop=('fpl_',)),  # Understat
+    'ts_all': dict(two_stage=True),
 }
 
 
