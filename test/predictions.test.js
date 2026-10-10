@@ -335,3 +335,17 @@ test('a player ruled out is predicted 0, machine-learning figure included', asyn
   const fit = computePlayerPrediction({ ...base, status: 'a', chanceNext: null }, fixturesByTeam, true, null, opts);
   assert.equal(fit.nextMatchPredicted, 5);
 });
+
+test('an injury-aware ML file scales only this gameweek for an injury; a suspension scales every week', async () => {
+  const { computePlayerPrediction } = await import('../src/lib/predictions.js');
+  const fixturesByTeam = { 1: [6, 7, 8, 9, 10].map(event => ({ event, opponent: 2, isHome: true, difficulty: 3 })) };
+  const base = { team: 1, positionId: 3, epNext: 0, pointsPerGame: 5, form: 5, appearanceShare: 1, ml: [5, 4, 4, 4, 4] };
+  const opts = { targetEventId: 6 };
+  const injured = computePlayerPrediction({ ...base, status: 'i', chanceNext: 0, mlInjuryAware: true }, fixturesByTeam, true, null, opts);
+  assert.equal(injured.nextMatchPredicted, 0, 'out this week');
+  assert.deepEqual(injured.byGw.map(w => w.points), [0, 4, 4, 4, 4], 'the model already allows for his return');
+  const banned = computePlayerPrediction({ ...base, status: 's', chanceNext: 0, mlInjuryAware: true }, fixturesByTeam, true, null, opts);
+  assert.deepEqual(banned.byGw.map(w => w.points), [0, 0, 0, 0, 0], 'the model knows nothing of bans');
+  const oldFile = computePlayerPrediction({ ...base, status: 'i', chanceNext: 0 }, fixturesByTeam, true, null, opts);
+  assert.deepEqual(oldFile.byGw.map(w => w.points), [0, 0, 0, 0, 0], 'a file without injury history scales every week, as before');
+});

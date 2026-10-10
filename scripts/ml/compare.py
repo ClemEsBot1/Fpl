@@ -1,0 +1,146 @@
+"""Walk-forward comparison of model variants (see model.py), to decide what
+goes into the daily model. Each test season is predicted only from earlier
+seasons plus that season's finished gameweeks, refitting every
+--refit-every gameweeks. For each variant it prints next-gameweek and
+4-week accuracy and writes <out>/<variant>.json for
+  NO_XP=1 ML_PREDS=<out>/<variant>.json node scripts/backtest.mjs
+(the points of the best XI picked from those predictions).
+
+  python scripts/ml/compare.py --variants base,all,all_tweedie --out /tmp/cmp
+"""
+import argparse
+import json
+import os
+import pickle
+import sys
+import time
+import warnings
+
+import numpy as np
+import pandas as pd
+
+warnings.filterwarnings('ignore')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import features as F  # noqa: E402
+import matchdata as M  # noqa: E402
+import model as ML  # noqa: E402
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+SEASONS = ['2020-21', '2021-22', '2022-23', '2023-24', '2024-25', '2025-26']
+NEW = ('elo_', 'odds_', 'inj_', 'fpl_', 'us_')
+
+VARIANTS = {
+    'base': dict(drop=NEW),  # the model before this change
+    'elo_odds': dict(drop=('inj_', 'fpl_', 'us_')),
+    'inj': dict(drop=('elo_', 'odds_', 'fpl_', 'us_')),
+    'all': dict(drop=('fpl_', 'us_')),
+    'all_tweedie': dict(objective='tweedie', drop=('fpl_', 'us_')),
+    'all_poisson': dict(objective='poisson', drop=('fpl_', 'us_')),
+    'all_decay': dict(decay=0.8, drop=('fpl_', 'us_')),
+    'all_two_stage': dict(two_stage=True, drop=('fpl_', 'us_')),
+    # Second round, on two-stage: about tweedie's correlation, and the best
+    # XI picked from it scores the most points (scripts/backtest.mjs).
+    'ts_cal': dict(two_stage=True, calibrate=True, drop=('fpl_', 'us_')),
+    'ts_decay': dict(two_stage=True, decay=0.8, drop=('fpl_', 'us_')),
+    'ts_fpl': dict(two_stage=True, drop=('us_',)),  # FPL's deadline data, 2025-26 on
+    'ts_us': dict(two_stage=True, drop=('fpl_',)),  # Understat
+    'ts_all': dict(two_stage=True),
+}
+
+
+def served(m, part):
+    """Predictions as the app serves them. A player injured at the
+    deadline (FPL flags him, the app scales by his chance of playing) is 0
+    this gameweek. A model without injury history gets him 0 every week, as
+    the app did for it; an injury-aware one has its own injury left out of
+    this gameweek (the app's job) and predicts his later weeks itself."""
+    out_now = part.inj_now.fillna(0).values > 0 if 'inj_now' in part.columns else np.zeros(len(part), bool)
+    x = part
+    if 'inj_now' in m.cols:
+        x = part.copy()
+        k0 = (x.k == 0).values
+        x.loc[k0, 'inj_now'] = 0.0
+        x.loc[k0, 'inj_days_out'] = np.nan
+        zero = out_now & k0
+    else:
+        zero = out_now
+    p = m.predict(x)
+    p[zero] = 0.0
+    return p
+
+
+def load_rows(cache, rows_cache):
+    if rows_cache and os.path.exists(rows_cache):
+        return pickle.load(open(rows_cache, 'rb'))
+    inj_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'injuries.csv')
+    us_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'understat')
+    rows = F.build(cache, SEASONS, md=M.MatchData(), injuries=pd.read_csv(inj_path), snapshots=F.load_snapshots(),
+                   understat_dir=us_dir if os.path.isdir(us_dir) else None)
+    if rows_cache:
+        pickle.dump(rows, open(rows_cache, 'wb'))
+    return rows
+
+
+def walk_forward(rows, cfg, tests, refit_every):
+    preds = []
+    for test in tests:
+        past = rows[rows.season.isin(SEASONS[:SEASONS.index(test)])]
+        cur = rows[rows.season == test]
+        gws = sorted(cur.gw.unique())
+        for i in range(0, len(gws), refit_every):
+            block = gws[i:i + refit_every]
+            known = cur[(cur.gw + cur.k) < block[0]]
+            m = ML.train(pd.concat([past, known]), cfg)
+            part = cur[cur.gw.isin(block)].copy()
+            part['ml'] = served(m, part)
+            preds.append(part[['season', 'gw', 'id', 'k', 'ml', 'target']])
+    return pd.concat(preds)
+
+
+def summarise(P):
+    nxt = P[P.k == 0]
+    four = P[P.k < 4].groupby(['season', 'gw', 'id']).agg(p=('ml', 'mean'), a=('target', 'mean'), n=('k', 'count')).reset_index()
+    four = four[four.n == 4]
+    corr = lambda a, b: float(np.corrcoef(a, b)[0, 1])
+    return {
+        'nextMAE': round(float(np.mean(np.abs(nxt.ml - nxt.target))), 3), 'nextCorr': round(corr(nxt.ml, nxt.target), 4),
+        'fourMAE': round(float(np.mean(np.abs(four.p - four.a))), 3), 'fourCorr': round(corr(four.p, four.a), 4),
+    }
+
+
+def to_json(P):
+    nxt = P[P.k == 0].set_index(['season', 'gw', 'id']).ml
+    four = P[P.k < 4].groupby(['season', 'gw', 'id']).ml.mean()
+    out = {}
+    for (s, g, i), v in nxt.items():
+        out.setdefault(s, {}).setdefault(int(g), {})[int(i)] = [round(max(0.0, float(v)), 2), round(max(0.0, float(four.get((s, g, i), v))), 2)]
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--cache', default=os.path.join(ROOT, '.backtest-cache'))
+    ap.add_argument('--rows', help='pickle of built rows, reused across runs')
+    ap.add_argument('--variants', default=','.join(VARIANTS))
+    ap.add_argument('--configs', help='JSON {name: config} of extra variants')
+    ap.add_argument('--test', default='2022-23,2023-24,2024-25,2025-26')
+    ap.add_argument('--refit-every', type=int, default=4)
+    ap.add_argument('--out', required=True)
+    args = ap.parse_args()
+    os.makedirs(args.out, exist_ok=True)
+    variants = dict(VARIANTS)
+    if args.configs:
+        variants.update(json.loads(args.configs))
+    rows = load_rows(args.cache, args.rows)
+    rows = rows[rows.known]
+    tests = args.test.split(',')
+    for name in args.variants.split(','):
+        t = time.time()
+        P = walk_forward(rows, variants[name], tests, args.refit_every)
+        with open(os.path.join(args.out, f'{name}.json'), 'w') as f:
+            json.dump(to_json(P), f)
+        print(json.dumps({'variant': name, **summarise(P), 'secs': round(time.time() - t)}), flush=True)
+
+
+if __name__ == '__main__':
+    main()

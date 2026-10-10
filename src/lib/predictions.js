@@ -277,19 +277,27 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
 
   // The machine-learning model's points (p.ml: this gameweek and each of
   // the next four, from public/ml/predictions.json; see scripts/ml/), when
-  // there are some, take the place of the formula's. It learned from past
-  // seasons how often each kind of player plays, but not today's injury
-  // news, so FPL's availability flags still scale it. The formula's
-  // figures stay in the breakdown for comparison.
+  // there are some, take the place of the formula's. FPL's availability
+  // flag scales this gameweek. A model trained on injury history
+  // (p.mlInjuryAware) already allows for how long an injury lasts in the
+  // later weeks, so only this one is scaled for an injury; a suspension or
+  // a player who has left still scales every week. The formula's figures
+  // stay in the breakdown for comparison.
   const ml = Array.isArray(p.ml) && p.ml.length ? p.ml : null;
   let mlOut = null;
   if (ml) {
-    const avail = availMult;
-    const week = ml.slice(0, windowGws);
+    const injuryOnly = p.mlInjuryAware && (p.status === 'i' || p.status === 'd' || p.status === 'a');
+    const scaleFor = k => (k === 0 || !injuryOnly ? availMult : 1);
+    const scaled = ml.map((v, k) => (isBlankThisEvent && k === 0 ? 0 : v * scaleFor(k)));
+    const week = scaled.slice(0, windowGws);
+    const range = Array.isArray(p.mlRange) && p.mlRange.length === 2 && !isBlankThisEvent
+      ? { floor: Math.round(p.mlRange[0] * availMult * 10) / 10, ceiling: Math.round(p.mlRange[1] * availMult * 10) / 10 }
+      : null;
     mlOut = {
-      next: isBlankThisEvent ? 0 : ml[0] * avail,
-      predicted: isBlankThisEvent ? 0 : (week.reduce((s, v) => s + v, 0) / week.length) * avail,
-      byGw: ml.slice(0, PLAN_GWS).map((v, k) => ({ event: firstEvent + k, points: Math.round(v * avail * 10) / 10 })).filter(w => w.event <= 38),
+      range,
+      next: scaled[0],
+      predicted: isBlankThisEvent ? 0 : week.reduce((s, v) => s + v, 0) / week.length,
+      byGw: scaled.slice(0, PLAN_GWS).map((v, k) => ({ event: firstEvent + k, points: Math.round(v * 10) / 10 })).filter(w => w.event <= 38),
     };
   }
   return {
@@ -297,6 +305,8 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     nextMatchPredicted: Math.round((mlOut ? mlOut.next : nextMatchPredicted) * 10) / 10,
     byGw: mlOut ? mlOut.byGw : byGw,
     source: mlOut ? 'ml' : 'formula',
+    // The model's likely low and high score this gameweek, when it has one.
+    range: mlOut ? mlOut.range : null,
     baseAvail,
     availNote,
     fixtureMult,
@@ -530,6 +540,9 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type)])),
       oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type),
       ml: mlById ? mlById[e.id] || null : null,
+      mlInjuryAware: !!(mlById && ml.injuryAware),
+      // The model's 10th-90th percentile for this gameweek: [low, high].
+      mlRange: mlById && ml.rangeById ? ml.rangeById[e.id] || null : null,
     };
   });
 
@@ -1069,7 +1082,7 @@ export function buildOptimalTeam(staticData, budget = SQUAD_BUDGET) {
     const isCaptain = p.id === captainId;
     return {
       player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
-      breakdown: pred.breakdown,
+      breakdown: pred.breakdown, range: pred.range,
       isStarting: startersSet.has(p.id), isCaptain, isViceCaptain: p.id === viceCaptainId,
       multiplier: isCaptain ? 2 : 1,
     };
@@ -1175,7 +1188,7 @@ export function hydrateSquadSnapshot(snapshot, staticData, options = {}) {
     const isCaptain = p.id === snapshot.captainId;
     return {
       player: p, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote,
-      breakdown: pred.breakdown,
+      breakdown: pred.breakdown, range: pred.range,
       isStarting: startersSet.has(p.id),
       isCaptain, isViceCaptain: p.id === snapshot.viceCaptainId,
       multiplier: isCaptain ? 2 : 1,

@@ -20,23 +20,63 @@ import os
 import sys
 from datetime import datetime, timezone
 
-import lightgbm as lgb
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import features as F  # noqa: E402
 import fpl_data  # noqa: E402
+import matchdata as MD  # noqa: E402
+import model as ML  # noqa: E402
+
+INJURIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'injuries.csv')
+US_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'understat')
+
+
+def save_snapshot(cache, current, target, folder=F.SNAPSHOTS):
+    """FPL's figures right now (forecast, chance of playing, penalty order)
+    as the snapshot at gameweek `target`'s deadline, kept in
+    data/fpl-snapshots/<season>.csv (the workflow commits it), so FPL's
+    own deadline data builds up for the model season by season."""
+    import pandas as pd
+    players = pd.read_csv(os.path.join(cache, current, 'players_raw.csv'))
+    if 'ep_next' not in players.columns or not target:
+        return
+    num = lambda c: pd.to_numeric(players[c], errors='coerce') if c in players.columns else float('nan')
+    now = pd.DataFrame({'id': players.id.astype(int), 'gw': int(target) - 1, 'ep_next': num('ep_next'),
+                        'chance_next': num('chance_of_playing_next_round'), 'status': players.status.astype(str),
+                        'penalties_order': num('penalties_order')})
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, f'{current}.csv')
+    old = pd.read_csv(path) if os.path.exists(path) else now.iloc[:0]
+    old = old[old.gw != int(target) - 1]
+    pd.concat([old, now]).sort_values(['gw', 'id']).to_csv(path, index=False, float_format='%.2f')
+
+
+def load_injuries(cache, current, today):
+    """Injury history (data/injuries.csv, from Transfermarkt) plus whoever
+    FPL flags as injured right now, from the date the news was added, for
+    the weeks since that file was made."""
+    import pandas as pd
+    inj = pd.read_csv(INJURIES) if os.path.exists(INJURIES) else pd.DataFrame(columns=['code', 'from_date', 'end_date'])
+    players = pd.read_csv(os.path.join(cache, current, 'players_raw.csv'))
+    if 'status' not in players.columns:
+        return inj
+    ongoing = set(inj[inj.end_date.isna() | (inj.end_date.astype(str) >= today)].code.astype(int))
+    live = []
+    for r in players[players.status == 'i'].itertuples():
+        if int(r.code) in ongoing:
+            continue
+        start = str(r.news_added)[:10] if isinstance(r.news_added, str) and r.news_added else today
+        live.append({'code': int(r.code), 'from_date': start, 'end_date': ''})
+    return pd.concat([inj, pd.DataFrame(live)], ignore_index=True)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-PARAMS = dict(objective='regression', learning_rate=0.03, num_leaves=31, min_data_in_leaf=200, feature_fraction=0.8,
-              bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0, verbose=-1, seed=1, num_threads=0)
-ROUNDS = 300  # more over-fitted in the walk-forward test (evaluate.py)
-
-
-def train(rows):
-    cols = F.feature_columns(rows)
-    ds = lgb.Dataset(rows[cols], rows.target)
-    return lgb.train(PARAMS, ds, num_boost_round=ROUNDS), cols
+APP_URL = os.environ.get('APP_URL', 'https://fplchecker.vercel.app')
+# The variant that won the walk-forward comparison (compare.py; results in
+# evaluate.py's docstring). See model.py for what each setting does. FPL's
+# deadline figures and Understat's xG are still collected but left out:
+# neither improved the best XI picked from the predictions.
+CONFIG = dict(two_stage=True, drop=('fpl_', 'us_'))
 
 
 def score_week(predictions, gw_csv):
@@ -61,7 +101,7 @@ def main(api=None, now=None):
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    seasons, current, target, last_finished, _ = fpl_data.prepare(args.cache, **({'api': api} if api else {}), now=now)
+    seasons, current, target, last_finished, bootstrap = fpl_data.prepare(args.cache, **({'api': api} if api else {}), now=now)
     print('seasons', seasons, 'predicting GW', target, 'last finished', last_finished, flush=True)
 
     # How last gameweek's predictions did, once it's over (once only).
@@ -84,11 +124,42 @@ def main(api=None, now=None):
     if not target:
         print('season over: nothing to predict')
     else:
-        rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target)
+        # Bookmaker odds and club Elo ratings (matchdata.py): the committed
+        # history plus this season's results and upcoming odds, fetched now.
+        if not api:
+            MD.download_current(args.cache, current, teams=bootstrap.get('teams'), app_url=APP_URL)
+        md = MD.MatchData((MD.DATA, os.path.join(args.cache, 'football-data')))
+        today = (now or datetime.now(timezone.utc)).strftime('%Y-%m-%d')
+        injuries = load_injuries(args.cache, current, today)
+        snap_dir = os.environ.get('SNAPSHOTS_DIR', F.SNAPSHOTS)
+        save_snapshot(args.cache, current, target, snap_dir)
+        rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target, md=md,
+                       injuries=injuries, snapshots=F.load_snapshots(snap_dir),
+                       understat_dir=US_DIR if os.path.isdir(US_DIR) else None)
         known = rows[rows.known]
-        model, cols = train(known)
+        model = ML.train(known, CONFIG)
         todo = rows[(rows.season == current) & (rows.gw == target)].copy()
-        todo['pred'] = model.predict(todo[cols]) if len(todo) else []
+        # This gameweek, the app scales by FPL's own chance of playing (0 for
+        # a player ruled out), so his own injury isn't counted twice here.
+        # Later weeks keep it: the model has learned how long injuries last.
+        if 'inj_now' in todo.columns:
+            this_week = todo.k == 0
+            todo.loc[this_week, 'inj_now'] = 0.0
+            todo.loc[this_week, 'inj_days_out'] = np.nan
+        todo['pred'] = model.predict(todo) if len(todo) else []
+        # Low and high ends of this gameweek's likely score (10th and 90th
+        # percentile), for the range shown next to each prediction.
+        ranges = {}
+        this_week = todo[todo.k == 0]
+        if len(this_week):
+            q = ML.train_quantiles(known, CONFIG)
+            lo, hi = q[0.1].predict(this_week), q[0.9].predict(this_week)
+            for pid, a, b, p in zip(this_week.id, lo, hi, this_week.pred):
+                a, b = max(0.0, float(a)), max(0.0, float(b))
+                ranges[str(int(pid))] = [round(min(a, p), 1), round(max(b, p), 1)]
+        if len(todo):
+            k0 = todo[todo.k == 0]
+            print('odds for', round(float(k0.odds_win.notna().mean()) * 100), '% of this gameweek\'s rows', flush=True)
         by_id = {}
         for pid, grp in todo.groupby('id'):
             preds = grp.sort_values('k').pred.tolist()
@@ -96,7 +167,10 @@ def main(api=None, now=None):
         if by_id:
             out = {
                 'season': current, 'gwId': int(target), 'builtAt': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-                'trainedRows': int(len(known)), 'model': 'lightgbm', 'byId': by_id,
+                'trainedRows': int(len(known)), 'model': 'lightgbm', 'config': CONFIG,
+                # Later weeks already allow for injuries: the app scales only
+                # this gameweek by FPL's chance of playing.
+                'injuryAware': 'inj_now' in model.cols, 'byId': by_id, 'rangeById': ranges,
             }
             for name in ('predictions.json', f'predictions-gw{target}.json'):
                 with open(os.path.join(args.out, name), 'w') as f:

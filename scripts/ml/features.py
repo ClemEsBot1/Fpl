@@ -19,7 +19,45 @@ STATS = ['total_points', 'minutes', 'bps', 'ict_index', 'threat', 'creativity', 
          'expected_goals', 'expected_assists', 'clean_sheets', 'starts', 'saves', 'goals_conceded']
 PER90 = ['bps', 'ict_index', 'threat', 'creativity', 'influence', 'goals_scored', 'assists', 'expected_goals',
          'expected_assists', 'saves', 'clean_sheets', 'goals_conceded']
-ID_COLS = ['season', 'gw', 'id', 'code', 'k', 'target', 'known']
+ID_COLS = ['season', 'gw', 'id', 'code', 'k', 'target', 'target_min', 'known']
+
+
+def injury_index(injuries):
+    """code -> sorted list of (from_date, end_date) strings; an injury with
+    no end date yet runs on."""
+    out = {}
+    if injuries is None:
+        return out
+    for r in injuries.itertuples():
+        end = r.end_date if isinstance(r.end_date, str) and r.end_date else '9999-12-31'
+        out.setdefault(int(r.code), []).append((str(r.from_date)[:10], end))
+    for v in out.values():
+        v.sort()
+    return out
+
+
+def injury_state(spans, date):
+    """(out now, days out so far, injuries in the past year, days missed in
+    the past year) as known on `date`: only injuries that began before it,
+    and days missed only up to it."""
+    if not spans or not date:
+        return 0.0, np.nan, 0.0, 0.0
+    d = pd.Timestamp(date)
+    year_ago = (d - pd.Timedelta(days=365)).strftime('%Y-%m-%d')
+    now, so_far, n, days = 0.0, np.nan, 0.0, 0.0
+    for start, end in spans:
+        if start >= date:
+            break
+        if end >= date:
+            now, so_far = 1.0, float((d - pd.Timestamp(start)).days)
+        if start >= year_ago:
+            n += 1
+            days += float((min(d, pd.Timestamp(end) if end < '9999' else d) - pd.Timestamp(start)).days)
+    return now, so_far, n, days
+# Match-level inputs from matchdata.py: club Elo ratings, and bookmaker
+# odds for the gameweek being predicted (k = 0 only: later gameweeks aren't
+# priced yet at the deadline).
+EXTRAS = ('elo', 'odds')
 
 
 def _read(path):
@@ -46,11 +84,27 @@ def load_season(cache, season):
     return players, fixtures, gws
 
 
-def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
+def _team_names(cache, season):
+    """FPL team id -> club name, for matching football-data's files."""
+    t = _read(os.path.join(cache, season, 'teams.csv'))
+    col = 'name' if 'name' in t.columns else 'short_name'
+    return dict(zip(t.id.astype(int), t[col].astype(str)))
+
+
+def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None,
+                 snapshots=None, understat=None):
     """Rows for one season. Gameweeks after `last_finished` have unknown
     targets (known = False); with `predict_gw`, rows stop at that gameweek.
-    Returns (rows, this season's per-player rates for the next season's
-    prior)."""
+    `md` (matchdata.MatchData) adds club Elo ratings and bookmaker odds, as
+    `extras` says. `injuries` (code, from_date, end_date; see
+    import_injuries.py) adds each player's injury state and history and how
+    much of his team is missing. `snapshots` ({season: DataFrame of id, gw,
+    ep_next, chance_next, status, penalties_order}; see
+    import_fpl_snapshots.py) adds FPL's own forecast, chance of playing and
+    penalty order as they stood at the deadline. `understat` (per element
+    and round: npxg, xa, shots, key_passes, pens_taken; see understat.py)
+    adds Understat's chance figures and penalties taken. Returns (rows, this season's per-player
+    rates for the next season's prior)."""
     players, fixtures, gws = load_season(cache, season)
     ids = players.id.astype(int).values
     idx = {pid: i for i, pid in enumerate(ids)}
@@ -128,12 +182,52 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
             continue
         tgf[f.team_h, f.event] += f.team_h_score; tga[f.team_h, f.event] += f.team_a_score; tm[f.team_h, f.event] += 1
         tgf[f.team_a, f.event] += f.team_a_score; tga[f.team_a, f.event] += f.team_h_score; tm[f.team_a, f.event] += 1
+    names = _team_names(cache, season) if md is not None else {}
+    kick = pd.to_datetime(fixtures.get('kickoff_time'), errors='coerce', utc=True) if 'kickoff_time' in fixtures else None
+    event_start = {}
+    if kick is not None:
+        for e, k in zip(fixtures.event, kick):
+            if pd.notna(k):
+                d = k.strftime('%Y-%m-%d')
+                event_start[e] = min(event_start.get(e, d), d)
+    nan4 = (np.nan, np.nan, np.nan, np.nan)
     fx_team = {}
     for f in fixtures.itertuples():
-        fx_team.setdefault((f.team_h, f.event), []).append((f.team_a, 1, f.team_h_difficulty))
-        fx_team.setdefault((f.team_a, f.event), []).append((f.team_h, 0, f.team_a_difficulty))
+        o = md.odds(season, names.get(f.team_h, ''), names.get(f.team_a, '')) if (md is not None and 'odds' in extras) else None
+        h, d, a, over = o if o else nan4
+        # (opponent, home, FDR, win, draw, loss, over 2.5) from this club's side
+        fx_team.setdefault((f.team_h, f.event), []).append((f.team_a, 1, f.team_h_difficulty, h, d, a, over))
+        fx_team.setdefault((f.team_a, f.event), []).append((f.team_h, 0, f.team_a_difficulty, a, d, h, over))
+    elo_cache = {}
 
+    def elo_at(team, g0):
+        # As of gameweek g0's first kickoff: what was known at its deadline.
+        key = (team, g0)
+        if key not in elo_cache:
+            date = event_start.get(g0)
+            elo_cache[key] = md.elo(names.get(team, ''), date) if (date and names.get(team)) else np.nan
+        return elo_cache[key]
+
+    US = ['npxg', 'xa', 'shots', 'key_passes', 'pens_taken']
+    cs_us = None
+    if understat is not None and len(understat):
+        mu = {u: np.zeros((n, G)) for u in US}
+        us = understat[understat.element.isin(idx.keys()) & (understat['round'] < G)]
+        ii = us.element.map(idx).values
+        rr = us['round'].astype(int).values
+        for u in US:
+            np.add.at(mu[u], (ii, rr), us[u].values.astype(float))
+        cs_us = {u: np.cumsum(mu[u], axis=1) for u in US}
     cs = {s: np.cumsum(M[s], axis=1) for s in STATS}
+    inj_idx = injury_index(injuries) if injuries is not None else None
+    # FPL's figures after gameweek g - 1, i.e. at gameweek g's deadline.
+    snap = None
+    if snapshots is not None:
+        snap = {}
+        sdf = snapshots.get(season)
+        if sdf is not None:
+            for r in sdf.itertuples():
+                snap[(int(r.id), int(r.gw) + 1)] = r
     cs_tm = np.cumsum(tm, axis=1); cs_gf = np.cumsum(tgf, axis=1); cs_ga = np.cumsum(tga, axis=1)
 
     def win(arr, row, g0, w):
@@ -143,6 +237,28 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
     codes = players.code.values
     pos = players.element_type.values
     last_g0 = min(38, predict_gw) if predict_gw else 38
+    # Injuries at each deadline, and the share of each team's (and each
+    # position's) points so far that is missing through injury.
+    inj_state, team_out, pos_out = {}, {}, {}
+    if inj_idx is not None:
+        for g0 in range(2, last_g0 + 1):
+            date = event_start.get(g0)
+            tot_t, out_t, tot_p, out_p = {}, {}, {}, {}
+            for i in range(n):
+                st = injury_state(inj_idx.get(int(codes[i])), date)
+                inj_state[(i, g0)] = st
+                t = team_at[i, g0 - 1]
+                tm_ = cs_tm[t, g0 - 1]
+                share = cs['total_points'][i, g0 - 1] / tm_ if tm_ else 0.0
+                tot_t[t] = tot_t.get(t, 0) + share
+                tot_p[(t, pos[i])] = tot_p.get((t, pos[i]), 0) + share
+                if st[0]:
+                    out_t[t] = out_t.get(t, 0) + share
+                    out_p[(t, pos[i])] = out_p.get((t, pos[i]), 0) + share
+            for t, v in tot_t.items():
+                team_out[(t, g0)] = out_t.get(t, 0) / v if v > 0 else 0.0
+            for tp, v in tot_p.items():
+                pos_out[tp + (g0,)] = out_p.get(tp, 0) / v if v > 0 else 0.0
     for g0 in range(2, last_g0 + 1):
         for i in range(n):
             if not cs['minutes'][i, g0 - 1] and codes[i] not in prev_rates:
@@ -170,6 +286,28 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
                 tmw = win(cs_tm, t, g0, w)
                 feats[f'team_gf_{w}'] = win(cs_gf, t, g0, w) / tmw if tmw else np.nan
                 feats[f'team_ga_{w}'] = win(cs_ga, t, g0, w) / tmw if tmw else np.nan
+            if inj_idx is not None:
+                st = inj_state[(i, g0)]
+                feats['inj_now'], feats['inj_days_out'], feats['inj_n_365'], feats['inj_days_365'] = st
+                # Share of the team's (and his position's) points that is
+                # out injured; includes his own when he's the one out.
+                feats['inj_team_out'] = team_out.get((t, g0), 0.0)
+                feats['inj_pos_out'] = pos_out.get((t, pos[i], g0), 0.0)
+            if snap is not None:
+                r = snap.get((int(ids[i]), g0))
+                if r is not None:
+                    chance = r.chance_next if np.isfinite(r.chance_next) else (100.0 if r.status == 'a' else np.nan)
+                    feats['fpl_chance'] = chance
+                    feats['fpl_pen'] = r.penalties_order if np.isfinite(r.penalties_order) else 0.0
+                    fpl_ep = r.ep_next
+                else:
+                    feats['fpl_chance'] = feats['fpl_pen'] = fpl_ep = np.nan
+            if cs_us is not None:
+                for u in ('npxg', 'xa', 'shots', 'key_passes'):
+                    for w in (5, 38):
+                        m = win(cs['minutes'], i, g0, w)
+                        feats[f'us_{u}_p90_{w}'] = win(cs_us[u], i, g0, w) / m * 90 if m >= 90 else np.nan
+                feats['us_pens_10'] = win(cs_us['pens_taken'], i, g0, 10)
             pr = prev_rates.get(codes[i])
             feats['prev_pts90'] = pr[0] if pr else np.nan
             feats['prev_min'] = pr[1] if pr else np.nan
@@ -182,10 +320,10 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
                 row['k'] = k
                 row['n_fix'] = len(fx)
                 if fx:
-                    row['home'] = float(np.mean([h for _, h, _ in fx]))
-                    row['fdr'] = float(np.mean([d for _, _, d in fx]))
+                    row['home'] = float(np.mean([f[1] for f in fx]))
+                    row['fdr'] = float(np.mean([f[2] for f in fx]))
                     ogf, oga = [], []
-                    for o, _, _ in fx:
+                    for o, *_ in fx:
                         tmw = win(cs_tm, o, g0, 10)
                         ogf.append(win(cs_gf, o, g0, 10) / tmw if tmw else np.nan)
                         oga.append(win(cs_ga, o, g0, 10) / tmw if tmw else np.nan)
@@ -193,8 +331,22 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
                     row['opp_ga_10'] = np.nanmean(oga) if not np.all(np.isnan(oga)) else np.nan
                 else:
                     row['home'] = row['fdr'] = row['opp_gf_10'] = row['opp_ga_10'] = np.nan
+                if md is not None and 'elo' in extras:
+                    row['elo_team'] = elo_at(t, g0)
+                    opp = [e for e in (elo_at(f[0], g0) for f in fx) if np.isfinite(e)]
+                    row['elo_opp'] = float(np.mean(opp)) if opp else np.nan
+                if md is not None and 'odds' in extras:
+                    priced = [f for f in fx if np.isfinite(f[3])] if k == 0 else []
+                    row['odds_win'] = float(np.mean([f[3] for f in priced])) if priced else np.nan
+                    row['odds_loss'] = float(np.mean([f[5] for f in priced])) if priced else np.nan
+                    over = [f[6] for f in fx if np.isfinite(f[6])] if k == 0 else []
+                    row['odds_over'] = float(np.mean(over)) if over else np.nan
+                if snap is not None:
+                    # FPL's forecast is for this gameweek only.
+                    row['fpl_ep_next'] = fpl_ep if k == 0 else np.nan
                 row['known'] = gk <= last_finished
                 row['target'] = M['total_points'][i, gk] if gk <= last_finished else np.nan
+                row['target_min'] = M['minutes'][i, gk] if gk <= last_finished else np.nan
                 out.append(row)
     rates = {}
     end = min(38, last_finished)
@@ -204,15 +356,33 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None):
     return pd.DataFrame(out), rates
 
 
-def build(cache, seasons, current=None, last_finished=38, predict_gw=None):
+def build(cache, seasons, current=None, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None,
+          snapshots=None, understat_dir=None):
     """Every season's rows, in order (each season's prior comes from the one
     before). Only `current` uses last_finished / predict_gw."""
     frames, prev = [], {}
     for s in seasons:
         is_cur = s == current
-        df, prev = build_season(cache, s, prev, last_finished if is_cur else 38, predict_gw if is_cur else None)
+        us = None
+        if understat_dir:
+            import understat as U
+            us = U.by_element(cache, s, understat_dir)
+        df, prev = build_season(cache, s, prev, last_finished if is_cur else 38, predict_gw if is_cur else None, md, extras, injuries,
+                                snapshots, us)
         frames.append(df)
     return pd.concat(frames, ignore_index=True)
+
+
+SNAPSHOTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'fpl-snapshots')
+
+
+def load_snapshots(folder=SNAPSHOTS):
+    """{season: DataFrame} from data/fpl-snapshots/<season>.csv."""
+    out = {}
+    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+        if name.endswith('.csv'):
+            out[name[:-4]] = pd.read_csv(os.path.join(folder, name))
+    return out
 
 
 def feature_columns(df):

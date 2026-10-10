@@ -1,0 +1,43 @@
+name: Import Understat data
+
+# Per-match player shots, xG, non-penalty xG and penalties taken from
+# Understat, for the ML model (scripts/ml/import_understat.py). Finished
+# seasons are fetched once; the current one is topped up weekly. Runs when
+# the importer itself changes, too, so a fix is tried straight away.
+on:
+  schedule:
+    - cron: '23 3 * * 2'
+  push:
+    paths:
+      - scripts/ml/import_understat.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ml-import-understat
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python scripts/ml/import_understat.py 2020
+      - name: Commit the data
+        run: |
+          if [ -z "$(git status --porcelain scripts/ml/data/understat)" ]; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add scripts/ml/data/understat
+          git commit -m "ML: Understat data"
+          git pull --rebase --autostash
+          git push

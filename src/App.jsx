@@ -743,7 +743,7 @@ export default function FPLSquadChecker() {
       const pred = staticData.predictionsById[slot.playerId];
       const live = liveById[slot.playerId];
       return {
-        player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote, breakdown: pred.breakdown,
+        player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote, breakdown: pred.breakdown, range: pred.range,
         isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
         multiplier: slot.multiplier,
         ...(isPastGw ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false } : {}),

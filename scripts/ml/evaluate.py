@@ -10,25 +10,31 @@ seasons and, retrained every gameweek, that season's finished weeks.
 
   python scripts/ml/evaluate.py --leak-check   # why the archive's xP is left out
 
-Results (2022-23 to 2025-26, 42,199 player-gameweeks, retrained weekly):
-                          formula   ML
-  next-gameweek corr       0.443   0.520
-  4-week corr              0.558   0.649
-  4-week typical miss      1.091   1.001
-  best XI pts/gameweek     54.8    63.0
+Results (2022-23 to 2025-26, 42,199 player-gameweeks, retrained weekly;
+predictions scored as the app serves them, a player ruled out at the
+deadline being 0 that week):
+                          formula   ML before   ML now
+  next-gameweek corr       0.443     0.520      0.540
+  4-week corr              0.558     0.649      0.669
+  4-week typical miss      1.091     1.001      0.968
+  best XI pts/gameweek     54.8      63.0       64.4
+"ML now" adds betting odds, club Elo, injury history and the two-stage
+model (retrain.py's CONFIG); compare.py tests each change on its own.
 """
 import argparse
 import json
 import os
 import sys
 
-import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import features as F  # noqa: E402
-from retrain import PARAMS, ROUNDS  # noqa: E402
+import matchdata as MD  # noqa: E402
+import model as ML  # noqa: E402
+from compare import served  # noqa: E402
+from retrain import CONFIG  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SEASONS = ['2020-21', '2021-22', '2022-23', '2023-24', '2024-25', '2025-26']
@@ -61,8 +67,10 @@ def main():
         leak_check(args.cache)
         return
 
-    rows = F.build(args.cache, SEASONS)
-    cols = F.feature_columns(rows)
+    from retrain import INJURIES, US_DIR
+    rows = F.build(args.cache, SEASONS, md=MD.MatchData(), injuries=pd.read_csv(INJURIES), snapshots=F.load_snapshots(),
+                   understat_dir=US_DIR if os.path.isdir(US_DIR) else None)
+    rows = rows[rows.known]
     preds = []
     for test in args.test.split(','):
         past = rows[rows.season.isin(SEASONS[:SEASONS.index(test)])]
@@ -73,9 +81,9 @@ def main():
             block = gws[i:i + step]
             known = cur[(cur.gw + cur.k) < block[0]]
             train = pd.concat([past, known])
-            model = lgb.train(PARAMS, lgb.Dataset(train[cols], train.target), num_boost_round=ROUNDS)
+            model = ML.train(train, CONFIG)
             part = cur[cur.gw.isin(block)].copy()
-            part['ml'] = model.predict(part[cols])
+            part['ml'] = served(model, part)
             preds.append(part[['season', 'gw', 'id', 'k', 'ml', 'target']])
         print('tested', test, flush=True)
     P = pd.concat(preds)
