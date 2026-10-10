@@ -28,6 +28,27 @@ import fpl_data  # noqa: E402
 import matchdata as MD  # noqa: E402
 import model as ML  # noqa: E402
 
+INJURIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'injuries.csv')
+
+
+def load_injuries(cache, current, today):
+    """Injury history (data/injuries.csv, from Transfermarkt) plus whoever
+    FPL flags as injured right now, from the date the news was added, for
+    the weeks since that file was made."""
+    import pandas as pd
+    inj = pd.read_csv(INJURIES) if os.path.exists(INJURIES) else pd.DataFrame(columns=['code', 'from_date', 'end_date'])
+    players = pd.read_csv(os.path.join(cache, current, 'players_raw.csv'))
+    if 'status' not in players.columns:
+        return inj
+    ongoing = set(inj[inj.end_date.isna() | (inj.end_date.astype(str) >= today)].code.astype(int))
+    live = []
+    for r in players[players.status == 'i'].itertuples():
+        if int(r.code) in ongoing:
+            continue
+        start = str(r.news_added)[:10] if isinstance(r.news_added, str) and r.news_added else today
+        live.append({'code': int(r.code), 'from_date': start, 'end_date': ''})
+    return pd.concat([inj, pd.DataFrame(live)], ignore_index=True)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 APP_URL = os.environ.get('APP_URL', 'https://fplchecker.vercel.app')
 # The variant that won the walk-forward comparison (compare.py; results in
@@ -85,10 +106,20 @@ def main(api=None, now=None):
         if not api:
             MD.download_current(args.cache, current, teams=bootstrap.get('teams'), app_url=APP_URL)
         md = MD.MatchData((MD.DATA, os.path.join(args.cache, 'football-data')))
-        rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target, md=md)
+        today = (now or datetime.now(timezone.utc)).strftime('%Y-%m-%d')
+        injuries = load_injuries(args.cache, current, today)
+        rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target, md=md,
+                       injuries=injuries)
         known = rows[rows.known]
         model = ML.train(known, CONFIG)
         todo = rows[(rows.season == current) & (rows.gw == target)].copy()
+        # This gameweek, the app scales by FPL's own chance of playing (0 for
+        # a player ruled out), so his own injury isn't counted twice here.
+        # Later weeks keep it: the model has learned how long injuries last.
+        if 'inj_now' in todo.columns:
+            this_week = todo.k == 0
+            todo.loc[this_week, 'inj_now'] = 0.0
+            todo.loc[this_week, 'inj_days_out'] = np.nan
         todo['pred'] = model.predict(todo) if len(todo) else []
         if len(todo):
             k0 = todo[todo.k == 0]
@@ -100,7 +131,10 @@ def main(api=None, now=None):
         if by_id:
             out = {
                 'season': current, 'gwId': int(target), 'builtAt': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-                'trainedRows': int(len(known)), 'model': 'lightgbm', 'config': CONFIG, 'byId': by_id,
+                'trainedRows': int(len(known)), 'model': 'lightgbm', 'config': CONFIG,
+                # Later weeks already allow for injuries: the app scales only
+                # this gameweek by FPL's chance of playing.
+                'injuryAware': 'inj_now' in model.cols, 'byId': by_id,
             }
             for name in ('predictions.json', f'predictions-gw{target}.json'):
                 with open(os.path.join(args.out, name), 'w') as f:

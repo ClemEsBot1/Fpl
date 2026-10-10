@@ -20,6 +20,40 @@ STATS = ['total_points', 'minutes', 'bps', 'ict_index', 'threat', 'creativity', 
 PER90 = ['bps', 'ict_index', 'threat', 'creativity', 'influence', 'goals_scored', 'assists', 'expected_goals',
          'expected_assists', 'saves', 'clean_sheets', 'goals_conceded']
 ID_COLS = ['season', 'gw', 'id', 'code', 'k', 'target', 'target_min', 'known']
+
+
+def injury_index(injuries):
+    """code -> sorted list of (from_date, end_date) strings; an injury with
+    no end date yet runs on."""
+    out = {}
+    if injuries is None:
+        return out
+    for r in injuries.itertuples():
+        end = r.end_date if isinstance(r.end_date, str) and r.end_date else '9999-12-31'
+        out.setdefault(int(r.code), []).append((str(r.from_date)[:10], end))
+    for v in out.values():
+        v.sort()
+    return out
+
+
+def injury_state(spans, date):
+    """(out now, days out so far, injuries in the past year, days missed in
+    the past year) as known on `date`: only injuries that began before it,
+    and days missed only up to it."""
+    if not spans or not date:
+        return 0.0, np.nan, 0.0, 0.0
+    d = pd.Timestamp(date)
+    year_ago = (d - pd.Timedelta(days=365)).strftime('%Y-%m-%d')
+    now, so_far, n, days = 0.0, np.nan, 0.0, 0.0
+    for start, end in spans:
+        if start >= date:
+            break
+        if end >= date:
+            now, so_far = 1.0, float((d - pd.Timestamp(start)).days)
+        if start >= year_ago:
+            n += 1
+            days += float((min(d, pd.Timestamp(end) if end < '9999' else d) - pd.Timestamp(start)).days)
+    return now, so_far, n, days
 # Match-level inputs from matchdata.py: club Elo ratings, and bookmaker
 # odds for the gameweek being predicted (k = 0 only: later gameweeks aren't
 # priced yet at the deadline).
@@ -57,12 +91,14 @@ def _team_names(cache, season):
     return dict(zip(t.id.astype(int), t[col].astype(str)))
 
 
-def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, md=None, extras=EXTRAS):
+def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None):
     """Rows for one season. Gameweeks after `last_finished` have unknown
     targets (known = False); with `predict_gw`, rows stop at that gameweek.
     `md` (matchdata.MatchData) adds club Elo ratings and bookmaker odds, as
-    `extras` says. Returns (rows, this season's per-player rates for the
-    next season's prior)."""
+    `extras` says. `injuries` (code, from_date, end_date; see
+    import_injuries.py) adds each player's injury state and history and how
+    much of his team is missing. Returns (rows, this season's per-player
+    rates for the next season's prior)."""
     players, fixtures, gws = load_season(cache, season)
     ids = players.id.astype(int).values
     idx = {pid: i for i, pid in enumerate(ids)}
@@ -167,6 +203,7 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
         return elo_cache[key]
 
     cs = {s: np.cumsum(M[s], axis=1) for s in STATS}
+    inj_idx = injury_index(injuries) if injuries is not None else None
     cs_tm = np.cumsum(tm, axis=1); cs_gf = np.cumsum(tgf, axis=1); cs_ga = np.cumsum(tga, axis=1)
 
     def win(arr, row, g0, w):
@@ -176,6 +213,28 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
     codes = players.code.values
     pos = players.element_type.values
     last_g0 = min(38, predict_gw) if predict_gw else 38
+    # Injuries at each deadline, and the share of each team's (and each
+    # position's) points so far that is missing through injury.
+    inj_state, team_out, pos_out = {}, {}, {}
+    if inj_idx is not None:
+        for g0 in range(2, last_g0 + 1):
+            date = event_start.get(g0)
+            tot_t, out_t, tot_p, out_p = {}, {}, {}, {}
+            for i in range(n):
+                st = injury_state(inj_idx.get(int(codes[i])), date)
+                inj_state[(i, g0)] = st
+                t = team_at[i, g0 - 1]
+                tm_ = cs_tm[t, g0 - 1]
+                share = cs['total_points'][i, g0 - 1] / tm_ if tm_ else 0.0
+                tot_t[t] = tot_t.get(t, 0) + share
+                tot_p[(t, pos[i])] = tot_p.get((t, pos[i]), 0) + share
+                if st[0]:
+                    out_t[t] = out_t.get(t, 0) + share
+                    out_p[(t, pos[i])] = out_p.get((t, pos[i]), 0) + share
+            for t, v in tot_t.items():
+                team_out[(t, g0)] = out_t.get(t, 0) / v if v > 0 else 0.0
+            for tp, v in tot_p.items():
+                pos_out[tp + (g0,)] = out_p.get(tp, 0) / v if v > 0 else 0.0
     for g0 in range(2, last_g0 + 1):
         for i in range(n):
             if not cs['minutes'][i, g0 - 1] and codes[i] not in prev_rates:
@@ -203,6 +262,13 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
                 tmw = win(cs_tm, t, g0, w)
                 feats[f'team_gf_{w}'] = win(cs_gf, t, g0, w) / tmw if tmw else np.nan
                 feats[f'team_ga_{w}'] = win(cs_ga, t, g0, w) / tmw if tmw else np.nan
+            if inj_idx is not None:
+                st = inj_state[(i, g0)]
+                feats['inj_now'], feats['inj_days_out'], feats['inj_n_365'], feats['inj_days_365'] = st
+                # Share of the team's (and his position's) points that is
+                # out injured; includes his own when he's the one out.
+                feats['inj_team_out'] = team_out.get((t, g0), 0.0)
+                feats['inj_pos_out'] = pos_out.get((t, pos[i], g0), 0.0)
             pr = prev_rates.get(codes[i])
             feats['prev_pts90'] = pr[0] if pr else np.nan
             feats['prev_min'] = pr[1] if pr else np.nan
@@ -248,13 +314,13 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
     return pd.DataFrame(out), rates
 
 
-def build(cache, seasons, current=None, last_finished=38, predict_gw=None, md=None, extras=EXTRAS):
+def build(cache, seasons, current=None, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None):
     """Every season's rows, in order (each season's prior comes from the one
     before). Only `current` uses last_finished / predict_gw."""
     frames, prev = [], {}
     for s in seasons:
         is_cur = s == current
-        df, prev = build_season(cache, s, prev, last_finished if is_cur else 38, predict_gw if is_cur else None, md, extras)
+        df, prev = build_season(cache, s, prev, last_finished if is_cur else 38, predict_gw if is_cur else None, md, extras, injuries)
         frames.append(df)
     return pd.concat(frames, ignore_index=True)
 
