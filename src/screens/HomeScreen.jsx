@@ -245,7 +245,7 @@ function ModelLearning() {
       </div>
       <p className="fpl-home-text" style={{ margin: 0 }}>
         Predictions come from a machine-learning model retrained every day on {Number(pred.trainedRows || 0).toLocaleString('en-GB')} player-gameweeks,
-        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Each finished gameweek is added, so it keeps learning.
+        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}, and again every 2 hours before a deadline for late injury news. Each finished gameweek is added, so it keeps learning.
       </p>
       {weeks.length ? (
         <ol className="fpl-ml-weeks" aria-label="Typical miss per player, each gameweek">
