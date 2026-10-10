@@ -27,18 +27,39 @@ import model as ML  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SEASONS = ['2020-21', '2021-22', '2022-23', '2023-24', '2024-25', '2025-26']
-NO_MATCH = ('elo_', 'odds_')
+NEW = ('elo_', 'odds_', 'inj_')
 
 VARIANTS = {
-    'base': dict(drop=NO_MATCH),  # the model before this change
-    'elo': dict(drop=('odds_',)),
-    'odds': dict(drop=('elo_',)),
+    'base': dict(drop=NEW),  # the model before this change
+    'elo_odds': dict(drop=('inj_',)),
+    'inj': dict(drop=('elo_', 'odds_')),
     'all': dict(),
     'all_tweedie': dict(objective='tweedie'),
     'all_poisson': dict(objective='poisson'),
     'all_decay': dict(decay=0.8),
     'all_two_stage': dict(two_stage=True),
 }
+
+
+def served(m, part):
+    """Predictions as the app serves them. A player injured at the
+    deadline (FPL flags him, the app scales by his chance of playing) is 0
+    this gameweek. A model without injury history gets him 0 every week, as
+    the app did for it; an injury-aware one has its own injury left out of
+    this gameweek (the app's job) and predicts his later weeks itself."""
+    out_now = part.inj_now.fillna(0).values > 0 if 'inj_now' in part.columns else np.zeros(len(part), bool)
+    x = part
+    if 'inj_now' in m.cols:
+        x = part.copy()
+        k0 = (x.k == 0).values
+        x.loc[k0, 'inj_now'] = 0.0
+        x.loc[k0, 'inj_days_out'] = np.nan
+        zero = out_now & k0
+    else:
+        zero = out_now
+    p = m.predict(x)
+    p[zero] = 0.0
+    return p
 
 
 def load_rows(cache, rows_cache):
@@ -61,7 +82,7 @@ def walk_forward(rows, cfg, tests, refit_every):
             known = cur[(cur.gw + cur.k) < block[0]]
             m = ML.train(pd.concat([past, known]), cfg)
             part = cur[cur.gw.isin(block)].copy()
-            part['ml'] = m.predict(part)
+            part['ml'] = served(m, part)
             preds.append(part[['season', 'gw', 'id', 'k', 'ml', 'target']])
     return pd.concat(preds)
 
