@@ -271,3 +271,44 @@ export function leagueDifferentials(members, teams, youEntry, { limit = 5 } = {}
   }
   return { counted, edges, threats, rival };
 }
+
+// A full head-to-head between your team and one chosen rival, for the
+// gameweek their squads are loaded for. Returns the players only one of you
+// has (where the gameweek is won or lost) and the players you share, plus
+// each side's predicted starting XI total. `you` and `rival` are the loaded
+// team objects ({ squad, xiTotal }); null when either isn't ready.
+export function headToHead(you, rival) {
+  if (!you || !rival || !Array.isArray(you.squad) || !Array.isArray(rival.squad) || !you.squad.length || !rival.squad.length) return null;
+  const predictedOf = slot => slot.nextMatchPredicted ?? slot.predicted ?? 0;
+  const round = v => Math.round(v * 10) / 10;
+  const mine = new Map(you.squad.map(s => [s.player.id, s]));
+  const theirs = new Map(rival.squad.map(s => [s.player.id, s]));
+
+  const shared = [];
+  const yourOnly = [];
+  const theirOnly = [];
+  you.squad.forEach(s => {
+    if (theirs.has(s.player.id)) shared.push({ player: s.player, predicted: round(predictedOf(s)) });
+    else yourOnly.push({ player: s.player, predicted: round(predictedOf(s)), starting: !!s.isStarting });
+  });
+  rival.squad.forEach(s => {
+    if (!mine.has(s.player.id)) theirOnly.push({ player: s.player, predicted: round(predictedOf(s)), starting: !!s.isStarting });
+  });
+  const byPred = (a, b) => b.predicted - a.predicted;
+  yourOnly.sort(byPred);
+  theirOnly.sort(byPred);
+  shared.sort(byPred);
+
+  const captainOf = team => { const c = team.squad.find(s => s.isCaptain); return c ? c.player : null; };
+  return {
+    shared,
+    yourOnly,
+    theirOnly,
+    yourXiTotal: round(typeof you.xiTotal === 'number' ? you.xiTotal : 0),
+    theirXiTotal: round(typeof rival.xiTotal === 'number' ? rival.xiTotal : 0),
+    yourCaptain: captainOf(you),
+    theirCaptain: captainOf(rival),
+    // The predicted swing from the differing players only (yours minus theirs).
+    edge: round(yourOnly.reduce((s, r) => s + (r.starting ? r.predicted : 0), 0) - theirOnly.reduce((s, r) => s + (r.starting ? r.predicted : 0), 0)),
+  };
+}

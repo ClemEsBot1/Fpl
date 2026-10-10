@@ -1055,3 +1055,46 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-admin-err-where { font-weight: 700; color: var(--amber); }
 .fpl-admin-err-msg { color: var(--ink-dim); word-break: break-word; min-width: 0; }
 @media (max-width: 520px) { .fpl-admin-errlist li { grid-template-columns: 1fr; gap: 2px; } }
+/* Explore: player table, price-change forecast, chip timing */
+.fpl-tool-h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.05rem; letter-spacing: -0.01em; }
+.fpl-explore-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.fpl-explore-field { display: grid; gap: 4px; min-width: 140px; }
+.fpl-explore-field input[type="range"] { width: 100%; accent-color: var(--blue); }
+.fpl-explore-search { flex: 1 1 160px; }
+.fpl-explore-count { margin: 0; }
+.fpl-explore-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.fpl-explore-table th[scope="col"], .fpl-explore-table td { text-align: right; padding: 7px 8px; white-space: nowrap; }
+.fpl-explore-table th[scope="col"]:first-child, .fpl-explore-table th[scope="row"] { text-align: left; }
+.fpl-explore-table thead th { border-bottom: 1px solid var(--line); color: var(--ink-dim); font-weight: 600; }
+.fpl-explore-table tbody tr { border-bottom: 1px solid var(--line); }
+.fpl-explore-table th[scope="row"] { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.fpl-explore-shirt { width: 20px; height: 20px; display: inline-flex; flex: none; }
+.fpl-explore-shirt svg { width: 100%; height: 100%; }
+.fpl-explore-table .fpl-club-pts { color: var(--blue); font-weight: 700; }
+.fpl-sortbtn { background: none; border: 0; color: inherit; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; padding: 0; }
+.fpl-sortbtn.is-active { color: var(--blue); }
+.fpl-sortbtn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.fpl-price-grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .fpl-price-grid { grid-template-columns: 1fr 1fr; } }
+.fpl-price-h { margin: 0 0 8px; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+.fpl-price-col.is-up .fpl-price-h { color: var(--green); }
+.fpl-price-col.is-down .fpl-price-h { color: var(--red); }
+.fpl-price-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.fpl-price-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 0.82rem; }
+.fpl-price-name { min-width: 0; }
+.fpl-price-meta { display: inline-flex; align-items: baseline; gap: 6px; flex: none; }
+.fpl-price-moved { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--amber); }
+
+.fpl-chip-grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .fpl-chip-grid { grid-template-columns: 1fr 1fr; } }
+.fpl-chip-card { padding: 11px 12px; border-radius: 8px; background: var(--panel-alt); border: 1px solid var(--line); display: grid; gap: 5px; }
+.fpl-chip-card.is-strong { border-color: var(--blue); }
+.fpl-chip-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.fpl-chip-name { font-weight: 700; }
+.fpl-chip-gw { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--blue); }
+.fpl-chip-reason { margin: 0; font-size: 0.8rem; color: var(--ink-dim); line-height: 1.45; }
+
+/* Player insight: likely-range reason chips in the breakdown */
+.fpl-insight-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.fpl-insight-chip { font-size: 0.64rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(4, 249, 252, 0.14); color: var(--blue); border: 1px solid rgba(4, 249, 252, 0.3); }
