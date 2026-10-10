@@ -27,17 +27,22 @@ import model as ML  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SEASONS = ['2020-21', '2021-22', '2022-23', '2023-24', '2024-25', '2025-26']
-NEW = ('elo_', 'odds_', 'inj_')
+NEW = ('elo_', 'odds_', 'inj_', 'fpl_', 'us_')
 
 VARIANTS = {
     'base': dict(drop=NEW),  # the model before this change
-    'elo_odds': dict(drop=('inj_',)),
-    'inj': dict(drop=('elo_', 'odds_')),
-    'all': dict(),
-    'all_tweedie': dict(objective='tweedie'),
-    'all_poisson': dict(objective='poisson'),
-    'all_decay': dict(decay=0.8),
-    'all_two_stage': dict(two_stage=True),
+    'elo_odds': dict(drop=('inj_', 'fpl_', 'us_')),
+    'inj': dict(drop=('elo_', 'odds_', 'fpl_', 'us_')),
+    'all': dict(drop=('fpl_', 'us_')),
+    'all_tweedie': dict(objective='tweedie', drop=('fpl_', 'us_')),
+    'all_poisson': dict(objective='poisson', drop=('fpl_', 'us_')),
+    'all_decay': dict(decay=0.8, drop=('fpl_', 'us_')),
+    'all_two_stage': dict(two_stage=True, drop=('fpl_', 'us_')),
+    # Second round, on the winner of the first (tweedie):
+    'tw_cal': dict(objective='tweedie', calibrate=True, drop=('fpl_', 'us_')),
+    'tw_fpl': dict(objective='tweedie', drop=('us_',)),  # FPL's deadline data, 2025-26 on
+    'tw_us': dict(objective='tweedie', drop=('fpl_',)),  # Understat
+    'tw_all': dict(objective='tweedie'),
 }
 
 
@@ -65,7 +70,10 @@ def served(m, part):
 def load_rows(cache, rows_cache):
     if rows_cache and os.path.exists(rows_cache):
         return pickle.load(open(rows_cache, 'rb'))
-    rows = F.build(cache, SEASONS, md=M.MatchData())
+    inj_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'injuries.csv')
+    us_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'understat')
+    rows = F.build(cache, SEASONS, md=M.MatchData(), injuries=pd.read_csv(inj_path), snapshots=F.load_snapshots(),
+                   understat_dir=us_dir if os.path.isdir(us_dir) else None)
     if rows_cache:
         pickle.dump(rows, open(rows_cache, 'wb'))
     return rows

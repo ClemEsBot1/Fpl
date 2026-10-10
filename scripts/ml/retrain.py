@@ -29,6 +29,7 @@ import matchdata as MD  # noqa: E402
 import model as ML  # noqa: E402
 
 INJURIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'injuries.csv')
+US_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'understat')
 
 
 def save_snapshot(cache, current, target, folder=F.SNAPSHOTS):
@@ -131,7 +132,8 @@ def main(api=None, now=None):
         snap_dir = os.environ.get('SNAPSHOTS_DIR', F.SNAPSHOTS)
         save_snapshot(args.cache, current, target, snap_dir)
         rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target, md=md,
-                       injuries=injuries, snapshots=F.load_snapshots(snap_dir))
+                       injuries=injuries, snapshots=F.load_snapshots(snap_dir),
+                       understat_dir=US_DIR if os.path.isdir(US_DIR) else None)
         known = rows[rows.known]
         model = ML.train(known, CONFIG)
         todo = rows[(rows.season == current) & (rows.gw == target)].copy()

@@ -62,7 +62,9 @@ def main():
         leak_check(args.cache)
         return
 
-    rows = F.build(args.cache, SEASONS, md=MD.MatchData())
+    from retrain import INJURIES, US_DIR
+    rows = F.build(args.cache, SEASONS, md=MD.MatchData(), injuries=pd.read_csv(INJURIES), snapshots=F.load_snapshots(),
+                   understat_dir=US_DIR if os.path.isdir(US_DIR) else None)
     rows = rows[rows.known]
     preds = []
     for test in args.test.split(','):
