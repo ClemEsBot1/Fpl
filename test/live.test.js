@@ -39,10 +39,12 @@ const picksWith = (extra = {}) => ({
 const allDone = Object.fromEntries(POS.map((_, i) => [i + 1, 'done']));
 const played = (overrides = {}) => Object.fromEntries(POS.map((_, i) => [i + 1, { totalPoints: 2, minutes: 90, bonus: 0, ...(overrides[i + 1] || {}) }]));
 
-test('live total: captain doubled, projected bonus added, hit taken off', () => {
+test('live total: captain doubled, projected bonus added, hit kept apart', () => {
   const r = liveTeamScore({ picks: picksWith(), liveById: played({ 10: { totalPoints: 8 } }), bonus: { 10: 3 }, states: allDone, playersById });
-  // 10 starters × 2 + captain (8 + 3) × 2 − 4.
-  assert.equal(r.total, 20 + 22 - 4);
+  // 10 starters × 2 + captain (8 + 3) × 2; like FPL, the hit isn't taken
+  // off the week's points.
+  assert.equal(r.total, 20 + 22);
+  assert.equal(r.hit, 4);
 });
 
 test('a starter who did not play is replaced by the first sub who keeps a legal formation', () => {
@@ -51,7 +53,7 @@ test('a starter who did not play is replaced by the first sub who keeps a legal 
   const r = liveTeamScore({ picks: picksWith(), liveById: played({ 2: { minutes: 0, totalPoints: 0 }, 13: { totalPoints: 6 } }), bonus: {}, states: allDone, playersById });
   assert.ok(r.rows.find(x => x.id === 13).subIn);
   assert.ok(r.rows.find(x => x.id === 2).subOut);
-  assert.equal(r.total, 9 * 2 + 4 + 6 - 4);
+  assert.equal(r.total, 9 * 2 + 4 + 6);
 });
 
 test('the keeper is only covered by the bench keeper, and nobody comes on for a match not yet over', () => {
@@ -79,7 +81,7 @@ test('the vice-captain takes the armband when the captain does not play', () => 
 test('bench boost counts all fifteen and makes no substitutions', () => {
   const r = liveTeamScore({ picks: picksWith({ active_chip: 'bboost' }), liveById: played({ 2: { minutes: 0, totalPoints: 0 } }), bonus: {}, states: allDone, playersById });
   assert.ok(!r.rows.some(x => x.subIn));
-  assert.equal(r.total, 13 * 2 + 4 - 4);
+  assert.equal(r.total, 13 * 2 + 4);
 });
 
 test('the live bonus race ranks by BPS across live matches and flags owned players', () => {

@@ -157,7 +157,7 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
                 <b className="fpl-mono">{score.total}</b>
                 <span className="fpl-meta">
                   {projectedTotal ? <>includes <b>+{projectedTotal}</b> projected bonus. </> : null}
-                  {score.hit ? <>−{score.hit} for transfers. </> : null}
+                  {score.hit ? <>Transfer hit −{score.hit}, taken off your season total. </> : null}
                   {average ? <>Average {average}.</> : null}
                   {picks.active_chip ? <> Chip: {picks.active_chip === 'bboost' ? 'Bench Boost' : picks.active_chip === '3xc' ? 'Triple Captain' : picks.active_chip === 'freehit' ? 'Free Hit' : 'Wildcard'}.</> : null}
                 </span>

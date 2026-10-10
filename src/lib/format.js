@@ -167,10 +167,15 @@ export function formatCountdown(targetISO, opts = {}) {
   return `${hours}h ${mins}m ${suffix}`;
 }
 
-// A team's points for a past gameweek: FPL's own figure when that week's
-// picks were loaded (entryHistory), otherwise the starters' live points
-// added up.
+// A team's points for a gameweek that has started: FPL's own figure once
+// the week is over and its picks were loaded (entryHistory), otherwise the
+// starters' live points added up. While the week is on FPL's figure lags
+// behind the live scores. Neither takes off a transfer hit: FPL counts that
+// against the season total, not the week's points.
 export function officialGwPoints(data) {
-  const history = data && data.entryHistory;
-  return history && typeof history.points === 'number' ? history.points : (data ? data.actualXiTotal : null);
+  if (!data) return null;
+  const history = data.entryHistory;
+  const event = Array.isArray(data.allEvents) ? data.allEvents.find(e => e.id === data.gwId) : null;
+  const live = event && !event.finished;
+  return !live && history && typeof history.points === 'number' ? history.points : data.actualXiTotal;
 }

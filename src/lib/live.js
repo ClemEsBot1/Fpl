@@ -133,7 +133,9 @@ export function liveTeamScore({ picks, liveById, bonus, states, playersById }) {
   }
 
   rows.forEach(r => { r.points = (r.livePoints + r.bonus) * r.multiplier; });
+  // The week's points don't count a transfer hit (FPL takes it off the
+  // season total), so it's returned on its own.
   const hit = (picks.entry_history && picks.entry_history.event_transfers_cost) || 0;
-  const total = rows.reduce((s, r) => s + r.points, 0) - hit;
+  const total = rows.reduce((s, r) => s + r.points, 0);
   return { total, hit, rows };
 }
