@@ -38,6 +38,12 @@ export function startProbability(player) {
 // bigger haul chance lifts the ceiling. floor <= expected <= ceiling always.
 export function predictionRange(prediction, player) {
   const expected = Math.max(0, (prediction && prediction.nextMatchPredicted) || 0);
+  // The ML model's own 10th-90th percentile, when it has one.
+  const ml = prediction && prediction.range;
+  if (ml && Number.isFinite(ml.floor) && Number.isFinite(ml.ceiling)) {
+    const r = n => Math.round(n * 10) / 10;
+    return { floor: r(Math.min(ml.floor, expected)), expected: r(expected), ceiling: r(Math.max(ml.ceiling, expected)), source: 'model' };
+  }
   const pos = (player && player.positionId) || 3;
   const sp = startProbability(player);
   const haul = haulChance(pos, expected); // 0..1

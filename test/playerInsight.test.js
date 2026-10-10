@@ -53,3 +53,11 @@ test('a low-owned player in good form reads as a differential', () => {
   assert.ok(reasons.includes('Low-owned differential'));
   assert.ok(reasons.includes('In form'));
 });
+
+test("the range uses the model's own low and high when it has them", () => {
+  const r = predictionRange({ nextMatchPredicted: 5, range: { floor: 1, ceiling: 11 } }, { positionId: 3, status: 'a' });
+  assert.deepEqual(r, { floor: 1, expected: 5, ceiling: 11, source: 'model' });
+  // Never a band that excludes the prediction itself.
+  const tight = predictionRange({ nextMatchPredicted: 5, range: { floor: 6, ceiling: 7 } }, { positionId: 3, status: 'a' });
+  assert.equal(tight.floor, 5);
+});

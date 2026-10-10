@@ -78,12 +78,13 @@ def write_current_season(cache, bootstrap, fixtures, live_by_gw):
     with open(os.path.join(d, 'players_raw.csv'), 'w', newline='') as f:
         w = csv.writer(f)
         w.writerow(['id', 'code', 'element_type', 'team', 'now_cost', 'web_name', 'first_name', 'second_name',
-                    'birth_date', 'status', 'chance_of_playing_next_round', 'news_added'])
+                    'birth_date', 'status', 'chance_of_playing_next_round', 'news_added', 'ep_next', 'penalties_order'])
         for e in elements:
             w.writerow([e['id'], e['code'], e['element_type'], e['team'], e['now_cost'], e['web_name'],
                         e.get('first_name', ''), e.get('second_name', ''), e.get('birth_date') or '',
                         e.get('status', ''), '' if e.get('chance_of_playing_next_round') is None else e['chance_of_playing_next_round'],
-                        e.get('news_added') or ''])
+                        e.get('news_added') or '', e.get('ep_next') or '',
+                        '' if e.get('penalties_order') is None else e['penalties_order']])
     with open(os.path.join(d, 'teams.csv'), 'w', newline='') as f:
         w = csv.writer(f)
         w.writerow(['id', 'short_name', 'name'])

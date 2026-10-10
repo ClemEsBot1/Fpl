@@ -91,13 +91,17 @@ def _team_names(cache, season):
     return dict(zip(t.id.astype(int), t[col].astype(str)))
 
 
-def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None):
+def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None,
+                 snapshots=None):
     """Rows for one season. Gameweeks after `last_finished` have unknown
     targets (known = False); with `predict_gw`, rows stop at that gameweek.
     `md` (matchdata.MatchData) adds club Elo ratings and bookmaker odds, as
     `extras` says. `injuries` (code, from_date, end_date; see
     import_injuries.py) adds each player's injury state and history and how
-    much of his team is missing. Returns (rows, this season's per-player
+    much of his team is missing. `snapshots` ({season: DataFrame of id, gw,
+    ep_next, chance_next, status, penalties_order}; see
+    import_fpl_snapshots.py) adds FPL's own forecast, chance of playing and
+    penalty order as they stood at the deadline. Returns (rows, this season's per-player
     rates for the next season's prior)."""
     players, fixtures, gws = load_season(cache, season)
     ids = players.id.astype(int).values
@@ -204,6 +208,14 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
 
     cs = {s: np.cumsum(M[s], axis=1) for s in STATS}
     inj_idx = injury_index(injuries) if injuries is not None else None
+    # FPL's figures after gameweek g - 1, i.e. at gameweek g's deadline.
+    snap = None
+    if snapshots is not None:
+        snap = {}
+        sdf = snapshots.get(season)
+        if sdf is not None:
+            for r in sdf.itertuples():
+                snap[(int(r.id), int(r.gw) + 1)] = r
     cs_tm = np.cumsum(tm, axis=1); cs_gf = np.cumsum(tgf, axis=1); cs_ga = np.cumsum(tga, axis=1)
 
     def win(arr, row, g0, w):
@@ -269,6 +281,15 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
                 # out injured; includes his own when he's the one out.
                 feats['inj_team_out'] = team_out.get((t, g0), 0.0)
                 feats['inj_pos_out'] = pos_out.get((t, pos[i], g0), 0.0)
+            if snap is not None:
+                r = snap.get((int(ids[i]), g0))
+                if r is not None:
+                    chance = r.chance_next if np.isfinite(r.chance_next) else (100.0 if r.status == 'a' else np.nan)
+                    feats['fpl_chance'] = chance
+                    feats['fpl_pen'] = r.penalties_order if np.isfinite(r.penalties_order) else 0.0
+                    fpl_ep = r.ep_next
+                else:
+                    feats['fpl_chance'] = feats['fpl_pen'] = fpl_ep = np.nan
             pr = prev_rates.get(codes[i])
             feats['prev_pts90'] = pr[0] if pr else np.nan
             feats['prev_min'] = pr[1] if pr else np.nan
@@ -302,6 +323,9 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
                     row['odds_loss'] = float(np.mean([f[5] for f in priced])) if priced else np.nan
                     over = [f[6] for f in fx if np.isfinite(f[6])] if k == 0 else []
                     row['odds_over'] = float(np.mean(over)) if over else np.nan
+                if snap is not None:
+                    # FPL's forecast is for this gameweek only.
+                    row['fpl_ep_next'] = fpl_ep if k == 0 else np.nan
                 row['known'] = gk <= last_finished
                 row['target'] = M['total_points'][i, gk] if gk <= last_finished else np.nan
                 row['target_min'] = M['minutes'][i, gk] if gk <= last_finished else np.nan
@@ -314,15 +338,29 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
     return pd.DataFrame(out), rates
 
 
-def build(cache, seasons, current=None, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None):
+def build(cache, seasons, current=None, last_finished=38, predict_gw=None, md=None, extras=EXTRAS, injuries=None,
+          snapshots=None):
     """Every season's rows, in order (each season's prior comes from the one
     before). Only `current` uses last_finished / predict_gw."""
     frames, prev = [], {}
     for s in seasons:
         is_cur = s == current
-        df, prev = build_season(cache, s, prev, last_finished if is_cur else 38, predict_gw if is_cur else None, md, extras, injuries)
+        df, prev = build_season(cache, s, prev, last_finished if is_cur else 38, predict_gw if is_cur else None, md, extras, injuries,
+                                snapshots)
         frames.append(df)
     return pd.concat(frames, ignore_index=True)
+
+
+SNAPSHOTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'fpl-snapshots')
+
+
+def load_snapshots(folder=SNAPSHOTS):
+    """{season: DataFrame} from data/fpl-snapshots/<season>.csv."""
+    out = {}
+    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+        if name.endswith('.csv'):
+            out[name[:-4]] = pd.read_csv(os.path.join(folder, name))
+    return out
 
 
 def feature_columns(df):

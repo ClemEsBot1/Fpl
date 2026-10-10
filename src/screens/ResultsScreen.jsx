@@ -189,7 +189,7 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
           <ChevronDown size={14} style={{ color: 'var(--ink-dim)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .12s' }} />
         )}
       </div>
-      {showWhy && <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent }} player={player} />}
+      {showWhy && <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent, range: slot.range }} player={player} />}
     </>
   );
 }
@@ -616,7 +616,7 @@ function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit,
         {slot.breakdown ? (
           <>
             <button type="button" className="fpl-link" aria-expanded={showWhy} onClick={() => setShowWhy(v => !v)}>{showWhy ? 'Hide why' : 'Why this prediction?'}</button>
-            {showWhy ? <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent }} player={player} /> : null}
+            {showWhy ? <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent, range: slot.range }} player={player} /> : null}
           </>
         ) : null}
         {canEdit ? (

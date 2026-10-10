@@ -31,6 +31,26 @@ import model as ML  # noqa: E402
 INJURIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'injuries.csv')
 
 
+def save_snapshot(cache, current, target, folder=F.SNAPSHOTS):
+    """FPL's figures right now (forecast, chance of playing, penalty order)
+    as the snapshot at gameweek `target`'s deadline, kept in
+    data/fpl-snapshots/<season>.csv (the workflow commits it), so FPL's
+    own deadline data builds up for the model season by season."""
+    import pandas as pd
+    players = pd.read_csv(os.path.join(cache, current, 'players_raw.csv'))
+    if 'ep_next' not in players.columns or not target:
+        return
+    num = lambda c: pd.to_numeric(players[c], errors='coerce') if c in players.columns else float('nan')
+    now = pd.DataFrame({'id': players.id.astype(int), 'gw': int(target) - 1, 'ep_next': num('ep_next'),
+                        'chance_next': num('chance_of_playing_next_round'), 'status': players.status.astype(str),
+                        'penalties_order': num('penalties_order')})
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, f'{current}.csv')
+    old = pd.read_csv(path) if os.path.exists(path) else now.iloc[:0]
+    old = old[old.gw != int(target) - 1]
+    pd.concat([old, now]).sort_values(['gw', 'id']).to_csv(path, index=False, float_format='%.2f')
+
+
 def load_injuries(cache, current, today):
     """Injury history (data/injuries.csv, from Transfermarkt) plus whoever
     FPL flags as injured right now, from the date the news was added, for
@@ -108,8 +128,10 @@ def main(api=None, now=None):
         md = MD.MatchData((MD.DATA, os.path.join(args.cache, 'football-data')))
         today = (now or datetime.now(timezone.utc)).strftime('%Y-%m-%d')
         injuries = load_injuries(args.cache, current, today)
+        snap_dir = os.environ.get('SNAPSHOTS_DIR', F.SNAPSHOTS)
+        save_snapshot(args.cache, current, target, snap_dir)
         rows = F.build(args.cache, seasons, current=current, last_finished=last_finished, predict_gw=target, md=md,
-                       injuries=injuries)
+                       injuries=injuries, snapshots=F.load_snapshots(snap_dir))
         known = rows[rows.known]
         model = ML.train(known, CONFIG)
         todo = rows[(rows.season == current) & (rows.gw == target)].copy()
@@ -121,6 +143,16 @@ def main(api=None, now=None):
             todo.loc[this_week, 'inj_now'] = 0.0
             todo.loc[this_week, 'inj_days_out'] = np.nan
         todo['pred'] = model.predict(todo) if len(todo) else []
+        # Low and high ends of this gameweek's likely score (10th and 90th
+        # percentile), for the range shown next to each prediction.
+        ranges = {}
+        this_week = todo[todo.k == 0]
+        if len(this_week):
+            q = ML.train_quantiles(known, CONFIG)
+            lo, hi = q[0.1].predict(this_week), q[0.9].predict(this_week)
+            for pid, a, b, p in zip(this_week.id, lo, hi, this_week.pred):
+                a, b = max(0.0, float(a)), max(0.0, float(b))
+                ranges[str(int(pid))] = [round(min(a, p), 1), round(max(b, p), 1)]
         if len(todo):
             k0 = todo[todo.k == 0]
             print('odds for', round(float(k0.odds_win.notna().mean()) * 100), '% of this gameweek\'s rows', flush=True)
@@ -134,7 +166,7 @@ def main(api=None, now=None):
                 'trainedRows': int(len(known)), 'model': 'lightgbm', 'config': CONFIG,
                 # Later weeks already allow for injuries: the app scales only
                 # this gameweek by FPL's chance of playing.
-                'injuryAware': 'inj_now' in model.cols, 'byId': by_id,
+                'injuryAware': 'inj_now' in model.cols, 'byId': by_id, 'rangeById': ranges,
             }
             for name in ('predictions.json', f'predictions-gw{target}.json'):
                 with open(os.path.join(args.out, name), 'w') as f:

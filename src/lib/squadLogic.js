@@ -54,7 +54,7 @@ export function swapPlayerInSquad(squad, outPlayerId, inPlayer, predictionsById)
       predicted: pred.predicted,
       nextMatchPredicted: pred.nextMatchPredicted,
       availNote: pred.availNote,
-      breakdown: pred.breakdown,
+      breakdown: pred.breakdown, range: pred.range,
       isCaptain: false,
       isViceCaptain: false,
       multiplier: s.isStarting ? 1 : 0,
