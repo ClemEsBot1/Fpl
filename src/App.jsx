@@ -804,7 +804,7 @@ export default function FPLSquadChecker() {
   }, [selectedGw, stage, hindsightData]);
 
   function buildResultsData(squad, staticData, bankTenths, entryMeta, activeChip, isOptimalBuild, extra = {}) {
-    const { isPastGw = false, nextRefreshAt = null, builtAt = null, gwUnavailable = false, gwId = null, backfilled = false, entryHistory = null } = extra;
+    const { isPastGw = false, nextRefreshAt = null, builtAt = null, gwUnavailable = false, gwId = null, backfilled = false, entryHistory = null, liveTotal = null } = extra;
     const starters = squad.filter(s => s.isStarting);
     const bench = squad.filter(s => !s.isStarting);
 
@@ -825,7 +825,7 @@ export default function FPLSquadChecker() {
     return {
       squad, starters, bench, xiTotal, actualXiTotal: isPastGw ? actualXiTotal : null, captain, captainSuggestion, suggestions,
       entryMeta, bankTenths, activeChip, isOptimalBuild,
-      isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled, entryHistory,
+      isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled, entryHistory, liveTotal,
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
       allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById,
@@ -855,7 +855,7 @@ export default function FPLSquadChecker() {
     setResultsData(prev => {
       if (!prev || !currentStaticDataRef.current) return prev;
       const next = buildResultsData(newSquad, currentStaticDataRef.current, newBankTenths, prev.entryMeta, prev.activeChip, prev.isOptimalBuild, {
-        isPastGw: prev.isPastGw, nextRefreshAt: prev.nextRefreshAt, builtAt: prev.builtAt, gwId: prev.gwId, backfilled: prev.backfilled, entryHistory: prev.entryHistory,
+        isPastGw: prev.isPastGw, nextRefreshAt: prev.nextRefreshAt, builtAt: prev.builtAt, gwId: prev.gwId, backfilled: prev.backfilled, entryHistory: prev.entryHistory, liveTotal: prev.liveTotal,
       });
       // Changed since it was loaded or last saved.
       return { ...next, edited: true };
@@ -1129,7 +1129,11 @@ export default function FPLSquadChecker() {
     // Everything that only depends on the gameweek starts straight away,
     // alongside the team's own lookups.
     const gwStaticPromise = isPastGwView ? staticDataForGw(gwId) : Promise.resolve(staticData);
-    const livePromise = isPastGwView ? liveForGw(gwId, isGwFinished(staticData, gwId)) : Promise.resolve({});
+    const weekFinished = isGwFinished(staticData, gwId);
+    const livePromise = isPastGwView ? liveForGw(gwId, weekFinished) : Promise.resolve({});
+    // A week still being played is scored as FPL will settle it (projected
+    // bonus, automatic subs, the vice-captain), which needs its matches.
+    const fixturesPromise = isPastGwView && !weekFinished ? fixturesForGw(gwId) : Promise.resolve(null);
     const settle = promise => promise.then(value => ({ value }), error => ({ error }));
     const [picksResult, entryResult] = await Promise.all([
       settle(fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`)),
@@ -1189,7 +1193,7 @@ export default function FPLSquadChecker() {
     if (borrowed) entryMeta.picksFromGwId = picksGwId;
 
     onProgress(isPastGwView ? 'Rebuilding player data from before that deadline…' : 'Checking fixtures and working out predictions…');
-    const [gwStatic, liveById] = await Promise.all([gwStaticPromise, livePromise]);
+    const [gwStatic, liveById, weekFixtures] = await Promise.all([gwStaticPromise, livePromise, fixturesPromise]);
     if (isStale()) return null;
 
     const rawSquad = scoreSlots(picks.picks.map(pk => ({
@@ -1214,8 +1218,12 @@ export default function FPLSquadChecker() {
       };
     }
 
+    const liveTotal = weekFixtures && !borrowed
+      ? liveTeamScore({ picks, liveById, bonus: projectedBonus(weekFixtures), states: teamStates(weekFixtures), playersById: staticData.playersById }).total
+      : null;
+
     return {
-      squad, gwStatic, entry, entryMeta, isPastGwView,
+      squad, gwStatic, entry, entryMeta, isPastGwView, liveTotal,
       // The picks themselves, for callers that also want the week's points.
       picks: borrowed ? null : picks,
       // FPL's own record of the week (points, hit, ranks), for a gameweek
@@ -1256,7 +1264,7 @@ export default function FPLSquadChecker() {
       if (!team) return;
       // The first team someone checks becomes the one Home shows.
       if (!homeTeam.teamId) rememberHomeTeam(teamId);
-      finalizeResults(ticket, team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId, entryHistory: team.entryHistory });
+      finalizeResults(ticket, team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId, entryHistory: team.entryHistory, liveTotal: team.liveTotal });
     } catch (e) {
       const code = (e && e.code) || 'ERR_UNKNOWN';
       const action = code === 'ERR_TEAM_NOT_STARTED' ? {
@@ -1297,7 +1305,7 @@ export default function FPLSquadChecker() {
       const savedSquad = teamChangesFor(savedTeams, teamId, gwId);
       const team = await loadTeamForGw(teamId, gwId, staticData, { isStale, savedSquad });
       if (!team || isStale()) return;
-      const data = buildResultsData(team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId, entryHistory: team.entryHistory });
+      const data = buildResultsData(team.squad, team.gwStatic, team.bankTenths, team.entryMeta, team.activeChip, false, { isPastGw: team.isPastGwView, gwId, entryHistory: team.entryHistory, liveTotal: team.liveTotal });
       setHomeTeam({ teamId, status: 'ready', data: { ...data, entry: team.entry }, error: null, loadedAt: Date.now(), staticData: team.gwStatic, savedSquad });
     } catch (e) {
       if (!isStale()) setHomeTeam({ teamId, status: 'error', data: null, error: teamErrorMessage(e) });

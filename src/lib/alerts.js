@@ -2,6 +2,8 @@
 // to move, and injury or suspension news. Shown on Home, and as phone or
 // desktop notifications when they're switched on (see notifyNewAlerts).
 
+import { nextPriceChangeAt } from './transferTrends.js';
+
 const HOUR = 3600 * 1000;
 // FPL's progress towards a price change: 100 means expected at the next
 // change (overnight UK time), so from here a move tonight is likely.
@@ -38,6 +40,9 @@ export function buildAlerts(staticData, playerIds, now = Date.now()) {
     }
   }
   const day = new Date(now).toISOString().slice(0, 10);
+  // Prices change at midnight UK time.
+  const untilChange = nextPriceChangeAt(new Date(now)).getTime() - now;
+  const changeIn = `${Math.floor(untilChange / HOUR)}h ${Math.floor((untilChange % HOUR) / 60000)}m`;
   (playerIds || []).forEach(id => {
     const p = staticData.playersById[id];
     if (!p) return;
@@ -58,7 +63,9 @@ export function buildAlerts(staticData, playerIds, now = Date.now()) {
         kind: rise ? 'rise' : 'fall',
         level: rise ? 'info' : 'warn',
         title: `${p.webName} may ${rise ? 'rise' : 'fall'} in price tonight`,
-        body: rise ? 'Good for your team value: you keep half of any rise when you sell.' : 'If you plan to sell him, doing it before the change keeps today\'s price.',
+        body: rise
+          ? `Prices change at midnight UK time, in ${changeIn}. Good for your team value: you keep half of any rise when you sell.`
+          : `Prices change at midnight UK time, in ${changeIn}.${typeof pred.predicted === 'number' ? ` He's predicted ${pred.predicted.toFixed(1)} pts a week over the next few gameweeks.` : ''} If you plan to sell him, doing it before the change keeps today's price.`,
       });
     }
   });

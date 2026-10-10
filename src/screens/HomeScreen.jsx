@@ -221,9 +221,13 @@ function Alerts({ staticData, homeTeam }) {
   );
 }
 
-// The machine-learning model (scripts/ml/): when it was last retrained and
-// how its predictions did each finished gameweek, newest last.
-function ModelLearning() {
+// The model's walk-forward test, from scripts/ml/evaluate.py's docstring.
+const BACKTEST = { mlXi: 64.4, formulaXi: 54.8, mlCorr: 0.54, formulaCorr: 0.44 };
+
+// The machine-learning model (scripts/ml/): when it was last retrained, how
+// its predictions did each finished gameweek (newest last) and its biggest
+// misses the last one, and how it did when tested on past seasons.
+function ModelLearning({ playersById }) {
   const [state, setState] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -237,6 +241,7 @@ function ModelLearning() {
   const { pred } = state;
   const weeks = state.weeks.filter(w => w.season === pred.season).slice(-8);
   const worst = Math.max(1, ...weeks.map(w => w.meanAbsError));
+  const last = weeks[weeks.length - 1] || null;
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="ml-h">
       <div className="fpl-home-team-head">
@@ -261,6 +266,28 @@ function ModelLearning() {
         <p className="fpl-home-hint">Its first scored week shows here once Gameweek {pred.gwId} is over.</p>
       )}
       {weeks.length ? <p className="fpl-home-hint">Typical miss per player who played, from predictions made before each deadline. Shorter is better.</p> : null}
+      {last && Array.isArray(last.misses) && last.misses.length ? (
+        <details className="fpl-ml-misses">
+          <summary>GW{last.gwId}: biggest misses{typeof last.correlation === 'number' ? ` (correlation ${last.correlation.toFixed(2)})` : ''}</summary>
+          <table className="fpl-mini-table">
+            <caption className="fpl-sr-only">Gameweek {last.gwId}: predicted and actual points, biggest misses</caption>
+            <thead><tr><th scope="col">Player</th><th scope="col">Predicted</th><th scope="col">Scored</th></tr></thead>
+            <tbody>
+              {last.misses.map(([id, predicted, actual]) => (
+                <tr key={id}>
+                  <th scope="row">{(playersById && playersById[id] && playersById[id].webName) || `Player ${id}`}</th>
+                  <td className="fpl-mono">{fmtPts(predicted)}</td>
+                  <td className={`fpl-mono ${actual > predicted ? 'is-up' : 'is-down'}`}>{actual}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      ) : null}
+      <p className="fpl-home-hint">
+        Tested on 2022-23 to 2025-26, predicting each week from earlier ones only: the best XI it picks scored {BACKTEST.mlXi} pts a gameweek, against {BACKTEST.formulaXi} for the formula it replaced
+        (correlation with points {BACKTEST.mlCorr} vs {BACKTEST.formulaCorr}).
+      </p>
     </section>
   );
 }
@@ -433,7 +460,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
           <WeeklyPicks staticData={staticData} />
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
           <PredictionCheck gwId={isPast && event.finished ? event.id : null} playersById={staticData && staticData.playersById} />
-          <ModelLearning />
+          <ModelLearning playersById={staticData && staticData.playersById} />
         </div>
         {/* Keyed by gameweek so a new one starts on its first panel. */}
         <TransferTrends

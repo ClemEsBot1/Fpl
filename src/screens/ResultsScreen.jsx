@@ -10,7 +10,8 @@ import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
 import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
 import { predictionRange, pickReasons } from '../lib/playerInsight.js';
-import { planTransfers } from '../lib/transferPlan.js';
+import { planTransfers, xiPointsForWeek } from '../lib/transferPlan.js';
+import { squadChipWeeks } from '../lib/chipPlanner.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
@@ -237,19 +238,59 @@ export function BenchOrderTip({ squad, onApply }) {
   );
 }
 
+// The best of the next few gameweeks for Bench Boost and Triple Captain with
+// this squad, and what each would add week by week (squadChipWeeks).
+function ChipWeeks({ squad, predictionsById }) {
+  const plan = useMemo(() => {
+    const players = squad.map(s => s.player);
+    const { pointsById, events } = weeklyPoints(players, predictionsById);
+    return squadChipWeeks(players, pointsById, events);
+  }, [squad, predictionsById]);
+  if (!plan.weeks.length) return null;
+  return (
+    <div className="fpl-block fpl-chip-weeks" style={{ padding: 12, marginTop: 8 }}>
+      <div className="fpl-mono fpl-meta" style={{ marginBottom: 6 }}>NEXT {plan.weeks.length} GAMEWEEKS, FROM THE PREDICTIONS</div>
+      <p style={{ fontSize: '0.8rem', lineHeight: 1.5, margin: '0 0 8px' }}>
+        Bench Boost adds most in <b>GW{plan.benchBoost.event}</b> (+{fmtPts(plan.benchBoost.gain)} pts),
+        {' '}Triple Captain in <b>GW{plan.tripleCaptain.event}</b> (+{fmtPts(plan.tripleCaptain.gain)} pts).
+      </p>
+      <table className="fpl-mini-table">
+        <caption className="fpl-sr-only">Predicted points each chip would add, by gameweek</caption>
+        <thead><tr><th scope="col">GW</th><th scope="col">Bench Boost</th><th scope="col">Triple Captain</th></tr></thead>
+        <tbody>
+          {plan.weeks.map(w => (
+            <tr key={w.event}>
+              <th scope="row" className="fpl-mono">{w.event}</th>
+              <td className={`fpl-mono${w.event === plan.benchBoost.event ? ' is-best' : ''}`}>+{fmtPts(w.benchBoost)}</td>
+              <td className={`fpl-mono${w.event === plan.tripleCaptain.event ? ' is-best' : ''}`}>+{fmtPts(w.tripleCaptain)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Each player's predicted points week by week (byGw), as planTransfers and
+// squadChipWeeks take them: { pointsById: { [id]: [week 0, …] }, events }.
+function weeklyPoints(players, predictionsById) {
+  const pointsById = {};
+  let events = [];
+  players.forEach(p => {
+    const byGw = predictionsById[p.id] && predictionsById[p.id].byGw;
+    if (!byGw) return;
+    pointsById[p.id] = byGw.map(w => w.points);
+    if (byGw.length > events.length) events = byGw.map(w => w.event);
+  });
+  return { pointsById, events };
+}
+
 // Transfers planned over the next few gameweeks (src/lib/transferPlan.js):
 // what to do each week, rolling or taking a hit where that pays, against
 // keeping the squad as it is. This week's moves can be made from here.
 export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers, predictionsById, onMakeMoves }) {
   const plan = useMemo(() => {
-    const pointsById = {};
-    let events = [];
-    allPlayers.forEach(p => {
-      const byGw = predictionsById[p.id] && predictionsById[p.id].byGw;
-      if (!byGw) return;
-      pointsById[p.id] = byGw.map(w => w.points);
-      if (byGw.length > events.length) events = byGw.map(w => w.event);
-    });
+    const { pointsById, events } = weeklyPoints(allPlayers, predictionsById);
     return planTransfers({ squadPlayers: squad.map(s => s.player), bankTenths, freeTransfers, allPlayers, pointsById, events });
   }, [squad, bankTenths, freeTransfers, allPlayers, predictionsById]);
   if (!plan) return null;
@@ -666,6 +707,17 @@ function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teams
     const out = squad.find(s => s.player.id === Number(outId));
     return sum + (predictionsById[p.id] ? predictionsById[p.id].predicted : 0) - (out ? out.predicted : 0);
   }, 0);
+  // Over the next few gameweeks: the best XI's points (captain included)
+  // each week with these moves against without them, less the hit.
+  const horizon = useMemo(() => {
+    if (!made || gaps) return null;
+    const before = squad.map(s => s.player);
+    const after = work.map(s => s.player);
+    const { pointsById, events } = weeklyPoints([...before, ...after], predictionsById);
+    if (!events.length) return null;
+    const total = players => events.reduce((sum, _, k) => sum + xiPointsForWeek(players, (pl, i) => (pointsById[pl.id] || [])[i] || 0, k), 0);
+    return { weeks: events.length, net: total(after) - total(before) - hits };
+  }, [made, gaps, squad, work, predictionsById, hits]);
 
   const remove = id => { setPlanned(prev => ({ ...prev, [id]: null })); setPickFor(id); };
   const pick = (outId, inPlayer) => { setPlanned(prev => ({ ...prev, [outId]: inPlayer })); setPickFor(null); };
@@ -720,6 +772,9 @@ function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teams
         <div><dt>Cost</dt><dd className={`fpl-mono${hits ? ' is-down' : ''}`}>{hits ? `−${hits} pts` : '0 pts'}</dd></div>
         <div><dt>Bank</dt><dd className={`fpl-mono${bank < 0 ? ' is-down' : ''}`}>{fmtPrice(bank / 10)}</dd></div>
         <div><dt>Predicted change</dt><dd className={`fpl-mono ${change - hits / 4 > 0 ? 'is-up' : change < 0 ? 'is-down' : ''}`}>{change >= 0 ? '+' : ''}{fmtPts(change)} pts/wk</dd></div>
+        {horizon ? (
+          <div><dt>Next {horizon.weeks} GWs{hits ? ', after the hit' : ''}</dt><dd className={`fpl-mono ${horizon.net > 0 ? 'is-up' : horizon.net < 0 ? 'is-down' : ''}`}>{horizon.net >= 0 ? '+' : ''}{fmtPts(horizon.net)} pts</dd></div>
+        ) : null}
       </dl>
       <Pitch rows={rows} card={card} className="is-squad" />
       {pickSlot ? (
@@ -885,7 +940,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   const captainPicks = useMemo(() => {
     if (!captainSuggestion || isOptimalBuild) return null;
     const options = captainOptions(starters);
-    return { safe: options[0], diff: differentialCaptain(options) };
+    return { safe: options[0], diff: differentialCaptain(options), top: options.slice(0, 5) };
   }, [captainSuggestion, isOptimalBuild, starters]);
   const showCaptainSuggestion = captainSuggestion && (!captain || captain.player.id !== captainSuggestion.player.id) && captainSuggestion.nextMatchPredicted > (captain ? captain.nextMatchPredicted : 0) + 0.3;
 
@@ -1015,6 +1070,29 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                     The differential is for climbing rank: fewer managers own {captainPicks.diff.slot.player.webName}, so if he hauls you gain on far more of them. The safe pick is the most points on average.
                   </p>
                 ) : null}
+                <details className="fpl-captain-compare">
+                  <summary>Compare the top {captainPicks.top.length}</summary>
+                  <table className="fpl-mini-table">
+                    <caption className="fpl-sr-only">Captain options this gameweek</caption>
+                    <thead><tr><th scope="col">Player</th><th scope="col">Pts</th><th scope="col">Likely range</th><th scope="col">10+</th><th scope="col">Owned</th></tr></thead>
+                    <tbody>
+                      {captainPicks.top.map(o => (
+                        <tr key={o.slot.player.id}>
+                          <th scope="row">
+                            {canEdit && (!captain || captain.player.id !== o.slot.player.id) ? (
+                              <button type="button" className="fpl-link" onClick={() => applyCaptainChange(o.slot.player.id, 'captain')} aria-label={`Captain ${o.slot.player.webName}`}>{o.slot.player.webName}</button>
+                            ) : <>{o.slot.player.webName}{captain && captain.player.id === o.slot.player.id ? ' (C)' : ''}</>}
+                          </th>
+                          <td className="fpl-mono">{fmtPts(o.expected)}</td>
+                          <td className="fpl-mono">{o.slot.range ? `${fmtPts(o.slot.range.floor)}–${fmtPts(o.slot.range.ceiling)}` : '–'}</td>
+                          <td className="fpl-mono">{Math.round(o.haul * 100)}%</td>
+                          <td className="fpl-mono">{o.owned.toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Likely range: the model's low and high score for him this week (1 in 10 below, 1 in 10 above). Tap a name to give him the armband.</p>
+                </details>
               </div>
             ) : null}
           </div>
@@ -1255,6 +1333,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
               </div>
             </div>
           )}
+          <ChipWeeks squad={squad} predictionsById={predictionsById} />
           <p className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginTop: 6, lineHeight: 1.5 }}>
             Estimated from currently scheduled fixtures for your squad as it stands now — this will shift as gameweeks pass, your squad changes, and FPL confirms any blank/double gameweeks.
           </p>

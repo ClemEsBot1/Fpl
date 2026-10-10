@@ -31,6 +31,8 @@ test('your flagged players and price moves, injuries first', () => {
   assert.equal(buildAlerts(data(5, players), [1, 2, 3], NOW)[0].kind, 'deadline');
   assert.equal(alerts[0].title, 'Isak: Injured');
   assert.equal(alerts.find(a => a.kind === 'rise').id, 'rise-2-2026-10-08');
+  // 12:00 UTC is 13:00 in London (BST): prices change in 11 hours.
+  assert.match(alerts.find(a => a.kind === 'fall').body, /^Prices change at midnight UK time, in 11h 0m\. If you plan to sell him/);
   // New news is a new alert; the same news keeps its id.
   const again = buildAlerts(data(48, players), [1], NOW)[0].id;
   assert.equal(again, alerts.find(a => a.title.startsWith('Saka')).id);

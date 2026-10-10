@@ -81,17 +81,20 @@ CONFIG = dict(two_stage=True, drop=('fpl_', 'us_'))
 
 def score_week(predictions, gw_csv):
     """How `predictions` (one gameweek's file) did against that gameweek's
-    points, for players who played: typical miss and correlation."""
+    points, for players who played: typical miss, correlation, and the
+    biggest misses ([id, predicted, actual], worst first)."""
     import pandas as pd
     gw = pd.read_csv(gw_csv)
     played = gw.groupby('element').agg(pts=('total_points', 'sum'), mins=('minutes', 'sum'))
     played = played[played.mins > 0]
-    pairs = [(predictions['byId'][str(i)][0], r.pts) for i, r in played.iterrows() if str(i) in predictions['byId']]
-    if len(pairs) < 20:
+    rows = [(int(i), predictions['byId'][str(i)][0], int(r.pts)) for i, r in played.iterrows() if str(i) in predictions['byId']]
+    if len(rows) < 20:
         return None
-    p, a = np.array(pairs).T
-    return {'players': len(pairs), 'meanAbsError': round(float(np.mean(np.abs(p - a))), 2),
-            'correlation': round(float(np.corrcoef(p, a)[0, 1]), 3)}
+    _, p, a = np.array(rows, dtype=float).T
+    misses = sorted(rows, key=lambda r: -abs(r[1] - r[2]))[:5]
+    return {'players': len(rows), 'meanAbsError': round(float(np.mean(np.abs(p - a))), 2),
+            'correlation': round(float(np.corrcoef(p, a)[0, 1]), 3),
+            'misses': [[i, round(float(pr), 1), pts] for i, pr, pts in misses]}
 
 
 def main(api=None, now=None):

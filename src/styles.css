@@ -1107,3 +1107,21 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 /* Player insight: likely-range reason chips in the breakdown */
 .fpl-insight-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .fpl-insight-chip { font-size: 0.64rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(4, 249, 252, 0.14); color: var(--blue); border: 1px solid rgba(4, 249, 252, 0.3); }
+
+/* Chip value by gameweek (Results, chip timing) */
+.fpl-mini-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+.fpl-mini-table th, .fpl-mini-table td { text-align:right; padding:4px 6px; border-bottom:1px solid var(--line); }
+.fpl-mini-table th:first-child, .fpl-mini-table td:first-child { text-align:left; }
+.fpl-mini-table thead th { font-weight:400; color:var(--ink-dim); font-size:0.66rem; letter-spacing:0.04em; text-transform:uppercase; }
+.fpl-mini-table .is-best { color:var(--lime); font-weight:700; }
+.fpl-captain-compare { margin-top:6px; }
+.fpl-captain-compare summary { cursor:pointer; font-size:0.8rem; color:var(--sky); }
+.fpl-captain-compare summary:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+.fpl-captain-compare table { margin-top:6px; }
+.fpl-captain-compare th[scope="row"] { font-weight:600; }
+.fpl-ml-misses { margin-top:8px; }
+.fpl-ml-misses summary { cursor:pointer; font-size:0.8rem; color:var(--sky); }
+.fpl-ml-misses summary:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+.fpl-ml-misses table { margin-top:6px; }
+.fpl-mini-table .is-up { color:var(--lime); }
+.fpl-mini-table .is-down { color:var(--red, #ff6b6b); }
