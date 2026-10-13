@@ -237,7 +237,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   // still multiplied out for a player who is ruled out (FPL doesn't always
   // zero ep_next for a suspension), and later gameweeks in the window use
   // its per-match value.
-  const ruledOut = ['i', 's', 'u', 'n'].includes(p.status);
+  const ruledOut = ['i', 's', 'u', 'n'].includes(p.status) || (hasChance && p.chanceNext === 0);
   const epThisEvent = isBlankThisEvent ? 0 : epTerm * (ruledOut ? availMult : 1);
   const epPerMatch = epThisEvent / Math.max(1, fixtureCountThisEvent);
   // Recent minutes against the season's: a player who has lost his place
@@ -300,13 +300,14 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
       byGw: scaled.slice(0, PLAN_GWS).map((v, k) => ({ event: firstEvent + k, points: Math.round(v * 10) / 10 })).filter(w => w.event <= 38),
     };
   }
+  // The formula is what the app predicts with; the model's figures ride
+  // along in the breakdown for comparison while it keeps learning.
   return {
-    predicted: Math.round((mlOut ? mlOut.predicted : predicted) * 10) / 10,
-    nextMatchPredicted: Math.round((mlOut ? mlOut.next : nextMatchPredicted) * 10) / 10,
-    byGw: mlOut ? mlOut.byGw : byGw,
-    source: mlOut ? 'ml' : 'formula',
-    // The model's likely low and high score this gameweek, when it has one.
-    range: mlOut ? mlOut.range : null,
+    predicted: Math.round(predicted * 10) / 10,
+    nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
+    byGw,
+    source: 'formula',
+    range: null,
     baseAvail,
     availNote,
     fixtureMult,
@@ -322,8 +323,9 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     breakdown: {
       ml: mlOut ? {
         next: Math.round(mlOut.next * 10) / 10,
-        formulaNext: Math.round(nextMatchPredicted * 10) / 10,
-        formulaPredicted: Math.round(predicted * 10) / 10,
+        predicted: Math.round(mlOut.predicted * 10) / 10,
+        byGw: mlOut.byGw,
+        range: mlOut.range,
       } : null,
       epNext: Math.round(epNext * 100) / 100,
       epNextShrunk: !!(epNextShrink && confidence < 1),
@@ -1201,4 +1203,29 @@ export function hydrateSquadSnapshot(snapshot, staticData, options = {}) {
     ? snapshot.bankTenths
     : Math.round((SQUAD_BUDGET - players.reduce((s, p) => s + p.price, 0)) * 10);
   return { squad: keepArmbandsOnStarters(squad, nextValueOf), bankTenths };
+}
+// The model's predictions drove the app's from 8 October 2026 until the
+// formula took over again; a best-squad snapshot or saved predictions file
+// written in that time (one with no `source`) came from the model.
+const MODEL_LED_FROM = Date.parse('2026-10-08T00:00:00Z');
+export function snapshotFromModel(snapshot) {
+  if (!snapshot || snapshot.source) return false;
+  const at = Date.parse(snapshot.builtAt || snapshot.savedAt || '');
+  return Number.isFinite(at) && at >= MODEL_LED_FROM;
+}
+
+// A best-squad snapshot for a gameweek built here from the formula, from
+// data as it stood before that gameweek's deadline (gwStatic, see
+// loadStaticDataAsOf), in place of one the model picked.
+export function formulaSnapshotFor(snapshot, gwStatic) {
+  const built = buildOptimalTeam(gwStatic, SQUAD_BUDGET);
+  return {
+    ...snapshot,
+    playerIds: built.squad.map(s => s.player.id),
+    startingIds: built.squad.filter(s => s.isStarting).map(s => s.player.id),
+    captainId: built.captainId,
+    viceCaptainId: built.viceCaptainId,
+    predictedById: Object.fromEntries(built.squad.map(s => [s.player.id, s.nextMatchPredicted])),
+    source: 'formula',
+  };
 }

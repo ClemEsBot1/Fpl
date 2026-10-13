@@ -292,7 +292,7 @@ test('bookmaker odds count once per priced match, and only in the weeks priced',
   assert.equal(Math.round((dgwOdds.nextMatchPredicted - dgwNone.nextMatchPredicted) * 10) / 10, 0.8);
 });
 
-test('the ML model predicts when its file is for this gameweek and season', () => {
+test("the formula predicts; the ML model's figures ride along when its file is for this gameweek and season", () => {
   const { bootstrap, fixtures } = league();
   const target = bootstrap.events.find(e => new Date(e.deadline_time).getTime() > Date.now()).id;
   const season = seasonIdFor(bootstrap.events);
@@ -302,19 +302,21 @@ test('the ML model predicts when its file is for this gameweek and season', () =
   const mlData = { season, gwId: target, builtAt: '2026-10-01T04:20:00Z', byId: { [fit.id]: [6, 4, 4, 4, 2], [doubt.id]: [5, 5, 5, 5, 5] } };
   const sd = buildStaticDataFromRaw(bootstrap, fixtures, { mlData });
   const p = sd.predictionsById[fit.id];
-  assert.equal(p.source, 'ml');
-  assert.equal(p.nextMatchPredicted, 6);
-  assert.equal(p.predicted, 4.5); // the next four weeks' average
-  assert.deepEqual(p.byGw.map(w => w.points), [6, 4, 4, 4, 2]);
+  const withoutMl = buildStaticDataFromRaw(bootstrap, fixtures, {}).predictionsById[fit.id];
+  assert.equal(p.source, 'formula');
+  assert.equal(p.nextMatchPredicted, withoutMl.nextMatchPredicted, 'the model doesn\'t change the prediction');
+  assert.deepEqual(p.byGw, withoutMl.byGw);
   assert.equal(p.breakdown.ml.next, 6);
+  assert.equal(p.breakdown.ml.predicted, 4.5); // the next four weeks' average
+  assert.deepEqual(p.breakdown.ml.byGw.map(w => w.points), [6, 4, 4, 4, 2]);
   assert.equal(sd.mlBuiltAt, '2026-10-01T04:20:00Z');
-  // FPL's 50% flag still halves it.
-  assert.equal(sd.predictionsById[doubt.id].nextMatchPredicted, 2.5);
-  // Players the model has nothing for keep the formula.
-  assert.equal(sd.predictionsById[bootstrap.elements[0].id].source, 'formula');
+  // FPL's 50% flag still halves the model's figure.
+  assert.equal(sd.predictionsById[doubt.id].breakdown.ml.next, 2.5);
+  // Players the model has nothing for have no figure from it.
+  assert.equal(sd.predictionsById[bootstrap.elements[0].id].breakdown.ml, null);
   // A file for another gameweek or season is ignored.
-  assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, gwId: target + 1 } }).predictionsById[fit.id].source, 'formula');
-  assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, season: '1999-00' } }).predictionsById[fit.id].source, 'formula');
+  assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, gwId: target + 1 } }).predictionsById[fit.id].breakdown.ml, null);
+  assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, season: '1999-00' } }).predictionsById[fit.id].breakdown.ml, null);
 });
 
 test('a player ruled out is predicted 0, machine-learning figure included', async () => {
@@ -324,16 +326,16 @@ test('a player ruled out is predicted 0, machine-learning figure included', asyn
   const opts = { targetEventId: 6 };
   const injured = computePlayerPrediction({ ...base, status: 'i', chanceNext: 0 }, fixturesByTeam, true, null, opts);
   assert.equal(injured.nextMatchPredicted, 0);
-  assert.equal(injured.predicted, 0);
-  assert.equal(injured.source, 'ml');
+  assert.equal(injured.breakdown.ml.next, 0);
   const noChance = computePlayerPrediction({ ...base, status: 'i', chanceNext: null }, fixturesByTeam, true, null, opts);
   assert.equal(noChance.nextMatchPredicted, 0, 'injured with no chance given counts as ruled out');
+  assert.equal(noChance.breakdown.ml.next, 0);
   const zeroPct = computePlayerPrediction({ ...base, status: 'd', chanceNext: 0 }, fixturesByTeam, true, null, opts);
   assert.equal(zeroPct.nextMatchPredicted, 0, '0% chance of playing is 0, whatever the status');
   const half = computePlayerPrediction({ ...base, status: 'i', chanceNext: 50 }, fixturesByTeam, true, null, opts);
-  assert.equal(half.nextMatchPredicted, 2.5, 'a 50% chance halves the ML figure');
+  assert.equal(half.breakdown.ml.next, 2.5, 'a 50% chance halves the ML figure');
   const fit = computePlayerPrediction({ ...base, status: 'a', chanceNext: null }, fixturesByTeam, true, null, opts);
-  assert.equal(fit.nextMatchPredicted, 5);
+  assert.equal(fit.breakdown.ml.next, 5);
 });
 
 test('an injury-aware ML file scales only this gameweek for an injury; a suspension scales every week', async () => {
@@ -342,10 +344,27 @@ test('an injury-aware ML file scales only this gameweek for an injury; a suspens
   const base = { team: 1, positionId: 3, epNext: 0, pointsPerGame: 5, form: 5, appearanceShare: 1, ml: [5, 4, 4, 4, 4] };
   const opts = { targetEventId: 6 };
   const injured = computePlayerPrediction({ ...base, status: 'i', chanceNext: 0, mlInjuryAware: true }, fixturesByTeam, true, null, opts);
-  assert.equal(injured.nextMatchPredicted, 0, 'out this week');
-  assert.deepEqual(injured.byGw.map(w => w.points), [0, 4, 4, 4, 4], 'the model already allows for his return');
+  assert.equal(injured.breakdown.ml.next, 0, 'out this week');
+  assert.deepEqual(injured.breakdown.ml.byGw.map(w => w.points), [0, 4, 4, 4, 4], 'the model already allows for his return');
   const banned = computePlayerPrediction({ ...base, status: 's', chanceNext: 0, mlInjuryAware: true }, fixturesByTeam, true, null, opts);
-  assert.deepEqual(banned.byGw.map(w => w.points), [0, 0, 0, 0, 0], 'the model knows nothing of bans');
+  assert.deepEqual(banned.breakdown.ml.byGw.map(w => w.points), [0, 0, 0, 0, 0], 'the model knows nothing of bans');
   const oldFile = computePlayerPrediction({ ...base, status: 'i', chanceNext: 0 }, fixturesByTeam, true, null, opts);
-  assert.deepEqual(oldFile.byGw.map(w => w.points), [0, 0, 0, 0, 0], 'a file without injury history scales every week, as before');
+  assert.deepEqual(oldFile.breakdown.ml.byGw.map(w => w.points), [0, 0, 0, 0, 0], 'a file without injury history scales every week, as before');
+});
+
+test('a best squad the model picked is rebuilt with the formula; formula ones are kept', async () => {
+  const { snapshotFromModel, formulaSnapshotFor } = await import('../src/lib/predictions.js');
+  assert.equal(snapshotFromModel({ builtAt: '2026-10-09T05:00:00Z' }), true);
+  assert.equal(snapshotFromModel({ savedAt: '2026-10-09T05:00:00Z' }), true, 'saved predictions files too');
+  assert.equal(snapshotFromModel({ builtAt: '2026-10-09T05:00:00Z', source: 'formula' }), false);
+  assert.equal(snapshotFromModel({ builtAt: '2026-09-20T05:00:00Z' }), false, 'from before the model led');
+  assert.equal(snapshotFromModel(null), false);
+  const { bootstrap, fixtures } = league();
+  const sd = buildStaticDataFromRaw(bootstrap, fixtures, {});
+  const snap = formulaSnapshotFor({ gwId: 6, builtAt: '2026-10-09T05:00:00Z', playerIds: [] }, sd);
+  assert.equal(snap.source, 'formula');
+  assert.equal(snap.playerIds.length, 15);
+  assert.equal(snap.startingIds.length, 11);
+  assert.ok(snap.playerIds.includes(snap.captainId));
+  snap.playerIds.forEach(id => assert.equal(snap.predictedById[id], sd.predictionsById[id].nextMatchPredicted));
 });

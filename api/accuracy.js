@@ -1,6 +1,7 @@
-import { get } from '@vercel/blob';
+import { get, put } from '@vercel/blob';
 import { predictionsPathnameFor, summariseAccuracy, latestFinishedEvent } from '../src/lib/accuracy.js';
-import { seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
+import { buildStaticDataFromRaw, seasonIdFor, snapshotFromModel, snapshotIsForSeason } from '../src/lib/predictions.js';
+import { aggregateLiveStats, applyAsOfStats, recentMinutesFromAsOf } from '../src/lib/asOf.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 
@@ -12,6 +13,25 @@ async function fplJson(path) {
 
 // "Nothing to show yet" answers are cached for a while too: the home screen
 // asks on every visit, and each uncached answer costs a bootstrap download.
+// Every player's formula prediction for gameweek `gwId` from what was known
+// before its deadline (as the app's past-gameweek view works it out, see
+// loadStaticDataAsOf in src/lib/fplClient.js), for a saved file that came
+// from the model instead.
+async function formulaPredictionsAsOf(bootstrap, gwId) {
+  const gws = Array.from({ length: gwId - 1 }, (_, i) => i + 1);
+  const [lives, fixtures, history] = await Promise.all([
+    Promise.all(gws.map(async gw => [gw, (await fplJson(`event/${gw}/live/`)).elements || []])),
+    fplJson('fixtures/'),
+    get('player-history.json', { access: 'public', useCache: false })
+      .then(r => (r ? new Response(r.stream).text().then(JSON.parse) : null)).catch(() => null),
+  ]);
+  const asOf = aggregateLiveStats(Object.fromEntries(lives), gwId);
+  const staticData = buildStaticDataFromRaw(applyAsOfStats(bootstrap, asOf), fixtures, {
+    forceGwId: gwId, playerHistoryData: history, oddsData: null, recentMinutesById: recentMinutesFromAsOf(asOf),
+  });
+  return Object.fromEntries(Object.entries(staticData.predictionsById).map(([id, p]) => [id, p.nextMatchPredicted]));
+}
+
 function notAvailable(res, body) {
   res.status(404).setHeader('Cache-Control', 'public, max-age=600, s-maxage=600').json(body);
 }
@@ -35,11 +55,20 @@ export default async function handler(req, res) {
     // below without being cached.
     const saved = await get(predictionsPathnameFor(gwId), { access: 'public', useCache: false });
     if (!saved) { notAvailable(res, { error: 'no_saved_predictions', gwId }); return; }
-    const savedJson = JSON.parse(await new Response(saved.stream).text());
+    let savedJson = JSON.parse(await new Response(saved.stream).text());
     // The file for this gameweek number may be from last season.
     if (!snapshotIsForSeason(savedJson, seasonIdFor(bootstrap.events), bootstrap.events)) {
       notAvailable(res, { error: 'no_saved_predictions', gwId });
       return;
+    }
+
+    // Predictions the model made are replaced by the formula's, worked out
+    // as of that deadline, and saved back so this happens once.
+    if (snapshotFromModel(savedJson)) {
+      savedJson = { ...savedJson, predictedById: await formulaPredictionsAsOf(bootstrap, gwId), source: 'formula' };
+      try {
+        await put(predictionsPathnameFor(gwId), JSON.stringify(savedJson), { access: 'public', contentType: 'application/json', allowOverwrite: true });
+      } catch { /* worked out again next time */ }
     }
 
     const live = await fplJson(`event/${gwId}/live/`);

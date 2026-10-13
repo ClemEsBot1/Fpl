@@ -175,6 +175,8 @@ export default async function handler(req, res) {
       season: staticData.seasonId,
       builtAt: new Date().toISOString(),
       backfilled: !!forceGwId,
+      // Picked with the formula's predictions (see snapshotFromModel).
+      source: 'formula',
     };
 
     await put(snapshotPathnameFor(gwId), JSON.stringify(snapshot), {
@@ -192,7 +194,7 @@ export default async function handler(req, res) {
         const predictedById = Object.fromEntries(
           Object.entries(staticData.predictionsById).map(([id, pred]) => [id, pred.nextMatchPredicted]),
         );
-        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, season: staticData.seasonId, savedAt: snapshot.builtAt, predictedById }), {
+        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, season: staticData.seasonId, savedAt: snapshot.builtAt, predictedById, source: 'formula' }), {
           access: 'public', contentType: 'application/json', allowOverwrite: true,
         });
       } catch { /* non-fatal — accuracy tracking just skips this gameweek */ }

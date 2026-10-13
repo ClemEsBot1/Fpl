@@ -6,7 +6,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
-import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
+import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, formulaSnapshotFor, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, snapshotIsForSeason } from './lib/predictions.js';
 import { forEachLimited, livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from './lib/leagues.js';
 import { liveTeamScore, projectedBonus, teamStates } from './lib/live.js';
 import { summariseAccuracy } from './lib/accuracy.js';
@@ -692,6 +692,17 @@ export default function FPLSquadChecker() {
     }
   }
 
+  // A closed gameweek's saved best squad, as the formula picked it. One the
+  // model picked (snapshotFromModel) is rebuilt here from the formula and
+  // that gameweek's pre-deadline data; if that data can't be had, the saved
+  // one is kept.
+  async function formulaSnapshot(snap, gwId) {
+    if (!snapshotFromModel(snap)) return snap;
+    const gwStatic = await staticDataForGw(gwId);
+    if (!gwStatic || gwStatic.asOfFailedGwId) return snap;
+    try { return formulaSnapshotFor(snap, gwStatic); } catch { return snap; }
+  }
+
   // Live points for a gameweek ({ [playerId]: { totalPoints, minutes } }),
   // shared by every screen that needs them. A finished gameweek never
   // changes, so it's fetched once; one still being played is refetched
@@ -905,7 +916,7 @@ export default function FPLSquadChecker() {
         // anything, and would silently disagree with what was shown at the
         // time.
         const [snap, liveById] = await Promise.all([
-          fetch(`/api/optimal-squad?gw=${resolvedGwId}`).then(res => (res.ok ? res.json() : null)).catch(() => null),
+          fetch(`/api/optimal-squad?gw=${resolvedGwId}`).then(res => (res.ok ? res.json() : null)).then(s => formulaSnapshot(s, resolvedGwId)).catch(() => null),
           liveForGw(resolvedGwId, isGwFinished(staticData, resolvedGwId)),
         ]);
         if (!isCurrent(ticket)) return;
@@ -1015,7 +1026,7 @@ export default function FPLSquadChecker() {
       }
 
       const [snap, liveById] = await Promise.all([
-        fetch(`/api/optimal-squad?gw=${lastClosed.id}`).then(res => (res.ok ? res.json() : null)).catch(() => null),
+        fetch(`/api/optimal-squad?gw=${lastClosed.id}`).then(res => (res.ok ? res.json() : null)).then(s => formulaSnapshot(s, lastClosed.id)).catch(() => null),
         liveForGw(lastClosed.id, !!lastClosed.finished),
       ]);
       if (!isCurrent(ticket)) return;
@@ -1609,7 +1620,7 @@ export default function FPLSquadChecker() {
         optional(fetchFplJson(`entry/${teamId}/history/`)),
         optional(fetchFplJson(`entry/${teamId}/transfers/`)),
         liveForGw(gwId, isGwFinished(staticData, gwId)),
-        optional(fetch(`/api/optimal-squad?gw=${gwId}`).then(res => (res.ok ? res.json() : null))),
+        optional(fetch(`/api/optimal-squad?gw=${gwId}`).then(res => (res.ok ? res.json() : null)).then(s => formulaSnapshot(s, gwId))),
         optional(fetch(`/api/accuracy?gw=${gwId}`).then(res => (res.ok ? res.json() : null))),
         // The week's highest-scoring manager's team.
         topEntry ? optional(fetchFplJson(`entry/${topEntry}/event/${gwId}/picks/`)) : null,

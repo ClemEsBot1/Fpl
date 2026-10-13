@@ -91,9 +91,9 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
       <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8, letterSpacing: '0.03em' }}>WHY THIS PREDICTION</div>
       {b.ml ? (
         <p style={{ fontSize: '0.78rem', lineHeight: 1.5, margin: '0 0 10px' }}>
-          Predicted by the <b>machine-learning model</b>: <span className="fpl-mono">{fmtPts(b.ml.next)}</span> this gameweek.
-          It's retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings and injury history, learning from each finished week{b.availMult < 1 ? ', and scaled by FPL\'s availability flag' : ''}.
-          The formula below would have said <span className="fpl-mono">{fmtPts(b.ml.formulaNext)}</span>.
+          Predicted by the formula below. For comparison, the <b>machine-learning model</b> says <span className="fpl-mono">{fmtPts(b.ml.next)}</span> this gameweek
+          {b.ml.range ? <> (likely <span className="fpl-mono">{fmtPts(b.ml.range.floor)}–{fmtPts(b.ml.range.ceiling)}</span>)</> : null}.
+          It's retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings and injury history, and keeps learning from each finished week.
         </p>
       ) : null}
       {inputRows.map(([label, val], i) => (
@@ -1084,14 +1084,14 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                             ) : <>{o.slot.player.webName}{captain && captain.player.id === o.slot.player.id ? ' (C)' : ''}</>}
                           </th>
                           <td className="fpl-mono">{fmtPts(o.expected)}</td>
-                          <td className="fpl-mono">{o.slot.range ? `${fmtPts(o.slot.range.floor)}–${fmtPts(o.slot.range.ceiling)}` : '–'}</td>
+                          <td className="fpl-mono">{(r => `${fmtPts(r.floor)}–${fmtPts(r.ceiling)}`)(predictionRange(o.slot, o.slot.player))}</td>
                           <td className="fpl-mono">{Math.round(o.haul * 100)}%</td>
                           <td className="fpl-mono">{o.owned.toFixed(1)}%</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Likely range: the model's low and high score for him this week (1 in 10 below, 1 in 10 above).{canEdit ? ' Tap a name to give him the armband.' : ''}</p>
+                  <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Likely range: from a quiet game to a good one for him this week.{canEdit ? ' Tap a name to give him the armband.' : ''}</p>
                 </details>
               </div>
             ) : null}

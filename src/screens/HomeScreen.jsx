@@ -265,8 +265,8 @@ function ModelLearning({ playersById }) {
         <span className="fpl-mono fpl-home-meta">GW{pred.gwId}</span>
       </div>
       <p className="fpl-home-text" style={{ margin: 0 }}>
-        Predictions come from a machine-learning model retrained every day on {Number(pred.trainedRows || 0).toLocaleString('en-GB')} player-gameweeks,
-        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}, and again every 2 hours before a deadline for late injury news. Each finished gameweek is added, so it keeps learning.
+        The app predicts with its formula. Alongside it, a machine-learning model is retrained every day on {Number(pred.trainedRows || 0).toLocaleString('en-GB')} player-gameweeks,
+        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}, and again every 2 hours before a deadline. Its figure shows next to each player's prediction, and each finished gameweek is added, so it keeps learning.
       </p>
       {weeks.length ? (
         <ol className="fpl-ml-weeks" aria-label="Typical miss per player, each gameweek">
@@ -301,7 +301,7 @@ function ModelLearning({ playersById }) {
         </details>
       ) : null}
       <p className="fpl-home-hint">
-        Tested on 2022-23 to 2025-26, predicting each week from earlier ones only: the best XI it picks scored {BACKTEST.mlXi} pts a gameweek, against {BACKTEST.formulaXi} for the formula it replaced
+        Tested on 2022-23 to 2025-26, predicting each week from earlier ones only: the best XI the model picks scored {BACKTEST.mlXi} pts a gameweek, against {BACKTEST.formulaXi} for the formula
         (correlation with points {BACKTEST.mlCorr} vs {BACKTEST.formulaCorr}).
       </p>
     </section>
