@@ -36,7 +36,7 @@ export const MAX_RESET_EMAILS_PER_USER = 3;
 
 // Where reset links point. Fixed rather than taken from the request's Host
 // header, which a client controls.
-const APP_URL = (process.env.APP_URL || 'https://fplchecker.vercel.app').replace(/\/+$/, '');
+const APP_URL = (process.env.APP_URL || 'https://fplchecker.co.uk').replace(/\/+$/, '');
 
 const EMAIL_TAKEN = 'That email is already used by another account.';
 const NO_ACCOUNT = 'No account found with that username or email.';

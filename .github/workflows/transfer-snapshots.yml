@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - run: curl -sf -o /dev/null https://fplchecker.vercel.app/api/transfer-trend || true
+      - run: curl -sf -o /dev/null https://fplchecker.co.uk/api/transfer-trend || true
       - name: Send pushed alerts
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET not set: skipping"; exit 0; fi
-          curl -s -X POST "https://fplchecker.vercel.app/api/auth?push=send" -H "Authorization: Bearer $CRON_SECRET" || true
+          curl -s -X POST "https://fplchecker.co.uk/api/auth?push=send" -H "Authorization: Bearer $CRON_SECRET" || true

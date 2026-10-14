@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resetPasswordEmail } from '../src/lib/emails.js';
 
-const link = 'https://fplchecker.vercel.app/?reset=abc123';
+const link = 'https://fplchecker.co.uk/?reset=abc123';
 
 test('reset email has the link in both the HTML and plain-text versions', () => {
-  const mail = resetPasswordEmail({ username: 'Clem', link, appUrl: 'https://fplchecker.vercel.app' });
+  const mail = resetPasswordEmail({ username: 'Clem', link, appUrl: 'https://fplchecker.co.uk' });
   assert.equal(mail.subject, 'Reset your FPL Squad Check password');
   assert.ok(mail.html.includes(`href="${link}"`));
   assert.ok(mail.text.includes(link));

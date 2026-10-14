@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://fplchecker.vercel.app/sitemap.xml
+Sitemap: https://fplchecker.co.uk/sitemap.xml
