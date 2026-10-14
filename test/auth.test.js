@@ -154,7 +154,7 @@ test('forgot password by username or email sends a one-time link that sets a new
   assert.equal(byName.status, 200);
   assert.equal(sent.length, 1);
   assert.equal(sent[0].to, 'reset@example.com');
-  assert.match(sent[0].text, /https:\/\/fplchecker\.vercel\.app\/\?reset=/);
+  assert.match(sent[0].text, /https:\/\/fplchecker\.co\.uk\/\?reset=/);
 
   const byEmail = await call(redis, { action: 'forgot_password', identifier: 'RESET@example.com' });
   assert.equal(byEmail.status, 200);
