@@ -241,6 +241,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   .fpl-footnav-root { display: none; }
   .fpl-has-nav .fpl-main { padding-bottom: 32px; }
   .fpl-has-nav .fpl-main-wide { max-width: 1240px; margin: 0; }
+  /* The mini-league's three columns use the whole width beside the menu. */
+  .fpl-has-nav .fpl-main-full { max-width: none; }
 }
 
 /* ---------- Welcome page (shown when not logged in) ---------- */
