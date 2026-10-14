@@ -321,7 +321,8 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
   const SORTS = [['rank', 'Rank'], ['live', 'Live'], ['predicted', 'Predicted'], ['expected', 'Expected']];
 
   return (
-    // Side by side on a wide screen: the table, then the analysis.
+    // Side by side on a wide screen: the table, the analysis, then your
+    // differentials and head-to-head (a third column on the widest).
     <div className="fpl-league-pair">
     <section className="fpl-glass fpl-home-card" aria-labelledby="league-h" aria-busy={standings.status === 'loading'}>
       <div className="fpl-home-team-head">
@@ -399,6 +400,8 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
     {standings.status === 'ready' && standings.data.members.length > 1 && (
       <LeagueAnalysis members={shownMembers} teams={teams} playersById={playersById} liveGwId={liveGwId} total={standings.data.members.length} />
     )}
+    </div>
+    <div className="fpl-league-side fpl-league-you">
     {standings.status === 'ready' && homeTeamId && standings.data.members.some(m => String(m.entry) === String(homeTeamId)) && (
       <LeagueDifferentials members={shownMembers} teams={teams} youEntry={standings.data.members.find(m => String(m.entry) === String(homeTeamId)).entry} liveGwId={gwId} />
     )}
