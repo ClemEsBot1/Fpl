@@ -471,9 +471,17 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (min-width: 760px) { .fpl-analysis-grid { grid-template-columns: 1.3fr 1fr; gap: 28px; } }
 .fpl-league-pair { display: grid; gap: 16px; align-items: start; min-width: 0; }
 @media (min-width: 1280px) {
-  /* The league analysis gets its own column beside the table. */
-  .fpl-league-pair { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); gap: 20px; }
+  /* The league analysis gets its own column beside the table, with your
+     differentials and head-to-head under it. */
+  .fpl-league-pair { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); grid-template-rows: auto 1fr; gap: 20px; }
+  .fpl-league-pair > section:first-child { grid-row: 1 / span 2; }
   .fpl-league-pair .fpl-analysis-grid { grid-template-columns: 1fr; gap: 18px; }
+}
+@media (min-width: 1600px) {
+  /* Three columns: the table, the analysis, then your differentials and
+     head-to-head. */
+  .fpl-league-pair { grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr) minmax(300px, 1fr); grid-template-rows: auto; }
+  .fpl-league-pair > section:first-child { grid-row: auto; }
 }
 .fpl-analysis-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .fpl-analysis-item { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 1px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
