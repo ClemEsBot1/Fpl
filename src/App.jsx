@@ -1780,7 +1780,7 @@ export default function FPLSquadChecker() {
       )}
       <div className="fpl-shell">
       {showNav && <SideNav items={navItems} active={activeNav} />}
-      <main ref={mainRef} tabIndex={-1} className={`fpl-main${wideStage ? ' fpl-main-wide' : ''}`}>
+      <main ref={mainRef} tabIndex={-1} className={`fpl-main${wideStage ? ' fpl-main-wide' : ''}${stage === 'league' ? ' fpl-main-full' : ''}`}>
         <ScreenErrorBoundary key={stage}>
           <Suspense fallback={<LoadingScreen />}>
             {stage === 'boot' && <LoadingScreen />}
