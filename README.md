@@ -2,7 +2,7 @@
 
 A Fantasy Premier League (FPL) squad checker and optimiser. Load your squad, see point predictions for every player, get transfer and captain suggestions, or generate a data-driven "optimal" squad for any gameweek.
 
-**Live app:** https://fplchecker.vercel.app
+**Live app:** https://fplchecker.co.uk
 
 ## Features
 
@@ -115,7 +115,7 @@ npm run build
 | `SMTP_PASS` | Optional. For Gmail, an [app password](https://myaccount.google.com/apppasswords) (needs 2-Step Verification), not the account password |
 | `SMTP_HOST` / `SMTP_PORT` | Optional. Default `smtp.gmail.com` / `465`; set these to use another email provider |
 | `EMAIL_FROM` | Optional. From line on emails; default `FPL Squad Check <SMTP_USER>` |
-| `APP_URL` | Optional. Site address used in reset links; default `https://fplchecker.vercel.app` |
+| `APP_URL` | Optional. Site address used in reset links; default `https://fplchecker.co.uk` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Optional. Turn on alerts pushed with the app closed; make a pair with `npx web-push generate-vapid-keys`. Sent every 20 minutes by `.github/workflows/transfer-snapshots.yml` (needs the `CRON_SECRET` repository secret). Without them, notifications come only while the app is open |
 
 3. **Import historical data (optional, once):** run `node scripts/import-player-history.mjs` to upload past seasons to Blob. Without it, predictions fall back to the position-average baseline.

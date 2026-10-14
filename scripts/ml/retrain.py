@@ -71,7 +71,7 @@ def load_injuries(cache, current, today):
     return pd.concat([inj, pd.DataFrame(live)], ignore_index=True)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-APP_URL = os.environ.get('APP_URL', 'https://fplchecker.vercel.app')
+APP_URL = os.environ.get('APP_URL', 'https://fplchecker.co.uk')
 # The variant that won the walk-forward comparison (compare.py; results in
 # evaluate.py's docstring). See model.py for what each setting does. FPL's
 # deadline figures and Understat's xG are still collected but left out:

@@ -28,7 +28,7 @@ const MAX_PLAYERS = 15;
 export const SUBSCRIBE_WINDOW_SECONDS = 60 * 60;
 export const MAX_SUBSCRIBES_PER_IP = 30;
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
-const APP_URL = (process.env.APP_URL || 'https://fplchecker.vercel.app').replace(/\/+$/, '');
+const APP_URL = (process.env.APP_URL || 'https://fplchecker.co.uk').replace(/\/+$/, '');
 
 export function pushConfigured(env = process.env) {
   return !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);
