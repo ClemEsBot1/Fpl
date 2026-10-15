@@ -7,6 +7,7 @@ import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, Calendar
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { buildAlerts, predictionBaseline } from '../lib/alerts.js';
+import { GUIDES } from '../lib/seoPage.js';
 import { weeklyPicks } from '../lib/weeklyPicks.js';
 import { Shirt as ShirtKit } from '../components/Pitch.jsx';
 import { notificationState, notifyNewAlerts, setNotifications, stopPush, syncPush } from '../lib/notify.js';
@@ -489,6 +490,9 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
           teamPending={!!homeTeam.teamId && homeTeam.status !== 'error'}
         />
       </div>
+      <nav className="fpl-home-guides" aria-label="FPL guides">
+        {GUIDES.map(g => <a key={g.path} href={g.path}>{g.label}</a>)}
+      </nav>
     </div>
   );
 }

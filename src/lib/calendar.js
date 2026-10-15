@@ -45,7 +45,7 @@ export function buildDeadlineIcs({ gwName, deadline, notes = [], url = '', alert
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//FPL Squad Check//Deadline reminder//EN',
+    'PRODID:-//FPL Checker//Deadline reminder//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',

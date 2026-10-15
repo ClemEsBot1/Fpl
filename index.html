@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Check your Fantasy Premier League squad, see point predictions and transfer suggestions, or build a data-driven optimal squad for any gameweek." />
-    <title>FPL Squad Check — FPL points predictor and squad checker</title>
+    <meta name="description" content="FPL Checker: free FPL points predictor and team checker. Predicted points for every player, your best XI and captain, transfer suggestions and the optimal £100m squad for every gameweek." />
+    <title>FPL Checker — FPL points predictor, team rater and transfer planner</title>
     <link rel="canonical" href="https://fplchecker.co.uk/" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,24 +24,33 @@
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-title" content="FPL Check" />
+    <meta name="apple-mobile-web-app-title" content="FPL Checker" />
     <!-- Link previews (WhatsApp, Discord, iMessage, X, Facebook…) -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="FPL Squad Check" />
-    <meta property="og:title" content="FPL Squad Check — predict your points" />
+    <meta property="og:site_name" content="FPL Checker" />
+    <meta property="og:title" content="FPL Checker — predict your points" />
     <meta property="og:description" content="Predicted points for every player, captain and transfer picks for your Fantasy Premier League squad — from your Team ID or a screenshot." />
     <meta property="og:url" content="https://fplchecker.co.uk/" />
     <meta property="og:image" content="https://fplchecker.co.uk/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="FPL Squad Check: check your squad, predict your points." />
+    <meta property="og:image:alt" content="FPL Checker: check your squad, predict your points." />
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- Describes the site to search engines as a free web app -->
+    <!-- Describes the site to search engines: its name (for searches of it) and a free web app -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "FPL Checker",
+        "alternateName": ["FPLChecker", "fplchecker.co.uk"],
+        "url": "https://fplchecker.co.uk/"
+      }
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebApplication",
-        "name": "FPL Squad Check",
+        "name": "FPL Checker",
         "url": "https://fplchecker.co.uk/",
         "description": "Free Fantasy Premier League tool: predicted points for every player, captain and transfer suggestions for your squad from your FPL Team ID or a screenshot, and a data-driven optimal squad builder.",
         "applicationCategory": "SportsApplication",
@@ -59,7 +68,14 @@
            match the home screen so the swap isn't noticeable. -->
       <main style="min-height:100vh; padding:76px 16px 40px; color:#FBFAFF; font-family:'Inter',sans-serif; background:linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%) fixed; box-sizing:border-box;">
         <h1 style="font-family:'Space Grotesk',sans-serif; font-size:1.6rem; line-height:1.2; margin:0 0 10px;">Check your squad.<br />Predict your points.</h1>
-        <p style="font-size:0.92rem; line-height:1.5; margin:0; color:rgba(251,250,255,0.72);">FPL Squad Check is a free Fantasy Premier League tool. Enter your FPL Team ID or upload a screenshot of your team to see predicted points for every player, the best captain and transfer suggestions for the next gameweek, or build a data-driven optimal squad within the £100m budget.</p>
+        <p style="font-size:0.92rem; line-height:1.5; margin:0; color:rgba(251,250,255,0.72);">FPL Checker is a free Fantasy Premier League tool. Enter your FPL Team ID or upload a screenshot of your team to see predicted points for every player, the best captain and transfer suggestions for the next gameweek, or build a data-driven optimal squad within the £100m budget.</p>
+        <nav aria-label="FPL guides" style="margin-top:18px; display:flex; flex-wrap:wrap; gap:8px 16px; font-size:0.92rem;">
+          <a href="/fpl-predictions" style="color:#FBFAFF;">This gameweek's FPL predictions</a>
+          <a href="/fpl-points-predictor" style="color:#FBFAFF;">FPL points predictor</a>
+          <a href="/fpl-captain-picks" style="color:#FBFAFF;">Best FPL captain</a>
+          <a href="/fpl-transfer-suggestions" style="color:#FBFAFF;">FPL transfer suggestions</a>
+          <a href="/rate-my-fpl-team" style="color:#FBFAFF;">Rate my FPL team</a>
+        </nav>
       </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>

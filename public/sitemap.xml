@@ -2,6 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://fplchecker.co.uk/</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-predictions</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-points-predictor</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-captain-picks</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-transfer-suggestions</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/rate-my-fpl-team</loc>
     <changefreq>weekly</changefreq>
   </url>
 </urlset>

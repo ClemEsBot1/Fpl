@@ -1,6 +1,6 @@
 {
-  "name": "FPL Squad Check",
-  "short_name": "FPL Check",
+  "name": "FPL Checker",
+  "short_name": "FPL Checker",
   "description": "Predicted points, captain and transfer picks for your Fantasy Premier League squad.",
   "id": "/",
   "start_url": "/",

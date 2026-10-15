@@ -65,7 +65,7 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
           className="fpl-display fpl-header-brand"
           style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '0.02em', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontFamily: 'inherit' }}
         >
-          SQUAD CHECK <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>· FPL</span>
+          FPL <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>CHECKER</span>
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
           <button

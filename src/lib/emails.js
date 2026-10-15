@@ -32,7 +32,7 @@ function layout({ appUrl, preheader, body }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>FPL Squad Check</title>
+<title>FPL Checker</title>
 </head>
 <body style="margin:0;padding:0;background:${BRAND.page};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
@@ -48,7 +48,7 @@ function layout({ appUrl, preheader, body }) {
                   <img src="${appUrl}/icons/icon-192.png" width="40" height="40" alt="" style="display:block;border:0;border-radius:10px;">
                 </td>
                 <td style="vertical-align:middle;${font}font-size:19px;font-weight:700;letter-spacing:0.02em;color:#FFFFFF;">
-                  FPL Squad Check
+                  FPL Checker
                 </td>
               </tr>
             </table>
@@ -76,12 +76,12 @@ function layout({ appUrl, preheader, body }) {
 export function resetPasswordEmail({ username, link, appUrl, expiresMinutes = 30 }) {
   const name = escapeHtml(username);
   const href = escapeHtml(link);
-  const subject = 'Reset your FPL Squad Check password';
+  const subject = 'Reset your FPL Checker password';
 
   const body = `
             <h1 style="margin:0 0 18px;font-size:24px;line-height:30px;font-weight:700;color:${BRAND.ink};">Reset your password</h1>
             <p style="margin:0 0 14px;font-size:15px;line-height:23px;">Hi ${name},</p>
-            <p style="margin:0 0 26px;font-size:15px;line-height:23px;">We got a request to reset the password for your FPL Squad Check account. Tap the button to choose a new one.</p>
+            <p style="margin:0 0 26px;font-size:15px;line-height:23px;">We got a request to reset the password for your FPL Checker account. Tap the button to choose a new one.</p>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;">
               <tr>
                 <td align="center" bgcolor="${BRAND.ink}" style="background:${BRAND.ink};border-radius:10px;">
@@ -101,7 +101,7 @@ export function resetPasswordEmail({ username, link, appUrl, expiresMinutes = 30
 
 Hi ${username},
 
-We got a request to reset the password for your FPL Squad Check account. Open this link to choose a new one:
+We got a request to reset the password for your FPL Checker account. Open this link to choose a new one:
 
 ${link}
 
@@ -109,7 +109,7 @@ This link works once and expires in ${expiresMinutes} minutes.
 
 Didn't ask for this? You can ignore this email; your password won't change.
 
-FPL Squad Check
+FPL Checker
 ${appUrl}`;
 
   return {

@@ -1137,3 +1137,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-ml-misses table { margin-top:6px; }
 .fpl-mini-table .is-up { color:var(--lime); }
 .fpl-mini-table .is-down { color:var(--red, #ff6b6b); }
+
+/* Links to the guide pages (public/<guide>/, src/lib/seoPage.js) under Home. */
+.fpl-home-guides { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 18px 2px 4px; font-size: 0.82rem; }
+.fpl-home-guides a { color: rgba(251,250,255,0.8); }
+.fpl-home-guides a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
