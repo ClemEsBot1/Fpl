@@ -3,8 +3,8 @@ name: Transfer snapshots
 # Calls /api/transfer-trend every 20 minutes so it keeps a snapshot of
 # FPL's transfer counts even when nobody has the app open: the home
 # screen's "last hour" figures compare with the one about an hour old.
-# Also sends pushed alerts (src/lib/push.js) and posts to X when due
-# (src/lib/xBot.js) when the CRON_SECRET repo secret is set.
+# Also sends pushed alerts (src/lib/push.js) and social posts when due
+# (src/lib/social.js) when the CRON_SECRET repo secret is set.
 on:
   schedule:
     - cron: '7,27,47 * * * *'
@@ -22,7 +22,7 @@ jobs:
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET not set: skipping"; exit 0; fi
           curl -s -X POST "https://fplchecker.co.uk/api/auth?push=send" -H "Authorization: Bearer $CRON_SECRET" || true
-      - name: Post to X when due
+      - name: Send social posts when due
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |

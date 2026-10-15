@@ -16,7 +16,14 @@ const blobs = [
 let deleted;
 const admin = () => ({
   blob: { list: async () => ({ blobs, cursor: undefined }), del: async urls => { deleted.push(...urls); }, head: async () => null },
-  fetchImpl: async url => ({ ok: true, json: async () => (url.endsWith('r1.json') ? { receivedAt: '2026-10-01T10:00:00Z', note: 'Saka read as Salah', slots: [] } : null) }),
+  fetchImpl: async (url, opts = {}) => {
+    if (url.includes('social=preview')) {
+      assert.equal(url, 'http://localhost:3000/api/optimal-squad?social=preview');
+      assert.equal(opts.headers.Authorization, 'Bearer cron-secret');
+      return { ok: true, json: async () => ({ ok: true, channels: ['bluesky'], posts: [{ key: '2026-27:preview:gw8', label: 'GW8 preview', text: 'hi', due: true }] }) };
+    }
+    return { ok: true, json: async () => (url.endsWith('r1.json') ? { receivedAt: '2026-10-01T10:00:00Z', note: 'Saka read as Salah', slots: [] } : null) };
+  },
 });
 
 function request({ body, cookie, method = 'POST' }) {
@@ -108,4 +115,18 @@ test('retraining needs a GitHub token; without one it says so', async () => {
   delete process.env.GITHUB_DISPATCH_TOKEN;
   const r = await request({ body: { action: 'admin', op: 'retrain' }, cookie: clemCookie });
   assert.deepEqual(r.body, { ok: false, error: 'not_configured' });
+});
+
+test('the Social tab gets this gameweek’s posts with the cron secret, for admins only', async () => {
+  const before = process.env.CRON_SECRET;
+  delete process.env.CRON_SECRET;
+  assert.deepEqual((await request({ body: { action: 'admin', op: 'social' }, cookie: clemCookie })).body, { ok: false, error: 'not_configured' });
+  process.env.CRON_SECRET = 'cron-secret';
+  try {
+    const r = await request({ body: { action: 'admin', op: 'social' }, cookie: clemCookie });
+    assert.deepEqual(r.body, { ok: true, channels: ['bluesky'], posts: [{ key: '2026-27:preview:gw8', label: 'GW8 preview', text: 'hi', due: true }] });
+    assert.equal((await request({ body: { action: 'admin', op: 'social' }, cookie: samCookie })).status, 403);
+  } finally {
+    if (before === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = before;
+  }
 });

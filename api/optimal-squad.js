@@ -2,9 +2,11 @@ import { get, list } from '@vercel/blob';
 import { snapshotPathnameFor } from './refresh-optimal.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
-import { predictionsPage } from '../src/lib/seoPage.js';
+import { SITE, predictionsPage } from '../src/lib/seoPage.js';
 import { getRedis } from '../src/lib/redis.js';
-import { duePosts, pastResults, runSocial, xConfigured } from '../src/lib/xBot.js';
+import { blueskyConfigured, duePosts, pastResults, postBluesky, runSocial, xIntentUrl } from '../src/lib/social.js';
+import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
+import { socialDraftEmail } from '../src/lib/emails.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
@@ -145,9 +147,19 @@ async function seoHtml(req, res) {
   }
 }
 
-// The X bot (src/lib/xBot.js): POST ?social=post posts what's due,
-// GET ?social=preview shows every post as it would read now. Both need
-// CRON_SECRET, like /api/refresh-optimal.
+// The social posts (src/lib/social.js): POST ?social=post sends what's
+// due (Bluesky, and X drafts by email), GET ?social=preview shows every
+// post as it would read now. Both need CRON_SECRET, like
+// /api/refresh-optimal.
+function socialChannels(env = process.env) {
+  const channels = [];
+  if (blueskyConfigured(env)) channels.push({ name: 'bluesky', send: post => postBluesky(post.text, env) });
+  if (env.SOCIAL_DRAFTS_EMAIL && mailerConfigured()) {
+    channels.push({ name: 'x-draft', send: post => sendMail({ to: env.SOCIAL_DRAFTS_EMAIL, ...socialDraftEmail({ label: post.label, text: post.text, intentUrl: xIntentUrl(post.text), appUrl: SITE }) }) });
+  }
+  return channels;
+}
+
 async function socialHandler(req, res) {
   const expected = process.env.CRON_SECRET;
   if (!expected || (req.headers.authorization || '') !== `Bearer ${expected}`) {
@@ -162,7 +174,7 @@ async function socialHandler(req, res) {
   }
   try {
     const data = await loadModel();
-    if (!data.saved) { res.status(200).json({ ok: true, posted: null, reason: 'no_predictions' }); return; }
+    if (!data.saved) { res.status(200).json({ ok: true, sent: null, reason: 'no_predictions' }); return; }
     const { model, bootstrap, season } = data;
     // The gameweek before the one being planned, once FPL has checked
     // its points.
@@ -177,11 +189,19 @@ async function socialHandler(req, res) {
       const ok = x => x && snapshotIsForSeason(x, season, bootstrap.events);
       lastFinished = pastResults(last.id, { saved: ok(saved) ? saved : null, snap: ok(snap) ? snap : null, live, names: Object.fromEntries(model.players.map(p => [p.id, p.name])) });
     }
-    const posts = duePosts({ season, model, snap: data.snap, lastFinished, all: preview });
-    if (preview) { res.status(200).json({ ok: true, configured: xConfigured(), posts }); return; }
-    if (!xConfigured()) { res.status(200).json({ ok: true, posted: null, reason: 'x_not_configured', due: posts.map(p => p.type) }); return; }
-    const result = await runSocial({ redis: getRedis(), posts });
-    res.status(result.error ? 502 : 200).json({ ok: !result.error, ...result });
+    const due = duePosts({ season, model, snap: data.snap, lastFinished });
+    const channels = socialChannels();
+    if (preview) {
+      const dueKeys = new Set(due.map(p => p.key));
+      const posts = duePosts({ season, model, snap: data.snap, lastFinished, all: true })
+        .map(p => ({ ...p, due: dueKeys.has(p.key), xIntentUrl: xIntentUrl(p.text) }));
+      res.status(200).json({ ok: true, channels: channels.map(c => c.name), posts });
+      return;
+    }
+    if (!channels.length) { res.status(200).json({ ok: true, sent: null, reason: 'no_channels', due: due.map(p => p.type) }); return; }
+    const results = await runSocial({ redis: getRedis(), posts: due, channels });
+    const failed = Object.values(results).some(r => r.error);
+    res.status(failed ? 502 : 200).json({ ok: !failed, results });
   } catch (e) {
     res.status(502).json({ error: 'social_failed', detail: String((e && e.message) || e) });
   }

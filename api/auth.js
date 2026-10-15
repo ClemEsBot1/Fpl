@@ -14,7 +14,7 @@ import { resetPasswordEmail } from '../src/lib/emails.js';
 import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
   deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
-  setReportDone, signOutEverywhere, triggerRetrain, userStats,
+  setReportDone, signOutEverywhere, socialPosts, triggerRetrain, userStats,
 } from '../src/lib/adminServer.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
@@ -94,6 +94,9 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
       return;
     case 'refresh':
       res.status(200).json(await refreshBestSquad(host, admin));
+      return;
+    case 'social':
+      res.status(200).json(await socialPosts(host, admin));
       return;
     case 'reports':
       res.status(200).json({ reports: await listReports(redis, admin) });
