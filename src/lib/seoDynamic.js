@@ -9,9 +9,9 @@
 
 import { SITE, escapeHtml, layout, list, playerLink, section } from './seoPage.js';
 
-const POSITION = { 1: 'goalkeeper', 2: 'defender', 3: 'midfielder', 4: 'forward' };
+export const POSITION = { 1: 'goalkeeper', 2: 'defender', 3: 'midfielder', 4: 'forward' };
 const POSITIONS = { 1: 'Goalkeepers', 2: 'Defenders', 3: 'Midfielders', 4: 'Forwards' };
-const POS_SHORT = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+export const POS_SHORT = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
 // Gameweeks a page looks ahead: the one being planned and the next four.
 export const AHEAD = 5;
 
@@ -28,7 +28,7 @@ export function slugify(text) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function difficultyWord(d) {
+export function difficultyWord(d) {
   return d <= 2 ? 'easy' : d === 3 ? 'medium' : 'hard';
 }
 
@@ -104,17 +104,17 @@ export function seoModel({ bootstrap, fixtures, event, saved }) {
 // Players with a page worth listing: still at a club, or predicted.
 export const listed = p => p.status !== 'u' || p.predicted !== null;
 
-const byAhead = (a, b) => (b.ahead ?? -1) - (a.ahead ?? -1) || (b.predicted ?? -1) - (a.predicted ?? -1);
+export const byAhead = (a, b) => (b.ahead ?? -1) - (a.ahead ?? -1) || (b.predicted ?? -1) - (a.predicted ?? -1);
 
 // A table of players: name (linked), club, price and the gameweek's
 // prediction plus the next five gameweeks'.
-function playersTable(caption, players, { club = true } = {}) {
+export function playersTable(caption, players, { club = true } = {}) {
   return `<table><caption>${escapeHtml(caption)}</caption><thead><tr><th scope="col">Player</th>${club ? '<th scope="col">Club</th>' : '<th scope="col">Pos</th>'}<th scope="col">Price</th><th scope="col" class="num">Next GW</th><th scope="col" class="num">Next ${AHEAD}</th></tr></thead><tbody>${
     players.map(p => `<tr><td>${playerLink(p)}</td><td>${club ? (p.teamRef ? `<a href="/team/${p.teamRef.slug}">${escapeHtml(p.team)}</a>` : '') : POS_SHORT[p.positionId]}</td><td>${money(p.price)}</td><td class="num">${p.predicted === null ? '–' : fmt(p.predicted)}</td><td class="num">${p.ahead === null ? '–' : fmt(p.ahead)}</td></tr>`).join('')
   }</tbody></table>`;
 }
 
-function fixtureText(f) {
+export function fixtureText(f) {
   return `${f.opponent.short} (${f.home ? 'H' : 'A'})`;
 }
 
@@ -197,7 +197,7 @@ export function playerPage(model, p, history = null) {
   });
 }
 
-function ordinal(n) {
+export function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);

@@ -23,17 +23,19 @@ export const GUIDES = [
   { path: '/fpl-transfer-suggestions', label: 'FPL transfer suggestions' },
   { path: '/rate-my-fpl-team', label: 'Rate my FPL team' },
   { path: '/fpl-players', label: 'Every player and club' },
+  { path: '/fpl-tips', label: 'This week’s FPL tips' },
+  { path: '/fpl-widget', label: 'Free FPL widget for your site' },
 ];
 
 // The guide pages rendered from live data on request (api/optimal-squad.js)
 // rather than written to public/.
-export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players'];
+export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips'];
 
 // A whole page. body is HTML; faq is [[question, answer]] (plain text).
 // crumbs are the pages between the home page and this one ([{ name, path }]);
 // canonical is the address search engines should list it under, when
 // that's another page; noindex keeps a not-found page out of search.
-export function layout({ path, title, description, h1, intro, body, faq = [], cta = { href: '/', label: 'Open FPL Checker' }, extraJsonLd = [], crumbs = [], canonical = path, noindex = false }) {
+export function layout({ path, title, description, h1, intro, body, faq = [], cta = { href: '/', label: 'Open FPL Checker' }, extraJsonLd = [], crumbs = [], canonical = path, noindex = false, image = '/og-image.png' }) {
   const url = SITE + path;
   const trail = [{ name: SITE_NAME, path: '/' }, ...crumbs, { name: h1, path }];
   const jsonLd = [
@@ -66,7 +68,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" hr
 <meta property="og:title" content="${escapeHtml(title)}">
 <meta property="og:description" content="${escapeHtml(description)}">
 <meta property="og:url" content="${url}">
-<meta property="og:image" content="${SITE}/og-image.png">
+<meta property="og:image" content="${SITE}${image}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/seo.css">
@@ -204,7 +206,29 @@ export function staticPages() {
         ],
       }),
     },
+    {
+      path: '/fpl-widget',
+      html: layout({
+        path: '/fpl-widget',
+        title: 'Free FPL Widget — captain picks for your website | FPL Checker',
+        description: 'Add this week’s top FPL captain picks to your website or blog for free: a small widget that updates itself every day, in a dark or light style.',
+        h1: 'Free FPL captain picks widget',
+        intro: 'Show your readers this week’s top five FPL captain picks, by predicted points, on your own site. It updates itself every day and before each deadline. Free, no sign-up.',
+        body: section('Dark', `<iframe src="/embed/captains" title="FPL captain picks" width="100%" height="300" style="border:0;max-width:420px;border-radius:12px" loading="lazy"></iframe><p>Paste this where you want it:</p><pre class="seo-code"><code>${escapeHtml(widgetSnippet('dark'))}</code></pre>`)
+          + section('Light', `<iframe src="/embed/captains?theme=light" title="FPL captain picks, light" width="100%" height="300" style="border:0;max-width:420px;border-radius:12px" loading="lazy"></iframe><pre class="seo-code"><code>${escapeHtml(widgetSnippet('light'))}</code></pre>`),
+        faq: [
+          ['Is the FPL widget free?', 'Yes. Use it on any site, blog or forum signature that allows iframes; keep the credit link under it.'],
+          ['How often does it update?', 'Every day, and again before each deadline, from the same predictions as FPL Checker.'],
+        ],
+      }),
+    },
   ];
+}
+
+// The embed code for the captain-picks widget (/embed/captains): an
+// iframe, and a plain link under it so the credit is a real link.
+export function widgetSnippet(theme = 'dark') {
+  return `<iframe src="${SITE}/embed/captains${theme === 'light' ? '?theme=light' : ''}" title="FPL captain picks" width="100%" height="300" style="border:0;max-width:420px;border-radius:12px" loading="lazy"></iframe>\n<p><a href="${SITE}/fpl-captain-picks">FPL captain picks</a> by FPL Checker</p>`;
 }
 
 // The weekly predictions page from the latest saved predictions.
@@ -213,7 +237,7 @@ export function staticPages() {
 // extra HTML for the top (links to other gameweeks). The same page is
 // served at /gw/<n> for the gameweek being planned, with /fpl-predictions
 // as its canonical address.
-export function predictionsPage({ gwName, deadline, players, best, updatedAt, nav = '', path = '/fpl-predictions' }) {
+export function predictionsPage({ gwName, deadline, players, best, updatedAt, nav = '', path = '/fpl-predictions', image }) {
   const fmt = n => (Math.round(n * 10) / 10).toFixed(1);
   const deadlineText = deadline ? new Date(deadline).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : null;
   const row = p => `<tr><td>${playerLink(p)}</td><td>${escapeHtml(p.team)}</td><td>£${p.price.toFixed(1)}m</td><td class="num">${fmt(p.predicted)}</td></tr>`;
@@ -230,6 +254,7 @@ export function predictionsPage({ gwName, deadline, players, best, updatedAt, na
   return layout({
     path,
     canonical: '/fpl-predictions',
+    ...(image ? { image } : {}),
     title: `FPL ${gwName} Predictions — best XI, captain and top players | FPL Checker`,
     description: `FPL predictions for ${gwName}: predicted points for every player, the best XI and captain, and the top goalkeepers, defenders, midfielders and forwards. Updated daily.`,
     h1: `FPL ${gwName} predictions`,

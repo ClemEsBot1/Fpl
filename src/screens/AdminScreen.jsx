@@ -298,6 +298,7 @@ function Social() {
                 {onBluesky ? <span className="fpl-admin-sent">On Bluesky</span> : null}
               </h3>
               <p className="fpl-admin-post-text">{post.text}</p>
+              {post.type === 'preview' ? <p className="fpl-meta" style={{ margin: 0 }}>Bluesky gets the best XI picture with it. For X, <a href="/images/best-xi.png" download="best-xi.png" target="_blank" rel="noreferrer">download the picture</a> and add it to the post.</p> : null}
               <PostActions text={post.text} payload={{ key: post.key }} canBluesky={channels.includes('bluesky')} sentToBluesky={onBluesky}
                 onSent={() => setPosted(p => ({ ...p, [post.key]: true }))} />
             </article>

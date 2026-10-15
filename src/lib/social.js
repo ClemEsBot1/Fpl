@@ -85,15 +85,20 @@ async function xrpc(service, method, { token, body, contentType = 'application/j
 }
 
 // Posts `text` as the bot account, with a link card for its first link
-// (the site's preview image as the picture, when it can be fetched), then
-// likes and reposts it.
-export async function postBluesky(text, env = process.env, fetchImpl = fetch) {
+// (the site's preview image as the picture, when it can be fetched), or
+// the picture given ({ png, alt }), then likes and reposts it.
+export async function postBluesky(text, env = process.env, fetchImpl = fetch, { image = null } = {}) {
   const record = blueskyRecord(text);
   if (!record) throw new Error('too long for Bluesky');
   const service = (env.BLUESKY_SERVICE || 'https://bsky.social').replace(/\/+$/, '');
   const session = await xrpc(service, 'com.atproto.server.createSession', { body: { identifier: env.BLUESKY_HANDLE, password: env.BLUESKY_APP_PASSWORD }, fetchImpl });
   const link = record.facets.find(f => f.features[0].uri);
-  if (link) {
+  if (image && image.png) {
+    // A picture ({ png, alt }) instead of a link card: the link in the
+    // text stays clickable.
+    const blob = (await xrpc(service, 'com.atproto.repo.uploadBlob', { token: session.accessJwt, body: image.png, contentType: 'image/png', fetchImpl })).blob;
+    record.embed = { $type: 'app.bsky.embed.images', images: [{ image: blob, alt: image.alt || '', aspectRatio: { width: 1200, height: 675 } }] };
+  } else if (link) {
     const external = { uri: link.features[0].uri, title: 'FPL Checker', description: 'Free FPL points predictor: predicted points for every player, your best XI, captain and transfers.' };
     try {
       const img = await fetchImpl(`${SITE}/og-image.png`, { signal: AbortSignal.timeout(10_000) });

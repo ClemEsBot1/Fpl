@@ -159,3 +159,20 @@ test('a post sent from the admin page counts as sent for the schedule too', asyn
   assert.deepEqual(await runSocial({ redis, posts: [post], channels: [bluesky] }), { bluesky: { sent: null } });
   assert.deepEqual(sent, ['two']);
 });
+
+test('a post with a picture attaches it instead of the link card', async () => {
+  const env = { BLUESKY_HANDLE: 'h', BLUESKY_APP_PASSWORD: 'p' };
+  const calls = [];
+  let record = null;
+  const fetchImpl = async (url, opts = {}) => {
+    calls.push(url.split('/').pop());
+    if (url.endsWith('uploadBlob')) assert.equal(opts.headers['Content-Type'], 'image/png');
+    if (url.endsWith('createRecord') && JSON.parse(opts.body).collection === 'app.bsky.feed.post') record = JSON.parse(opts.body).record;
+    const reply = { 'com.atproto.server.createSession': { accessJwt: 'jwt', did: 'did:plc:bot' }, 'com.atproto.repo.uploadBlob': { blob: { ref: 'img' } }, 'com.atproto.repo.createRecord': { uri: 'at://post/2', cid: 'c' } }[url.split('/').pop()];
+    return { ok: true, json: async () => reply };
+  };
+  await postBluesky('GW8 preview https://fplchecker.co.uk/fpl-predictions', env, fetchImpl, { image: { png: Buffer.from('png'), alt: 'GW8 best XI' } });
+  assert.ok(!calls.includes('og-image.png'));
+  assert.deepEqual(record.embed, { $type: 'app.bsky.embed.images', images: [{ image: { ref: 'img' }, alt: 'GW8 best XI', aspectRatio: { width: 1200, height: 675 } }] });
+  assert.ok(record.facets.some(f => f.features[0].uri === 'https://fplchecker.co.uk/fpl-predictions'), 'the link is still clickable');
+});
