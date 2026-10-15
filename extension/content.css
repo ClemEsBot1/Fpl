@@ -1,0 +1,19 @@
+/* The predicted-points badge after a player's name on the FPL site. */
+.fplc-badge {
+  display: inline-block;
+  margin-left: 0.35em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background: #ceff10;
+  color: #0a081e;
+  font: 700 0.72em/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: 0.08em;
+  white-space: nowrap;
+  cursor: help;
+}
+.fplc-badge--doubt {
+  background: #ffb020;
+}

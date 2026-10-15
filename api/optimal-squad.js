@@ -11,6 +11,7 @@ import { socialDraftEmail } from '../src/lib/emails.js';
 import { embedCaptainsHtml, leaguePage, tipsPage } from '../src/lib/seoExtra.js';
 import { accuracyPage, comparePage, comparePairs, comparePath, deadlinePage, differentialsPage, parseCompare, priceChangesPage, scheduleGwPage } from '../src/lib/seoMore.js';
 import { indexNowKey } from '../src/lib/indexNow.js';
+import { extensionFeed } from '../src/lib/extensionFeed.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
@@ -159,7 +160,8 @@ async function gwIdsWithPages({ model, saved }) {
 // The pages for search engines (see vercel.json for the addresses that
 // are rewritten here): ?page=predictions|players|player|team|gw|sitemap|
 // tips|embed|league|xi-image|deadline|price-changes|double|blank|
-// differentials|compare|accuracy|indexnow-key.
+// differentials|compare|accuracy|indexnow-key, and ext (the browser
+// extension's JSON).
 async function seoHtml(req, res) {
   const { page, slug } = req.query;
   if (page === 'indexnow-key') {
@@ -223,6 +225,15 @@ async function seoHtml(req, res) {
         .setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors *; base-uri 'none'; form-action 'none'")
         .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400')
         .send(embedCaptainsHtml(model, { theme: req.query.theme === 'light' ? 'light' : 'dark' }));
+      return;
+    }
+    if (page === 'ext') {
+      // Read by the browser extension (extension/) from the FPL site, so
+      // open to any origin: it's the same public data as the pages.
+      res.status(200).setHeader('Content-Type', 'application/json; charset=utf-8')
+        .setHeader('Access-Control-Allow-Origin', '*')
+        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=1800, stale-while-revalidate=86400')
+        .send(JSON.stringify(extensionFeed(model, data.snap, data.saved.savedAt || null)));
       return;
     }
     if (page === 'league') {
