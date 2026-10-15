@@ -4,7 +4,8 @@
 // says it's the poster's own: undisclosed self-promotion is against
 // Reddit's and r/FantasyPL's rules.
 
-const SITE = 'fplchecker.co.uk';
+// Written in full: Reddit only makes a link of text starting https:// or www.
+const SITE = 'https://fplchecker.co.uk';
 const DISCLOSURE = '(full disclosure it’s my site lol, but the numbers are the numbers)';
 
 const fmt = n => (Math.round(n * 10) / 10).toFixed(1);
