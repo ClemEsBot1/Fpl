@@ -2,7 +2,7 @@
 // src/lib/adminServer.js). Every request goes through /api/auth, which
 // checks the session belongs to an admin before doing anything.
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BrainCircuit, Camera, Check, ExternalLink, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
+import { Activity, BrainCircuit, Camera, Check, Copy, ExternalLink, Megaphone, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { fmtPts } from '../lib/format.js';
 
@@ -200,6 +200,45 @@ function Reports() {
   );
 }
 
+// The posts for X and Bluesky as they'd read now (src/lib/social.js).
+// Bluesky gets them by itself; X ones are posted from here or the email.
+function Social() {
+  const [state, setState] = useState({ status: 'loading' });
+  const [copied, setCopied] = useState(null);
+  useEffect(() => {
+    adminCall('social').then(r => setState(r.ok && r.data && r.data.ok ? { status: 'ready', data: r.data } : { status: 'error', error: (r.data && r.data.error) || r.error }));
+  }, []);
+  const copy = async post => {
+    try { await navigator.clipboard.writeText(post.text); setCopied(post.key); } catch { setCopied(null); }
+  };
+  if (state.status === 'loading') return <SkeletonRows rows={4} label="Loading this week’s posts…" />;
+  if (state.status === 'error') return <p role="alert">{state.error === 'not_configured' ? 'CRON_SECRET isn’t set, so the posts can’t be built.' : state.error}</p>;
+  const { channels, posts } = state.data;
+  return (
+    <div className="fpl-admin-grid">
+      <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-social">
+        <h2 id="adm-social" className="fpl-home-h"><Megaphone size={18} aria-hidden="true" /> Posts this gameweek</h2>
+        <p className="fpl-meta" style={{ margin: 0 }}>
+          Bluesky: {channels.includes('bluesky') ? 'posts by itself when each is due.' : 'off (set BLUESKY_HANDLE and BLUESKY_APP_PASSWORD).'}{' '}
+          X drafts by email: {channels.includes('x-draft') ? 'on.' : 'off (set SOCIAL_DRAFTS_EMAIL and SMTP_*).'}
+        </p>
+        {posts.length ? posts.map(post => (
+          <article key={post.key} className="fpl-admin-post">
+            <h3 className="fpl-admin-post-h">{post.label}{post.due ? <span className="fpl-admin-due">Due now</span> : null}</h3>
+            <p className="fpl-admin-post-text">{post.text}</p>
+            <div className="fpl-admin-actions">
+              <a className="fpl-btn fpl-btn-solid" href={post.xIntentUrl} target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> Post on X</a>
+              <button type="button" className="fpl-btn" onClick={() => copy(post)}>
+                {copied === post.key ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied === post.key ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </article>
+        )) : <p className="fpl-meta" style={{ margin: 0 }}>No posts yet: they need this gameweek’s saved predictions.</p>}
+      </section>
+    </div>
+  );
+}
+
 function UsersTab({ me }) {
   const [stats, setStats] = useState(null);
   const [query, setQuery] = useState('');
@@ -278,6 +317,7 @@ const TABS = [
   { id: 'health', label: 'Model and data', Icon: Activity },
   { id: 'reports', label: 'Screenshot reports', Icon: Camera },
   { id: 'users', label: 'Users', Icon: Users },
+  { id: 'social', label: 'Social', Icon: Megaphone },
 ];
 
 export function AdminScreen({ session }) {
@@ -295,7 +335,7 @@ export function AdminScreen({ session }) {
           </button>
         ))}
       </div>
-      {tab === 'health' ? <Health /> : tab === 'reports' ? <Reports /> : <UsersTab me={session.username} />}
+      {tab === 'health' ? <Health /> : tab === 'reports' ? <Reports /> : tab === 'social' ? <Social /> : <UsersTab me={session.username} />}
     </div>
   );
 }

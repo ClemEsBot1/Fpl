@@ -118,3 +118,26 @@ ${appUrl}`;
     html: layout({ appUrl, preheader: `Choose a new password for ${username}. The link expires in ${expiresMinutes} minutes.`, body }),
   };
 }
+
+// A post for X that's due (src/lib/social.js): the text, and a button that
+// opens X with it filled in, ready to post.
+export function socialDraftEmail({ label, text, intentUrl, appUrl }) {
+  const href = escapeHtml(intentUrl);
+  const subject = `Post on X: ${label}`;
+  const body = `
+            <h1 style="margin:0 0 18px;font-size:22px;line-height:28px;font-weight:700;color:${BRAND.ink};">${escapeHtml(label)} is ready to post</h1>
+            <p style="margin:0 0 22px;padding:14px 16px;border-radius:10px;background:${BRAND.page};font-size:15px;line-height:23px;white-space:pre-wrap;">${escapeHtml(text)}</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;">
+              <tr>
+                <td align="center" bgcolor="${BRAND.ink}" style="background:${BRAND.ink};border-radius:10px;">
+                  <a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;">Post on X</a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;font-size:13px;line-height:19px;color:${BRAND.muted};">Opens X with the post filled in; check it and press Post. It's also on the Social tab of the admin page.</p>`;
+  return {
+    subject,
+    text: `${label} is ready to post on X:\n\n${text}\n\nPost it: ${intentUrl}`,
+    html: layout({ appUrl, preheader: text.split('\n')[0], body }),
+  };
+}

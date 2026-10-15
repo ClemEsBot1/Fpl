@@ -1025,6 +1025,10 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-admin-actions .fpl-btn { display: inline-flex; align-items: center; gap: 6px; }
 .fpl-btn-danger { color: var(--red); border-color: rgba(255,90,90,0.5); }
 .fpl-admin-warn { color: var(--amber); }
+.fpl-admin-post { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.fpl-admin-post-h { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+.fpl-admin-due { padding: 2px 8px; border-radius: 999px; background: var(--lime); color: #05041A; font-size: 0.68rem; font-weight: 700; }
+.fpl-admin-post-text { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.85rem; line-height: 1.5; }
 .fpl-admin-msg { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.06); font-size: 0.85rem; grid-column: 1 / -1; }
 .fpl-admin-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .fpl-admin-table th, .fpl-admin-table td { text-align: left; padding: 5px 6px; }

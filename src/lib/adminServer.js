@@ -250,3 +250,15 @@ export async function refreshBestSquad(host, { fetchImpl = fetch } = {}) {
   try { body = await r.json(); } catch { body = null; }
   return r.ok ? { ok: true, result: body } : { ok: false, error: `refresh_${r.status}`, result: body };
 }
+
+// The social posts as they'd read now, with which are due (src/lib/social.js).
+export async function socialPosts(host, { fetchImpl = fetch } = {}) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || !host) return { ok: false, error: 'not_configured' };
+  const r = await fetchImpl(`${host.startsWith('localhost') ? 'http' : 'https'}://${host}/api/optimal-squad?social=preview`, {
+    headers: { Authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(30_000),
+  });
+  let body = null;
+  try { body = await r.json(); } catch { body = null; }
+  return r.ok && body ? { ok: true, channels: body.channels || [], posts: body.posts || [] } : { ok: false, error: `social_${r.status}` };
+}
