@@ -263,14 +263,15 @@ export async function socialPosts(host, { fetchImpl = fetch } = {}) {
   return r.ok && body ? { ok: true, channels: body.channels || [], posts: body.posts || [] } : { ok: false, error: `social_${r.status}` };
 }
 
-// Sends a one-off post written on the Social tab: to Bluesky, and as an X
-// draft by email, when they're set up.
-export async function socialCustomPost(host, text, { fetchImpl = fetch } = {}) {
+// Sends a post from the Social tab to the channels named (default: all
+// set up): a one-off ({ text }) or one of this gameweek's ({ key }).
+export async function socialSend(host, { text, key, channels }, { fetchImpl = fetch } = {}) {
   const secret = process.env.CRON_SECRET;
   if (!secret || !host) return { ok: false, error: 'not_configured' };
-  const r = await fetchImpl(`${host.startsWith('localhost') ? 'http' : 'https'}://${host}/api/optimal-squad?social=custom`, {
+  const action = typeof key === 'string' ? 'send' : 'custom';
+  const r = await fetchImpl(`${host.startsWith('localhost') ? 'http' : 'https'}://${host}/api/optimal-squad?social=${action}`, {
     method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }), signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({ ...(action === 'send' ? { key } : { text }), ...(Array.isArray(channels) ? { channels } : {}) }), signal: AbortSignal.timeout(30_000),
   });
   let body = null;
   try { body = await r.json(); } catch { body = null; }

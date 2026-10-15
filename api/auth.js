@@ -14,7 +14,7 @@ import { resetPasswordEmail } from '../src/lib/emails.js';
 import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
   deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
-  setReportDone, signOutEverywhere, socialCustomPost, socialPosts, triggerRetrain, userStats,
+  setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats,
 } from '../src/lib/adminServer.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
@@ -98,10 +98,13 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
     case 'social':
       res.status(200).json(await socialPosts(host, admin));
       return;
-    case 'social_post':
-      if (typeof body.text !== 'string') break;
-      res.status(200).json(await socialCustomPost(host, body.text, admin));
+    case 'social_post': {
+      // A one-off post (text) or one of this gameweek's (key).
+      if (typeof body.text !== 'string' && typeof body.key !== 'string') break;
+      const channels = Array.isArray(body.channels) ? body.channels.filter(c => typeof c === 'string') : undefined;
+      res.status(200).json(await socialSend(host, { text: typeof body.key === 'string' ? undefined : body.text, key: typeof body.key === 'string' ? body.key : undefined, channels }, admin));
       return;
+    }
     case 'reports':
       res.status(200).json({ reports: await listReports(redis, admin) });
       return;

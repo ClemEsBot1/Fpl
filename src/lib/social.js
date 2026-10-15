@@ -209,6 +209,20 @@ export function customPost(text) {
   return { post: { key: `custom:${id}`, type: 'custom', label: 'Custom post', text: clean } };
 }
 
+// The Redis key that marks `post` as sent to `channel`, shared by the
+// scheduled run and the admin page's buttons so neither repeats the other.
+export const sentKey = (channel, post) => `social:${channel}:${post.key}`;
+
+// Which channels each post has gone to: { [post.key]: ['bluesky', …] }.
+export async function sentTo(redis, posts, channels) {
+  const out = {};
+  for (const post of posts) {
+    out[post.key] = [];
+    for (const name of channels) if (await redis.get(sentKey(name, post))) out[post.key].push(name);
+  }
+  return out;
+}
+
 // Sends each channel ({ name, send(post) }) the first due post it hasn't
 // had. The Redis key is taken first so two overlapping runs can't both
 // send it; a failed send gives it back for the next run.
@@ -217,7 +231,7 @@ export async function runSocial({ redis, posts, channels }) {
   for (const channel of channels) {
     results[channel.name] = { sent: null };
     for (const post of posts) {
-      const key = `social:${channel.name}:${post.key}`;
+      const key = sentKey(channel.name, post);
       if ((await redis.set(key, '1', 'EX', SENT_TTL_SECONDS, 'NX')) !== 'OK') continue;
       try {
         results[channel.name] = { sent: post.type, id: (await channel.send(post)) || null };

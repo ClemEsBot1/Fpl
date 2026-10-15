@@ -4,7 +4,7 @@ import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
 import { SITE, predictionsPage } from '../src/lib/seoPage.js';
 import { getRedis } from '../src/lib/redis.js';
-import { blueskyConfigured, customPost, duePosts, pastResults, postBluesky, runSocial, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, customPost, duePosts, pastResults, postBluesky, runSocial, sentTo, xIntentUrl } from '../src/lib/social.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
@@ -149,7 +149,9 @@ async function seoHtml(req, res) {
 
 // The social posts (src/lib/social.js): POST ?social=post sends what's
 // due (Bluesky, and X drafts by email), GET ?social=preview shows every
-// post as it would read now, POST ?social=custom { text } sends a one-off. Both need CRON_SECRET, like
+// post as it would read now, POST ?social=custom { text } sends a one-off
+// and POST ?social=send { key } one of this gameweek's now. Both take an
+// optional channels list. Both need CRON_SECRET, like
 // /api/refresh-optimal.
 function socialChannels(env = process.env) {
   const channels = [];
@@ -172,10 +174,14 @@ async function socialHandler(req, res) {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
   }
+  // The admin page's buttons send to the channels they name (Bluesky; X
+  // is opened in the browser), the workflow to every channel.
+  const only = req.body && Array.isArray(req.body.channels) ? req.body.channels : null;
+  const pick = channels => (only ? channels.filter(c => only.includes(c.name)) : channels);
   if (req.query.social === 'custom') {
     const { post, error } = customPost(req.body && req.body.text);
     if (error) { res.status(400).json({ error }); return; }
-    const channels = socialChannels();
+    const channels = pick(socialChannels());
     const results = channels.length ? await runSocial({ redis: getRedis(), posts: [post], channels }) : {};
     const failed = Object.values(results).some(r => r.error);
     res.status(failed ? 502 : 200).json({ ok: !failed, channels: channels.map(c => c.name), results, xIntentUrl: xIntentUrl(post.text) });
@@ -200,11 +206,24 @@ async function socialHandler(req, res) {
     }
     const due = duePosts({ season, model, snap: data.snap, lastFinished });
     const channels = socialChannels();
+    const all = duePosts({ season, model, snap: data.snap, lastFinished, all: true });
     if (preview) {
       const dueKeys = new Set(due.map(p => p.key));
-      const posts = duePosts({ season, model, snap: data.snap, lastFinished, all: true })
-        .map(p => ({ ...p, due: dueKeys.has(p.key), xIntentUrl: xIntentUrl(p.text) }));
+      let sent = {};
+      try { sent = await sentTo(getRedis(), all, channels.map(c => c.name)); } catch { /* shown as not sent */ }
+      const posts = all.map(p => ({ ...p, due: dueKeys.has(p.key), sent: sent[p.key] || [], xIntentUrl: xIntentUrl(p.text) }));
       res.status(200).json({ ok: true, channels: channels.map(c => c.name), posts });
+      return;
+    }
+    // One of this gameweek's posts, now, from the admin page: marked sent
+    // like a scheduled one, so the schedule won't send it again.
+    if (req.query.social === 'send') {
+      const post = all.find(p => p.key === (req.body && req.body.key));
+      if (!post) { res.status(404).json({ error: 'no_such_post' }); return; }
+      const picked = pick(channels);
+      const results = picked.length ? await runSocial({ redis: getRedis(), posts: [post], channels: picked }) : {};
+      const failed = Object.values(results).some(r => r.error);
+      res.status(failed ? 502 : 200).json({ ok: !failed, channels: picked.map(c => c.name), results, xIntentUrl: xIntentUrl(post.text) });
       return;
     }
     if (!channels.length) { res.status(200).json({ ok: true, sent: null, reason: 'no_channels', due: due.map(p => p.type) }); return; }

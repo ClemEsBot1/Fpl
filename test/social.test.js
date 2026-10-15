@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blueskyConfigured, blueskyRecord, captainPost, customPost, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, blueskyRecord, captainPost, customPost, sentKey, sentTo, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { seoModel } from '../src/lib/seoDynamic.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
@@ -135,4 +135,17 @@ test('a one-off post is checked for length, and the same words get the same key'
   assert.deepEqual(customPost(undefined), { error: 'empty' });
   assert.deepEqual(customPost('x'.repeat(281)), { error: 'too_long_for_x' });
   assert.deepEqual(customPost(`${'x'.repeat(250)} https://fplchecker.co.uk/a-long-path-that-bluesky-counts-in-full`), { error: 'too_long_for_bluesky' });
+});
+
+test('a post sent from the admin page counts as sent for the schedule too', async () => {
+  const redis = fakeRedis();
+  const post = { key: '2026-27:preview:gw8', type: 'preview', text: 'two' };
+  const sent = [];
+  const bluesky = { name: 'bluesky', send: async p => { sent.push(p.text); } };
+  assert.deepEqual(await sentTo(redis, [post], ['bluesky', 'x-draft']), { [post.key]: [] });
+  await runSocial({ redis, posts: [post], channels: [bluesky] });
+  assert.equal(await redis.get(sentKey('bluesky', post)), '1');
+  assert.deepEqual(await sentTo(redis, [post], ['bluesky', 'x-draft']), { [post.key]: ['bluesky'] });
+  assert.deepEqual(await runSocial({ redis, posts: [post], channels: [bluesky] }), { bluesky: { sent: null } });
+  assert.deepEqual(sent, ['two']);
 });
