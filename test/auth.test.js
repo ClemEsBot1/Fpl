@@ -234,3 +234,30 @@ test('an email can only belong to one account, and is freed when changed', async
   assert.equal(sent.at(-1).to, 'shared@example.com');
   assert.match(sent.at(-1).text, /Hi second/);
 });
+
+test('deadline emails: on only with an email, off from the app or the unsubscribe link', async () => {
+  const { unsubscribeToken } = await import('../src/lib/digest.js');
+  const cookie = cookieFrom(await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' }));
+  const noEmail = await call(redis, { action: 'set_digest', teamId: 1234 }, undefined, cookie);
+  assert.equal(noEmail.status, 400);
+  assert.match(noEmail.body.error, /email address/);
+  await call(redis, { action: 'set_email', email: 'clem@example.com' }, undefined, cookie);
+  assert.equal((await call(redis, { action: 'set_digest', teamId: 'abc' }, undefined, cookie)).status, 400);
+  const on = await call(redis, { action: 'set_digest', teamId: 1234 }, undefined, cookie);
+  assert.equal(on.status, 200);
+  assert.equal(on.body.digestTeamId, 1234);
+  const off = await call(redis, { action: 'set_digest', teamId: null }, undefined, cookie);
+  assert.equal(off.body.digestTeamId, null);
+  assert.equal((await call(redis, { action: 'set_digest', teamId: 1234 }, undefined, cookie)).body.digestTeamId, 1234);
+
+  const visit = query => new Promise(resolve => {
+    const res = { statusCode: 200, setHeader() { return this; }, status(c) { this.statusCode = c; return this; }, send(b) { resolve({ status: this.statusCode, body: b }); }, json(b) { resolve({ status: this.statusCode, body: b }); } };
+    handler({ method: 'GET', query, headers: {} }, res, redis, fakeMail);
+  });
+  assert.equal((await visit({ digest: 'off', u: 'clem', t: 'wrong' })).status, 400);
+  const done = await visit({ digest: 'off', u: 'clem', t: unsubscribeToken('clem', 'test-secret') });
+  assert.equal(done.status, 200);
+  assert.match(done.body, /Deadline emails off/);
+  const me = await call(redis, undefined, undefined, cookie, 'GET');
+  assert.equal(me.body.digestTeamId, null);
+});

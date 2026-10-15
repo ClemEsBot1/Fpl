@@ -33,6 +33,12 @@ jobs:
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET not set: skipping"; exit 0; fi
           curl -s -X POST "$SITE/api/auth?push=send" -H "Authorization: Bearer $CRON_SECRET" || true
+      - name: Send deadline emails when due
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET not set: skipping"; exit 0; fi
+          curl -s -X POST "$SITE/api/auth?digest=send" -H "Authorization: Bearer $CRON_SECRET" || true
       - name: Send social posts when due
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

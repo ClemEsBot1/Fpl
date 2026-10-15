@@ -29,12 +29,13 @@ export const GUIDES = [
   { path: '/fpl-differentials', label: 'FPL differentials' },
   { path: '/fpl-double-gameweek', label: 'Double gameweeks' },
   { path: '/fpl-blank-gameweek', label: 'Blank gameweeks' },
+  { path: '/fpl-prediction-accuracy', label: 'How accurate are the predictions?' },
   { path: '/fpl-widget', label: 'Free FPL widget for your site' },
 ];
 
 // The guide pages rendered from live data on request (api/optimal-squad.js)
 // rather than written to public/.
-export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips', '/fpl-deadline', '/fpl-price-changes', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek'];
+export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips', '/fpl-deadline', '/fpl-price-changes', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek', '/fpl-prediction-accuracy'];
 
 // A whole page. body is HTML; faq is [[question, answer]] (plain text).
 // crumbs are the pages between the home page and this one ([{ name, path }]);

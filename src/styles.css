@@ -92,6 +92,8 @@
 .fpl-chip-btn { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; padding:6px 8px;
   border:1px solid var(--line); background:var(--panel-alt); color:var(--ink); cursor:pointer; border-radius:4px; }
 .fpl-chip-btn.active { border-color:var(--green); color:var(--green); }
+.fpl-chip-wa { display:inline-flex; align-items:center; gap:4px; text-decoration:none; }
+.fpl-chip-wa svg { color:#25D366; }
 
 /* Shared patterns that used to be repeated as inline styles. */
 .fpl-dim { color:var(--ink-dim); }
@@ -1158,3 +1160,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 /* Admin-only Reddit reply under the team results. */
 .fpl-reddit { display: grid; gap: 10px; margin-top: 16px; }
 .fpl-reddit-text { margin: 0; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.55; }
+
+.fpl-digest { margin-top: 12px; }
+.fpl-digest-row { display: flex; gap: 10px; align-items: flex-start; font-size: 0.85rem; line-height: 1.45; cursor: pointer; }
+.fpl-digest-row input { accent-color: var(--lime, #CEFF10); width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; }

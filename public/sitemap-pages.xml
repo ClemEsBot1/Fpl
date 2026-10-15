@@ -49,6 +49,10 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://fplchecker.co.uk/fpl-prediction-accuracy</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
     <loc>https://fplchecker.co.uk/fpl-widget</loc>
     <changefreq>weekly</changefreq>
   </url>

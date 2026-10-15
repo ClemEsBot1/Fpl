@@ -403,7 +403,7 @@ export default function FPLSquadChecker() {
 
   // Signed-in responses carry the account and its saved teams.
   function applyAccount(data) {
-    setSession({ username: data.username, email: data.email || '', admin: !!data.admin });
+    setSession({ username: data.username, email: data.email || '', admin: !!data.admin, digestTeamId: data.digestTeamId || null });
     if (Array.isArray(data.teams)) setSavedTeams(data.teams);
     else fetchSavedTeams();
   }

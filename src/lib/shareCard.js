@@ -27,8 +27,9 @@ function fitText(ctx, text, maxWidth) {
 }
 
 // slots: [{ player: { webName, team, positionId }, isStarting, isCaptain,
-// isViceCaptain, nextMatchPredicted }]
-export async function drawShareCard({ teamName, gwName, total, slots, teamsById, siteUrl }) {
+// isViceCaptain, nextMatchPredicted }]; score: the team's rating out of
+// 100, or null.
+export async function drawShareCard({ teamName, gwName, total, slots, teamsById, siteUrl, score = null }) {
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -60,6 +61,17 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   ctx.fillStyle = 'rgba(251,250,255,0.72)';
   ctx.font = `500 30px ${mono}`;
   ctx.fillText((gwName || '').toUpperCase(), 96, 252);
+  if (typeof score === 'number') {
+    const label = `RATED ${Math.round(score)}/100`;
+    ctx.font = `700 24px ${mono}`;
+    const gwW = ctx.measureText(`${(gwName || '').toUpperCase()}  `).width + 30;
+    const w = ctx.measureText(label).width + 28;
+    ctx.fillStyle = '#CEFF10';
+    roundRect(ctx, 96 + gwW, 222, w, 40, 20);
+    ctx.fill();
+    ctx.fillStyle = '#05041A';
+    ctx.fillText(label, 96 + gwW + 14, 250);
+  }
 
   ctx.textAlign = 'right';
   ctx.fillStyle = '#CEFF10';
@@ -119,10 +131,14 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   y += 36;
   bench.forEach(s => drawRow(s, true));
 
-  ctx.fillStyle = 'rgba(251,250,255,0.72)';
-  ctx.font = `500 24px ${mono}`;
+  // The invite: what to do and where.
   ctx.textAlign = 'center';
-  ctx.fillText(siteUrl || '', W / 2, H - 84);
+  ctx.fillStyle = '#FBFAFF';
+  ctx.font = `600 28px ${display}`;
+  ctx.fillText('Rate your team free at', W / 2, H - 102);
+  ctx.fillStyle = '#CEFF10';
+  ctx.font = `700 30px ${mono}`;
+  ctx.fillText(siteUrl || 'fplchecker.co.uk', W / 2, H - 64);
   ctx.textAlign = 'left';
   return canvas;
 }

@@ -276,3 +276,53 @@ export function comparePage(model, a, b) {
     cta: { href: '/', label: 'Check my team' },
   });
 }
+
+/* ---------------------------------------------------------------- accuracy */
+
+// How the predictions did, gameweek by gameweek, in public.
+// rows: [{ gwId, name, summary: summariseAccuracy(), xi: { predicted, scored } | null }],
+// oldest first.
+export function accuracyPage(model, rows) {
+  const done = rows.filter(r => r.summary);
+  const avg = f => done.reduce((s, r) => s + f(r), 0) / done.length;
+  const xiRows = done.filter(r => r.xi && r.xi.scored !== null);
+  const seasonMiss = done.length ? avg(r => r.summary.meanAbsError) : null;
+  const seasonCorr = done.length ? avg(r => r.summary.correlation) : null;
+  const topVsAll = done.length ? [avg(r => r.summary.topTenAverageActual), avg(r => r.summary.averageActual)] : null;
+  const xiTotals = xiRows.length ? [xiRows.reduce((s, r) => s + r.xi.predicted, 0), xiRows.reduce((s, r) => s + r.xi.scored, 0)] : null;
+  const headline = done.length
+    ? list([
+      `Predictions missed by <b>${fmt(seasonMiss)} points</b> per player on average (players who played).`,
+      `The 10 players rated highest each week scored <b>${fmt(topVsAll[0])}</b> on average, against <b>${fmt(topVsAll[1])}</b> for everyone who played.`,
+      `Correlation between predicted and actual points: <b>${seasonCorr.toFixed(2)}</b> (1 is perfect, 0 is guessing).`,
+      ...(xiTotals ? [`The best £100m XI, picked before each deadline, was predicted <b>${Math.round(xiTotals[0])}</b> points over ${xiRows.length} gameweek${xiRows.length === 1 ? '' : 's'} and scored <b>${xiTotals[1]}</b>.`] : []),
+    ])
+    : '<p>No gameweek has been scored yet this season. Check back after the first one.</p>';
+  const table = done.length ? `<table><caption>Every gameweek this season</caption><thead><tr><th scope="col">GW</th><th scope="col" class="num">Avg miss</th><th scope="col" class="num">Top 10 scored</th><th scope="col" class="num">Everyone</th><th scope="col" class="num">Best XI pred.</th><th scope="col" class="num">Best XI scored</th></tr></thead><tbody>${
+    [...done].reverse().map(r => `<tr><td><a href="/gw/${r.gwId}">${gwShort(r.gwId)}</a></td><td class="num">${fmt(r.summary.meanAbsError)}</td><td class="num">${fmt(r.summary.topTenAverageActual)}</td><td class="num">${fmt(r.summary.averageActual)}</td><td class="num">${r.xi ? fmt(r.xi.predicted) : '–'}</td><td class="num">${r.xi && r.xi.scored !== null ? r.xi.scored : '–'}</td></tr>`).join('')
+  }</tbody></table>` : '';
+  return layout({
+    path: '/fpl-prediction-accuracy',
+    title: 'How Accurate Are FPL Checker’s Predictions? Every gameweek, checked | FPL Checker',
+    description: done.length
+      ? `FPL Checker's predictions against what players actually scored, every gameweek: ${fmt(seasonMiss)} points average miss over ${done.length} gameweek${done.length === 1 ? '' : 's'}, and how the best XI did.`
+      : 'FPL Checker’s predictions against what players actually scored, every gameweek of the season.',
+    h1: 'How accurate are the predictions?',
+    intro: 'Every prediction is saved before the deadline and checked against what players actually scored. Nothing is changed afterwards, and the misses are shown too.',
+    body: section('This season', headline)
+      + (table ? section('Gameweek by gameweek', `${table}<p>“Avg miss” is the average gap between predicted and actual points for players who played. Open a gameweek for every player’s prediction and score.</p>`) : '')
+      + section('Why predictions miss', '<p>Football is noisy: a goal is worth 4 to 6 points and one can decide a gameweek. Late team news, red cards and substitutions also move points after the deadline. What matters is that the players rated highest score more than the rest, week after week.</p>')
+      + section('More', list([
+        `<a href="/fpl-predictions">${escapeHtml(model.event.name)} predictions</a>`,
+        '<a href="/fpl-points-predictor">How the predictions are made</a>',
+        '<a href="/fpl-players">Every player ranked</a>',
+      ])),
+    faq: [
+      ['How accurate are FPL Checker’s predictions?', done.length
+        ? `Over ${done.length} gameweek${done.length === 1 ? '' : 's'} this season, they missed by ${fmt(seasonMiss)} points per player on average, and the 10 players rated highest each week scored ${fmt(topVsAll[0])} on average against ${fmt(topVsAll[1])} for everyone.`
+        : 'Each gameweek is checked once it has been played; the first results appear after the first gameweek.'],
+      ['Are the predictions changed after the deadline?', 'No. They’re saved before each deadline and left as they were, so the comparison is fair.'],
+    ],
+    cta: { href: '/', label: 'Check my team' },
+  });
+}

@@ -2,7 +2,7 @@
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Anchor, Armchair, Check, Scale, Share2, Swords, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
+import { Anchor, Armchair, Check, MessageCircle, Scale, Share2, Swords, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import './headToHead.css';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
@@ -250,9 +250,12 @@ function HeadToHead({ members, teams, youEntry, teamsById }) {
 // afresh for each league picked.
 // A link to the league's page on the site (/league/<id>: standings,
 // captains and predicted points) to send to the rest of the league.
-function ShareLeague({ leagueId, name }) {
+// The league's page (/league/<id>), shared to the league's group chat:
+// WhatsApp straight away, anything else through the share sheet or a link.
+function ShareLeague({ leagueId, name, gwName }) {
   const [copied, setCopied] = useState(false);
   const url = `https://fplchecker.co.uk/league/${leagueId}`;
+  const message = `${name || 'Our league'}: ${gwName ? `${gwName.replace('Gameweek ', 'GW')} ` : ''}predicted points, captains and standings for everyone 👀 ${url}`;
   const share = async () => {
     try {
       if (navigator.share) { await navigator.share({ title: name || 'FPL mini-league', text: `${name || 'Our league'}: standings, captains and predicted points`, url }); return; }
@@ -262,9 +265,14 @@ function ShareLeague({ leagueId, name }) {
     } catch { /* closed the share sheet */ }
   };
   return (
-    <button type="button" className="fpl-chip-btn" onClick={share} aria-label="Share a link to this league's page">
-      {copied ? <Check size={14} aria-hidden="true" /> : <Share2 size={14} aria-hidden="true" />} {copied ? 'Link copied' : 'Share'}
-    </button>
+    <>
+      <a className="fpl-chip-btn fpl-chip-wa" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" aria-label="Send this league's page to WhatsApp">
+        <MessageCircle size={14} aria-hidden="true" /> Send to league
+      </a>
+      <button type="button" className="fpl-chip-btn" onClick={share} aria-label="Share a link to this league's page">
+        {copied ? <Check size={14} aria-hidden="true" /> : <Share2 size={14} aria-hidden="true" />} {copied ? 'Link copied' : 'Share'}
+      </button>
+    </>
   );
 }
 
@@ -347,7 +355,7 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
     <section className="fpl-glass fpl-home-card" aria-labelledby="league-h" aria-busy={standings.status === 'loading'}>
       <div className="fpl-home-team-head">
         <h2 id="league-h" className="fpl-home-h"><Trophy size={18} aria-hidden="true" /> {standings.data ? standings.data.league.name : 'League'}</h2>
-        <ShareLeague leagueId={leagueId} name={standings.data ? standings.data.league.name : null} />
+        <ShareLeague leagueId={leagueId} name={standings.data ? standings.data.league.name : null} gwName={gwName} />
         <div className="fpl-league-sort" role="group" aria-label="Sort by">
           {SORTS.map(([key, label]) => (
             <button key={key} type="button" className={`fpl-chip-btn${sortBy === key ? ' active' : ''}`} aria-pressed={sortBy === key} onClick={() => setSortBy(key)}>{label}</button>

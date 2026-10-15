@@ -17,6 +17,8 @@ import {
   setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats,
 } from '../src/lib/adminServer.js';
 import { markSent } from '../src/lib/social.js';
+import { digestHandler } from '../src/lib/digestHandler.js';
+import { cleanTeamId } from '../src/lib/digest.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
 // Failed logins are counted per username (protects one account from a
@@ -72,6 +74,7 @@ async function emailAvailable(redis, email, username) {
 function account(record) {
   return {
     ok: true, username: record.username, email: record.email || '', teams: Array.isArray(record.teams) ? record.teams : [],
+    digestTeamId: record.digest && record.digest.teamId ? record.digest.teamId : null,
     ...(isAdmin(record.username) ? { admin: true } : {}),
   };
 }
@@ -181,6 +184,10 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     res.status(500).json({ error: 'server_misconfigured', detail: 'JWT_SECRET is not set' });
     return;
   }
+
+  // The deadline email (src/lib/digest.js): the scheduled send and the
+  // unsubscribe link.
+  if (req.query && req.query.digest) return digestHandler(req, res, { redis: redisOverride || getRedis(), secret, ...(mailOverride ? { send: mailOverride } : {}) });
 
   if (req.method === 'GET') {
     const session = getSessionFromRequest(req, secret);
@@ -350,6 +357,31 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
   }
 
   // Add, change or (with an empty email) remove the logged-in user's email.
+  // Deadline emails on (for this FPL team) or off: { teamId } or { teamId: null }.
+  if (action === 'set_digest') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+    const teamId = body.teamId === null ? null : cleanTeamId(body.teamId);
+    if (body.teamId !== null && !teamId) { res.status(400).json({ error: 'That isn’t an FPL team ID.' }); return; }
+    try {
+      let problem = null;
+      const updated = await updateJSON(redis, userKeyFor(session.username), record => {
+        if (!sessionMatchesRecord(session, record)) { problem = 'signed_out'; return null; }
+        if (teamId && !record.email) { problem = 'no_email'; return null; }
+        const next = { ...record };
+        if (teamId) next.digest = { teamId };
+        else delete next.digest;
+        return next;
+      });
+      if (problem === 'no_email') { res.status(400).json({ error: 'Add an email address to your account first.' }); return; }
+      if (updated === undefined || problem) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      res.status(200).json(account(updated));
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
   if (action === 'set_email') {
     const session = getSessionFromRequest(req, secret);
     if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
