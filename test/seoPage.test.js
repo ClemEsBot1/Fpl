@@ -34,3 +34,10 @@ test('the weekly predictions page lists the best XI and the top players, safely 
   // Without a saved best squad the page still lists the players.
   assert.match(predictionsPage({ gwName: 'Gameweek 8', players, best: null }), /Top 15 predicted players/);
 });
+
+test('every guide page declares the favicon Google shows in search results', () => {
+  for (const { path, html } of staticPages()) {
+    assert.ok(html.includes('<link rel="icon" href="/favicon.ico" sizes="48x48">'), path);
+    assert.ok(html.includes('href="/favicon-96x96.png"'), path);
+  }
+});
