@@ -16,6 +16,7 @@ import {
   deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
   setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats,
 } from '../src/lib/adminServer.js';
+import { markSent } from '../src/lib/social.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
 // Failed logins are counted per username (protects one account from a
@@ -105,6 +106,12 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
       res.status(200).json(await socialSend(host, { text: typeof body.key === 'string' ? undefined : body.text, key: typeof body.key === 'string' ? body.key : undefined, channels }, admin));
       return;
     }
+    case 'social_x_done':
+      // Ticks one of this gameweek's posts off (or back on) as posted on X.
+      if (typeof body.key !== 'string') break;
+      if (!(await markSent(redis, 'x', body.key, !!body.done))) break;
+      res.status(200).json({ ok: true });
+      return;
     case 'reports':
       res.status(200).json({ reports: await listReports(redis, admin) });
       return;

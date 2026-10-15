@@ -237,6 +237,16 @@ export async function sentTo(redis, posts, channels) {
   return out;
 }
 
+// X posts go out by hand from the admin page (the API is paid), so the
+// page ticks them off itself: the 'x' channel's key, set or cleared.
+export const POST_KEY = /^\d{4}-\d{2}:(results|differential|preview|captain):gw\d{1,2}$/;
+export async function markSent(redis, channel, key, done) {
+  if (!POST_KEY.test(key)) return false;
+  if (done) await redis.set(sentKey(channel, { key }), '1', 'EX', SENT_TTL_SECONDS);
+  else await redis.del(sentKey(channel, { key }));
+  return true;
+}
+
 // Sends each channel ({ name, send(post) }) the first due post it hasn't
 // had. The Redis key is taken first so two overlapping runs can't both
 // send it; a failed send gives it back for the next run.

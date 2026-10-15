@@ -1030,8 +1030,12 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-btn.is-disabled { opacity: 0.45; pointer-events: none; }
 .fpl-admin-post { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
 .fpl-admin-post-h { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
-.fpl-admin-sent { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.12); color: var(--ink-dim); font-size: 0.68rem; font-weight: 600; }
+.fpl-admin-sent { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.12); color: var(--ink-dim); font-size: 0.68rem; font-weight: 600; }
 .fpl-admin-due { padding: 2px 8px; border-radius: 999px; background: var(--lime); color: #05041A; font-size: 0.68rem; font-weight: 700; }
+.fpl-admin-xdone { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 500; color: var(--ink-dim); cursor: pointer; }
+.fpl-admin-xdone input { accent-color: var(--lime); width: 15px; height: 15px; }
+.fpl-admin-post.is-done { opacity: 0.45; filter: grayscale(0.6); transition: opacity 0.2s ease; }
+.fpl-admin-post.is-done:hover, .fpl-admin-post.is-done:focus-within { opacity: 0.8; }
 .fpl-admin-post-text { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.85rem; line-height: 1.5; }
 .fpl-admin-msg { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.06); font-size: 0.85rem; grid-column: 1 / -1; }
 .fpl-admin-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
