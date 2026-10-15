@@ -8,6 +8,8 @@ import { blueskyConfigured, customPost, duePosts, pastResults, postBluesky, runS
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { embedCaptainsHtml, leaguePage, tipsPage } from '../src/lib/seoExtra.js';
+import { comparePage, comparePairs, comparePath, deadlinePage, differentialsPage, parseCompare, priceChangesPage, scheduleGwPage } from '../src/lib/seoMore.js';
+import { indexNowKey } from '../src/lib/indexNow.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
@@ -122,18 +124,41 @@ async function gwIdsWithPages({ model, saved }) {
 }
 
 // The pages for search engines (see vercel.json for the addresses that
-// are rewritten here): ?page=predictions|players|player|team|gw|sitemap.
+// are rewritten here): ?page=predictions|players|player|team|gw|sitemap|
+// tips|embed|league|xi-image|deadline|price-changes|double|blank|
+// differentials|compare|indexnow-key.
 async function seoHtml(req, res) {
   const { page, slug } = req.query;
+  if (page === 'indexnow-key') {
+    const key = indexNowKey();
+    res.status(key ? 200 : 404).setHeader('Content-Type', 'text/plain; charset=utf-8').setHeader('Cache-Control', 'public, max-age=3600').send(key || 'not set');
+    return;
+  }
   try {
     const data = await loadModel();
     const { model } = data;
     if (page === 'sitemap') {
       res.status(200).setHeader('Content-Type', 'application/xml; charset=utf-8')
-        .setHeader('Cache-Control', 'public, max-age=3600, s-maxage=21600').send(sitemapXml(model, await gwIdsWithPages(data)));
+        .setHeader('Cache-Control', 'public, max-age=3600, s-maxage=21600').send(sitemapXml(model, await gwIdsWithPages(data), data.saved ? comparePairs(model) : []));
       return;
     }
+    // Made from FPL's data alone, so there with or without predictions.
+    if (page === 'deadline') return sendHtml(res, 200, deadlinePage(model));
+    if (page === 'price-changes') return sendHtml(res, 200, priceChangesPage(model));
+    if (page === 'double' || page === 'blank') return sendHtml(res, 200, scheduleGwPage(model, page));
     if (!data.saved && page !== 'gw') return unavailable(res);
+    if (page === 'differentials') return sendHtml(res, 200, differentialsPage(model));
+    if (page === 'compare') {
+      const pair = parseCompare(model, req.query.pair);
+      if (!pair) return sendHtml(res, 404, notFoundPage(`/compare/${encodeURIComponent(String(req.query.pair || ''))}`, 'Comparison'));
+      const path = comparePath(pair[0], pair[1]);
+      // One address per pair: b-vs-a goes to a-vs-b.
+      if (`/compare/${req.query.pair}` !== path) {
+        res.status(301).setHeader('Location', path).setHeader('Cache-Control', 'public, max-age=86400').end();
+        return;
+      }
+      return sendHtml(res, 200, comparePage(model, pair[0], pair[1]));
+    }
     if (page === 'player') {
       const p = model.playerBySlug[String(slug || '')];
       if (!p) return sendHtml(res, 404, notFoundPage(`/player/${encodeURIComponent(String(slug || ''))}`, 'Player'));

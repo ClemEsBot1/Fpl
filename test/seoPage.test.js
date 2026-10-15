@@ -25,7 +25,7 @@ test('the weekly predictions page lists the best XI and the top players, safely 
   const p = (id, name, positionId, predicted) => ({ id, name, team: 'ARS', positionId, price: 6.5, predicted });
   const players = [p(1, 'Raya', 1, 4.1), p(2, 'Saliba', 2, 5.2), p(3, 'Saka <b>', 3, 7.9), p(4, 'Haaland', 4, 9.4)];
   const html = predictionsPage({ gwName: 'Gameweek 8', deadline: '2026-10-17T10:00:00Z', players, best: { xi: players, captainId: 4 }, updatedAt: '2026-10-15T06:00:00Z' });
-  assert.match(html, /<title>FPL Gameweek 8 Predictions/);
+  assert.match(html, /<title>FPL GW8 Predictions/);
   assert.match(html, /Haaland<\/b> as captain/);
   assert.match(html, /predicted to score <b>36\.0 points<\/b>/, 'XI total with the captain doubled');
   assert.ok(html.includes('Saka &lt;b&gt;') && !html.includes('Saka <b>'));

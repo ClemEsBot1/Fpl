@@ -29,6 +29,26 @@
     <changefreq>daily</changefreq>
   </url>
   <url>
+    <loc>https://fplchecker.co.uk/fpl-deadline</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-price-changes</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-differentials</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-double-gameweek</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-blank-gameweek</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
     <loc>https://fplchecker.co.uk/fpl-widget</loc>
     <changefreq>weekly</changefreq>
   </url>

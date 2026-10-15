@@ -66,7 +66,7 @@ export function tipsPage(model, { image } = {}) {
   const updated = new Date().toISOString();
   return layout({
     path: '/fpl-tips',
-    title: `FPL ${gw.name} Tips — captain, differentials and transfers | FPL Checker`,
+    title: `FPL GW${gw.id} Tips — captain, differentials and transfers | FPL Checker`,
     description: `FPL tips for ${gw.name}${first ? `: captain ${first.name}` : ''}, the best differentials, who to sell, budget picks and fixture swings, from predicted points for every player.`,
     h1: `FPL ${gw.name} tips`,
     intro: `Captain, differentials, transfers and fixtures for ${escapeHtml(gw.name)}${deadline ? `, deadline ${escapeHtml(deadline)}` : ''}. Written from FPL Checker’s predicted points for every player, updated every day.`,

@@ -7,6 +7,34 @@
   ],
   "rewrites": [
     {
+      "source": "/fpl-deadline",
+      "destination": "/api/optimal-squad?page=deadline"
+    },
+    {
+      "source": "/fpl-price-changes",
+      "destination": "/api/optimal-squad?page=price-changes"
+    },
+    {
+      "source": "/fpl-double-gameweek",
+      "destination": "/api/optimal-squad?page=double"
+    },
+    {
+      "source": "/fpl-blank-gameweek",
+      "destination": "/api/optimal-squad?page=blank"
+    },
+    {
+      "source": "/fpl-differentials",
+      "destination": "/api/optimal-squad?page=differentials"
+    },
+    {
+      "source": "/compare/:pair",
+      "destination": "/api/optimal-squad?page=compare&pair=:pair"
+    },
+    {
+      "source": "/indexnow-key.txt",
+      "destination": "/api/optimal-squad?page=indexnow-key"
+    },
+    {
       "source": "/fpl-tips",
       "destination": "/api/optimal-squad?page=tips"
     },

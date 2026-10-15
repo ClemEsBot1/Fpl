@@ -24,12 +24,17 @@ export const GUIDES = [
   { path: '/rate-my-fpl-team', label: 'Rate my FPL team' },
   { path: '/fpl-players', label: 'Every player and club' },
   { path: '/fpl-tips', label: 'This week’s FPL tips' },
+  { path: '/fpl-deadline', label: 'FPL deadline' },
+  { path: '/fpl-price-changes', label: 'FPL price changes' },
+  { path: '/fpl-differentials', label: 'FPL differentials' },
+  { path: '/fpl-double-gameweek', label: 'Double gameweeks' },
+  { path: '/fpl-blank-gameweek', label: 'Blank gameweeks' },
   { path: '/fpl-widget', label: 'Free FPL widget for your site' },
 ];
 
 // The guide pages rendered from live data on request (api/optimal-squad.js)
 // rather than written to public/.
-export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips'];
+export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips', '/fpl-deadline', '/fpl-price-changes', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek'];
 
 // A whole page. body is HTML; faq is [[question, answer]] (plain text).
 // crumbs are the pages between the home page and this one ([{ name, path }]);
@@ -257,7 +262,7 @@ export function predictionsPage({ gwName, deadline, players, best, updatedAt, na
     path,
     canonical: '/fpl-predictions',
     ...(image ? { image } : {}),
-    title: `FPL ${gwName} Predictions — best XI, captain and top players | FPL Checker`,
+    title: `FPL ${gwName.replace(/^Gameweek (\d+)$/, 'GW$1')} Predictions — best XI, captain and top players | FPL Checker`,
     description: `FPL predictions for ${gwName}: predicted points for every player, the best XI and captain, and the top goalkeepers, defenders, midfielders and forwards. Updated daily.`,
     h1: `FPL ${gwName} predictions`,
     intro: `Predicted Fantasy Premier League points for ${escapeHtml(gwName)}${deadlineText ? `, deadline ${escapeHtml(deadlineText)}` : ''}. Updated every day${updatedAt ? `; last on ${escapeHtml(new Date(updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' }))}` : ''}. Open FPL Checker to see your own squad predicted.`,

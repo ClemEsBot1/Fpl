@@ -86,13 +86,26 @@ export function seoModel({ bootstrap, fixtures, event, saved }) {
       bonus: e.bonus || 0,
       xg: parseFloat(e.expected_goals) || 0,
       xa: parseFloat(e.expected_assists) || 0,
+      // This gameweek's transfers and FPL's own progress towards a price
+      // change, for /fpl-price-changes (src/lib/transferTrends.js).
+      transfersInEvent: Number(e.transfers_in_event) || 0,
+      transfersOutEvent: Number(e.transfers_out_event) || 0,
+      costChangeEvent: Number(e.cost_change_event) || 0,
+      priceChangePercent: e.price_change_percent === null || e.price_change_percent === undefined || e.price_change_percent === '' || !Number.isFinite(Number(e.price_change_percent))
+        ? null : Number(e.price_change_percent),
       predicted: next,
       weeks,
       ahead: weeks.length ? Math.round(sum(weeks.map(w => w.points)) * 10) / 10 : null,
     };
   });
+  // Matches not yet given a gameweek (postponed): they become doubles.
+  const unscheduled = (fixtures || []).filter(f => !f.event && !f.finished && teamById[f.team_h] && teamById[f.team_a])
+    .map(f => ({ home: teamById[f.team_h], away: teamById[f.team_a] }));
   return {
     event,
+    events: bootstrap.events || [],
+    totalPlayers: bootstrap.total_players || 0,
+    unscheduled,
     teams,
     teamBySlug: Object.fromEntries(teams.map(t => [t.slug, t])),
     players,
@@ -164,7 +177,7 @@ export function playerPage(model, p, history = null) {
       ['Expected goals (xG)', fmt(p.xg)], ['Expected assists (xA)', fmt(p.xa)], ['Price', money(p.price)], ['Selected by', `${p.selectedBy}%`],
     ].map(([k, v]) => `<tr><th scope="row">${k}</th><td class="num">${v}</td></tr>`).join('')}</tbody></table>`)
     + (recent.length ? section('Last gameweeks', `<table><caption>Points by gameweek</caption><thead><tr><th scope="col">GW</th><th scope="col">Opponent</th><th scope="col" class="num">Mins</th><th scope="col" class="num">Pts</th></tr></thead><tbody>${recent.map(h => `<tr><td>${gwShort(h.round)}</td><td>${teamById[h.opponent_team] ? fixtureText({ opponent: teamById[h.opponent_team], home: h.was_home }) : ''}</td><td class="num">${h.minutes}</td><td class="num">${h.total_points}</td></tr>`).join('')}</tbody></table>`) : '')
-    + (alternatives.length ? section(`Similar ${position}s`, `${playersTable(`${POSITIONS[p.positionId]} within £1m of ${money(p.price)}`, alternatives)}<p>Compare them side by side in <a href="/">FPL Checker</a>.</p>`) : '')
+    + (alternatives.length ? section(`Similar ${position}s`, `${playersTable(`${POSITIONS[p.positionId]} within £1m of ${money(p.price)}`, alternatives)}<p>Side by side: ${alternatives.slice(0, 3).map(o => `<a href="${comparePathOf(p, o)}">${escapeHtml(p.name)} vs ${escapeHtml(o.name)}</a>`).join(' · ')}.</p>`) : '')
     + section('More', list([
       ...(team ? [`<a href="/team/${team.slug}">${escapeHtml(team.name)} fixtures and players</a>`] : []),
       `<a href="/gw/${gw.id}">${escapeHtml(gw.name)} predictions</a>`,
@@ -195,6 +208,12 @@ export function playerPage(model, p, history = null) {
       ...(team ? { memberOf: { '@type': 'SportsTeam', name: team.name, sport: 'Football' } } : {}),
     }],
   });
+}
+
+// /compare/<a>-vs-<b>, slugs in alphabetical order (as src/lib/seoMore.js).
+export function comparePathOf(a, b) {
+  const [x, y] = [a.slug, b.slug].sort();
+  return `/compare/${x}-vs-${y}`;
 }
 
 export function ordinal(n) {
@@ -263,7 +282,7 @@ export function futureGwPage(model, gwId, eventName) {
     + [1, 2, 3, 4].map(pos => section(`Best ${POSITIONS[pos].toLowerCase()} for ${eventName}`, table(POSITIONS[pos], players.filter(p => p.positionId === pos).slice(0, 8)))).join('');
   return layout({
     path: `/gw/${gwId}`,
-    title: `FPL ${eventName} Predictions — early look at the top players | FPL Checker`,
+    title: `FPL ${gwShort(gwId)} Predictions — early look at the top players | FPL Checker`,
     description: `Early FPL predictions for ${eventName}: the top predicted players overall and by position, plus double and blank gameweeks. Updated daily until the deadline.`,
     h1: `FPL ${eventName} predictions`,
     intro: `An early look at ${escapeHtml(eventName)}, ${gwId - model.event.id} gameweek${gwId - model.event.id === 1 ? '' : 's'} ahead. Predictions this far out use fixtures and form; they firm up as team news arrives.`,
@@ -306,7 +325,7 @@ export function pastGwPage(model, gwId, eventName, { saved, snap, live }) {
     + (topScorers.length ? section(`Top scorers in ${eventName}`, `<table><caption>Most points</caption>${head}<tbody>${topScorers.map(row).join('')}</tbody></table>`) : '');
   return layout({
     path: `/gw/${gwId}`,
-    title: `FPL ${eventName} Predictions and Results — best XI and top scorers | FPL Checker`,
+    title: `FPL ${gwShort(gwId)} Predictions and Results — best XI and top scorers | FPL Checker`,
     description: `FPL ${eventName}: the points predicted for every player before the deadline${scored ? ', what they scored, and how the best XI did' : ' and the best XI'}.`,
     h1: `FPL ${eventName} predictions${scored ? ' and results' : ''}`,
     intro: `What FPL Checker predicted for ${escapeHtml(eventName)} before its deadline${scored ? ', next to what each player scored' : ''}. For the gameweek coming up, see <a href="/fpl-predictions">this week’s FPL predictions</a>.`,
@@ -341,14 +360,16 @@ export function playersHubPage(model) {
 
 /* --------------------------------------------------------------- sitemap */
 
-// gwIds: the gameweeks with a page (saved predictions, or ahead).
-export function sitemapXml(model, gwIds) {
+// gwIds: the gameweeks with a page (saved predictions, or ahead);
+// compare: the /compare/ pages to list.
+export function sitemapXml(model, gwIds, compare = []) {
   const url = (path, freq) => `  <url>\n    <loc>${SITE}${path}</loc>\n    <changefreq>${freq}</changefreq>\n  </url>`;
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[
     url('/fpl-players', 'daily'),
     ...model.teams.map(t => url(`/team/${t.slug}`, 'daily')),
     ...gwIds.map(id => url(`/gw/${id}`, id >= model.event.id ? 'daily' : 'monthly')),
     ...model.players.filter(listed).map(p => url(`/player/${p.slug}`, 'daily')),
+    ...compare.map(path => url(path, 'daily')),
   ].join('\n')}\n</urlset>\n`;
 }
 
