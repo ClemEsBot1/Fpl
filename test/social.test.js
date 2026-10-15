@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blueskyConfigured, blueskyRecord, captainPost, customPost, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, blueskyRecord, captainPost, customPost, sentKey, sentTo, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { seoModel } from '../src/lib/seoDynamic.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
@@ -73,15 +73,23 @@ test('Bluesky posts show links without https://, clickable, with tags, by UTF-8 
   assert.equal(blueskyRecord('x'.repeat(301)), null, 'over 300 characters');
 });
 
-test('posting to Bluesky signs in, attaches a link card and creates the post', async () => {
+test('posting to Bluesky signs in, attaches a link card, creates the post, then likes and reposts it', async () => {
   const env = { BLUESKY_HANDLE: 'fplchecker.bsky.social', BLUESKY_APP_PASSWORD: 'app-pass' };
   assert.ok(blueskyConfigured(env) && !blueskyConfigured({}));
   const calls = [];
+  let failRepost = false;
   const fetchImpl = async (url, opts = {}) => {
     calls.push(url.split('/').pop());
     if (url.endsWith('og-image.png')) return { ok: true, arrayBuffer: async () => new ArrayBuffer(4) };
-    const reply = { 'com.atproto.server.createSession': { accessJwt: 'jwt', did: 'did:plc:bot' }, 'com.atproto.repo.uploadBlob': { blob: { ref: 'b' } }, 'com.atproto.repo.createRecord': { uri: 'at://post/1' } }[url.split('/').pop()];
-    if (url.endsWith('createRecord')) {
+    const reply = { 'com.atproto.server.createSession': { accessJwt: 'jwt', did: 'did:plc:bot' }, 'com.atproto.repo.uploadBlob': { blob: { ref: 'b' } }, 'com.atproto.repo.createRecord': { uri: 'at://post/1', cid: 'cid1' } }[url.split('/').pop()];
+    if (url.endsWith('createRecord') && JSON.parse(opts.body).collection !== 'app.bsky.feed.post') {
+      const body = JSON.parse(opts.body);
+      calls[calls.length - 1] = body.collection;
+      assert.deepEqual(body.record.subject, { uri: 'at://post/1', cid: 'cid1' });
+      assert.equal(body.record.$type, body.collection);
+      assert.equal(body.repo, 'did:plc:bot');
+      if (body.collection === 'app.bsky.feed.repost' && failRepost) return { ok: false, status: 500, json: async () => ({ error: 'InternalServerError' }) };
+    } else if (url.endsWith('createRecord')) {
       const body = JSON.parse(opts.body);
       assert.equal(opts.headers.Authorization, 'Bearer jwt');
       assert.equal(body.repo, 'did:plc:bot');
@@ -91,7 +99,9 @@ test('posting to Bluesky signs in, attaches a link card and creates the post', a
     return { ok: true, json: async () => reply };
   };
   assert.equal(await postBluesky('Preview: https://fplchecker.co.uk/fpl-predictions #FPL', env, fetchImpl), 'at://post/1');
-  assert.deepEqual(calls, ['com.atproto.server.createSession', 'og-image.png', 'com.atproto.repo.uploadBlob', 'com.atproto.repo.createRecord']);
+  assert.deepEqual(calls, ['com.atproto.server.createSession', 'og-image.png', 'com.atproto.repo.uploadBlob', 'com.atproto.repo.createRecord', 'app.bsky.feed.like', 'app.bsky.feed.repost']);
+  failRepost = true;
+  assert.equal(await postBluesky('Preview: https://fplchecker.co.uk/fpl-predictions #FPL', env, fetchImpl), 'at://post/1', 'a failed repost still counts as posted');
   const denied = async () => ({ ok: false, status: 401, json: async () => ({ error: 'AuthenticationRequired', message: 'Invalid identifier or password' }) });
   await assert.rejects(postBluesky('hi', env, denied), /Bluesky com\.atproto\.server\.createSession 401: AuthenticationRequired/);
 });
@@ -135,4 +145,17 @@ test('a one-off post is checked for length, and the same words get the same key'
   assert.deepEqual(customPost(undefined), { error: 'empty' });
   assert.deepEqual(customPost('x'.repeat(281)), { error: 'too_long_for_x' });
   assert.deepEqual(customPost(`${'x'.repeat(250)} https://fplchecker.co.uk/a-long-path-that-bluesky-counts-in-full`), { error: 'too_long_for_bluesky' });
+});
+
+test('a post sent from the admin page counts as sent for the schedule too', async () => {
+  const redis = fakeRedis();
+  const post = { key: '2026-27:preview:gw8', type: 'preview', text: 'two' };
+  const sent = [];
+  const bluesky = { name: 'bluesky', send: async p => { sent.push(p.text); } };
+  assert.deepEqual(await sentTo(redis, [post], ['bluesky', 'x-draft']), { [post.key]: [] });
+  await runSocial({ redis, posts: [post], channels: [bluesky] });
+  assert.equal(await redis.get(sentKey('bluesky', post)), '1');
+  assert.deepEqual(await sentTo(redis, [post], ['bluesky', 'x-draft']), { [post.key]: ['bluesky'] });
+  assert.deepEqual(await runSocial({ redis, posts: [post], channels: [bluesky] }), { bluesky: { sent: null } });
+  assert.deepEqual(sent, ['two']);
 });

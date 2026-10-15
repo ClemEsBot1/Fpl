@@ -21,6 +21,10 @@ const admin = () => ({
       assert.deepEqual(JSON.parse(opts.body), { text: 'Hello #FPL' });
       return { ok: true, json: async () => ({ ok: true, channels: ['bluesky'], results: { bluesky: { sent: 'custom', id: 'at://1' } } }) };
     }
+    if (url.includes('social=send')) {
+      assert.deepEqual(JSON.parse(opts.body), { key: '2026-27:preview:gw8', channels: ['bluesky'] });
+      return { ok: true, json: async () => ({ ok: true, channels: ['bluesky'], results: { bluesky: { sent: 'preview', id: 'at://2' } } }) };
+    }
     if (url.includes('social=preview')) {
       assert.equal(url, 'http://localhost:3000/api/optimal-squad?social=preview');
       assert.equal(opts.headers.Authorization, 'Bearer cron-secret');
@@ -133,6 +137,8 @@ test('the Social tab gets this gameweek’s posts with the cron secret, for admi
     const sent = await request({ body: { action: 'admin', op: 'social_post', text: 'Hello #FPL' }, cookie: clemCookie });
     assert.deepEqual(sent.body, { ok: true, channels: ['bluesky'], results: { bluesky: { sent: 'custom', id: 'at://1' } } });
     assert.equal((await request({ body: { action: 'admin', op: 'social_post', text: 'Hello #FPL' }, cookie: samCookie })).status, 403);
+    const byKey = await request({ body: { action: 'admin', op: 'social_post', key: '2026-27:preview:gw8', channels: ['bluesky', 42] }, cookie: clemCookie });
+    assert.equal(byKey.body.results.bluesky.sent, 'preview', 'one of this gameweek’s posts, by its key, to the channels named');
   } finally {
     if (before === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = before;
   }

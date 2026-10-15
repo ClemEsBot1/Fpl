@@ -85,7 +85,8 @@ async function xrpc(service, method, { token, body, contentType = 'application/j
 }
 
 // Posts `text` as the bot account, with a link card for its first link
-// (the site's preview image as the picture, when it can be fetched).
+// (the site's preview image as the picture, when it can be fetched), then
+// likes and reposts it.
 export async function postBluesky(text, env = process.env, fetchImpl = fetch) {
   const record = blueskyRecord(text);
   if (!record) throw new Error('too long for Bluesky');
@@ -101,6 +102,14 @@ export async function postBluesky(text, env = process.env, fetchImpl = fetch) {
     record.embed = { $type: 'app.bsky.embed.external', external };
   }
   const out = await xrpc(service, 'com.atproto.repo.createRecord', { token: session.accessJwt, body: { repo: session.did, collection: 'app.bsky.feed.post', record }, fetchImpl });
+  // The bot's own like and repost of it. Best-effort: the post is out
+  // either way, so a failure here doesn't count it as unsent.
+  const subject = { uri: out.uri, cid: out.cid };
+  for (const collection of ['app.bsky.feed.like', 'app.bsky.feed.repost']) {
+    try {
+      await xrpc(service, 'com.atproto.repo.createRecord', { token: session.accessJwt, body: { repo: session.did, collection, record: { $type: collection, subject, createdAt: new Date().toISOString() } }, fetchImpl });
+    } catch { /* still posted */ }
+  }
   return out.uri;
 }
 
@@ -209,6 +218,20 @@ export function customPost(text) {
   return { post: { key: `custom:${id}`, type: 'custom', label: 'Custom post', text: clean } };
 }
 
+// The Redis key that marks `post` as sent to `channel`, shared by the
+// scheduled run and the admin page's buttons so neither repeats the other.
+export const sentKey = (channel, post) => `social:${channel}:${post.key}`;
+
+// Which channels each post has gone to: { [post.key]: ['bluesky', …] }.
+export async function sentTo(redis, posts, channels) {
+  const out = {};
+  for (const post of posts) {
+    out[post.key] = [];
+    for (const name of channels) if (await redis.get(sentKey(name, post))) out[post.key].push(name);
+  }
+  return out;
+}
+
 // Sends each channel ({ name, send(post) }) the first due post it hasn't
 // had. The Redis key is taken first so two overlapping runs can't both
 // send it; a failed send gives it back for the next run.
@@ -217,7 +240,7 @@ export async function runSocial({ redis, posts, channels }) {
   for (const channel of channels) {
     results[channel.name] = { sent: null };
     for (const post of posts) {
-      const key = `social:${channel.name}:${post.key}`;
+      const key = sentKey(channel.name, post);
       if ((await redis.set(key, '1', 'EX', SENT_TTL_SECONDS, 'NX')) !== 'OK') continue;
       try {
         results[channel.name] = { sent: post.type, id: (await channel.send(post)) || null };

@@ -200,53 +200,82 @@ function Reports() {
   );
 }
 
-// A one-off post: sent to Bluesky (and as an X draft by email) from the
-// server, and opened in X's composer here.
+// The buttons under a post: Post to Bluesky (sent from the server), Post
+// to both (Bluesky, then X's composer with the post filled in), Post on X
+// and Copy. `payload` says which post: { text } or { key }.
+const xIntent = text => `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
+function PostActions({ text, payload, canBluesky, sentToBluesky = false, disabled = false, onSent }) {
+  const [busy, setBusy] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [xLink, setXLink] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const toBluesky = async () => {
+    const r = await adminCall('social_post', { ...payload, channels: ['bluesky'] });
+    const result = r.data && r.data.results && r.data.results.bluesky;
+    if (!r.ok || (r.data && r.data.error)) return { ok: false, message: `Bluesky failed: ${(r.data && r.data.error) || r.error}` };
+    if (result && result.error) return { ok: false, message: `Bluesky failed: ${result.error}` };
+    if (result && result.sent) { if (onSent) onSent(); return { ok: true, message: 'Posted to Bluesky.' }; }
+    return { ok: true, message: 'Already on Bluesky, so it wasn’t posted again.' };
+  };
+  const send = async both => {
+    setBusy(both ? 'both' : 'bluesky'); setMessage(null); setXLink(null);
+    const result = await toBluesky();
+    setBusy(null);
+    if (!both) { setMessage(result.message); return; }
+    // Opened after the Bluesky post, so a blocked pop-up falls back to a link.
+    const tab = window.open(xIntent(text), '_blank');
+    if (tab) { tab.opener = null; setMessage(`${result.message} X opened in a new tab: press Post there.`); }
+    else { setMessage(`${result.message} Your browser blocked the X tab:`); setXLink(xIntent(text)); }
+  };
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setCopied(true); } catch { setCopied(false); }
+  };
+  const off = disabled || !!busy;
+  return (
+    <>
+      <div className="fpl-admin-actions">
+        <button type="button" className="fpl-btn fpl-btn-solid" disabled={off || !canBluesky} onClick={() => send(true)}>
+          {busy === 'both' ? 'Posting…' : 'Post to both'}
+        </button>
+        <button type="button" className="fpl-btn" disabled={off || !canBluesky || sentToBluesky} onClick={() => send(false)}>
+          {busy === 'bluesky' ? 'Posting…' : sentToBluesky ? 'On Bluesky' : 'Post to Bluesky'}
+        </button>
+        <a className={`fpl-btn${disabled ? ' is-disabled' : ''}`} aria-disabled={disabled} href={xIntent(text)} target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> Post on X</a>
+        <button type="button" className="fpl-btn" disabled={disabled} onClick={copy}>
+          {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      {message ? <p className="fpl-admin-msg" role="status">{message}{xLink ? <> <a href={xLink} target="_blank" rel="noreferrer">Open the X draft</a></> : null}</p> : null}
+    </>
+  );
+}
+
+// A one-off post, written here.
 const xLength = text => [...text.replace(/https?:\/\/\S+/g, 'x'.repeat(23))].length;
 function Compose({ channels }) {
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState(null);
-  const length = xLength(text.trim());
-  const send = async () => {
-    setBusy(true); setMessage(null);
-    const r = await adminCall('social_post', { text });
-    setBusy(false);
-    const results = (r.data && r.data.results) || {};
-    const sent = Object.entries(results).filter(([, v]) => v.sent).map(([k]) => (k === 'bluesky' ? 'Bluesky' : 'X draft email'));
-    const errors = Object.entries(results).filter(([, v]) => v.error).map(([k, v]) => `${k}: ${v.error}`);
-    if (!r.ok || (r.data && r.data.error)) setMessage(`Failed: ${(r.data && r.data.error) || r.error}`);
-    else if (errors.length) setMessage(`Failed: ${errors.join('; ')}`);
-    else setMessage(sent.length ? `Sent: ${sent.join(' and ')}.` : 'Already sent before, or no channels are set up.');
-  };
+  const clean = text.trim();
+  const length = xLength(clean);
   return (
     <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-compose">
       <h2 id="adm-compose" className="fpl-home-h"><Megaphone size={18} aria-hidden="true" /> Write a post</h2>
       <label className="fpl-meta" htmlFor="adm-compose-text">Links count as 23 characters on X.</label>
       <textarea id="adm-compose-text" className="fpl-admin-compose" rows={4} value={text} onChange={e => setText(e.target.value)} placeholder="Check out https://fplchecker.co.uk … #FPL" />
-      <div className="fpl-admin-actions">
-        <span className={`fpl-mono fpl-meta${length > 280 ? ' fpl-admin-warn' : ''}`}>{length}/280</span>
-        <button type="button" className="fpl-btn fpl-btn-solid" disabled={busy || !text.trim() || length > 280 || !channels.includes('bluesky')} onClick={send}>
-          {busy ? 'Posting…' : 'Post to Bluesky'}
-        </button>
-        <a className={`fpl-btn${!text.trim() || length > 280 ? ' is-disabled' : ''}`} aria-disabled={!text.trim() || length > 280} href={`https://x.com/intent/post?text=${encodeURIComponent(text.trim())}`} target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> Post on X</a>
-      </div>
-      {message ? <p className="fpl-admin-msg" role="status">{message}</p> : null}
+      <span className={`fpl-mono fpl-meta${length > 280 ? ' fpl-admin-warn' : ''}`}>{length}/280</span>
+      <PostActions text={clean} payload={{ text: clean }} canBluesky={channels.includes('bluesky')} disabled={!clean || length > 280} />
     </section>
   );
 }
 
-// The posts for X and Bluesky as they'd read now (src/lib/social.js).
-// Bluesky gets them by itself; X ones are posted from here or the email.
+// This gameweek's posts as they'd read now (src/lib/social.js). Bluesky
+// gets each by itself when it's due, or now from here; X ones are posted
+// from here or the email.
 function Social() {
   const [state, setState] = useState({ status: 'loading' });
-  const [copied, setCopied] = useState(null);
+  const [posted, setPosted] = useState({});
   useEffect(() => {
     adminCall('social').then(r => setState(r.ok && r.data && r.data.ok ? { status: 'ready', data: r.data } : { status: 'error', error: (r.data && r.data.error) || r.error }));
   }, []);
-  const copy = async post => {
-    try { await navigator.clipboard.writeText(post.text); setCopied(post.key); } catch { setCopied(null); }
-  };
   if (state.status === 'loading') return <SkeletonRows rows={4} label="Loading this week’s posts…" />;
   if (state.status === 'error') return <p role="alert">{state.error === 'not_configured' ? 'CRON_SECRET isn’t set, so the posts can’t be built.' : state.error}</p>;
   const { channels, posts } = state.data;
@@ -256,21 +285,24 @@ function Social() {
       <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-social">
         <h2 id="adm-social" className="fpl-home-h"><Megaphone size={18} aria-hidden="true" /> Posts this gameweek</h2>
         <p className="fpl-meta" style={{ margin: 0 }}>
-          Bluesky: {channels.includes('bluesky') ? 'posts by itself when each is due.' : 'off (set BLUESKY_HANDLE and BLUESKY_APP_PASSWORD).'}{' '}
+          Bluesky: {channels.includes('bluesky') ? 'posts by itself when each is due, or now with the buttons.' : 'off (set BLUESKY_HANDLE and BLUESKY_APP_PASSWORD).'}{' '}
           X drafts by email: {channels.includes('x-draft') ? 'on.' : 'off (set SOCIAL_DRAFTS_EMAIL and SMTP_*).'}
         </p>
-        {posts.length ? posts.map(post => (
-          <article key={post.key} className="fpl-admin-post">
-            <h3 className="fpl-admin-post-h">{post.label}{post.due ? <span className="fpl-admin-due">Due now</span> : null}</h3>
-            <p className="fpl-admin-post-text">{post.text}</p>
-            <div className="fpl-admin-actions">
-              <a className="fpl-btn fpl-btn-solid" href={post.xIntentUrl} target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> Post on X</a>
-              <button type="button" className="fpl-btn" onClick={() => copy(post)}>
-                {copied === post.key ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied === post.key ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-          </article>
-        )) : <p className="fpl-meta" style={{ margin: 0 }}>No posts yet: they need this gameweek’s saved predictions.</p>}
+        {posts.length ? posts.map(post => {
+          const onBluesky = !!posted[post.key] || (post.sent || []).includes('bluesky');
+          return (
+            <article key={post.key} className="fpl-admin-post">
+              <h3 className="fpl-admin-post-h">
+                {post.label}
+                {post.due ? <span className="fpl-admin-due">Due now</span> : null}
+                {onBluesky ? <span className="fpl-admin-sent">On Bluesky</span> : null}
+              </h3>
+              <p className="fpl-admin-post-text">{post.text}</p>
+              <PostActions text={post.text} payload={{ key: post.key }} canBluesky={channels.includes('bluesky')} sentToBluesky={onBluesky}
+                onSent={() => setPosted(p => ({ ...p, [post.key]: true }))} />
+            </article>
+          );
+        }) : <p className="fpl-meta" style={{ margin: 0 }}>No posts yet: they need this gameweek’s saved predictions.</p>}
       </section>
     </div>
   );
