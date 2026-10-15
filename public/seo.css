@@ -1,6 +1,13 @@
 /* The guide pages (src/lib/seoPage.js): plain HTML in the app's look. */
+@font-face { font-family: 'Inter'; font-display: swap; font-weight: 100 900; src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Space Grotesk'; font-display: swap; font-weight: 300 700; src: url('/fonts/space-grotesk-latin-wght-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Mono'; font-display: swap; font-weight: 500 700; src: url('/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Inter'; font-display: swap; font-weight: 100 900; src: url('/fonts/inter-latin-ext-wght-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'Space Grotesk'; font-display: swap; font-weight: 300 700; src: url('/fonts/space-grotesk-latin-ext-wght-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Mono'; font-display: swap; font-weight: 500 700; src: url('/fonts/ibm-plex-mono-latin-ext-600-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
 :root { --ink:#FBFAFF; --dim:rgba(251,250,255,0.72); --lime:#CEFF10; --line:rgba(255,255,255,0.16); --card:rgba(9,7,30,0.62); }
 * { box-sizing: border-box; }
+html { background: #0a081e; }
 body { margin: 0; min-height: 100vh; color: var(--ink); font: 400 1rem/1.6 Inter, system-ui, sans-serif;
   background: linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%) fixed; }
 a { color: var(--lime); }
@@ -31,3 +38,7 @@ th, td { padding: 7px 6px; border-bottom: 1px solid var(--line); text-align: lef
 th { color: var(--dim); font-weight: 500; font-size: 0.8rem; }
 .num { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
 .seo-foot { max-width: 820px; margin: 0 auto; padding: 8px 16px 40px; color: var(--dim); font-size: 0.85rem; }
+.seo-crumbs { margin-bottom: 8px; font-size: 0.85rem; color: var(--dim); }
+.seo-links { line-height: 2; }
+.seo-card th[scope="row"] { color: var(--dim); font-weight: 500; }
+td a { color: var(--ink); text-decoration-color: rgba(206,255,16,0.6); text-underline-offset: 3px; }
