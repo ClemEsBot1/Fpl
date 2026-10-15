@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <title>FPL Checker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="top">
+    <img src="icons/icon-32.png" width="24" height="24" alt="">
+    <div>
+      <h1>FPL Checker</h1>
+      <p id="gw" class="dim">Loading predictions…</p>
+    </div>
+  </header>
+  <main>
+    <label class="field" for="q">Find a player</label>
+    <input id="q" type="search" placeholder="Name or club, e.g. Salah or LIV" autocomplete="off" spellcheck="false">
+    <h2 id="list-title">Top captains this gameweek</h2>
+    <ol id="list" class="list" aria-live="polite"></ol>
+    <p id="error" class="error" hidden>Couldn’t load the predictions. Check your connection and try again.</p>
+    <fieldset class="settings">
+      <legend>On the FPL site</legend>
+      <label class="toggle"><input id="badges" type="checkbox"> <span>Predicted points next to player names</span></label>
+      <label class="toggle"><input id="panel" type="checkbox"> <span>Squad panel with your best captain</span></label>
+    </fieldset>
+  </main>
+  <a id="open" class="cta" href="https://fplchecker.co.uk/?utm_source=fpl-extension" target="_blank" rel="noopener"><span>Transfers, chips and full team check</span><span aria-hidden="true">→</span></a>
+  <script src="lib.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

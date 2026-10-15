@@ -31,7 +31,12 @@ export const GUIDES = [
   { path: '/fpl-blank-gameweek', label: 'Blank gameweeks' },
   { path: '/fpl-prediction-accuracy', label: 'How accurate are the predictions?' },
   { path: '/fpl-widget', label: 'Free FPL widget for your site' },
+  { path: '/fpl-chrome-extension', label: 'Chrome extension for the FPL site' },
 ];
+
+// The browser extension (extension/) on the Chrome Web Store: empty until
+// the listing is approved, and the page says it's coming soon.
+export const EXTENSION_STORE_URL = '';
 
 // The guide pages rendered from live data on request (api/optimal-squad.js)
 // rather than written to public/.
@@ -227,6 +232,38 @@ export function staticPages() {
         faq: [
           ['Is the FPL widget free?', 'Yes. Use it on any site, blog or forum signature that allows iframes; keep the credit link under it.'],
           ['How often does it update?', 'Every day, and again before each deadline, from the same predictions as FPL Checker.'],
+        ],
+      }),
+    },
+    {
+      path: '/fpl-chrome-extension',
+      html: layout({
+        path: '/fpl-chrome-extension',
+        title: 'FPL Chrome Extension — predicted points on the FPL site | FPL Checker',
+        description: 'Free Chrome extension for Fantasy Premier League: predicted points next to every player on the official FPL site, your team’s predicted score and your best captain.',
+        h1: 'FPL Checker Chrome extension',
+        intro: 'See FPL Checker’s predicted points without leaving the official Fantasy Premier League site. Free, no account, and it never changes your team.',
+        cta: EXTENSION_STORE_URL ? { href: EXTENSION_STORE_URL, label: 'Add to Chrome, free' } : undefined,
+        body: section('What it adds to the FPL site', list([
+          '<b>Predicted points next to player names</b> on Pick Team, Transfers, Points and the stats pages, for the coming gameweek.',
+          '<b>A squad panel</b> with your XI’s predicted score, captain counted twice, and each player’s fixture.',
+          '<b>Your best captain</b>, and how many points switching the armband would add.',
+          '<b>Injury flags</b>: a doubtful player’s badge turns amber, with FPL’s news on hover.',
+          '<b>A toolbar popup</b> with this gameweek’s top captains and a search for any player.',
+        ]))
+          + section('Get it', EXTENSION_STORE_URL
+            ? `<p><a href="${EXTENSION_STORE_URL}" rel="noopener">Add FPL Checker to Chrome</a> from the Chrome Web Store. It works in Edge, Brave and other Chromium browsers too.</p>`
+            : '<p>The extension is on its way to the Chrome Web Store. Until then, every prediction it shows is on <a href="/fpl-predictions">this gameweek’s predictions page</a>, or enter your Team ID on <a href="/">FPL Checker</a>.</p>')
+          + `<section class="seo-card" id="privacy"><h2>Privacy</h2>${list([
+            'The extension downloads FPL Checker’s predictions from fplchecker.co.uk. That request carries nothing about you or your team.',
+            'To show your squad it reads your team from the FPL site, in your browser, the same way the page itself does. Your team, Team ID and FPL login are never sent to FPL Checker or anyone else.',
+            'It stores only the predictions and your two settings, on your device. There are no analytics, ads or tracking, and nothing is sold or shared.',
+            'It can’t make transfers or change anything in your FPL account.',
+          ])}</section>`,
+        faq: [
+          ['Is the FPL Checker extension free?', 'Yes, free with no account. It shows the same predictions as fplchecker.co.uk.'],
+          ['Does it need my FPL password?', 'No. It never asks for it and never sees it. If you are logged in to FPL, it reads your squad in your own browser to show its predicted points.'],
+          ['Does it work on the FPL app?', 'No, browser extensions only run on the FPL website in a desktop browser. On your phone, use fplchecker.co.uk.'],
         ],
       }),
     },

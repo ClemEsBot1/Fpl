@@ -1,0 +1,27 @@
+name: Browser extension
+
+# Packs extension/ into the zip the Chrome Web Store takes, as a download
+# on each run (Actions > this run > Artifacts). See extension/README.md.
+on:
+  pull_request:
+    paths: ['extension/**', '.github/workflows/extension.yml']
+  push:
+    branches: [main]
+    paths: ['extension/**', '.github/workflows/extension.yml']
+  workflow_dispatch:
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip the extension
+        run: |
+          version=$(node -p "require('./extension/manifest.json').version")
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          mkdir -p dist
+          cd extension && zip -r -X "../dist/fpl-checker-extension-$version.zip" . -x 'README.md'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fpl-checker-extension-${{ env.VERSION }}
+          path: dist/fpl-checker-extension-${{ env.VERSION }}.zip

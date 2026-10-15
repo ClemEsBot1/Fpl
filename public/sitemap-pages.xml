@@ -56,4 +56,8 @@
     <loc>https://fplchecker.co.uk/fpl-widget</loc>
     <changefreq>weekly</changefreq>
   </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-chrome-extension</loc>
+    <changefreq>weekly</changefreq>
+  </url>
 </urlset>
