@@ -29,7 +29,7 @@ test('tips pick a captain, differentials, sells and budget picks from the predic
   assert.ok(t.budget.some(p => p.name === 'Cheap') && t.budget.some(p => p.name === 'Keeper'));
   assert.equal(t.easiest[0].team.name, 'Man City');
   const html = tipsPage(model, { image: '/images/best-xi.png' });
-  assert.match(html, /<title>FPL Gameweek 8 Tips/);
+  assert.match(html, /<title>FPL GW8 Tips/);
   assert.match(html, /<link rel="canonical" href="https:\/\/fplchecker.co.uk\/fpl-tips">/);
   assert.match(html, /og:image" content="https:\/\/fplchecker.co.uk\/images\/best-xi.png"/);
   assert.match(html, /Knock - 50% chance of playing/);

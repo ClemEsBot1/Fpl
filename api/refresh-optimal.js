@@ -2,6 +2,8 @@ import { put, get } from '@vercel/blob';
 import { buildStaticDataFromRaw, buildOptimalTeam, getTargetEvent, isEventLocked, recentMinutesFromLive, RECENT_MINUTES_GWS, SQUAD_BUDGET } from '../src/lib/predictions.js';
 import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
+import { indexNowEnabled, pingIndexNow } from '../src/lib/indexNow.js';
+import { SITE } from '../src/lib/seoPage.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 // The Odds API (the-odds-api.com) — free tier (500 requests/month) is
@@ -205,7 +207,13 @@ export default async function handler(req, res) {
       } catch { /* non-fatal — accuracy tracking just skips this gameweek */ }
     }
 
-    res.status(200).json({ ok: true, gwId, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData, usedOdds: !!(oddsData && oddsData.length), matchedFixtureCount: oddsData ? oddsData.length : 0 });
+    // The pages made from these predictions changed: tell the engines that
+    // take IndexNow (src/lib/indexNow.js).
+    const indexNow = !forceGwId && indexNowEnabled()
+      ? await pingIndexNow(['/', '/fpl-predictions', '/fpl-tips', '/fpl-players', '/fpl-price-changes', '/fpl-deadline', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek', `/gw/${gwId}`].map(p => SITE + p))
+      : null;
+
+    res.status(200).json({ ok: true, gwId, indexNow, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData, usedOdds: !!(oddsData && oddsData.length), matchedFixtureCount: oddsData ? oddsData.length : 0 });
   } catch (e) {
     res.status(502).json({ error: 'refresh_failed', detail: String((e && e.message) || e) });
   }
