@@ -85,7 +85,8 @@ async function xrpc(service, method, { token, body, contentType = 'application/j
 }
 
 // Posts `text` as the bot account, with a link card for its first link
-// (the site's preview image as the picture, when it can be fetched).
+// (the site's preview image as the picture, when it can be fetched), then
+// likes and reposts it.
 export async function postBluesky(text, env = process.env, fetchImpl = fetch) {
   const record = blueskyRecord(text);
   if (!record) throw new Error('too long for Bluesky');
@@ -101,6 +102,14 @@ export async function postBluesky(text, env = process.env, fetchImpl = fetch) {
     record.embed = { $type: 'app.bsky.embed.external', external };
   }
   const out = await xrpc(service, 'com.atproto.repo.createRecord', { token: session.accessJwt, body: { repo: session.did, collection: 'app.bsky.feed.post', record }, fetchImpl });
+  // The bot's own like and repost of it. Best-effort: the post is out
+  // either way, so a failure here doesn't count it as unsent.
+  const subject = { uri: out.uri, cid: out.cid };
+  for (const collection of ['app.bsky.feed.like', 'app.bsky.feed.repost']) {
+    try {
+      await xrpc(service, 'com.atproto.repo.createRecord', { token: session.accessJwt, body: { repo: session.did, collection, record: { $type: collection, subject, createdAt: new Date().toISOString() } }, fetchImpl });
+    } catch { /* still posted */ }
+  }
   return out.uri;
 }
 

@@ -73,15 +73,23 @@ test('Bluesky posts show links without https://, clickable, with tags, by UTF-8 
   assert.equal(blueskyRecord('x'.repeat(301)), null, 'over 300 characters');
 });
 
-test('posting to Bluesky signs in, attaches a link card and creates the post', async () => {
+test('posting to Bluesky signs in, attaches a link card, creates the post, then likes and reposts it', async () => {
   const env = { BLUESKY_HANDLE: 'fplchecker.bsky.social', BLUESKY_APP_PASSWORD: 'app-pass' };
   assert.ok(blueskyConfigured(env) && !blueskyConfigured({}));
   const calls = [];
+  let failRepost = false;
   const fetchImpl = async (url, opts = {}) => {
     calls.push(url.split('/').pop());
     if (url.endsWith('og-image.png')) return { ok: true, arrayBuffer: async () => new ArrayBuffer(4) };
-    const reply = { 'com.atproto.server.createSession': { accessJwt: 'jwt', did: 'did:plc:bot' }, 'com.atproto.repo.uploadBlob': { blob: { ref: 'b' } }, 'com.atproto.repo.createRecord': { uri: 'at://post/1' } }[url.split('/').pop()];
-    if (url.endsWith('createRecord')) {
+    const reply = { 'com.atproto.server.createSession': { accessJwt: 'jwt', did: 'did:plc:bot' }, 'com.atproto.repo.uploadBlob': { blob: { ref: 'b' } }, 'com.atproto.repo.createRecord': { uri: 'at://post/1', cid: 'cid1' } }[url.split('/').pop()];
+    if (url.endsWith('createRecord') && JSON.parse(opts.body).collection !== 'app.bsky.feed.post') {
+      const body = JSON.parse(opts.body);
+      calls[calls.length - 1] = body.collection;
+      assert.deepEqual(body.record.subject, { uri: 'at://post/1', cid: 'cid1' });
+      assert.equal(body.record.$type, body.collection);
+      assert.equal(body.repo, 'did:plc:bot');
+      if (body.collection === 'app.bsky.feed.repost' && failRepost) return { ok: false, status: 500, json: async () => ({ error: 'InternalServerError' }) };
+    } else if (url.endsWith('createRecord')) {
       const body = JSON.parse(opts.body);
       assert.equal(opts.headers.Authorization, 'Bearer jwt');
       assert.equal(body.repo, 'did:plc:bot');
@@ -91,7 +99,9 @@ test('posting to Bluesky signs in, attaches a link card and creates the post', a
     return { ok: true, json: async () => reply };
   };
   assert.equal(await postBluesky('Preview: https://fplchecker.co.uk/fpl-predictions #FPL', env, fetchImpl), 'at://post/1');
-  assert.deepEqual(calls, ['com.atproto.server.createSession', 'og-image.png', 'com.atproto.repo.uploadBlob', 'com.atproto.repo.createRecord']);
+  assert.deepEqual(calls, ['com.atproto.server.createSession', 'og-image.png', 'com.atproto.repo.uploadBlob', 'com.atproto.repo.createRecord', 'app.bsky.feed.like', 'app.bsky.feed.repost']);
+  failRepost = true;
+  assert.equal(await postBluesky('Preview: https://fplchecker.co.uk/fpl-predictions #FPL', env, fetchImpl), 'at://post/1', 'a failed repost still counts as posted');
   const denied = async () => ({ ok: false, status: 401, json: async () => ({ error: 'AuthenticationRequired', message: 'Invalid identifier or password' }) });
   await assert.rejects(postBluesky('hi', env, denied), /Bluesky com\.atproto\.server\.createSession 401: AuthenticationRequired/);
 });
