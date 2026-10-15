@@ -194,7 +194,12 @@ export default async function handler(req, res) {
         const predictedById = Object.fromEntries(
           Object.entries(staticData.predictionsById).map(([id, pred]) => [id, pred.nextMatchPredicted]),
         );
-        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, season: staticData.seasonId, savedAt: snapshot.builtAt, predictedById, source: 'formula' }), {
+        // This gameweek and the next four, for the player, club and
+        // gameweek pages (src/lib/seoDynamic.js).
+        const byGwById = Object.fromEntries(
+          Object.entries(staticData.predictionsById).map(([id, pred]) => [id, (pred.byGw || []).map(w => w.points)]),
+        );
+        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, season: staticData.seasonId, savedAt: snapshot.builtAt, predictedById, byGwById, source: 'formula' }), {
           access: 'public', contentType: 'application/json', allowOverwrite: true,
         });
       } catch { /* non-fatal — accuracy tracking just skips this gameweek */ }

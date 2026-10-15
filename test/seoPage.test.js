@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GUIDES, escapeHtml, predictionsPage, staticPages } from '../src/lib/seoPage.js';
+import { DYNAMIC_GUIDES, GUIDES, escapeHtml, predictionsPage, staticPages } from '../src/lib/seoPage.js';
 
 const ldBlocks = html => [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map(m => JSON.parse(m[1]));
 
 test('every guide page has its own title, description, canonical link and valid FAQ data', () => {
   const pages = staticPages();
-  assert.equal(pages.length, GUIDES.length - 1, 'all but the weekly predictions page are static');
+  assert.equal(pages.length, GUIDES.length - DYNAMIC_GUIDES.length, 'all but the pages made from live data are static');
   const titles = new Set();
   for (const { path, html } of pages) {
     assert.match(html, new RegExp(`<link rel="canonical" href="https://fplchecker.co.uk${path}">`));

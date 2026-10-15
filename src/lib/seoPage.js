@@ -22,19 +22,25 @@ export const GUIDES = [
   { path: '/fpl-captain-picks', label: 'Best FPL captain' },
   { path: '/fpl-transfer-suggestions', label: 'FPL transfer suggestions' },
   { path: '/rate-my-fpl-team', label: 'Rate my FPL team' },
+  { path: '/fpl-players', label: 'Every player and club' },
 ];
 
+// The guide pages rendered from live data on request (api/optimal-squad.js)
+// rather than written to public/.
+export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players'];
+
 // A whole page. body is HTML; faq is [[question, answer]] (plain text).
-export function layout({ path, title, description, h1, intro, body, faq = [], cta = { href: '/', label: 'Open FPL Checker' }, extraJsonLd = [] }) {
+// crumbs are the pages between the home page and this one ([{ name, path }]);
+// canonical is the address search engines should list it under, when
+// that's another page; noindex keeps a not-found page out of search.
+export function layout({ path, title, description, h1, intro, body, faq = [], cta = { href: '/', label: 'Open FPL Checker' }, extraJsonLd = [], crumbs = [], canonical = path, noindex = false }) {
   const url = SITE + path;
+  const trail = [{ name: SITE_NAME, path: '/' }, ...crumbs, { name: h1, path }];
   const jsonLd = [
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: SITE_NAME, item: `${SITE}/` },
-        { '@type': 'ListItem', position: 2, name: h1, item: url },
-      ],
+      itemListElement: trail.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: SITE + c.path })),
     },
     ...(faq.length ? [{
       '@context': 'https://schema.org',
@@ -51,7 +57,7 @@ export function layout({ path, title, description, h1, intro, body, faq = [], ct
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}">
-<link rel="canonical" href="${url}">
+${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${SITE + canonical}">`}
 <meta name="theme-color" content="#0a081e">
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -62,15 +68,14 @@ export function layout({ path, title, description, h1, intro, body, faq = [], ct
 <meta property="og:url" content="${url}">
 <meta property="og:image" content="${SITE}/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap">
+<link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/seo.css">
 ${jsonLd.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
 </head>
 <body>
 <header class="seo-head"><a class="seo-brand" href="/"><i aria-hidden="true"></i>FPL <span>CHECKER</span></a><a class="seo-btn" href="${cta.href}">${escapeHtml(cta.label)}</a></header>
 <main class="seo-main">
+${crumbs.length ? `<nav class="seo-crumbs" aria-label="Breadcrumb">${trail.slice(0, -1).map(c => `<a href="${c.path}">${escapeHtml(c.name)}</a>`).join(' / ')}</nav>` : ''}
 <h1>${escapeHtml(h1)}</h1>
 <p class="seo-intro">${intro}</p>
 <p><a class="seo-btn seo-btn-big" href="${cta.href}">${escapeHtml(cta.label)}</a></p>
@@ -84,8 +89,11 @@ ${faq.length ? `<section class="seo-card"><h2>Questions</h2>${faq.map(([q, a]) =
 `;
 }
 
-const section = (title, html) => `<section class="seo-card"><h2>${escapeHtml(title)}</h2>${html}</section>`;
-const list = items => `<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+// A player's name, linked to his page when he has one (p.slug).
+export const playerLink = p => (p.slug ? `<a href="/player/${p.slug}">${escapeHtml(p.name)}</a>` : escapeHtml(p.name));
+
+export const section = (title, html) => `<section class="seo-card"><h2>${escapeHtml(title)}</h2>${html}</section>`;
+export const list = items => `<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
 const steps = items => `<ol>${items.map(i => `<li>${i}</li>`).join('')}</ol>`;
 
 // The fixed guide pages: { path, html }.
@@ -200,23 +208,28 @@ export function staticPages() {
 }
 
 // The weekly predictions page from the latest saved predictions.
-// players: [{ id, name, team, positionId, price, predicted }] for this
-// gameweek; best: { xi: [same shape], captainId } or null.
-export function predictionsPage({ gwName, deadline, players, best, updatedAt }) {
+// players: [{ id, slug?, name, team, positionId, price, predicted }] for
+// this gameweek; best: { xi: [same shape], captainId } or null. nav is
+// extra HTML for the top (links to other gameweeks). The same page is
+// served at /gw/<n> for the gameweek being planned, with /fpl-predictions
+// as its canonical address.
+export function predictionsPage({ gwName, deadline, players, best, updatedAt, nav = '', path = '/fpl-predictions' }) {
   const fmt = n => (Math.round(n * 10) / 10).toFixed(1);
   const deadlineText = deadline ? new Date(deadline).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : null;
-  const row = p => `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.team)}</td><td>£${p.price.toFixed(1)}m</td><td class="num">${fmt(p.predicted)}</td></tr>`;
+  const row = p => `<tr><td>${playerLink(p)}</td><td>${escapeHtml(p.team)}</td><td>£${p.price.toFixed(1)}m</td><td class="num">${fmt(p.predicted)}</td></tr>`;
   const table = (caption, rows) => `<table><caption>${escapeHtml(caption)}</caption><thead><tr><th scope="col">Player</th><th scope="col">Club</th><th scope="col">Price</th><th scope="col" class="num">Pts</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>`;
   const sorted = [...players].sort((a, b) => b.predicted - a.predicted);
   const top = sorted.slice(0, 15);
   const byPos = [1, 2, 3, 4].map(pos => [pos, sorted.filter(p => p.positionId === pos).slice(0, 8)]);
   const captain = best && best.xi.find(p => p.id === best.captainId);
   const xiTotal = best ? best.xi.reduce((s, p) => s + p.predicted, 0) + (captain ? captain.predicted : 0) : 0;
-  const body = (best ? section(`Best XI for ${gwName}`, `<p>The highest-scoring starting XI £100m can buy this gameweek, predicted to score <b>${fmt(xiTotal)} points</b> with ${captain ? `<b>${escapeHtml(captain.name)}</b> as captain` : 'the captain doubled'}.</p><table><caption>Best XI</caption><thead><tr><th scope="col">Pos</th><th scope="col">Player</th><th scope="col">Club</th><th scope="col" class="num">Pts</th></tr></thead><tbody>${best.xi.map(p => `<tr><td>${POS_SHORT[p.positionId]}</td><td>${escapeHtml(p.name)}${p.id === best.captainId ? ' (C)' : ''}</td><td>${escapeHtml(p.team)}</td><td class="num">${fmt(p.predicted)}</td></tr>`).join('')}</tbody></table>`) : '')
+  const body = (nav ? section('Gameweeks', nav) : '') + (best ? section(`Best XI for ${gwName}`, `<p>The highest-scoring starting XI £100m can buy this gameweek, predicted to score <b>${fmt(xiTotal)} points</b> with ${captain ? `<b>${escapeHtml(captain.name)}</b> as captain` : 'the captain doubled'}.</p><table><caption>Best XI</caption><thead><tr><th scope="col">Pos</th><th scope="col">Player</th><th scope="col">Club</th><th scope="col" class="num">Pts</th></tr></thead><tbody>${best.xi.map(p => `<tr><td>${POS_SHORT[p.positionId]}</td><td>${playerLink(p)}${p.id === best.captainId ? ' (C)' : ''}</td><td>${escapeHtml(p.team)}</td><td class="num">${fmt(p.predicted)}</td></tr>`).join('')}</tbody></table>`) : '')
     + section(`Top 15 predicted players for ${gwName}`, `${table('Highest predicted points', top)}${top[0] ? `<p>Captain pick on points alone: <b>${escapeHtml(top[0].name)}</b>. See <a href="/fpl-captain-picks">how captains are picked</a>.</p>` : ''}`)
-    + byPos.map(([pos, list]) => section(`Best ${POSITIONS[pos].toLowerCase()} for ${gwName}`, table(POSITIONS[pos], list))).join('');
+    + byPos.map(([pos, list]) => section(`Best ${POSITIONS[pos].toLowerCase()} for ${gwName}`, table(POSITIONS[pos], list))).join('')
+    + section('Players and clubs', '<p>Every player’s prediction, fixtures and form, and every club’s fixtures: <a href="/fpl-players">FPL player predictions</a>.</p>');
   return layout({
-    path: '/fpl-predictions',
+    path,
+    canonical: '/fpl-predictions',
     title: `FPL ${gwName} Predictions — best XI, captain and top players | FPL Checker`,
     description: `FPL predictions for ${gwName}: predicted points for every player, the best XI and captain, and the top goalkeepers, defenders, midfielders and forwards. Updated daily.`,
     h1: `FPL ${gwName} predictions`,
@@ -230,4 +243,5 @@ export function predictionsPage({ gwName, deadline, players, best, updatedAt }) 
   });
 }
 
-export const SEO_PATHS = ['/', ...GUIDES.map(g => g.path)];
+// The pages in public/sitemap-pages.xml; the rest are in /sitemap-fpl.xml.
+export const SEO_PATHS = ['/', ...GUIDES.map(g => g.path).filter(p => p !== '/fpl-players')];

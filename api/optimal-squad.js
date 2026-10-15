@@ -1,8 +1,11 @@
-import { get } from '@vercel/blob';
+import { get, list } from '@vercel/blob';
 import { snapshotPathnameFor } from './refresh-optimal.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
-import { getTargetEvent } from '../src/lib/predictions.js';
+import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
 import { predictionsPage } from '../src/lib/seoPage.js';
+import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
+
+const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 
 async function readBlobJson(pathname) {
   const result = await get(pathname, { access: 'public', useCache: false });
@@ -10,40 +13,138 @@ async function readBlobJson(pathname) {
   return JSON.parse(await new Response(result.stream).text());
 }
 
-// /fpl-predictions (rewritten here with ?page=predictions, see vercel.json):
-// the gameweek being planned as a plain HTML page for search engines, from
+async function fetchFpl(path, timeout = 15_000) {
+  const r = await fetch(FPL_BASE + path, { signal: AbortSignal.timeout(timeout) });
+  if (!r.ok) throw new Error(`FPL ${path}: ${r.status}`);
+  return r.json();
+}
+
+// FPL's data and this gameweek's saved predictions, kept for 10 minutes by
+// a warm function so a crawler going through player pages doesn't fetch
+// them for each one.
+let cached = null;
+async function loadModel() {
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.value;
+  const [bootstrap, fixtures] = await Promise.all([fetchFpl('bootstrap-static/'), fetchFpl('fixtures/')]);
+  const event = getTargetEvent(bootstrap.events);
+  if (!event) throw new Error('no gameweek to plan');
+  const season = seasonIdFor(bootstrap.events);
+  const [saved, snap] = await Promise.all([
+    readBlobJson(predictionsPathnameFor(event.id)).catch(() => null),
+    readBlobJson(snapshotPathnameFor(event.id)).catch(() => null),
+  ]);
+  const fresh = saved && saved.predictedById && snapshotIsForSeason(saved, season, bootstrap.events) ? saved : null;
+  const value = { bootstrap, season, saved: fresh, snap, model: seoModel({ bootstrap, fixtures, event, saved: fresh }) };
+  // Not kept without predictions: they may just have failed to load.
+  if (fresh) cached = { at: Date.now(), value };
+  return value;
+}
+
+function sendHtml(res, status, html) {
+  res.status(status).setHeader('Content-Type', 'text/html; charset=utf-8');
+  if (status === 200) res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400');
+  else res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600');
+  res.send(html);
+}
+
+function unavailable(res) {
+  res.status(503).setHeader('Content-Type', 'text/html; charset=utf-8').setHeader('Retry-After', '3600').setHeader('Cache-Control', 'no-store')
+    .send('<!doctype html><meta charset="utf-8"><title>FPL predictions | FPL Checker</title><p>This page isn’t ready yet. <a href="/">Open FPL Checker</a></p>');
+}
+
+// The gameweek being planned (/fpl-predictions, and /gw/<n> for it), from
 // the predictions and best squad the refresh job saved for it.
-async function predictionsHtml(res) {
+function plannedPage({ model, saved, snap }, path) {
+  const event = model.event;
+  const players = model.players.filter(p => p.predicted !== null);
+  const byId = Object.fromEntries(players.map(p => [p.id, p]));
+  const best = snap && Array.isArray(snap.startingIds) && snap.gwId === event.id
+    ? { xi: snap.startingIds.map(id => byId[id]).filter(Boolean).sort((a, b) => a.positionId - b.positionId || b.predicted - a.predicted), captainId: snap.captainId }
+    : null;
+  const nav = gwNav(model, event.id);
+  return predictionsPage({ gwName: event.name, deadline: event.deadline_time, players, best, updatedAt: saved.savedAt, nav, path });
+}
+
+// /gw/<n>: before the gameweek being planned, what was predicted (and
+// scored); after it, an early look from the next five gameweeks' figures.
+async function gwHtml(data, gwId) {
+  const { model, bootstrap, season } = data;
+  const target = model.event.id;
+  const event = bootstrap.events.find(e => e.id === gwId);
+  const path = `/gw/${gwId}`;
+  if (!event) return [404, notFoundPage(path, `Gameweek ${gwId}`)];
+  if (gwId === target) return data.saved ? [200, plannedPage(data, path)] : null;
+  if (gwId > target) {
+    return gwId < target + AHEAD && data.saved && data.saved.byGwById ? [200, futureGwPage(model, gwId, event.name)] : [404, notFoundPage(path, `${event.name} predictions`)];
+  }
+  const [saved, snap] = await Promise.all([
+    readBlobJson(predictionsPathnameFor(gwId)).catch(() => null),
+    readBlobJson(snapshotPathnameFor(gwId)).catch(() => null),
+  ]);
+  if (!saved || !saved.predictedById || !snapshotIsForSeason(saved, season, bootstrap.events)) return [404, notFoundPage(path, `${event.name} predictions`)];
+  const live = event.finished || event.data_checked || event.is_current
+    ? await fetchFpl(`event/${gwId}/live/`, 10_000).then(d => d.elements).catch(() => null)
+    : null;
+  return [200, pastGwPage(model, gwId, event.name, { saved, snap: snap && snapshotIsForSeason(snap, season, bootstrap.events) ? snap : null, live })];
+}
+
+// The gameweeks with saved predictions this season, plus those ahead.
+async function gwIdsWithPages({ model, saved }) {
+  const target = model.event.id;
+  const ids = new Set();
   try {
-    const r = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/', { signal: AbortSignal.timeout(15_000) });
-    if (!r.ok) throw new Error(`FPL ${r.status}`);
-    const bootstrap = await r.json();
-    const event = getTargetEvent(bootstrap.events);
-    if (!event) throw new Error('no gameweek to plan');
-    const [saved, snap] = await Promise.all([
-      readBlobJson(predictionsPathnameFor(event.id)).catch(() => null),
-      readBlobJson(snapshotPathnameFor(event.id)).catch(() => null),
-    ]);
-    if (!saved || !saved.predictedById) throw new Error('no saved predictions');
-    const teams = Object.fromEntries(bootstrap.teams.map(t => [t.id, t.short_name]));
-    const players = bootstrap.elements
-      .filter(e => typeof saved.predictedById[e.id] === 'number')
-      .map(e => ({ id: e.id, name: e.web_name, team: teams[e.team] || '', positionId: e.element_type, price: e.now_cost / 10, predicted: saved.predictedById[e.id] }));
-    const byId = Object.fromEntries(players.map(p => [p.id, p]));
-    const best = snap && Array.isArray(snap.startingIds) && snap.gwId === event.id
-      ? { xi: snap.startingIds.map(id => byId[id]).filter(Boolean).sort((a, b) => a.positionId - b.positionId || b.predicted - a.predicted), captainId: snap.captainId }
-      : null;
-    const html = predictionsPage({ gwName: event.name, deadline: event.deadline_time, players, best, updatedAt: saved.savedAt });
-    res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8')
-      .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400').send(html);
+    const { blobs } = await list({ prefix: 'predictions-gw', limit: 100 });
+    blobs.forEach(b => {
+      const m = /^predictions-gw(\d+)\.json$/.exec(b.pathname);
+      if (m && Number(m[1]) < target) ids.add(Number(m[1]));
+    });
+  } catch { /* the past gameweeks are just left out */ }
+  if (saved) {
+    ids.add(target);
+    if (saved.byGwById) for (let gw = target + 1; gw < target + AHEAD && gw <= 38; gw++) ids.add(gw);
+  }
+  return [...ids].sort((a, b) => a - b);
+}
+
+// The pages for search engines (see vercel.json for the addresses that
+// are rewritten here): ?page=predictions|players|player|team|gw|sitemap.
+async function seoHtml(req, res) {
+  const { page, slug } = req.query;
+  try {
+    const data = await loadModel();
+    const { model } = data;
+    if (page === 'sitemap') {
+      res.status(200).setHeader('Content-Type', 'application/xml; charset=utf-8')
+        .setHeader('Cache-Control', 'public, max-age=3600, s-maxage=21600').send(sitemapXml(model, await gwIdsWithPages(data)));
+      return;
+    }
+    if (!data.saved && page !== 'gw') return unavailable(res);
+    if (page === 'player') {
+      const p = model.playerBySlug[String(slug || '')];
+      if (!p) return sendHtml(res, 404, notFoundPage(`/player/${encodeURIComponent(String(slug || ''))}`, 'Player'));
+      const history = await fetchFpl(`element-summary/${p.id}/`, 8_000).then(d => d.history).catch(() => null);
+      return sendHtml(res, 200, playerPage(model, p, history));
+    }
+    if (page === 'team') {
+      const t = model.teamBySlug[String(slug || '')];
+      if (!t) return sendHtml(res, 404, notFoundPage(`/team/${encodeURIComponent(String(slug || ''))}`, 'Club'));
+      return sendHtml(res, 200, teamPage(model, t));
+    }
+    if (page === 'gw') {
+      const gwId = Number(req.query.n);
+      if (!Number.isInteger(gwId) || gwId < 1 || gwId > 38) return sendHtml(res, 404, notFoundPage(`/gw/${encodeURIComponent(String(req.query.n || ''))}`, 'Gameweek'));
+      const out = await gwHtml(data, gwId);
+      return out ? sendHtml(res, out[0], out[1]) : unavailable(res);
+    }
+    if (page === 'players') return sendHtml(res, 200, playersHubPage(model));
+    return sendHtml(res, 200, plannedPage(data, '/fpl-predictions'));
   } catch {
-    res.status(503).setHeader('Content-Type', 'text/html; charset=utf-8').setHeader('Retry-After', '3600').setHeader('Cache-Control', 'no-store')
-      .send('<!doctype html><meta charset="utf-8"><title>FPL predictions | FPL Checker</title><p>This gameweek’s predictions aren’t ready yet. <a href="/">Open FPL Checker</a></p>');
+    unavailable(res);
   }
 }
 
 export default async function handler(req, res) {
-  if (req.query && req.query.page === 'predictions') return predictionsHtml(res);
+  if (req.query && req.query.page) return seoHtml(req, res);
   const gwId = Number(req.query && req.query.gw);
   if (!gwId || !Number.isInteger(gwId) || gwId < 1) {
     res.status(400).json({ error: 'missing_or_invalid_gw' });
