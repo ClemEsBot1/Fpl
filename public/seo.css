@@ -1,0 +1,33 @@
+/* The guide pages (src/lib/seoPage.js): plain HTML in the app's look. */
+:root { --ink:#FBFAFF; --dim:rgba(251,250,255,0.72); --lime:#CEFF10; --line:rgba(255,255,255,0.16); --card:rgba(9,7,30,0.62); }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; color: var(--ink); font: 400 1rem/1.6 Inter, system-ui, sans-serif;
+  background: linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%) fixed; }
+a { color: var(--lime); }
+a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.seo-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; background: rgba(9,7,30,0.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.seo-brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font: 700 1.05rem 'Space Grotesk', sans-serif; letter-spacing: 0.02em; }
+.seo-brand i { width: 10px; height: 10px; border-radius: 2px; background: var(--lime); }
+.seo-brand span { color: var(--dim); font-weight: 600; }
+.seo-btn { display: inline-block; padding: 8px 14px; border-radius: 8px; background: var(--lime); color: #05041A; font: 700 0.9rem Inter, sans-serif; text-decoration: none; }
+.seo-btn-big { padding: 12px 20px; font-size: 1rem; }
+.seo-main { max-width: 820px; margin: 0 auto; padding: 32px 16px 24px; }
+h1 { margin: 0 0 12px; font: 700 clamp(1.9rem, 5vw, 2.8rem)/1.1 'Space Grotesk', sans-serif; }
+h2 { margin: 0 0 10px; font: 700 1.3rem 'Space Grotesk', sans-serif; }
+h3 { margin: 16px 0 4px; font: 600 1rem Inter, sans-serif; }
+.seo-intro { font-size: 1.08rem; color: var(--ink); max-width: 62ch; }
+.seo-card { margin-top: 18px; padding: 20px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.seo-card p, .seo-card li { color: var(--dim); }
+.seo-card b { color: var(--ink); }
+.seo-card ul, .seo-card ol { padding-left: 1.2em; margin: 8px 0; }
+.seo-card li { margin: 4px 0; }
+.seo-nav { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+.seo-nav h2 { width: 100%; }
+.seo-nav a[aria-current] { color: var(--ink); text-decoration: none; }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.92rem; }
+caption { text-align: left; color: var(--dim); font: 600 0.75rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; padding-bottom: 6px; }
+th, td { padding: 7px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+th { color: var(--dim); font-weight: 500; font-size: 0.8rem; }
+.num { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+.seo-foot { max-width: 820px; margin: 0 auto; padding: 8px 16px 40px; color: var(--dim); font-size: 0.85rem; }

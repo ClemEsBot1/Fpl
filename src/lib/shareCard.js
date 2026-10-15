@@ -53,7 +53,7 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   ctx.fillRect(96, 104, 18, 18);
   ctx.fillStyle = '#FBFAFF';
   ctx.font = `700 34px ${display}`;
-  ctx.fillText('FPL SQUAD CHECK', 128, 124);
+  ctx.fillText('FPL CHECKER', 128, 124);
 
   ctx.font = `700 54px ${display}`;
   ctx.fillText(fitText(ctx, teamName || 'My squad', W - 192), 96, 206);

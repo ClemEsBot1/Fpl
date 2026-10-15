@@ -207,7 +207,7 @@ export function WelcomeScreen({ loggedIn, onStart, onSignUp, onLogIn }) {
         <div className="fpl-welcome-intro">
           <span className="fpl-kicker">Fantasy Premier League</span>
           <h1 className="fpl-display">Know your points before the deadline.</h1>
-          <p>FPL Squad Check predicts what every player in your squad will score, then shows who to transfer in and who should wear the armband.</p>
+          <p>FPL Checker predicts what every player in your squad will score, then shows who to transfer in and who should wear the armband.</p>
           {buttons}
           {!loggedIn && (
             <p className="fpl-welcome-login">Already have an account? <button type="button" onClick={onLogIn}>Log in</button></p>
