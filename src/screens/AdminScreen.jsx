@@ -200,6 +200,42 @@ function Reports() {
   );
 }
 
+// A one-off post: sent to Bluesky (and as an X draft by email) from the
+// server, and opened in X's composer here.
+const xLength = text => [...text.replace(/https?:\/\/\S+/g, 'x'.repeat(23))].length;
+function Compose({ channels }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  const length = xLength(text.trim());
+  const send = async () => {
+    setBusy(true); setMessage(null);
+    const r = await adminCall('social_post', { text });
+    setBusy(false);
+    const results = (r.data && r.data.results) || {};
+    const sent = Object.entries(results).filter(([, v]) => v.sent).map(([k]) => (k === 'bluesky' ? 'Bluesky' : 'X draft email'));
+    const errors = Object.entries(results).filter(([, v]) => v.error).map(([k, v]) => `${k}: ${v.error}`);
+    if (!r.ok || (r.data && r.data.error)) setMessage(`Failed: ${(r.data && r.data.error) || r.error}`);
+    else if (errors.length) setMessage(`Failed: ${errors.join('; ')}`);
+    else setMessage(sent.length ? `Sent: ${sent.join(' and ')}.` : 'Already sent before, or no channels are set up.');
+  };
+  return (
+    <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-compose">
+      <h2 id="adm-compose" className="fpl-home-h"><Megaphone size={18} aria-hidden="true" /> Write a post</h2>
+      <label className="fpl-meta" htmlFor="adm-compose-text">Links count as 23 characters on X.</label>
+      <textarea id="adm-compose-text" className="fpl-admin-compose" rows={4} value={text} onChange={e => setText(e.target.value)} placeholder="Check out https://fplchecker.co.uk … #FPL" />
+      <div className="fpl-admin-actions">
+        <span className={`fpl-mono fpl-meta${length > 280 ? ' fpl-admin-warn' : ''}`}>{length}/280</span>
+        <button type="button" className="fpl-btn fpl-btn-solid" disabled={busy || !text.trim() || length > 280 || !channels.includes('bluesky')} onClick={send}>
+          {busy ? 'Posting…' : 'Post to Bluesky'}
+        </button>
+        <a className={`fpl-btn${!text.trim() || length > 280 ? ' is-disabled' : ''}`} aria-disabled={!text.trim() || length > 280} href={`https://x.com/intent/post?text=${encodeURIComponent(text.trim())}`} target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> Post on X</a>
+      </div>
+      {message ? <p className="fpl-admin-msg" role="status">{message}</p> : null}
+    </section>
+  );
+}
+
 // The posts for X and Bluesky as they'd read now (src/lib/social.js).
 // Bluesky gets them by itself; X ones are posted from here or the email.
 function Social() {
@@ -216,6 +252,7 @@ function Social() {
   const { channels, posts } = state.data;
   return (
     <div className="fpl-admin-grid">
+      <Compose channels={channels} />
       <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-social">
         <h2 id="adm-social" className="fpl-home-h"><Megaphone size={18} aria-hidden="true" /> Posts this gameweek</h2>
         <p className="fpl-meta" style={{ margin: 0 }}>

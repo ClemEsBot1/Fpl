@@ -1,0 +1,28 @@
+name: Social post
+
+# Sends a one-off post written by hand: to Bluesky, and as an X draft by
+# email (src/lib/social.js, POST /api/optimal-squad?social=custom). Run it
+# from the Actions tab with the text. Needs the CRON_SECRET repo secret.
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: 'The post (links count as 23 characters on X; 280 max)'
+        required: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Send the post
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TEXT: ${{ inputs.text }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET not set"; exit 1; fi
+          jq -n --arg text "$TEXT" '{text: $text}' > body.json
+          code=$(curl -s -o out.json -w '%{http_code}' -X POST "https://fplchecker.co.uk/api/optimal-squad?social=custom" \
+            -H "Authorization: Bearer $CRON_SECRET" -H 'Content-Type: application/json' --data @body.json)
+          jq . out.json || cat out.json
+          [ "$code" = "200" ]
