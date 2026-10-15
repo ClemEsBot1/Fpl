@@ -17,10 +17,12 @@
 // Run by POST /api/optimal-squad?social=post (CRON_SECRET), which
 // .github/workflows/transfer-snapshots.yml calls every 20 minutes: each run
 // sends each channel at most one post that is due and it hasn't had (Redis
-// keeps which). GET ?social=preview shows every post as it would read now.
+// keeps which). GET ?social=preview shows every post as it would read now;
+// POST ?social=custom { text } sends a one-off post the same way.
 //
 // The bot only posts: no replies, mentions, likes or follows.
 
+import { createHash } from 'node:crypto';
 import { SITE } from './seoPage.js';
 
 const HOUR = 3600_000;
@@ -193,6 +195,18 @@ export function duePosts({ now = Date.now(), season, model, snap, lastFinished =
     ...slot('preview', 30, 6, () => previewPost(model, snap)),
     ...slot('captain', 6, 0.5, () => captainPost(model)),
   ].filter(p => p.text && tweetLength(p.text) <= 280 && blueskyRecord(p.text));
+}
+
+// A one-off post written by hand (the admin page's Social tab, or the
+// social-post workflow): { post } ready for runSocial, or { error }. Keyed
+// by its text, so the same words never go out twice.
+export function customPost(text) {
+  if (typeof text !== 'string' || !text.trim()) return { error: 'empty' };
+  const clean = text.trim().replace(/\r\n/g, '\n');
+  if (tweetLength(clean) > 280) return { error: 'too_long_for_x' };
+  if (!blueskyRecord(clean)) return { error: 'too_long_for_bluesky' };
+  const id = createHash('sha256').update(clean).digest('hex').slice(0, 16);
+  return { post: { key: `custom:${id}`, type: 'custom', label: 'Custom post', text: clean } };
 }
 
 // Sends each channel ({ name, send(post) }) the first due post it hasn't

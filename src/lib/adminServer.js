@@ -262,3 +262,17 @@ export async function socialPosts(host, { fetchImpl = fetch } = {}) {
   try { body = await r.json(); } catch { body = null; }
   return r.ok && body ? { ok: true, channels: body.channels || [], posts: body.posts || [] } : { ok: false, error: `social_${r.status}` };
 }
+
+// Sends a one-off post written on the Social tab: to Bluesky, and as an X
+// draft by email, when they're set up.
+export async function socialCustomPost(host, text, { fetchImpl = fetch } = {}) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || !host) return { ok: false, error: 'not_configured' };
+  const r = await fetchImpl(`${host.startsWith('localhost') ? 'http' : 'https'}://${host}/api/optimal-squad?social=custom`, {
+    method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }), signal: AbortSignal.timeout(30_000),
+  });
+  let body = null;
+  try { body = await r.json(); } catch { body = null; }
+  return body ? { ...body, ok: r.ok && body.ok !== false } : { ok: false, error: `social_${r.status}` };
+}

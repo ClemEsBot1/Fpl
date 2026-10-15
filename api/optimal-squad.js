@@ -4,7 +4,7 @@ import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
 import { SITE, predictionsPage } from '../src/lib/seoPage.js';
 import { getRedis } from '../src/lib/redis.js';
-import { blueskyConfigured, duePosts, pastResults, postBluesky, runSocial, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, customPost, duePosts, pastResults, postBluesky, runSocial, xIntentUrl } from '../src/lib/social.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
@@ -149,7 +149,7 @@ async function seoHtml(req, res) {
 
 // The social posts (src/lib/social.js): POST ?social=post sends what's
 // due (Bluesky, and X drafts by email), GET ?social=preview shows every
-// post as it would read now. Both need CRON_SECRET, like
+// post as it would read now, POST ?social=custom { text } sends a one-off. Both need CRON_SECRET, like
 // /api/refresh-optimal.
 function socialChannels(env = process.env) {
   const channels = [];
@@ -170,6 +170,15 @@ async function socialHandler(req, res) {
   if (!preview && req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+  if (req.query.social === 'custom') {
+    const { post, error } = customPost(req.body && req.body.text);
+    if (error) { res.status(400).json({ error }); return; }
+    const channels = socialChannels();
+    const results = channels.length ? await runSocial({ redis: getRedis(), posts: [post], channels }) : {};
+    const failed = Object.values(results).some(r => r.error);
+    res.status(failed ? 502 : 200).json({ ok: !failed, channels: channels.map(c => c.name), results, xIntentUrl: xIntentUrl(post.text) });
     return;
   }
   try {

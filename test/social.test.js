@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blueskyConfigured, blueskyRecord, captainPost, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, blueskyRecord, captainPost, customPost, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { seoModel } from '../src/lib/seoDynamic.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
@@ -123,4 +123,16 @@ test('each channel gets one due post per run, never the same one twice, and a fa
   await runSocial({ redis, posts, channels });
   assert.deepEqual(await runSocial({ redis, posts, channels }), { bluesky: { sent: null }, 'x-draft': { sent: null } });
   assert.deepEqual(sent, { bluesky: ['one', 'two'], 'x-draft': ['one', 'two'] });
+});
+
+test('a one-off post is checked for length, and the same words get the same key', () => {
+  const { post } = customPost('  Check out https://fplchecker.co.uk today for the best fpl tips!\r\n\n#FPL #FPLCommunity  ');
+  assert.equal(post.text, 'Check out https://fplchecker.co.uk today for the best fpl tips!\n\n#FPL #FPLCommunity');
+  assert.match(post.key, /^custom:[0-9a-f]{16}$/);
+  assert.equal(customPost(post.text).post.key, post.key);
+  assert.notEqual(customPost(`${post.text} #FantasyPL`).post.key, post.key);
+  assert.deepEqual(customPost('   '), { error: 'empty' });
+  assert.deepEqual(customPost(undefined), { error: 'empty' });
+  assert.deepEqual(customPost('x'.repeat(281)), { error: 'too_long_for_x' });
+  assert.deepEqual(customPost(`${'x'.repeat(250)} https://fplchecker.co.uk/a-long-path-that-bluesky-counts-in-full`), { error: 'too_long_for_bluesky' });
 });
