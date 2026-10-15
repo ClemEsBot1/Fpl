@@ -15,16 +15,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - run: curl -sf -o /dev/null https://fplchecker.co.uk/api/transfer-trend || true
+      - name: Find the site's address
+        # fplchecker.co.uk may redirect (e.g. to www.), and curl doesn't
+        # follow a redirect for a POST, nor send the secret on to another
+        # host. So find where it lands first, and only ever send the secret
+        # there if it's this site.
+        run: |
+          site=$(curl -s -o /dev/null -L -w '%{url_effective}' https://fplchecker.co.uk/ | sed 's#/*$##')
+          case "$site" in
+            https://fplchecker.co.uk|https://www.fplchecker.co.uk) echo "SITE=$site" >> "$GITHUB_ENV"; echo "site: $site" ;;
+            *) echo "unexpected address: $site"; exit 1 ;;
+          esac
+      - run: curl -sf -o /dev/null "$SITE/api/transfer-trend" || true
       - name: Send pushed alerts
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET not set: skipping"; exit 0; fi
-          curl -s -X POST "https://fplchecker.co.uk/api/auth?push=send" -H "Authorization: Bearer $CRON_SECRET" || true
+          curl -s -X POST "$SITE/api/auth?push=send" -H "Authorization: Bearer $CRON_SECRET" || true
       - name: Send social posts when due
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET not set: skipping"; exit 0; fi
-          curl -s -X POST "https://fplchecker.co.uk/api/optimal-squad?social=post" -H "Authorization: Bearer $CRON_SECRET" || true
+          curl -s -X POST "$SITE/api/optimal-squad?social=post" -H "Authorization: Bearer $CRON_SECRET" || true
