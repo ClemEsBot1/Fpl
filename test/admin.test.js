@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import authHandler from '../api/auth.js';
-import { isAdmin, reportIdOf } from '../src/lib/adminServer.js';
+import { isAdmin, reportIdOf, usersCsv } from '../src/lib/adminServer.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
 
 process.env.JWT_SECRET = 'test-secret';
@@ -90,6 +90,26 @@ test('find an account by name or email, never its password', async () => {
   assert.equal(byEmail.body.user.username, 'Sammy_1');
   assert.equal(byEmail.body.user.passwordHash, undefined);
   assert.equal((await request({ body: { action: 'admin', op: 'find_user', query: 'nobody' }, cookie: clemCookie })).body.user, null);
+});
+
+test('admins can download every account as a spreadsheet, without passwords', async () => {
+  assert.equal((await request({ body: { action: 'admin', op: 'export_users' }, cookie: samCookie })).status, 403);
+  const r = await request({ body: { action: 'admin', op: 'export_users' }, cookie: clemCookie });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.count, 2);
+  const lines = r.body.csv.trim().split('\r\n');
+  assert.equal(lines[0], 'Username,Email,Saved teams,Deadline email,Joined,Admin');
+  assert.ok(lines.some(l => l.startsWith('Sammy_1,sam@example.com,0,No,') && l.endsWith(',No')));
+  assert.ok(lines.some(l => l.startsWith('clem,') && l.endsWith(',Yes')));
+  assert.doesNotMatch(r.body.csv, /scrypt|passwordHash|\$/);
+});
+
+test('the spreadsheet quotes commas and never lets a cell run as a formula', async () => {
+  const store = fakeRedis();
+  await store.set('user:a', JSON.stringify({ username: 'a', email: '=HYPERLINK("x"),y@z.com', createdAt: '2026-01-02T00:00:00Z', digest: { teamId: '1' }, teams: [{}], passwordHash: 'secret' }));
+  const { csv } = await usersCsv(store);
+  assert.equal(csv.split('\r\n')[1], 'a,"\'=HYPERLINK(""x""),y@z.com",1,Yes,2026-01-02,No');
+  assert.doesNotMatch(csv, /secret/);
 });
 
 test('signing someone out everywhere ends their sessions', async () => {

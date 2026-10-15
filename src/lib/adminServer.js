@@ -75,6 +75,26 @@ export async function userStats(redis, now = Date.now(), weeks = 8) {
   };
 }
 
+// One cell of a CSV row: quoted when needed, and a leading = + - @ made
+// plain text so a spreadsheet never runs it as a formula.
+function csvCell(value) {
+  let text = String(value ?? '');
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+// Every account as a spreadsheet (CSV, opens in Excel, Numbers or Google
+// Sheets), oldest first: never the password hash.
+export async function usersCsv(redis) {
+  const users = (await allUsers(redis)).sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')) || a.username.localeCompare(b.username));
+  const rows = [['Username', 'Email', 'Saved teams', 'Deadline email', 'Joined', 'Admin']];
+  users.forEach(u => {
+    const s = summary(u);
+    rows.push([s.username, s.email, s.savedTeams, u.digest && u.digest.teamId ? 'Yes' : 'No', s.createdAt ? s.createdAt.slice(0, 10) : '', s.admin ? 'Yes' : 'No']);
+  });
+  return { count: users.length, csv: rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n' };
+}
+
 // An account by username or email, or null.
 export async function findUser(redis, query) {
   const q = String(query || '').trim();

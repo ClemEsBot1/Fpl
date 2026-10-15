@@ -14,7 +14,7 @@ import { resetPasswordEmail } from '../src/lib/emails.js';
 import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
   deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
-  setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats,
+  setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats, usersCsv,
 } from '../src/lib/adminServer.js';
 import { markSent } from '../src/lib/social.js';
 import { digestHandler } from '../src/lib/digestHandler.js';
@@ -128,6 +128,10 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
       return;
     case 'users':
       res.status(200).json(await userStats(redis));
+      return;
+    case 'export_users':
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json(await usersCsv(redis));
       return;
     case 'clear_errors':
       await clearErrors(redis);
