@@ -1,7 +1,7 @@
 // Results for a squad: predicted points per player, captaincy, transfer
 // suggestions, chip timing, editing, saving, sharing and reminders.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, ArrowUpDown, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Crown, Download, Edit3, Info, LayoutGrid, List as ListIcon, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Sparkles, Trophy, X, Zap } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, ArrowUpDown, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Copy, Crown, Download, Edit3, ExternalLink, Info, LayoutGrid, List as ListIcon, MessageSquare, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Sparkles, Trophy, X, Zap } from 'lucide-react';
 import { DifficultyChips } from '../components/common.jsx';
 import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
@@ -12,6 +12,7 @@ import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
 import { predictionRange, pickReasons } from '../lib/playerInsight.js';
 import { planTransfers, xiPointsForWeek } from '../lib/transferPlan.js';
 import { squadChipWeeks } from '../lib/chipPlanner.js';
+import { redditReplies } from '../lib/redditReply.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
@@ -1394,6 +1395,8 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         />
       )}
 
+      {session && session.admin && !isOptimalBuild && !isPastGw ? <RedditReply data={data} /> : null}
+
       <details className="fpl-details">
         <summary className="fpl-inline"><Info size={14} /> How these predictions work</summary>
         <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.6, paddingBottom: 10 }}>
@@ -1405,6 +1408,37 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         <RotateCcw size={16} /> Check another squad
       </button>
     </div>
+  );
+}
+
+// Admins only: a reply for an r/FantasyPL post about this team, ready to
+// copy (src/lib/redditReply.js). Each one links the site and says it's
+// ours.
+function RedditReply({ data }) {
+  const replies = useMemo(() => redditReplies(data), [data]);
+  const [pick, setPick] = useState('rate');
+  const [copied, setCopied] = useState(false);
+  const reply = replies.find(r => r.id === pick) || replies[0];
+  if (!reply) return null;
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(reply.text); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setCopied(false); }
+  };
+  return (
+    <section className="fpl-glass fpl-home-card fpl-reddit" aria-labelledby="reddit-h">
+      <h2 id="reddit-h" className="fpl-home-h"><MessageSquare size={18} aria-hidden="true" /> Reddit reply <span className="fpl-meta">(admins only)</span></h2>
+      <div className="fpl-league-sort" role="group" aria-label="Kind of reply">
+        {replies.map(r => (
+          <button key={r.id} type="button" className={`fpl-chip-btn${r.id === reply.id ? ' active' : ''}`} aria-pressed={r.id === reply.id} onClick={() => { setPick(r.id); setCopied(false); }}>{r.label}</button>
+        ))}
+      </div>
+      <p className="fpl-reddit-text">{reply.text}</p>
+      <div className="fpl-admin-actions">
+        <button type="button" className="fpl-btn fpl-btn-solid" onClick={copy}>
+          {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy'}
+        </button>
+        <a className="fpl-btn" href="https://www.reddit.com/r/FantasyPL/new/" target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> r/FantasyPL</a>
+      </div>
+    </section>
   );
 }
 

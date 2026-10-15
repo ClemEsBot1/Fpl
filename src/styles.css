@@ -1150,3 +1150,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-home-guides { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 18px 2px 4px; font-size: 0.82rem; }
 .fpl-home-guides a { color: rgba(251,250,255,0.8); }
 .fpl-home-guides a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Admin-only Reddit reply under the team results. */
+.fpl-reddit { display: grid; gap: 10px; margin-top: 16px; }
+.fpl-reddit-text { margin: 0; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.55; }
