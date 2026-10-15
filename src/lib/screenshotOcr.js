@@ -307,11 +307,15 @@ function foldedKey(str) {
   return compactKey((str || '').toLowerCase().replace(/[øæœßłđðþı]/g, ch => LETTER_FOLDS[ch]));
 }
 
+// How OCR tends to read FPL's "ß": as one similar-looking letter ("Grob",
+// "Grof3", "Grol}" once punctuation and digits go) or as "ss".
+const ESZETT_READINGS = ['b', 'f', 'l', 's', 'fs'];
+
 // Every key a printed name can be read as.
 function nameKeys(name) {
-  const plain = compactKey(name);
-  const folded = foldedKey(name);
-  return folded === plain ? [plain] : [plain, folded];
+  const keys = new Set([compactKey(name), foldedKey(name)]);
+  if (/ß/i.test(name || '')) ESZETT_READINGS.forEach(r => keys.add(foldedKey((name || '').replace(/ß/gi, r))));
+  return [...keys];
 }
 
 // Edit distance between a and b, giving up as soon as it must exceed
@@ -966,8 +970,13 @@ export function extractSquadFromOcrLines(lines, allPlayers, badges = [], nameLin
     if (best) {
       const sameName = teamPlayers.filter(p => compactKey(p.webName) === compactKey(best.player.webName));
       // A clear match within the club outranks any league-wide guess for
-      // the same spot; a weak one only competes on equal terms.
-      const score = best.score >= TEAM_MATCH_CONFIDENT ? 1 + best.score : best.score;
+      // the same spot; a weak one only competes on equal terms. So does a
+      // near-miss when the text is exactly some other player's name ("Henderson"
+      // read over a fixture that resolves to Anderson's club): the club
+      // came from the fixture, which can be misread or out of date, while
+      // an exact name rarely is.
+      const exactElsewhere = best.score < 1 && (index.get(compactKey(best.text)) || []).some(p => p.team !== t.teamId);
+      const score = best.score >= TEAM_MATCH_CONFIDENT && !exactElsewhere ? 1 + best.score : best.score;
       found.push({ text: best.text, bbox: best.bbox, score, players: sameName.length ? sameName : [best.player], teamId: t.teamId });
     }
   });
