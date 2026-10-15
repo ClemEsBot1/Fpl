@@ -21,3 +21,5 @@ The player pool and gameweek fixtures those tests match against. See its `about`
 
 3. Paste the result into a new `test/fixtures/<name>.raw.json`.
 4. Add a test in `test/screenshotOcr.test.js` that runs `squadFromRaw()` on it and asserts the correct squad. Add any players it needs to `players-and-fixtures.json`.
+
+`reddit-pitch-view.raw.json`: `readScreenshotRaw` output for an iPhone Pitch View screenshot saved from Reddit (1164×1801), with a Reddit button over one bench card. Captain Groß (read by OCR as "Grol}"/"Grof3"), vice Cherki.

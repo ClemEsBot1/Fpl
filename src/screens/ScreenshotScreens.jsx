@@ -5,17 +5,47 @@ import { ArrowRight, Camera, CheckCircle2, ChevronDown, ChevronLeft, Info, Shiel
 import { PlayerSearchPicker } from '../components/common.jsx';
 import { POSITION_LABELS, fmtPrice } from '../lib/format.js';
 import { squadProblems } from '../lib/squadLogic.js';
+import { mightBeImage } from '../lib/imageFile.js';
 
-// Loads the file through an object URL (a reference to the file, not a
-// multi-megabyte base64 copy of it held in memory as a string).
-export function loadImageFromFile(file) {
+const isHeic = file => /heic|heif/i.test(`${file.type} ${file.name || ''}`);
+
+function imageFromUrl(url) {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => resolve({ img, url });
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file doesn't look like an image.")); };
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('decode failed'));
     img.src = url;
   });
+}
+
+// Loads the file through an object URL (a reference to the file, not a
+// multi-megabyte base64 copy of it held in memory as a string). If the
+// browser's <img> can't decode it (some WebP/AVIF files, or a file with
+// a misleading type), createImageBitmap gets a second go and the result
+// is redrawn as a PNG.
+export async function loadImageFromFile(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    return { img: await imageFromUrl(url), url };
+  } catch {
+    URL.revokeObjectURL(url);
+  }
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    if (bitmap.close) bitmap.close();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('no blob');
+    const pngUrl = URL.createObjectURL(blob);
+    return { img: await imageFromUrl(pngUrl), url: pngUrl };
+  } catch {
+    throw new Error(isHeic(file)
+      ? 'This browser can\'t open HEIC photos. Take a screenshot instead (screenshots are PNG), or share the picture as a JPEG.'
+      : 'Couldn\'t open that image. Try a screenshot (PNG or JPEG) of your team.');
+  }
 }
 
 // The image stays at full resolution: small UI text is what OCR finds
@@ -34,7 +64,7 @@ export function ScreenshotForm({ onSubmit, onBack }) {
 
   async function acceptFile(file) {
     if (!file) return;
-    if (!file.type.startsWith('image/')) { setError('That isn\'t an image. Pick a screenshot (PNG or JPEG).'); return; }
+    if (!mightBeImage(file)) { setError('That isn\'t an image. Pick a screenshot (PNG or JPEG).'); return; }
     setError('');
     try {
       setShot(await prepareScreenshot(file));
@@ -90,7 +120,14 @@ export function ScreenshotForm({ onSubmit, onBack }) {
         onClick={() => fileInputRef.current && fileInputRef.current.click()}
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); acceptFile(e.dataTransfer.files && e.dataTransfer.files[0]); }}
+        onDrop={e => {
+          e.preventDefault(); setDragging(false);
+          const file = e.dataTransfer.files && e.dataTransfer.files[0];
+          // An image dragged straight from another web page arrives as a
+          // link, which the site it's on won't let us download.
+          if (!file) { setError('Save the image first, then choose it here (or copy it and paste with Ctrl/Cmd+V).'); return; }
+          acceptFile(file);
+        }}
         style={{ width: '100%', padding: shot ? 8 : 28, marginBottom: 14, cursor: 'pointer', color: 'var(--ink)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, borderStyle: 'dashed', borderWidth: 2, borderColor: dragging ? 'var(--blue)' : 'var(--line)' }}
       >
         {shot ? (

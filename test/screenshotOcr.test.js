@@ -137,3 +137,19 @@ test('special letters match however they were read', () => {
   const squad = extractSquadFromOcrLines([line('Gross', 0), line('Saka', 100), line('Son', 200)], [...tiny, gross]);
   assert.ok(Object.values(squad.starting_xi).flat().some(e => e.id === 9));
 });
+
+// OCR output from a screenshot saved from Reddit (1164×1801, iPhone Pitch
+// View, a Reddit button over one bench card). OCR reads "Groß" as "Grol}"
+// and "Grof3"; the "ß" readings must still find him.
+test('reddit screenshot: all fifteen, Groß included, with the armbands', () => {
+  const redditRaw = JSON.parse(readFileSync(new URL('./fixtures/reddit-pitch-view.raw.json', import.meta.url)));
+  const squad = squadFromRaw(redditRaw, pool.players, { teamsById, fixturesByTeam });
+  const all = [...Object.values(squad.starting_xi).flat(), ...squad.bench];
+  const webNames = all.map(e => byId[e.id].webName);
+  for (const name of ['Raya', 'Vuskovic', 'De Cuyper', 'Giles', 'Henderson', 'Ødegaard', 'Cherki', 'Groß', 'João Pedro', 'Haaland', 'N.Jackson', 'Kelleher', 'Gibbs-White', 'Cash', 'Guéhi']) {
+    assert.ok(webNames.includes(name), `${name} read`);
+  }
+  assert.equal(all.length, 15);
+  assert.equal(byId[squad.captain_id].webName, 'Groß');
+  assert.equal(byId[squad.vice_captain_id].webName, 'Cherki');
+});
