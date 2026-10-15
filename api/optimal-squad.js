@@ -3,12 +3,13 @@ import { snapshotPathnameFor } from './refresh-optimal.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
 import { SITE, predictionsPage } from '../src/lib/seoPage.js';
+import { summariseAccuracy } from '../src/lib/accuracy.js';
 import { getRedis } from '../src/lib/redis.js';
 import { blueskyConfigured, customPost, duePosts, pastResults, postBluesky, runSocial, sentTo, xIntentUrl } from '../src/lib/social.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { embedCaptainsHtml, leaguePage, tipsPage } from '../src/lib/seoExtra.js';
-import { comparePage, comparePairs, comparePath, deadlinePage, differentialsPage, parseCompare, priceChangesPage, scheduleGwPage } from '../src/lib/seoMore.js';
+import { accuracyPage, comparePage, comparePairs, comparePath, deadlinePage, differentialsPage, parseCompare, priceChangesPage, scheduleGwPage } from '../src/lib/seoMore.js';
 import { indexNowKey } from '../src/lib/indexNow.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
@@ -105,6 +106,38 @@ async function gwHtml(data, gwId) {
   return [200, pastGwPage(model, gwId, event.name, { saved, snap: snap && snapshotIsForSeason(snap, season, bootstrap.events) ? snap : null, live })];
 }
 
+// Every finished gameweek this season with saved predictions: how they
+// did (/fpl-prediction-accuracy). Kept for an hour by a warm function; the
+// page itself is cached for six.
+let accuracyCache = null;
+async function accuracyRows(data) {
+  if (accuracyCache && Date.now() - accuracyCache.at < 3600_000) return accuracyCache.rows;
+  const { model, bootstrap, season } = data;
+  const ids = (await gwIdsWithPages(data)).filter(id => {
+    const e = bootstrap.events.find(ev => ev.id === id);
+    return e && e.finished && e.data_checked;
+  });
+  const positionById = Object.fromEntries(model.players.map(p => [p.id, p.positionId]));
+  const names = Object.fromEntries(model.players.map(p => [p.id, p.name]));
+  const rows = [];
+  // A few at a time: each is two files and FPL's live points.
+  for (let i = 0; i < ids.length; i += 6) {
+    rows.push(...await Promise.all(ids.slice(i, i + 6).map(async gwId => {
+      const [saved, snap, live] = await Promise.all([
+        readBlobJson(predictionsPathnameFor(gwId)).catch(() => null),
+        readBlobJson(snapshotPathnameFor(gwId)).catch(() => null),
+        fetchFpl(`event/${gwId}/live/`, 10_000).then(d => d.elements).catch(() => null),
+      ]);
+      const ok = x => x && snapshotIsForSeason(x, season, bootstrap.events);
+      if (!ok(saved) || !saved.predictedById || !live) return { gwId, summary: null, xi: null };
+      const past = pastResults(gwId, { saved, snap: ok(snap) ? snap : null, live, names });
+      return { gwId, summary: summariseAccuracy(saved.predictedById, live, positionById), xi: past ? { predicted: past.xiPredicted, scored: past.xiScored } : null };
+    })));
+  }
+  accuracyCache = { at: Date.now(), rows };
+  return rows;
+}
+
 // The gameweeks with saved predictions this season, plus those ahead.
 async function gwIdsWithPages({ model, saved }) {
   const target = model.event.id;
@@ -126,7 +159,7 @@ async function gwIdsWithPages({ model, saved }) {
 // The pages for search engines (see vercel.json for the addresses that
 // are rewritten here): ?page=predictions|players|player|team|gw|sitemap|
 // tips|embed|league|xi-image|deadline|price-changes|double|blank|
-// differentials|compare|indexnow-key.
+// differentials|compare|accuracy|indexnow-key.
 async function seoHtml(req, res) {
   const { page, slug } = req.query;
   if (page === 'indexnow-key') {
@@ -148,6 +181,11 @@ async function seoHtml(req, res) {
     if (page === 'double' || page === 'blank') return sendHtml(res, 200, scheduleGwPage(model, page));
     if (!data.saved && page !== 'gw') return unavailable(res);
     if (page === 'differentials') return sendHtml(res, 200, differentialsPage(model));
+    if (page === 'accuracy') {
+      res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=21600, stale-while-revalidate=86400');
+      res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(accuracyPage(model, await accuracyRows(data)));
+      return;
+    }
     if (page === 'compare') {
       const pair = parseCompare(model, req.query.pair);
       if (!pair) return sendHtml(res, 404, notFoundPage(`/compare/${encodeURIComponent(String(req.query.pair || ''))}`, 'Comparison'));

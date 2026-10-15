@@ -5,6 +5,8 @@
 //   differential  ~2 days before the deadline: a low-owned player predicted well
 //   preview       the day before: the best XI and the top picks
 //   captain       hours before: the top three captain options
+//   prices        every evening: the players likely to rise or fall in
+//                 price overnight (src/lib/seoMore.js priceData)
 //
 // Where they go (both free):
 //   Bluesky   posted by the bot, when BLUESKY_HANDLE and BLUESKY_APP_PASSWORD
@@ -24,11 +26,12 @@
 
 import { createHash } from 'node:crypto';
 import { SITE } from './seoPage.js';
+import { priceData } from './seoMore.js';
 
 const HOUR = 3600_000;
 const SENT_TTL_SECONDS = 60 * 24 * 3600;
 const TAGS = '#FPL #FPLCommunity';
-export const LABELS = { results: 'result', differential: 'differential', preview: 'preview', captain: 'captain picks' };
+export const LABELS = { results: 'result', differential: 'differential', preview: 'preview', captain: 'captain picks', prices: 'price changes' };
 
 // Length as X counts it: every link is 23 characters.
 export function tweetLength(text) {
@@ -162,6 +165,31 @@ export function captainPost(model) {
   return `©️ GW${gw.id} captain picks, by predicted points:\n\n${top.map((p, i) => `${i + 1}. ${p.name} ${fmt(p.predicted)} (${nextFixture(p, gw.id)})`).join('\n')}\n\nDeadline ${ukTime(gw.deadline_time)}. Your own team’s best captain: ${SITE}\n\n${TAGS}`;
 }
 
+// Tonight's likely price moves, or null when nobody is likely to move.
+// Only FPL's 'very likely' and 'likely' count, never the 'possible' guesses.
+export function pricesPost(model) {
+  const d = priceData(model);
+  const sure = rows => rows.filter(r => r.change.confidence !== 'possible').slice(0, 4).map(r => `${r.player.name} ${money(r.player.price)}`);
+  const up = sure(d.rises);
+  const down = sure(d.falls);
+  if (!up.length && !down.length) return null;
+  return `💷 Likely FPL price changes tonight:
+
+${up.length ? `📈 Rises: ${up.join(', ')}
+` : ''}${down.length ? `📉 Falls: ${down.join(', ')}
+` : ''}
+Full list: ${SITE}/fpl-price-changes
+
+${TAGS}`;
+}
+
+// The date in London, "2026-10-15", and its hour.
+function londonNow(now) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date(now)).map(x => [x.type, x.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+}
+
 // past: { gwId, xiPredicted, xiScored, top: { name, actual, predicted } }
 export function resultsPost(past) {
   if (!past || past.xiScored === null) return null;
@@ -197,7 +225,13 @@ export function duePosts({ now = Date.now(), season, model, snap, lastFinished =
   const gw = model.event;
   const deadline = Date.parse(gw.deadline_time);
   const until = deadline - now;
-  if (!all && !(until > 0)) return [];
+  // The price post goes out between 18:00 and 23:00 UK time, once a day.
+  const london = londonNow(now);
+  const prices = all || (london.hour >= 18 && london.hour < 23)
+    ? [{ key: `${season}:prices:${london.date}`, type: 'prices', label: `${london.date} ${LABELS.prices}`, text: pricesPost(model) }]
+    : [];
+  const ok = p => p.text && tweetLength(p.text) <= 280 && blueskyRecord(p.text);
+  if (!all && !(until > 0)) return prices.filter(ok);
   const slot = (type, from, to, make) => {
     if (!all && !(until <= from * HOUR && until > to * HOUR)) return [];
     const gwId = type === 'results' ? lastFinished.gwId : gw.id;
@@ -208,7 +242,8 @@ export function duePosts({ now = Date.now(), season, model, snap, lastFinished =
     ...slot('differential', 54, 30, () => differentialPost(model)),
     ...slot('preview', 30, 6, () => previewPost(model, snap)),
     ...slot('captain', 6, 0.5, () => captainPost(model)),
-  ].filter(p => p.text && tweetLength(p.text) <= 280 && blueskyRecord(p.text));
+    ...prices,
+  ].filter(ok);
 }
 
 // A one-off post written by hand (the admin page's Social tab, or the
@@ -239,7 +274,7 @@ export async function sentTo(redis, posts, channels) {
 
 // X posts go out by hand from the admin page (the API is paid), so the
 // page ticks them off itself: the 'x' channel's key, set or cleared.
-export const POST_KEY = /^\d{4}-\d{2}:(results|differential|preview|captain):gw\d{1,2}$/;
+export const POST_KEY = /^\d{4}-\d{2}:((results|differential|preview|captain):gw\d{1,2}|prices:\d{4}-\d{2}-\d{2})$/;
 export async function markSent(redis, channel, key, done) {
   if (!POST_KEY.test(key)) return false;
   if (done) await redis.set(sentKey(channel, { key }), '1', 'EX', SENT_TTL_SECONDS);

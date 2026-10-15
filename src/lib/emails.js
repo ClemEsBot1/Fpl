@@ -141,3 +141,37 @@ export function socialDraftEmail({ label, text, intentUrl, appUrl }) {
     html: layout({ appUrl, preheader: text.split('\n')[0], body }),
   };
 }
+
+// The deadline email (src/lib/digest.js): this team's best captain and
+// best transfer for the gameweek, and how to stop them.
+export function deadlineDigestEmail({ username, event, captain, transfer, appUrl, unsubscribeUrl }) {
+  const fmt = n => (Math.round(n * 10) / 10).toFixed(1);
+  const deadline = new Date(event.deadline_time).toLocaleString('en-GB', { weekday: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+  const subject = `${event.name}: captain ${captain.name}${transfer ? `, bring in ${transfer.in.name}` : ''}`;
+  const href = escapeHtml(appUrl);
+  const row = (label, value) => `<tr><td style="padding:10px 0;border-top:1px solid #E4E3F0;font-size:13px;color:${BRAND.muted};width:110px;">${label}</td><td style="padding:10px 0;border-top:1px solid #E4E3F0;font-size:15px;line-height:22px;">${value}</td></tr>`;
+  const body = `
+            <h1 style="margin:0 0 6px;font-size:22px;line-height:28px;font-weight:700;color:${BRAND.ink};">${escapeHtml(event.name)} is nearly here</h1>
+            <p style="margin:0 0 18px;font-size:15px;line-height:23px;">Hi ${escapeHtml(username)}, the deadline is <b>${escapeHtml(deadline)}</b> (UK time). For your team:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;">
+              ${row('Captain', `<b>${escapeHtml(captain.name)}</b>, predicted ${fmt(captain.points)} pts`)}
+              ${row('Transfer', transfer ? `<b>${escapeHtml(transfer.out.name)}</b> out, <b>${escapeHtml(transfer.in.name)}</b> (£${transfer.in.price.toFixed(1)}m) in: +${fmt(transfer.gain)} pts over the next 5 gameweeks` : 'Nothing worth it this week. Save the free transfer.')}
+            </table>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;">
+              <tr>
+                <td align="center" bgcolor="${BRAND.ink}" style="background:${BRAND.ink};border-radius:10px;">
+                  <a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;">See my whole team</a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;font-size:12px;line-height:18px;color:${BRAND.muted};">You get this because you asked for deadline emails. <a href="${escapeHtml(unsubscribeUrl)}" style="color:${BRAND.muted};">Stop these emails</a>.</p>`;
+  const text = `${event.name} deadline: ${deadline} (UK time)
+
+Captain: ${captain.name}, predicted ${fmt(captain.points)} pts
+Transfer: ${transfer ? `${transfer.out.name} out, ${transfer.in.name} (£${transfer.in.price.toFixed(1)}m) in, +${fmt(transfer.gain)} pts over the next 5 gameweeks` : 'nothing worth it this week; save the free transfer'}
+
+Your whole team: ${appUrl}
+
+Stop these emails: ${unsubscribeUrl}`;
+  return { subject, text, html: layout({ appUrl, preheader: `Captain ${captain.name}${transfer ? `, ${transfer.out.name} → ${transfer.in.name}` : ''}`, body }) };
+}

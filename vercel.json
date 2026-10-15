@@ -7,6 +7,10 @@
   ],
   "rewrites": [
     {
+      "source": "/fpl-prediction-accuracy",
+      "destination": "/api/optimal-squad?page=accuracy"
+    },
+    {
       "source": "/fpl-deadline",
       "destination": "/api/optimal-squad?page=deadline"
     },

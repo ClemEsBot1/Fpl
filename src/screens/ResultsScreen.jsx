@@ -13,6 +13,7 @@ import { predictionRange, pickReasons } from '../lib/playerInsight.js';
 import { planTransfers, xiPointsForWeek } from '../lib/transferPlan.js';
 import { squadChipWeeks } from '../lib/chipPlanner.js';
 import { redditReplies } from '../lib/redditReply.js';
+import { SHARE_URL, shareLinks, shareMessage } from '../lib/shareLinks.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
 // Every input that fed into a player's predicted points, in plain language
@@ -529,11 +530,19 @@ export function ScoreRing({ score, size = 92, strokeWidth = 9 }) {
   );
 }
 
-// Deadline reminder (.ics with a 3-hour alert) and a shareable image of
-// the squad's predicted points.
-export function ResultsActions({ squad, teamName, gwName, teamsById, deadline }) {
+// Deadline reminder (.ics with a 3-hour alert), a shareable image of the
+// squad's rating and predicted points, and the same as a post for
+// WhatsApp, X or Reddit (src/lib/shareLinks.js).
+export function ResultsActions({ squad, teamName, gwName, teamsById, deadline, score = null }) {
   const [shareState, setShareState] = useState('');
+  const [copied, setCopied] = useState(false);
   const deadlineAhead = deadline && new Date(deadline).getTime() > Date.now();
+  const total = squad.filter(s => s.isStarting).reduce((sum, s) => sum + s.nextMatchPredicted * (s.multiplier || 1), 0);
+  const message = shareMessage({ gwName, total, score });
+  const links = shareLinks(message);
+  async function copyLink() {
+    try { await navigator.clipboard.writeText(`${message} ${SHARE_URL}`); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
+  }
 
   async function addReminder() {
     const { buildDeadlineIcs, squadWarnings } = await import('../lib/calendar.js');
@@ -554,8 +563,7 @@ export function ResultsActions({ squad, teamName, gwName, teamsById, deadline })
       const { drawShareCard, shareCard } = await import('../lib/shareCard.js');
       // The card's rows show this gameweek's prediction, so its total is
       // the same figure: the XI at their multipliers (captain 2x, or 3x).
-      const total = squad.filter(s => s.isStarting).reduce((sum, s) => sum + s.nextMatchPredicted * (s.multiplier || 1), 0);
-      const canvas = await drawShareCard({ teamName, gwName, total, slots: squad, teamsById, siteUrl: window.location.host });
+      const canvas = await drawShareCard({ teamName, gwName, total, slots: squad, teamsById, siteUrl: 'fplchecker.co.uk', score });
       const result = await shareCard(canvas, { title: `${teamName} · ${gwName}`, fileName: 'fpl-squad.png' });
       setShareState(result === 'downloaded' ? 'Image downloaded' : '');
     } catch {
@@ -571,7 +579,13 @@ export function ResultsActions({ squad, teamName, gwName, teamsById, deadline })
         </button>
       )}
       <button type="button" className="fpl-chip-btn fpl-inline" onClick={share}>
-        <Share2 size={14} aria-hidden="true" /> Share
+        <Share2 size={14} aria-hidden="true" /> Share image
+      </button>
+      <a className="fpl-chip-btn fpl-inline fpl-chip-wa" href={links.whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
+      <a className="fpl-chip-btn fpl-inline fpl-chip-wa" href={links.x} target="_blank" rel="noreferrer">X</a>
+      <a className="fpl-chip-btn fpl-inline fpl-chip-wa" href={links.reddit} target="_blank" rel="noreferrer">Reddit</a>
+      <button type="button" className="fpl-chip-btn fpl-inline" onClick={copyLink}>
+        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} {copied ? 'Copied' : 'Copy'}
       </button>
       {shareState && <span className="fpl-mono fpl-meta" role="status">{shareState}</span>}
     </div>
@@ -1042,6 +1056,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           gwName={targetEvent ? targetEvent.name : ''}
           teamsById={teamsById}
           deadline={targetEvent ? targetEvent.deadline_time : null}
+          score={isOptimalBuild ? null : squadScore}
         />
       )}
 
@@ -1395,6 +1410,8 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
         />
       )}
 
+      {session && !isOptimalBuild && !isPastGw && data.entryMeta && data.entryMeta.teamId ? <DeadlineEmail session={session} teamId={data.entryMeta.teamId} /> : null}
+
       {session && session.admin && !isOptimalBuild && !isPastGw ? <RedditReply data={data} /> : null}
 
       <details className="fpl-details">
@@ -1414,6 +1431,39 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
 // Admins only: a reply for an r/FantasyPL post about this team, ready to
 // copy (src/lib/redditReply.js). Each one links the site and says it's
 // ours.
+// Opt in to the deadline email (src/lib/digest.js) for this team: its
+// best captain and transfer about a day before each deadline.
+function DeadlineEmail({ session, teamId }) {
+  const [on, setOn] = useState(Number(session.digestTeamId) === Number(teamId));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const toggle = async next => {
+    setBusy(true); setError(null);
+    try {
+      const r = await fetch('/api/auth', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_digest', teamId: next ? teamId : null }),
+      });
+      const body = await r.json().catch(() => null);
+      if (r.ok) setOn(next);
+      else setError((body && body.error) || 'Couldn’t save that. Try again.');
+    } catch {
+      setError('Couldn’t save that. Try again.');
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="fpl-block fpl-digest">
+      <label className="fpl-digest-row">
+        <input type="checkbox" checked={on} disabled={busy || (!on && !session.email)} onChange={e => toggle(e.target.checked)} />
+        <span><b>Deadline email</b>: your best captain and transfer for this team, a day before each deadline.</span>
+      </label>
+      {!session.email && !on ? <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Add an email address to your account to turn this on.</p> : null}
+      {error ? <p role="alert" className="fpl-meta" style={{ margin: '6px 0 0', color: 'var(--red)' }}>{error}</p> : null}
+    </div>
+  );
+}
+
 function RedditReply({ data }) {
   const replies = useMemo(() => redditReplies(data), [data]);
   const [pick, setPick] = useState('rate');

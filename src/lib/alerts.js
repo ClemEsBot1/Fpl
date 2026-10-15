@@ -23,6 +23,17 @@ function hash(text) {
   return (h >>> 0).toString(36);
 }
 
+// The deadline alert's line: your best captain when we know your squad.
+function deadlineBody(staticData, playerIds) {
+  const best = (playerIds || [])
+    .map(id => ({ p: staticData.playersById[id], pred: staticData.predictionsById[id] }))
+    .filter(x => x.p && x.pred && (!x.p.status || x.p.status === 'a') && typeof x.pred.nextMatchPredicted === 'number')
+    .sort((a, b) => b.pred.nextMatchPredicted - a.pred.nextMatchPredicted)[0];
+  return best
+    ? `Captain pick: ${best.p.webName} (${best.pred.nextMatchPredicted.toFixed(1)} pts). Make your transfers before it passes.`
+    : 'Make your transfers and pick your captain before it passes.';
+}
+
 // staticData: today's data. playerIds: your squad. Returns
 // [{ id, kind: 'deadline' | 'rise' | 'fall' | 'news' | 'drop', level: 'warn' | 'info',
 // title, body }], most urgent first. Each id is stable for as long as the
@@ -43,7 +54,7 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
         kind: 'deadline',
         level: soon ? 'warn' : 'info',
         title: `${target.name} deadline in ${hours ? `${hours}h ${Math.floor((left % HOUR) / 60000)}m` : `${Math.max(1, Math.round(left / 60000))} minutes`}`,
-        body: 'Make your transfers and pick your captain before it passes.',
+        body: deadlineBody(staticData, playerIds),
       });
     }
   }
