@@ -21,7 +21,19 @@ jobs:
         # succeeds but doesn't reflect your latest change), bump this up.
         run: sleep 90
 
+      - name: Find the site's address
+        # fplchecker.co.uk may redirect (e.g. to www.), and curl doesn't
+        # follow a redirect for a POST, nor send the secret on to another
+        # host. So find where it lands first, and only ever send the secret
+        # there if it's this site.
+        run: |
+          site=$(curl -s -o /dev/null -L -w '%{url_effective}' https://fplchecker.co.uk/ | sed 's#/*$##')
+          case "$site" in
+            https://fplchecker.co.uk|https://www.fplchecker.co.uk) echo "SITE=$site" >> "$GITHUB_ENV"; echo "site: $site" ;;
+            *) echo "unexpected address: $site"; exit 1 ;;
+          esac
+
       - name: Trigger refresh-optimal
         run: |
-          curl -sf -X POST https://fplchecker.co.uk/api/refresh-optimal \
+          curl -sf -X POST "$SITE/api/refresh-optimal" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
