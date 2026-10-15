@@ -2,7 +2,7 @@
 // src/lib/adminServer.js). Every request goes through /api/auth, which
 // checks the session belongs to an admin before doing anything.
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BrainCircuit, Camera, Check, Copy, ExternalLink, Megaphone, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
+import { Activity, BrainCircuit, Camera, Check, Copy, Download, ExternalLink, Megaphone, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { fmtPts } from '../lib/format.js';
 
@@ -326,6 +326,25 @@ function UsersTab({ me }) {
   const [query, setQuery] = useState('');
   const [found, setFound] = useState(undefined);
   const [message, setMessage] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState(null);
+  const download = async () => {
+    setExporting(true);
+    setExportMsg(null);
+    const r = await adminCall('export_users');
+    setExporting(false);
+    if (!r.ok || !r.data || typeof r.data.csv !== 'string') { setExportMsg(r.error || 'Couldn’t make the spreadsheet.'); return; }
+    // The byte-order mark makes Excel read the file as UTF-8.
+    const url = URL.createObjectURL(new Blob(['\uFEFF', r.data.csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fpl-checker-users-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setExportMsg(`Downloaded ${r.data.count} account${r.data.count === 1 ? '' : 's'}.`);
+  };
   useEffect(() => { adminCall('users').then(r => setStats(r.ok ? r.data : { error: r.error })); }, []);
   const search = async e => {
     e.preventDefault();
@@ -356,6 +375,13 @@ function UsersTab({ me }) {
               ))}
             </ol>
             {stats.undated ? <p className="fpl-meta" style={{ margin: 0 }}>{stats.undated} older accounts have no sign-up date (dates are recorded from now on).</p> : null}
+            <div className="fpl-admin-actions">
+              <button type="button" className="fpl-btn" onClick={download} disabled={exporting} aria-busy={exporting}>
+                <Download size={15} aria-hidden="true" /> {exporting ? 'Preparing…' : 'Download spreadsheet'}
+              </button>
+            </div>
+            <p className="fpl-meta" style={{ margin: 0 }}>Every account with its email, saved teams, deadline email and join date, as a CSV for Excel or Google Sheets. It holds personal data: keep it private.</p>
+            {exportMsg ? <p className="fpl-admin-msg" role="status">{exportMsg}</p> : null}
           </>
         )}
       </section>
