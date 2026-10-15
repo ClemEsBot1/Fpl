@@ -7,6 +7,7 @@ import { getRedis } from '../src/lib/redis.js';
 import { blueskyConfigured, customPost, duePosts, pastResults, postBluesky, runSocial, sentTo, xIntentUrl } from '../src/lib/social.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
+import { embedCaptainsHtml, leaguePage, tipsPage } from '../src/lib/seoExtra.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
@@ -56,6 +57,16 @@ function unavailable(res) {
     .send('<!doctype html><meta charset="utf-8"><title>FPL predictions | FPL Checker</title><p>This page isn’t ready yet. <a href="/">Open FPL Checker</a></p>');
 }
 
+const BEST_XI_IMAGE = '/images/best-xi.png';
+
+// The best XI picture (src/lib/socialImage.js), loaded only when asked for:
+// it brings satori and resvg.
+async function bestXiImage({ model, snap }) {
+  const { bestXiData, bestXiPng } = await import('../src/lib/socialImage.js');
+  const data = bestXiData(model, snap);
+  return data ? { png: await bestXiPng(data), alt: data.alt } : null;
+}
+
 // The gameweek being planned (/fpl-predictions, and /gw/<n> for it), from
 // the predictions and best squad the refresh job saved for it.
 function plannedPage({ model, saved, snap }, path) {
@@ -66,7 +77,7 @@ function plannedPage({ model, saved, snap }, path) {
     ? { xi: snap.startingIds.map(id => byId[id]).filter(Boolean).sort((a, b) => a.positionId - b.positionId || b.predicted - a.predicted), captainId: snap.captainId }
     : null;
   const nav = gwNav(model, event.id);
-  return predictionsPage({ gwName: event.name, deadline: event.deadline_time, players, best, updatedAt: saved.savedAt, nav, path });
+  return predictionsPage({ gwName: event.name, deadline: event.deadline_time, players, best, updatedAt: saved.savedAt, nav, path, ...(best ? { image: BEST_XI_IMAGE } : {}) });
 }
 
 // /gw/<n>: before the gameweek being planned, what was predicted (and
@@ -141,6 +152,42 @@ async function seoHtml(req, res) {
       return out ? sendHtml(res, out[0], out[1]) : unavailable(res);
     }
     if (page === 'players') return sendHtml(res, 200, playersHubPage(model));
+    if (page === 'tips') return sendHtml(res, 200, tipsPage(model, data.snap && data.snap.gwId === model.event.id ? { image: BEST_XI_IMAGE } : {}));
+    if (page === 'embed') {
+      // Framed by other sites: its own CSP, without the site's
+      // frame-ancestors 'none' (see vercel.json).
+      res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8')
+        .setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors *; base-uri 'none'; form-action 'none'")
+        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400')
+        .send(embedCaptainsHtml(model, { theme: req.query.theme === 'light' ? 'light' : 'dark' }));
+      return;
+    }
+    if (page === 'league') {
+      const id = String(req.query.id || '');
+      if (!/^\d{1,9}$/.test(id)) return sendHtml(res, 404, notFoundPage(`/league/${encodeURIComponent(id)}`, 'League'));
+      const standings = await fetchFpl(`leagues-classic/${id}/standings/`, 10_000).catch(() => null);
+      if (!standings || !standings.standings) return sendHtml(res, 404, notFoundPage(`/league/${id}`, 'League'));
+      // Each of the top 20 teams' latest picks, for their captain and
+      // predicted points.
+      const current = data.bootstrap.events.find(e => e.is_current) || data.bootstrap.events.filter(e => e.finished).pop();
+      const entries = (standings.standings.results || []).slice(0, 20).map(r => r.entry);
+      const picks = {};
+      if (current) {
+        await Promise.all(entries.map(entry => fetchFpl(`entry/${entry}/event/${current.id}/picks/`, 8_000)
+          .then(d => { picks[entry] = d.picks; }).catch(() => {})));
+      }
+      standings.standings.results = (standings.standings.results || []).slice(0, 20);
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400');
+      res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(leaguePage(model, id, standings, picks));
+      return;
+    }
+    if (page === 'xi-image') {
+      const image = await bestXiImage(data);
+      if (!image) { res.status(404).setHeader('Cache-Control', 'public, max-age=300').json({ error: 'no_best_xi' }); return; }
+      res.status(200).setHeader('Content-Type', 'image/png')
+        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400').send(image.png);
+      return;
+    }
     return sendHtml(res, 200, plannedPage(data, '/fpl-predictions'));
   } catch {
     unavailable(res);
@@ -153,9 +200,12 @@ async function seoHtml(req, res) {
 // and POST ?social=send { key } one of this gameweek's now. Both take an
 // optional channels list. Both need CRON_SECRET, like
 // /api/refresh-optimal.
-function socialChannels(env = process.env) {
+// imageFor(post): a picture to attach on Bluesky, or null.
+function socialChannels(env = process.env, imageFor = null) {
   const channels = [];
-  if (blueskyConfigured(env)) channels.push({ name: 'bluesky', send: post => postBluesky(post.text, env) });
+  if (blueskyConfigured(env)) {
+    channels.push({ name: 'bluesky', send: async post => postBluesky(post.text, env, fetch, { image: imageFor ? await imageFor(post).catch(() => null) : null }) });
+  }
   if (env.SOCIAL_DRAFTS_EMAIL && mailerConfigured()) {
     channels.push({ name: 'x-draft', send: post => sendMail({ to: env.SOCIAL_DRAFTS_EMAIL, ...socialDraftEmail({ label: post.label, text: post.text, intentUrl: xIntentUrl(post.text), appUrl: SITE }) }) });
   }
@@ -205,7 +255,8 @@ async function socialHandler(req, res) {
       lastFinished = pastResults(last.id, { saved: ok(saved) ? saved : null, snap: ok(snap) ? snap : null, live, names: Object.fromEntries(model.players.map(p => [p.id, p.name])) });
     }
     const due = duePosts({ season, model, snap: data.snap, lastFinished });
-    const channels = socialChannels();
+    // The preview post goes out with the best XI as a picture.
+    const channels = socialChannels(process.env, async post => (post.type === 'preview' ? bestXiImage(data) : null));
     const all = duePosts({ season, model, snap: data.snap, lastFinished, all: true });
     if (preview) {
       const dueKeys = new Set(due.map(p => p.key));

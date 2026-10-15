@@ -2,7 +2,7 @@
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Anchor, Armchair, Scale, Swords, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
+import { Anchor, Armchair, Check, Scale, Share2, Swords, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import './headToHead.css';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
@@ -248,6 +248,26 @@ function HeadToHead({ members, teams, youEntry, teamsById }) {
 
 // One league's standings with each member's predicted points; mounted
 // afresh for each league picked.
+// A link to the league's page on the site (/league/<id>: standings,
+// captains and predicted points) to send to the rest of the league.
+function ShareLeague({ leagueId, name }) {
+  const [copied, setCopied] = useState(false);
+  const url = `https://fplchecker.co.uk/league/${leagueId}`;
+  const share = async () => {
+    try {
+      if (navigator.share) { await navigator.share({ title: name || 'FPL mini-league', text: `${name || 'Our league'}: standings, captains and predicted points`, url }); return; }
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* closed the share sheet */ }
+  };
+  return (
+    <button type="button" className="fpl-chip-btn" onClick={share} aria-label="Share a link to this league's page">
+      {copied ? <Check size={14} aria-hidden="true" /> : <Share2 size={14} aria-hidden="true" />} {copied ? 'Link copied' : 'Share'}
+    </button>
+  );
+}
+
 function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam }) {
   // A gameweek that has started is shown as it stood after it; the one
   // being planned with the latest points and its predictions.
@@ -327,6 +347,7 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
     <section className="fpl-glass fpl-home-card" aria-labelledby="league-h" aria-busy={standings.status === 'loading'}>
       <div className="fpl-home-team-head">
         <h2 id="league-h" className="fpl-home-h"><Trophy size={18} aria-hidden="true" /> {standings.data ? standings.data.league.name : 'League'}</h2>
+        <ShareLeague leagueId={leagueId} name={standings.data ? standings.data.league.name : null} />
         <div className="fpl-league-sort" role="group" aria-label="Sort by">
           {SORTS.map(([key, label]) => (
             <button key={key} type="button" className={`fpl-chip-btn${sortBy === key ? ' active' : ''}`} aria-pressed={sortBy === key} onClick={() => setSortBy(key)}>{label}</button>

@@ -24,7 +24,7 @@ for (const page of staticPages()) {
   fs.writeFileSync(path.join(dir, 'index.html'), page.html);
   console.log('wrote', page.path);
 }
-const urls = SEO_PATHS.map(p => `  <url>\n    <loc>${SITE}${p === '/' ? '/' : p}</loc>\n    <changefreq>${p === '/fpl-predictions' || p === '/' ? 'daily' : 'weekly'}</changefreq>\n  </url>`).join('\n');
+const urls = SEO_PATHS.map(p => `  <url>\n    <loc>${SITE}${p === '/' ? '/' : p}</loc>\n    <changefreq>${p === '/fpl-predictions' || p === '/fpl-tips' || p === '/' ? 'daily' : 'weekly'}</changefreq>\n  </url>`).join('\n');
 fs.writeFileSync(path.join(root, 'sitemap-pages.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`);
 const maps = ['/sitemap-pages.xml', '/sitemap-fpl.xml'].map(p => `  <sitemap>\n    <loc>${SITE}${p}</loc>\n  </sitemap>`).join('\n');
 fs.writeFileSync(path.join(root, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${maps}\n</sitemapindex>\n`);

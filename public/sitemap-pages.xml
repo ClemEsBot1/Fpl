@@ -24,4 +24,12 @@
     <loc>https://fplchecker.co.uk/rate-my-fpl-team</loc>
     <changefreq>weekly</changefreq>
   </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-tips</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-widget</loc>
+    <changefreq>weekly</changefreq>
+  </url>
 </urlset>

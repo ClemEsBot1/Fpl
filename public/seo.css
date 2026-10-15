@@ -42,3 +42,6 @@ th { color: var(--dim); font-weight: 500; font-size: 0.8rem; }
 .seo-links { line-height: 2; }
 .seo-card th[scope="row"] { color: var(--dim); font-weight: 500; }
 td a { color: var(--ink); text-decoration-color: rgba(206,255,16,0.6); text-underline-offset: 3px; }
+.seo-dim { color: var(--dim); font-size: 0.82rem; }
+.seo-code { margin: 8px 0 0; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.35); overflow-x: auto; white-space: pre-wrap; word-break: break-all; font: 500 0.78rem/1.5 'IBM Plex Mono', monospace; color: var(--ink); }
+.seo-card iframe { display: block; margin: 6px 0 12px; }
