@@ -261,7 +261,7 @@ async function socialHandler(req, res) {
     if (preview) {
       const dueKeys = new Set(due.map(p => p.key));
       let sent = {};
-      try { sent = await sentTo(getRedis(), all, channels.map(c => c.name)); } catch { /* shown as not sent */ }
+      try { sent = await sentTo(getRedis(), all, [...channels.map(c => c.name), 'x']); } catch { /* shown as not sent */ }
       const posts = all.map(p => ({ ...p, due: dueKeys.has(p.key), sent: sent[p.key] || [], xIntentUrl: xIntentUrl(p.text) }));
       res.status(200).json({ ok: true, channels: channels.map(c => c.name), posts });
       return;

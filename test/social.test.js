@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blueskyConfigured, blueskyRecord, captainPost, customPost, sentKey, sentTo, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, blueskyRecord, captainPost, customPost, markSent, sentKey, sentTo, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { seoModel } from '../src/lib/seoDynamic.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
@@ -175,4 +175,14 @@ test('a post with a picture attaches it instead of the link card', async () => {
   assert.ok(!calls.includes('og-image.png'));
   assert.deepEqual(record.embed, { $type: 'app.bsky.embed.images', images: [{ image: { ref: 'img' }, alt: 'GW8 best XI', aspectRatio: { width: 1200, height: 675 } }] });
   assert.ok(record.facets.some(f => f.features[0].uri === 'https://fplchecker.co.uk/fpl-predictions'), 'the link is still clickable');
+});
+
+test('the admin page ticks a post off as done on X, and back', async () => {
+  const redis = fakeRedis();
+  const key = '2026-27:captain:gw8';
+  assert.equal(await markSent(redis, 'x', key, true), true);
+  assert.deepEqual(await sentTo(redis, [{ key }], ['bluesky', 'x']), { [key]: ['x'] });
+  assert.equal(await markSent(redis, 'x', key, false), true);
+  assert.deepEqual(await sentTo(redis, [{ key }], ['bluesky', 'x']), { [key]: [] });
+  assert.equal(await markSent(redis, 'x', 'anything:else', true), false, 'only this gameweek’s post keys');
 });

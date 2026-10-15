@@ -204,7 +204,7 @@ function Reports() {
 // to both (Bluesky, then X's composer with the post filled in), Post on X
 // and Copy. `payload` says which post: { text } or { key }.
 const xIntent = text => `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
-function PostActions({ text, payload, canBluesky, sentToBluesky = false, disabled = false, onSent }) {
+function PostActions({ text, payload, canBluesky, sentToBluesky = false, disabled = false, onSent, onX }) {
   const [busy, setBusy] = useState(null);
   const [message, setMessage] = useState(null);
   const [xLink, setXLink] = useState(null);
@@ -223,6 +223,7 @@ function PostActions({ text, payload, canBluesky, sentToBluesky = false, disable
     setBusy(null);
     if (!both) { setMessage(result.message); return; }
     // Opened after the Bluesky post, so a blocked pop-up falls back to a link.
+    if (onX) onX();
     const tab = window.open(xIntent(text), '_blank');
     if (tab) { tab.opener = null; setMessage(`${result.message} X opened in a new tab: press Post there.`); }
     else { setMessage(`${result.message} Your browser blocked the X tab:`); setXLink(xIntent(text)); }
@@ -240,7 +241,7 @@ function PostActions({ text, payload, canBluesky, sentToBluesky = false, disable
         <button type="button" className="fpl-btn" disabled={off || !canBluesky || sentToBluesky} onClick={() => send(false)}>
           {busy === 'bluesky' ? 'Posting…' : sentToBluesky ? 'On Bluesky' : 'Post to Bluesky'}
         </button>
-        <a className={`fpl-btn${disabled ? ' is-disabled' : ''}`} aria-disabled={disabled} href={xIntent(text)} target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> Post on X</a>
+        <a className={`fpl-btn${disabled ? ' is-disabled' : ''}`} aria-disabled={disabled} href={xIntent(text)} target="_blank" rel="noreferrer" onClick={() => { if (!disabled && onX) onX(); }}><ExternalLink size={15} aria-hidden="true" /> Post on X</a>
         <button type="button" className="fpl-btn" disabled={disabled} onClick={copy}>
           {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy'}
         </button>
@@ -269,10 +270,16 @@ function Compose({ channels }) {
 
 // This gameweek's posts as they'd read now (src/lib/social.js). Bluesky
 // gets each by itself when it's due, or now from here; X ones are posted
-// from here or the email.
+// from here or the email, and ticked off here (by opening X, or the box).
+const doneText = (bluesky, x) => (bluesky && x ? 'Done on both' : x ? 'Done on X' : bluesky ? 'Done on Bluesky' : null);
 function Social() {
   const [state, setState] = useState({ status: 'loading' });
   const [posted, setPosted] = useState({});
+  const [onX, setOnX] = useState({});
+  const markX = (key, done) => {
+    setOnX(p => ({ ...p, [key]: done }));
+    adminCall('social_x_done', { key, done }).then(r => { if (!r.ok) setOnX(p => ({ ...p, [key]: !done })); });
+  };
   useEffect(() => {
     adminCall('social').then(r => setState(r.ok && r.data && r.data.ok ? { status: 'ready', data: r.data } : { status: 'error', error: (r.data && r.data.error) || r.error }));
   }, []);
@@ -290,17 +297,22 @@ function Social() {
         </p>
         {posts.length ? posts.map(post => {
           const onBluesky = !!posted[post.key] || (post.sent || []).includes('bluesky');
+          const xDone = post.key in onX ? onX[post.key] : (post.sent || []).includes('x');
+          const done = doneText(onBluesky, xDone);
           return (
-            <article key={post.key} className="fpl-admin-post">
+            <article key={post.key} className={`fpl-admin-post${onBluesky && xDone ? ' is-done' : ''}`}>
               <h3 className="fpl-admin-post-h">
                 {post.label}
                 {post.due ? <span className="fpl-admin-due">Due now</span> : null}
-                {onBluesky ? <span className="fpl-admin-sent">On Bluesky</span> : null}
+                {done ? <span className="fpl-admin-sent"><Check size={12} aria-hidden="true" /> {done}</span> : null}
+                <label className="fpl-admin-xdone">
+                  <input type="checkbox" checked={xDone} onChange={e => markX(post.key, e.target.checked)} /> Done on X
+                </label>
               </h3>
               <p className="fpl-admin-post-text">{post.text}</p>
               {post.type === 'preview' ? <p className="fpl-meta" style={{ margin: 0 }}>Bluesky gets the best XI picture with it. For X, <a href="/images/best-xi.png" download="best-xi.png" target="_blank" rel="noreferrer">download the picture</a> and add it to the post.</p> : null}
               <PostActions text={post.text} payload={{ key: post.key }} canBluesky={channels.includes('bluesky')} sentToBluesky={onBluesky}
-                onSent={() => setPosted(p => ({ ...p, [post.key]: true }))} />
+                onSent={() => setPosted(p => ({ ...p, [post.key]: true }))} onX={() => markX(post.key, true)} />
             </article>
           );
         }) : <p className="fpl-meta" style={{ margin: 0 }}>No posts yet: they need this gameweek’s saved predictions.</p>}
