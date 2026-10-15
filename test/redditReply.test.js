@@ -33,11 +33,11 @@ test('every reply links the site and says it’s ours', () => {
   const replies = redditReplies(data);
   assert.deepEqual(replies.map(r => r.id), ['rate', 'captain', 'transfer', 'differential', 'quick']);
   for (const r of replies) {
-    assert.match(r.text, /fplchecker\.co\.uk/, r.id);
+    assert.match(r.text, /https:\/\/fplchecker\.co\.uk /, `${r.id}: a full URL, so Reddit links it`);
     assert.match(r.text, /my site/, r.id);
   }
   const rate = replies[0].text;
-  assert.match(rate, /^Not bad at all tbh\. Ran it through fplchecker\.co\.uk and your XI’s looking at about 27\.8 this week\. I’d stick the armband on Salah \(7\.4\), Haaland’s not far off though\./);
+  assert.match(rate, /^Not bad at all tbh\. Ran it through https:\/\/fplchecker\.co\.uk and your XI’s looking at about 27\.8 this week\. I’d stick the armband on Salah \(7\.4\), Haaland’s not far off though\./);
   assert.match(rate, /Only one I’d think about moving is Flop, not much coming over the next few weeks \(10\.0\)\. Mbeumo at £7\.5m looks way better \(30\.0\)\./);
   assert.match(rate, /Also keep an eye on Doubt, he’s a doubt \(Knock - 75% chance of playing\)\./);
   assert.match(replies[1].text, /I’d go Salah tbh\. .* \(CHE \(H\)\), Haaland’s next best on 7\.0\./);
