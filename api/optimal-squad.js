@@ -3,6 +3,8 @@ import { snapshotPathnameFor } from './refresh-optimal.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
 import { predictionsPage } from '../src/lib/seoPage.js';
+import { getRedis } from '../src/lib/redis.js';
+import { duePosts, pastResults, runSocial, xConfigured } from '../src/lib/xBot.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
@@ -143,7 +145,50 @@ async function seoHtml(req, res) {
   }
 }
 
+// The X bot (src/lib/xBot.js): POST ?social=post posts what's due,
+// GET ?social=preview shows every post as it would read now. Both need
+// CRON_SECRET, like /api/refresh-optimal.
+async function socialHandler(req, res) {
+  const expected = process.env.CRON_SECRET;
+  if (!expected || (req.headers.authorization || '') !== `Bearer ${expected}`) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  const preview = req.query.social === 'preview';
+  if (!preview && req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+  try {
+    const data = await loadModel();
+    if (!data.saved) { res.status(200).json({ ok: true, posted: null, reason: 'no_predictions' }); return; }
+    const { model, bootstrap, season } = data;
+    // The gameweek before the one being planned, once FPL has checked
+    // its points.
+    const last = bootstrap.events.find(e => e.id === model.event.id - 1);
+    let lastFinished = null;
+    if (last && last.finished && last.data_checked) {
+      const [saved, snap, live] = await Promise.all([
+        readBlobJson(predictionsPathnameFor(last.id)).catch(() => null),
+        readBlobJson(snapshotPathnameFor(last.id)).catch(() => null),
+        fetchFpl(`event/${last.id}/live/`, 10_000).then(d => d.elements).catch(() => null),
+      ]);
+      const ok = x => x && snapshotIsForSeason(x, season, bootstrap.events);
+      lastFinished = pastResults(last.id, { saved: ok(saved) ? saved : null, snap: ok(snap) ? snap : null, live, names: Object.fromEntries(model.players.map(p => [p.id, p.name])) });
+    }
+    const posts = duePosts({ season, model, snap: data.snap, lastFinished, all: preview });
+    if (preview) { res.status(200).json({ ok: true, configured: xConfigured(), posts }); return; }
+    if (!xConfigured()) { res.status(200).json({ ok: true, posted: null, reason: 'x_not_configured', due: posts.map(p => p.type) }); return; }
+    const result = await runSocial({ redis: getRedis(), posts });
+    res.status(result.error ? 502 : 200).json({ ok: !result.error, ...result });
+  } catch (e) {
+    res.status(502).json({ error: 'social_failed', detail: String((e && e.message) || e) });
+  }
+}
+
 export default async function handler(req, res) {
+  if (req.query && req.query.social) return socialHandler(req, res);
   if (req.query && req.query.page) return seoHtml(req, res);
   const gwId = Number(req.query && req.query.gw);
   if (!gwId || !Number.isInteger(gwId) || gwId < 1) {
