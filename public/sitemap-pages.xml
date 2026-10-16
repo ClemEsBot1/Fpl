@@ -60,4 +60,52 @@
     <loc>https://fplchecker.co.uk/fpl-chrome-extension</loc>
     <changefreq>weekly</changefreq>
   </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-best-goalkeepers</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-best-defenders</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-best-midfielders</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-best-forwards</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-budget-players</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-fixture-difficulty</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-injuries</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-most-owned</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-in-form</loc>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-team-id</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-chips-guide</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://fplchecker.co.uk/fpl-points-system</loc>
+    <changefreq>weekly</changefreq>
+  </url>
 </urlset>

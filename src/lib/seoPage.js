@@ -32,6 +32,18 @@ export const GUIDES = [
   { path: '/fpl-prediction-accuracy', label: 'How accurate are the predictions?' },
   { path: '/fpl-widget', label: 'Free FPL widget for your site' },
   { path: '/fpl-chrome-extension', label: 'Chrome extension for the FPL site' },
+  { path: '/fpl-best-goalkeepers', label: 'Best FPL goalkeepers' },
+  { path: '/fpl-best-defenders', label: 'Best FPL defenders' },
+  { path: '/fpl-best-midfielders', label: 'Best FPL midfielders' },
+  { path: '/fpl-best-forwards', label: 'Best FPL forwards' },
+  { path: '/fpl-budget-players', label: 'Best cheap FPL players' },
+  { path: '/fpl-fixture-difficulty', label: 'FPL fixture difficulty' },
+  { path: '/fpl-injuries', label: 'FPL injuries' },
+  { path: '/fpl-most-owned', label: 'Most owned FPL players' },
+  { path: '/fpl-in-form', label: 'In-form FPL players' },
+  { path: '/fpl-team-id', label: 'Find your FPL Team ID' },
+  { path: '/fpl-chips-guide', label: 'FPL chips guide' },
+  { path: '/fpl-points-system', label: 'How FPL points work' },
 ];
 
 // The browser extension (extension/) on the Chrome Web Store: empty until
@@ -40,7 +52,8 @@ export const EXTENSION_STORE_URL = '';
 
 // The guide pages rendered from live data on request (api/optimal-squad.js)
 // rather than written to public/.
-export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips', '/fpl-deadline', '/fpl-price-changes', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek', '/fpl-prediction-accuracy'];
+export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips', '/fpl-deadline', '/fpl-price-changes', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek', '/fpl-prediction-accuracy',
+  '/fpl-best-goalkeepers', '/fpl-best-defenders', '/fpl-best-midfielders', '/fpl-best-forwards', '/fpl-budget-players', '/fpl-fixture-difficulty', '/fpl-injuries', '/fpl-most-owned', '/fpl-in-form'];
 
 // A whole page. body is HTML; faq is [[question, answer]] (plain text).
 // crumbs are the pages between the home page and this one ([{ name, path }]);
@@ -264,6 +277,86 @@ export function staticPages() {
           ['Is the FPL Checker extension free?', 'Yes, free with no account. It shows the same predictions as fplchecker.co.uk.'],
           ['Does it need my FPL password?', 'No. It never asks for it and never sees it. If you are logged in to FPL, it reads your squad in your own browser to show its predicted points.'],
           ['Does it work on the FPL app?', 'No, browser extensions only run on the FPL website in a desktop browser. On your phone, use fplchecker.co.uk.'],
+        ],
+      }),
+    },
+    {
+      path: '/fpl-team-id',
+      html: layout({
+        path: '/fpl-team-id',
+        title: 'How to Find Your FPL Team ID — website and app | FPL Checker',
+        description: 'Where to find your Fantasy Premier League Team ID on the FPL website and app in under a minute, and what you can do with it: rate your team, plan transfers and track mini-leagues.',
+        h1: 'How to find your FPL Team ID',
+        intro: 'Your FPL Team ID is the number FPL gives your team. It’s public and safe to share: it shows your team, but nobody can change anything with it.',
+        cta: { href: '/', label: 'Check my team' },
+        body: section('On the FPL website', steps([
+          'Go to fantasy.premierleague.com and log in.',
+          'Click <b>Points</b> in the menu.',
+          'Look at the address bar: it reads <code>/entry/1234567/event/9</code>. The number after <code>/entry/</code> is your Team ID.',
+        ]))
+          + section('On the FPL app', steps([
+            'Open the app and go to <b>Points</b>, or open your team from a league table.',
+            'Tap <b>Share</b> (or the three dots) and copy the link.',
+            'Paste it anywhere: the number after <code>/entry/</code> is your Team ID. If the app won’t show a link, log in on the website once instead.',
+          ]))
+          + section('What to do with it', list([
+            '<a href="/rate-my-fpl-team">Rate your team</a> against the best possible squad.',
+            'Get your <a href="/fpl-captain-picks">best captain</a> and <a href="/fpl-transfer-suggestions">transfer suggestions</a>.',
+            'See where you’re likely to finish in your mini-leagues.',
+          ])),
+        faq: [
+          ['Is it safe to share my FPL Team ID?', 'Yes. It only shows what anyone can already see on FPL: your team and points. It can’t be used to log in or make changes.'],
+          ['Is my Team ID the same every season?', 'No. FPL gives you a new Team ID each season when you pick a new team.'],
+          ['Can I find someone else’s Team ID?', 'Yes: open their team from a league table on the FPL website and read the number after /entry/ in the address.'],
+        ],
+      }),
+    },
+    {
+      path: '/fpl-chips-guide',
+      html: layout({
+        path: '/fpl-chips-guide',
+        title: 'FPL Chips Guide — when to play Wildcard, Free Hit, Bench Boost and Triple Captain | FPL Checker',
+        description: 'When to use each FPL chip: Wildcard, Free Hit, Bench Boost and Triple Captain explained, the best gameweeks to play them, and how FPL Checker picks the week for your squad.',
+        h1: 'FPL chips guide',
+        intro: 'Chips are FPL’s one-off boosts. Played in the right week they are worth dozens of points. FPL Checker shows the best week for Bench Boost and Triple Captain with your own squad.',
+        body: section('Wildcard', `<p>Unlimited free transfers for one gameweek, and the changes stay. Use it when your team needs four or more changes: after injuries pile up, or to set up for a run of good fixtures or a double gameweek.</p>`)
+          + section('Free Hit', `<p>Unlimited free transfers for one gameweek only; your old team comes back the week after. Best in a blank gameweek, when many of your players don’t play, or a big double gameweek.</p>`)
+          + section('Bench Boost', `<p>Your four substitutes score as well as your XI for one gameweek. Best in a double gameweek when all 15 of your players play twice. Plan it a few weeks ahead so your bench is strong.</p>`)
+          + section('Triple Captain', `<p>Your captain scores three times instead of twice. Best on a premium player with a double gameweek, or a very easy home fixture.</p>`)
+          + section('How many chips do I have?', `<p>FPL sets the chips for each season, and recently gave managers each chip twice, once in each half of the season. Check the rules in the FPL app for this season, and note the deadline for using the first set.</p><p>See <a href="/fpl-double-gameweek">double gameweeks</a> and <a href="/fpl-blank-gameweek">blank gameweeks</a> to plan them.</p>`),
+        faq: [
+          ['When should I use my FPL Wildcard?', 'When you need four or more transfers, or to set your team up for a good run of fixtures. Using it early to fix a bad start is fine.'],
+          ['What is the best FPL chip strategy?', 'Save Bench Boost and Triple Captain for double gameweeks, Free Hit for a blank gameweek, and use a Wildcard before the doubles to get the right players in.'],
+          ['Can I play two chips in one gameweek?', 'No. FPL allows one chip per gameweek.'],
+        ],
+      }),
+    },
+    {
+      path: '/fpl-points-system',
+      html: layout({
+        path: '/fpl-points-system',
+        title: 'How FPL Points Work — the Fantasy Premier League scoring system | FPL Checker',
+        description: 'How Fantasy Premier League points are scored: appearances, goals and assists by position, clean sheets, saves, defensive contributions, bonus points and deductions, explained simply.',
+        h1: 'How FPL points work',
+        intro: 'Every FPL point explained. Knowing what scores is why defenders with attacking threat, nailed-on starters and goalkeepers who make saves are worth more than they look.',
+        body: section('Points for every player', `<table><caption>All positions</caption><thead><tr><th scope="col">Action</th><th scope="col" class="num">Points</th></tr></thead><tbody>
+<tr><td>Playing up to 60 minutes</td><td class="num">1</td></tr><tr><td>Playing 60 minutes or more</td><td class="num">2</td></tr>
+<tr><td>Assist</td><td class="num">3</td></tr><tr><td>Bonus points (the best three players in a match)</td><td class="num">1–3</td></tr>
+<tr><td>Yellow card</td><td class="num">−1</td></tr><tr><td>Red card</td><td class="num">−3</td></tr>
+<tr><td>Own goal</td><td class="num">−2</td></tr><tr><td>Penalty missed</td><td class="num">−2</td></tr></tbody></table>`)
+          + section('Points by position', `<table><caption>Goals and clean sheets</caption><thead><tr><th scope="col">Action</th><th scope="col" class="num">GKP</th><th scope="col" class="num">DEF</th><th scope="col" class="num">MID</th><th scope="col" class="num">FWD</th></tr></thead><tbody>
+<tr><td>Goal</td><td class="num">10</td><td class="num">6</td><td class="num">5</td><td class="num">4</td></tr>
+<tr><td>Clean sheet (60+ minutes)</td><td class="num">4</td><td class="num">4</td><td class="num">1</td><td class="num">0</td></tr>
+<tr><td>Every 2 goals conceded</td><td class="num">−1</td><td class="num">−1</td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>Every 3 saves</td><td class="num">1</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>
+<tr><td>Penalty saved</td><td class="num">5</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr></tbody></table>`)
+          + section('Defensive contributions', `<p>Since 2025/26, outfield players also score 2 points for defensive work in a match: defenders for 10 clearances, blocks, interceptions and tackles combined, midfielders and forwards for 12 including ball recoveries. It makes busy defensive midfielders and centre-backs more valuable.</p>`)
+          + section('Captain and vice-captain', `<p>Your captain’s points count twice (three times with Triple Captain). If he doesn’t play, your vice-captain is doubled instead. See <a href="/fpl-captain-picks">this week’s best captains</a>.</p>`)
+          + `<p class="seo-intro" style="font-size:0.9rem">FPL can change the scoring between seasons: check the rules in the FPL app for the current figures.</p>`,
+        faq: [
+          ['How many points is a goal worth in FPL?', 'It depends on position: 10 for a goalkeeper, 6 for a defender, 5 for a midfielder and 4 for a forward.'],
+          ['How do FPL bonus points work?', 'FPL scores every player’s match with the Bonus Points System (BPS). The top three get 3, 2 and 1 bonus points.'],
+          ['Do substitutes score in FPL?', 'Only if one of your starters doesn’t play, then your bench comes on in order. With Bench Boost all four score.'],
         ],
       }),
     },

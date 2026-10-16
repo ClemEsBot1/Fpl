@@ -12,6 +12,7 @@ import { embedCaptainsHtml, leaguePage, tipsPage } from '../src/lib/seoExtra.js'
 import { accuracyPage, comparePage, comparePairs, comparePath, deadlinePage, differentialsPage, parseCompare, priceChangesPage, scheduleGwPage } from '../src/lib/seoMore.js';
 import { indexNowKey } from '../src/lib/indexNow.js';
 import { extensionFeed } from '../src/lib/extensionFeed.js';
+import { POSITION_PAGES, budgetPage, fixtureDifficultyPage, inFormPage, injuriesPage, mostOwnedPage, positionPage } from '../src/lib/seoHubs.js';
 import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
@@ -160,8 +161,8 @@ async function gwIdsWithPages({ model, saved }) {
 // The pages for search engines (see vercel.json for the addresses that
 // are rewritten here): ?page=predictions|players|player|team|gw|sitemap|
 // tips|embed|league|xi-image|deadline|price-changes|double|blank|
-// differentials|compare|accuracy|indexnow-key, and ext (the browser
-// extension's JSON).
+// differentials|compare|accuracy|indexnow-key|fixtures|injuries|position|
+// budget|most-owned|form, and ext (the browser extension's JSON).
 async function seoHtml(req, res) {
   const { page, slug } = req.query;
   if (page === 'indexnow-key') {
@@ -181,8 +182,18 @@ async function seoHtml(req, res) {
     if (page === 'deadline') return sendHtml(res, 200, deadlinePage(model));
     if (page === 'price-changes') return sendHtml(res, 200, priceChangesPage(model));
     if (page === 'double' || page === 'blank') return sendHtml(res, 200, scheduleGwPage(model, page));
+    if (page === 'fixtures') return sendHtml(res, 200, fixtureDifficultyPage(model));
+    if (page === 'injuries') return sendHtml(res, 200, injuriesPage(model));
     if (!data.saved && page !== 'gw') return unavailable(res);
     if (page === 'differentials') return sendHtml(res, 200, differentialsPage(model));
+    if (page === 'position') {
+      const key = String(req.query.pos || '');
+      if (!Object.hasOwn(POSITION_PAGES, key)) return sendHtml(res, 404, notFoundPage(`/fpl-best-${encodeURIComponent(key)}`, 'Position'));
+      return sendHtml(res, 200, positionPage(model, key));
+    }
+    if (page === 'budget') return sendHtml(res, 200, budgetPage(model));
+    if (page === 'most-owned') return sendHtml(res, 200, mostOwnedPage(model));
+    if (page === 'form') return sendHtml(res, 200, inFormPage(model));
     if (page === 'accuracy') {
       res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=21600, stale-while-revalidate=86400');
       res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(accuracyPage(model, await accuracyRows(data)));

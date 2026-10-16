@@ -45,3 +45,12 @@ td a { color: var(--ink); text-decoration-color: rgba(206,255,16,0.6); text-unde
 .seo-dim { color: var(--dim); font-size: 0.82rem; }
 .seo-code { margin: 8px 0 0; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.35); overflow-x: auto; white-space: pre-wrap; word-break: break-all; font: 500 0.78rem/1.5 'IBM Plex Mono', monospace; color: var(--ink); }
 .seo-card iframe { display: block; margin: 6px 0 12px; }
+.seo-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.seo-scroll table { min-width: 560px; }
+.seo-fdr { display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.seo-fdr-1, .seo-fdr-2 { background: #CEFF10; color: #05041A; }
+.seo-fdr-3 { background: rgba(255,255,255,0.18); color: var(--ink); }
+.seo-fdr-4 { background: #FF8A3D; color: #05041A; }
+.seo-fdr-5 { background: #FF3D6E; color: #05041A; }
+.seo-fdr-blank { background: transparent; color: var(--dim); border: 1px dashed var(--line); }
+code { font: 500 0.88em 'IBM Plex Mono', monospace; color: var(--ink); }
