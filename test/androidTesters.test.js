@@ -24,6 +24,6 @@ test('it hides inside the app, once dismissed, and when installed', () => {
 });
 
 test('links go to the group and the Play opt-in page', () => {
-  assert.equal(TESTER_GROUP_URL, 'https://groups.google.com/g/fpl-checking');
+  assert.equal(TESTER_GROUP_URL, 'https://groups.google.com/g/fpl-checker');
   assert.equal(TESTER_OPT_IN_URL, 'https://play.google.com/apps/testing/uk.co.fplchecker.app');
 });

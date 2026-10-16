@@ -1,6 +1,6 @@
 // The Android app's closed test on Google Play. Testers join the Google
 // Group first (Play lets the group in), then opt in on the testing page.
-export const TESTER_GROUP_URL = 'https://groups.google.com/g/fpl-checking';
+export const TESTER_GROUP_URL = 'https://groups.google.com/g/fpl-checker';
 export const TESTER_OPT_IN_URL = 'https://play.google.com/apps/testing/uk.co.fplchecker.app';
 export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=uk.co.fplchecker.app';
 const APP_REFERRER = 'android-app://uk.co.fplchecker.app';
