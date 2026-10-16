@@ -15,8 +15,8 @@ const inputStyle = { width: '100%', background: 'var(--panel-alt)', color: 'var(
 const hintStyle = { fontSize: '0.66rem', color: 'var(--ink-dim)', margin: '-10px 0 14px' };
 const linkStyle = { width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--blue)', padding: '14px 0 0', cursor: 'pointer', fontSize: '0.78rem' };
 
-const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email', forgot: 'Reset your password', reset: 'Choose a new password', verify: 'Confirm your email' };
-const SUBMIT_LABELS = { login: 'Log in', register: 'Create account', email: 'Save email', forgot: 'Email me a code', reset: 'Save new password', verify: 'Confirm email' };
+const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email', forgot: 'Reset your password', reset: 'Choose a new password', verify: 'Confirm your email', delete: 'Delete your account' };
+const SUBMIT_LABELS = { login: 'Log in', register: 'Create account', email: 'Save email', forgot: 'Email me a code', reset: 'Save new password', verify: 'Confirm email', delete: 'Delete my account' };
 const codeInputStyle = { ...inputStyle, fontSize: '1.4rem', letterSpacing: '0.4em', textAlign: 'center', padding: '12px 10px' };
 
 // The six digits of an emailed code, as typed or pasted.
@@ -27,7 +27,7 @@ const cleanCode = value => value.replace(/\D/g, '').slice(0, 6);
 // code and a new password) | 'verify' (the code that confirms the
 // account's email). Uses a native <dialog> opened with showModal(), which
 // gives focus trapping, Escape-to-close and an inert page behind it.
-export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit, onSetEmail, onForgot, onReset, onVerify, onResendVerify, onClearError, error, loading, onClose }) {
+export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit, onSetEmail, onForgot, onReset, onVerify, onResendVerify, onDelete, onClearError, error, loading, onClose }) {
   const dialogRef = useRef(null);
   const pressedOnBackdropRef = useRef(false);
   const [mode, setModeState] = useState(initialMode);
@@ -72,6 +72,7 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
       if (message) { setPassword(''); setMode('reset', message); }
     } else if (mode === 'reset') onReset({ identifier, code, password });
     else if (mode === 'verify') onVerify(code);
+    else if (mode === 'delete') onDelete(password);
     else onSubmit(mode, { username, password, email: mode === 'register' ? email : undefined, acceptTerms: mode === 'register' ? acceptTerms : undefined });
   }
 
@@ -85,6 +86,7 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
     forgot: identifier.trim() !== '',
     reset: code.length === 6 && password !== '',
     verify: code.length === 6,
+    delete: password !== '',
     register: Boolean(username && password && acceptTerms),
   }[mode] ?? Boolean(username && password);
 
@@ -131,6 +133,7 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
             forgot: "Enter your username or email and we'll email you a 6-digit code.",
             reset: 'Enter the code from the email and pick a new password.',
             verify: currentEmail ? `Enter the 6-digit code we emailed to ${currentEmail}.` : 'Enter the 6-digit code we emailed you.',
+            delete: 'This deletes your account, saved teams, email and settings straight away. It can’t be undone.',
           }[mode] || "Save your Team ID(s) or squads so you don't have to re-enter them."}
         </div>
 
@@ -156,6 +159,23 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
           )}
 
           {(mode === 'reset' || mode === 'verify') && codeField}
+
+          {mode === 'delete' && (
+            <>
+              <label htmlFor="auth-delete-password" className="fpl-mono" style={labelStyle}>PASSWORD</label>
+              <input
+                id="auth-delete-password"
+                type="password"
+                className="fpl-mono"
+                autoComplete="current-password"
+                aria-describedby="auth-delete-hint"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={inputStyle}
+              />
+              <div id="auth-delete-hint" className="fpl-mono" style={hintStyle}>Enter your password to confirm.</div>
+            </>
+          )}
 
           {mode === 'reset' && (
             <>
@@ -247,7 +267,7 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
             </div>
           )}
 
-          <button type="submit" disabled={loading || !canSubmit} className="fpl-btn fpl-btn-solid" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
+          <button type="submit" disabled={loading || !canSubmit} className={`fpl-btn ${mode === 'delete' ? 'fpl-btn-danger' : 'fpl-btn-solid'}`} style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
             {loading ? <Loader2 size={16} className="fpl-spin" /> : SUBMIT_LABELS[mode]}
           </button>
         </form>
@@ -270,6 +290,11 @@ export function AuthDialog({ initialMode = 'login', currentEmail = '', onSubmit,
         {mode === 'reset' && (
           <button type="button" onClick={() => setMode('forgot')} className="fpl-mono" style={linkStyle}>
             No code, or it expired? Send a new one
+          </button>
+        )}
+        {mode === 'delete' && (
+          <button type="button" onClick={onClose} className="fpl-mono" style={{ ...linkStyle, color: 'var(--ink-dim)' }}>
+            Keep my account
           </button>
         )}
         {mode === 'verify' && (

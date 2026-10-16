@@ -112,4 +112,8 @@
     <loc>https://fplchecker.co.uk/terms</loc>
     <changefreq>weekly</changefreq>
   </url>
+  <url>
+    <loc>https://fplchecker.co.uk/delete-account</loc>
+    <changefreq>weekly</changefreq>
+  </url>
 </urlset>

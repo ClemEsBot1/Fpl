@@ -326,3 +326,21 @@ test('deadline emails: on only with an email, off from the app or the unsubscrib
   const me = await call(redis, undefined, undefined, cookie, 'GET');
   assert.equal(me.body.digestTeamId, null);
 });
+
+test('a user can delete their own account with their password, and everything goes', async () => {
+  const reg = await call(redis, { action: 'register', acceptTerms: true, username: 'leaving', password: 'correct-horse1', email: 'leaving@example.com' });
+  const cookie = cookieFrom(reg);
+  assert.equal((await call(redis, { action: 'delete_account', password: 'correct-horse1' })).status, 401, 'needs a session');
+  const wrong = await call(redis, { action: 'delete_account', password: 'wrong-password1' }, undefined, cookie);
+  assert.equal(wrong.status, 401);
+  assert.ok(await redis.get('user:leaving'), 'not deleted on a wrong password');
+  const done = await call(redis, { action: 'delete_account', password: 'correct-horse1' }, undefined, cookie);
+  assert.equal(done.status, 200);
+  assert.equal(done.body.deleted, true);
+  assert.match(done.headers['Set-Cookie'], /Max-Age=0/, 'logged out');
+  assert.equal(await redis.get('user:leaving'), null);
+  assert.equal(await redis.get('email:leaving@example.com'), null, 'the email is freed');
+  assert.equal(await redis.get('code:verify:leaving'), null, 'pending codes go too');
+  assert.equal((await call(redis, { action: 'login', username: 'leaving', password: 'correct-horse1' })).status, 401);
+  assert.equal((await call(redis, { action: 'register', acceptTerms: true, username: 'newowner', password: 'correct-horse1', email: 'leaving@example.com' })).status, 200);
+});

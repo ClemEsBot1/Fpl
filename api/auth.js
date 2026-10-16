@@ -16,6 +16,7 @@ import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
   deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
   setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats, usersCsv,
+  deleteUser as deleteAccount,
 } from '../src/lib/adminServer.js';
 import { markSent } from '../src/lib/social.js';
 import { digestHandler } from '../src/lib/digestHandler.js';
@@ -455,6 +456,30 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       const changed = emailCheck.email && emailCheck.email !== oldEmail;
       const codeSent = changed ? await sendVerifyCode(redis, secret, mailerFor(mailOverride), updated) : false;
       res.status(200).json({ ...account(updated), ...(changed ? { codeSent } : {}) });
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
+  // Deletes the logged-in user's account for good: the record, its saved
+  // teams and settings, its email lookup and any pending codes. Needs the
+  // password again, counted like a login so it can't be used to guess it.
+  if (action === 'delete_account') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+    if (typeof body.password !== 'string' || !body.password) { res.status(400).json({ error: 'Enter your password to delete your account.' }); return; }
+    try {
+      const record = await getJSON(redis, userKeyFor(session.username));
+      if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      const userLimitKey = `ratelimit:login:user:${normalizeUsername(record.username)}`;
+      if (await bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_USER) { res.status(429).json({ error: TOO_MANY }); return; }
+      if (!(await verifyPassword(body.password, record.passwordHash))) { res.status(401).json({ error: 'That password isn’t right.' }); return; }
+      await deleteAccount(redis, record.username);
+      const name = normalizeUsername(record.username);
+      await Promise.all(['verify', 'reset'].flatMap(p => [redis.del(`code:${p}:${name}`), redis.del(`code:${p}:${name}:tries`)]).concat(reset(redis, userLimitKey)));
+      res.setHeader('Set-Cookie', buildClearedSessionCookie());
+      res.status(200).json({ ok: true, deleted: true });
     } catch (e) {
       storageFailed(res, e, redis);
     }

@@ -288,6 +288,8 @@ export default function FPLSquadChecker() {
   // password with an emailed code) or 'verify' (the code that confirms the
   // account's email).
   const [authDialog, setAuthDialog] = useState(null);
+  // Log-in opened from a delete-account link: go on to deleting after.
+  const deleteAfterLoginRef = useRef(false);
   // The Terms pop-up shown the first time someone presses Start.
   const [termsOpen, setTermsOpen] = useState(false);
   // The "confirm your email" bar, hidden for this visit once dismissed.
@@ -377,6 +379,15 @@ export default function FPLSquadChecker() {
     // Don't hold the app up for long if the account check is slow.
     // A reload of another screen goes back to it, so past the welcome page.
     const skipWelcome = !!restoreViewRef.current || readInApp();
+    // /?delete-account (linked from /delete-account): open the delete
+    // pop-up, after logging in if needed.
+    const params = new URLSearchParams(window.location.search);
+    const wantsDelete = params.has('delete-account');
+    if (wantsDelete) {
+      params.delete('delete-account');
+      const query = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+    }
     const timer = setTimeout(() => leaveBoot(skipWelcome ? 'home' : 'welcome'), 3000);
     (async () => {
       let loggedIn = false;
@@ -386,6 +397,10 @@ export default function FPLSquadChecker() {
       } catch { /* not logged in / API unreachable — treat as logged out */ }
       clearTimeout(timer);
       leaveBoot(loggedIn || skipWelcome ? 'home' : 'welcome');
+      if (wantsDelete) {
+        deleteAfterLoginRef.current = !loggedIn;
+        setAuthDialog(loggedIn ? 'delete' : 'login');
+      }
     })();
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -461,7 +476,9 @@ export default function FPLSquadChecker() {
     applyAccount(result.data);
     if (mode === 'register') writeTermsAccepted();
     // A new account with an email: straight on to the code we sent.
-    setAuthDialog(mode === 'register' && result.data.email && !result.data.emailVerified ? 'verify' : null);
+    const after = deleteAfterLoginRef.current && mode === 'login' ? 'delete' : null;
+    deleteAfterLoginRef.current = false;
+    setAuthDialog(after || (mode === 'register' && result.data.email && !result.data.emailVerified ? 'verify' : null));
     leaveWelcome();
   }
 
@@ -489,6 +506,18 @@ export default function FPLSquadChecker() {
     applyAccount(result.data);
     setAuthDialog(null);
     leaveWelcome();
+  }
+
+  async function handleDeleteAccount(password) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await postJson('/api/auth', { action: 'delete_account', password });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return; }
+    setSession(null);
+    setSavedTeams([]);
+    setAuthDialog(null);
+    setStage('welcome');
   }
 
   async function handleVerifyEmail(code) {
@@ -1816,6 +1845,7 @@ export default function FPLSquadChecker() {
           session={session}
           onLoginClick={() => openAuthDialog('login')}
           onEmailClick={() => openAuthDialog('email')}
+          onDeleteClick={() => openAuthDialog('delete')}
           onMyTeamsClick={() => setStage('myTeams')}
           onLogoutClick={handleLogout}
         />
@@ -1983,11 +2013,12 @@ export default function FPLSquadChecker() {
               onForgot={handleForgotPassword}
               onReset={handleResetPassword}
               onVerify={handleVerifyEmail}
+              onDelete={handleDeleteAccount}
               onResendVerify={handleResendVerify}
               onClearError={() => setAuthError('')}
               error={authError}
               loading={authLoading}
-              onClose={() => { setAuthError(''); setAuthDialog(null); }}
+              onClose={() => { setAuthError(''); setAuthDialog(null); deleteAfterLoginRef.current = false; }}
             />
           </Suspense>
         </ScreenErrorBoundary>
