@@ -7,6 +7,42 @@
   ],
   "rewrites": [
     {
+      "source": "/fpl-best-goalkeepers",
+      "destination": "/api/optimal-squad?page=position&pos=goalkeepers"
+    },
+    {
+      "source": "/fpl-best-defenders",
+      "destination": "/api/optimal-squad?page=position&pos=defenders"
+    },
+    {
+      "source": "/fpl-best-midfielders",
+      "destination": "/api/optimal-squad?page=position&pos=midfielders"
+    },
+    {
+      "source": "/fpl-best-forwards",
+      "destination": "/api/optimal-squad?page=position&pos=forwards"
+    },
+    {
+      "source": "/fpl-budget-players",
+      "destination": "/api/optimal-squad?page=budget"
+    },
+    {
+      "source": "/fpl-fixture-difficulty",
+      "destination": "/api/optimal-squad?page=fixtures"
+    },
+    {
+      "source": "/fpl-injuries",
+      "destination": "/api/optimal-squad?page=injuries"
+    },
+    {
+      "source": "/fpl-most-owned",
+      "destination": "/api/optimal-squad?page=most-owned"
+    },
+    {
+      "source": "/fpl-in-form",
+      "destination": "/api/optimal-squad?page=form"
+    },
+    {
       "source": "/ext/predictions.json",
       "destination": "/api/optimal-squad?page=ext"
     },
