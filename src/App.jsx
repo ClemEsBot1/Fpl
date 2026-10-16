@@ -13,11 +13,13 @@ import { summariseAccuracy } from './lib/accuracy.js';
 import { buildRecap, lastFinishedGw, leagueSlide, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { Bookmark, CalendarRange, Camera, Compass, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
+import { Bookmark, CalendarRange, Camera, Compass, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2, X } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
 import { TeamIdForm } from './screens/IntroScreen.jsx';
+import { TermsDialog } from './components/TermsDialog.jsx';
+import { TERMS_VERSION } from './lib/terms.js';
 import './styles.css';
 
 // Everything but the home screen loads on demand, so the first visit only
@@ -214,6 +216,18 @@ function readInApp() {
 function writeInApp(inApp) {
   try { if (inApp) sessionStorage.setItem(IN_APP_KEY, '1'); else sessionStorage.removeItem(IN_APP_KEY); } catch { /* storage unavailable */ }
 }
+// The Terms version this browser agreed to (asked again when it changes).
+// Without storage it's remembered for the visit only.
+const TERMS_KEY = 'fpl_terms_accepted';
+let termsAcceptedThisVisit = false;
+function readTermsAccepted() {
+  if (termsAcceptedThisVisit) return true;
+  try { return localStorage.getItem(TERMS_KEY) === TERMS_VERSION; } catch { return false; }
+}
+function writeTermsAccepted() {
+  termsAcceptedThisVisit = true;
+  try { localStorage.setItem(TERMS_KEY, TERMS_VERSION); } catch { /* storage unavailable */ }
+}
 function readTeamParam() {
   const team = new URLSearchParams(window.location.search).get('team');
   return team && /^\d{1,10}$/.test(team) ? team : null;
@@ -270,10 +284,14 @@ export default function FPLSquadChecker() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   // The log-in pop-up: null (closed), 'login' (log in / sign up), 'email'
-  // (add or change the logged-in user's email) or 'reset' (choose a new
-  // password from an emailed ?reset= link).
+  // (add or change the logged-in user's email), 'forgot' (reset the
+  // password with an emailed code) or 'verify' (the code that confirms the
+  // account's email).
   const [authDialog, setAuthDialog] = useState(null);
-  const [resetToken, setResetToken] = useState(null);
+  // The Terms pop-up shown the first time someone presses Start.
+  const [termsOpen, setTermsOpen] = useState(false);
+  // The "confirm your email" bar, hidden for this visit once dismissed.
+  const [verifyBarHidden, setVerifyBarHidden] = useState(false);
 
   const staticPromiseRef = useRef(null);
   // The most recently loaded static data (to tell when its gameweek has
@@ -327,14 +345,12 @@ export default function FPLSquadChecker() {
     setStageRaw('error');
   }
 
-  // A password-reset email links to /?reset=<token>: open the pop-up to
-  // choose a new password, and take the token out of the address bar.
+  // Password resets used to email a /?reset=<token> link. Resets are by
+  // code now: an old link opens the reset pop-up to ask for one.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('reset');
-    if (!token) return;
-    setResetToken(token);
-    setAuthDialog('reset');
+    if (!params.get('reset')) return;
+    setAuthDialog('forgot');
     params.delete('reset');
     const query = params.toString();
     window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
@@ -403,7 +419,7 @@ export default function FPLSquadChecker() {
 
   // Signed-in responses carry the account and its saved teams.
   function applyAccount(data) {
-    setSession({ username: data.username, email: data.email || '', admin: !!data.admin, digestTeamId: data.digestTeamId || null });
+    setSession({ username: data.username, email: data.email || '', emailVerified: !!data.emailVerified, admin: !!data.admin, digestTeamId: data.digestTeamId || null });
     if (Array.isArray(data.teams)) setSavedTeams(data.teams);
     else fetchSavedTeams();
   }
@@ -436,14 +452,16 @@ export default function FPLSquadChecker() {
 
   // Logging in happens in a pop-up over whatever screen is showing, so on
   // success the user is simply back where they were.
-  async function handleAuthSubmit(mode, { username, password, email }) {
+  async function handleAuthSubmit(mode, { username, password, email, acceptTerms }) {
     setAuthError('');
     setAuthLoading(true);
-    const result = await postJson('/api/auth', { action: mode, username, password, email });
+    const result = await postJson('/api/auth', { action: mode, username, password, email, ...(mode === 'register' ? { acceptTerms } : {}) });
     setAuthLoading(false);
     if (!result.ok) { setAuthError(result.error); return; }
     applyAccount(result.data);
-    setAuthDialog(null);
+    if (mode === 'register') writeTermsAccepted();
+    // A new account with an email: straight on to the code we sent.
+    setAuthDialog(mode === 'register' && result.data.email && !result.data.emailVerified ? 'verify' : null);
     leaveWelcome();
   }
 
@@ -462,16 +480,39 @@ export default function FPLSquadChecker() {
     return result.data.message;
   }
 
-  async function handleResetPassword(password) {
+  async function handleResetPassword({ identifier, code, password }) {
     setAuthError('');
     setAuthLoading(true);
-    const result = await postJson('/api/auth', { action: 'reset_password', token: resetToken, password });
+    const result = await postJson('/api/auth', { action: 'reset_password', identifier, code, password });
     setAuthLoading(false);
     if (!result.ok) { setAuthError(result.error); return; }
     applyAccount(result.data);
-    setResetToken(null);
     setAuthDialog(null);
     leaveWelcome();
+  }
+
+  async function handleVerifyEmail(code) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await postJson('/api/auth', { action: 'verify_email', code });
+    setAuthLoading(false);
+    if (!result.ok) {
+      if (result.status === 401) { setSession(null); setSavedTeams([]); setAuthDialog(null); return; }
+      setAuthError(result.error);
+      return;
+    }
+    setSession(s => (s ? { ...s, emailVerified: !!result.data.emailVerified } : s));
+    setAuthDialog(null);
+  }
+
+  // Returns the "we've sent a code" message on success, otherwise null.
+  async function handleResendVerify() {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await postJson('/api/auth', { action: 'send_verify' });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return null; }
+    return result.data.message || null;
   }
 
   async function handleSetEmail(email) {
@@ -484,8 +525,9 @@ export default function FPLSquadChecker() {
       setAuthError(result.error);
       return;
     }
-    setSession(s => (s ? { ...s, email: result.data.email || '' } : s));
-    setAuthDialog(null);
+    setSession(s => (s ? { ...s, email: result.data.email || '', emailVerified: !!result.data.emailVerified, digestTeamId: result.data.digestTeamId || null } : s));
+    // A new address: on to the code we sent to it.
+    setAuthDialog(result.data.email && !result.data.emailVerified ? 'verify' : null);
   }
 
   async function handleLogout() {
@@ -1781,13 +1823,20 @@ export default function FPLSquadChecker() {
       <div className="fpl-shell">
       {showNav && <SideNav items={navItems} active={activeNav} />}
       <main ref={mainRef} tabIndex={-1} className={`fpl-main${wideStage ? ' fpl-main-wide' : ''}${stage === 'league' ? ' fpl-main-full' : ''}`}>
+        {session && session.email && !session.emailVerified && !verifyBarHidden && stage !== 'welcome' && (
+          <div className="fpl-verify-bar" role="status">
+            <span>Confirm your email to get password reset codes and deadline emails.</span>
+            <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => openAuthDialog('verify')}>Enter code</button>
+            <button type="button" className="fpl-verify-bar-x" aria-label="Hide for now" onClick={() => setVerifyBarHidden(true)}><X size={16} aria-hidden="true" /></button>
+          </div>
+        )}
         <ScreenErrorBoundary key={stage}>
           <Suspense fallback={<LoadingScreen />}>
             {stage === 'boot' && <LoadingScreen />}
             {stage === 'welcome' && (
               <WelcomeScreen
                 loggedIn={!!session}
-                onStart={() => setStage('home')}
+                onStart={() => { if (readTermsAccepted()) setStage('home'); else setTermsOpen(true); }}
                 onSignUp={() => openAuthDialog('register')}
                 onLogIn={() => openAuthDialog('login')}
               />
@@ -1915,6 +1964,12 @@ export default function FPLSquadChecker() {
       </main>
       </div>
       {showNav && <FooterNav items={navItems} active={activeNav} />}
+      {termsOpen && (
+        <TermsDialog
+          onAgree={() => { writeTermsAccepted(); setTermsOpen(false); setStage('home'); }}
+          onClose={() => setTermsOpen(false)}
+        />
+      )}
       {authDialog && (
         <ScreenErrorBoundary key={authDialog} overlay>
           <Suspense fallback={null}>
@@ -1927,6 +1982,8 @@ export default function FPLSquadChecker() {
               onSetEmail={handleSetEmail}
               onForgot={handleForgotPassword}
               onReset={handleResetPassword}
+              onVerify={handleVerifyEmail}
+              onResendVerify={handleResendVerify}
               onClearError={() => setAuthError('')}
               error={authError}
               loading={authLoading}

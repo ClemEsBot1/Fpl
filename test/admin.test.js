@@ -55,9 +55,9 @@ beforeEach(async () => {
   redis = fakeRedis();
   deleted = [];
   delete process.env.ADMIN_USERNAMES;
-  const clem = await request({ body: { action: 'register', username: 'clem', password: 'correct-horse1', email: 'clem@example.com' } });
+  const clem = await request({ body: { action: 'register', acceptTerms: true, username: 'clem', password: 'correct-horse1', email: 'clem@example.com' } });
   clemCookie = cookieOf(clem);
-  const sam = await request({ body: { action: 'register', username: 'Sammy_1', password: 'correct-horse1', email: 'sam@example.com' } });
+  const sam = await request({ body: { action: 'register', acceptTerms: true, username: 'Sammy_1', password: 'correct-horse1', email: 'sam@example.com' } });
   samCookie = cookieOf(sam);
 });
 
@@ -98,8 +98,8 @@ test('admins can download every account as a spreadsheet, without passwords', as
   assert.equal(r.status, 200);
   assert.equal(r.body.count, 2);
   const lines = r.body.csv.trim().split('\r\n');
-  assert.equal(lines[0], 'Username,Email,Saved teams,Deadline email,Joined,Admin');
-  assert.ok(lines.some(l => l.startsWith('Sammy_1,sam@example.com,0,No,') && l.endsWith(',No')));
+  assert.equal(lines[0], 'Username,Email,Email verified,Saved teams,Deadline email,Joined,Admin');
+  assert.ok(lines.some(l => l.startsWith('Sammy_1,sam@example.com,No,0,No,') && l.endsWith(',No')));
   assert.ok(lines.some(l => l.startsWith('clem,') && l.endsWith(',Yes')));
   assert.doesNotMatch(r.body.csv, /scrypt|passwordHash|\$/);
 });
@@ -108,7 +108,7 @@ test('the spreadsheet quotes commas and never lets a cell run as a formula', asy
   const store = fakeRedis();
   await store.set('user:a', JSON.stringify({ username: 'a', email: '=HYPERLINK("x"),y@z.com', createdAt: '2026-01-02T00:00:00Z', digest: { teamId: '1' }, teams: [{}], passwordHash: 'secret' }));
   const { csv } = await usersCsv(store);
-  assert.equal(csv.split('\r\n')[1], 'a,"\'=HYPERLINK(""x""),y@z.com",1,Yes,2026-01-02,No');
+  assert.equal(csv.split('\r\n')[1], 'a,"\'=HYPERLINK(""x""),y@z.com",No,1,Yes,2026-01-02,No');
   assert.doesNotMatch(csv, /secret/);
 });
 
@@ -123,7 +123,7 @@ test('deleting an account frees its email; your own account is refused', async (
   assert.equal((await request({ body: { action: 'admin', op: 'delete_user', username: 'sammy_1' }, cookie: clemCookie })).body.ok, true);
   assert.equal(await redis.get('user:sammy_1'), null);
   assert.equal(await redis.get('email:sam@example.com'), null);
-  const again = await request({ body: { action: 'register', username: 'newsam', password: 'correct-horse1', email: 'sam@example.com' } });
+  const again = await request({ body: { action: 'register', acceptTerms: true, username: 'newsam', password: 'correct-horse1', email: 'sam@example.com' } });
   assert.equal(again.status, 200);
 });
 

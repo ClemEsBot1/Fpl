@@ -87,10 +87,10 @@ function csvCell(value) {
 // Sheets), oldest first: never the password hash.
 export async function usersCsv(redis) {
   const users = (await allUsers(redis)).sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')) || a.username.localeCompare(b.username));
-  const rows = [['Username', 'Email', 'Saved teams', 'Deadline email', 'Joined', 'Admin']];
+  const rows = [['Username', 'Email', 'Email verified', 'Saved teams', 'Deadline email', 'Joined', 'Admin']];
   users.forEach(u => {
     const s = summary(u);
-    rows.push([s.username, s.email, s.savedTeams, u.digest && u.digest.teamId ? 'Yes' : 'No', s.createdAt ? s.createdAt.slice(0, 10) : '', s.admin ? 'Yes' : 'No']);
+    rows.push([s.username, s.email, s.email ? (u.emailVerified ? 'Yes' : 'No') : '', s.savedTeams, u.digest && u.digest.teamId ? 'Yes' : 'No', s.createdAt ? s.createdAt.slice(0, 10) : '', s.admin ? 'Yes' : 'No']);
   });
   return { count: users.length, csv: rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n' };
 }

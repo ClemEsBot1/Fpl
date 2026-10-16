@@ -29,12 +29,12 @@ function request(handler, { method = 'POST', body, ip = '203.0.113.1', cookie, c
 
 const auth = (body, opts = {}) => request(authHandler, { body, ...opts });
 const cookieOf = r => r.headers['Set-Cookie'].split(';')[0];
-const tokenFromLastEmail = () => new URL(sent.at(-1).text.match(/https:\S+/)[0]).searchParams.get('reset');
+const codeFromLastEmail = () => sent.at(-1).text.match(/\b(\d{6})\b/)[1];
 
 beforeEach(async () => {
   redis = fakeRedis();
   sent = [];
-  const r = await auth({ action: 'register', username: 'clem', password: 'correct-horse1', email: 'clem@example.com' }, { ip: '198.51.100.9' });
+  const r = await auth({ action: 'register', acceptTerms: true, username: 'clem', password: 'correct-horse1', email: 'clem@example.com' }, { ip: '198.51.100.9' });
   assert.equal(r.status, 200);
 });
 
@@ -48,14 +48,14 @@ test('parallel password guesses cannot get past the per-account limit', async ()
 
 test('parallel sign-ups from one network are capped too', async () => {
   const results = await Promise.all(Array.from({ length: 12 }, (_, i) =>
-    auth({ action: 'register', username: `burst${i}`, password: 'correct-horse1' })));
+    auth({ action: 'register', acceptTerms: true, username: `burst${i}`, password: 'correct-horse1' })));
   assert.equal(results.filter(r => r.status === 200).length, MAX_REGISTRATIONS_PER_IP);
 });
 
 test('two sign-ups for the same name: only one gets the account', async () => {
   const [a, b] = await Promise.all([
-    auth({ action: 'register', username: 'twinned', password: 'first-password1' }, { ip: '192.0.2.1' }),
-    auth({ action: 'register', username: 'twinned', password: 'second-password1' }, { ip: '192.0.2.2' }),
+    auth({ action: 'register', acceptTerms: true, username: 'twinned', password: 'first-password1' }, { ip: '192.0.2.1' }),
+    auth({ action: 'register', acceptTerms: true, username: 'twinned', password: 'second-password1' }, { ip: '192.0.2.2' }),
   ]);
   assert.deepEqual([a.status, b.status].sort(), [200, 409]);
   const winner = a.status === 200 ? 'first-password1' : 'second-password1';
@@ -64,9 +64,9 @@ test('two sign-ups for the same name: only one gets the account', async () => {
 
 test('failed sign-ups do not use up the network allowance', async () => {
   for (let i = 0; i < MAX_REGISTRATIONS_PER_IP + 2; i++) {
-    assert.equal((await auth({ action: 'register', username: 'clem', password: 'correct-horse1' })).status, 409);
+    assert.equal((await auth({ action: 'register', acceptTerms: true, username: 'clem', password: 'correct-horse1' })).status, 409);
   }
-  assert.equal((await auth({ action: 'register', username: 'newcomer', password: 'correct-horse1' })).status, 200);
+  assert.equal((await auth({ action: 'register', acceptTerms: true, username: 'newcomer', password: 'correct-horse1' })).status, 200);
 });
 
 test('made-up usernames are refused without creating anything', async () => {
@@ -113,7 +113,7 @@ test('a password reset signs out sessions from before it', async () => {
   assert.equal((await request(teamsHandler, { method: 'GET', cookie: oldCookie })).status, 200);
 
   await auth({ action: 'forgot_password', identifier: 'clem' });
-  const reset = await auth({ action: 'reset_password', token: tokenFromLastEmail(), password: 'brand-new-password1' });
+  const reset = await auth({ action: 'reset_password', identifier: 'clem', code: codeFromLastEmail(), password: 'brand-new-password1' });
   assert.equal(reset.status, 200);
 
   assert.equal((await request(teamsHandler, { method: 'GET', cookie: oldCookie })).status, 401);
@@ -129,7 +129,7 @@ test('a session cookie does not carry over to a re-registered username', async (
   const oldCookie = cookieOf(await auth({ action: 'login', username: 'clem', password: 'correct-horse1' }));
   assert.equal((await request(teamsHandler, { method: 'GET', cookie: oldCookie })).status, 200);
   await redis.del('user:clem');
-  const fresh = await auth({ action: 'register', username: 'clem', password: 'different-pass1', email: 'new@example.com' }, { ip: '198.51.100.40' });
+  const fresh = await auth({ action: 'register', acceptTerms: true, username: 'clem', password: 'different-pass1', email: 'new@example.com' }, { ip: '198.51.100.40' });
   assert.equal(fresh.status, 200);
 
   // The old cookie must not authenticate as the new account.
@@ -179,12 +179,12 @@ test('a storage failure is recorded in the admin error log', async () => {
   assert.ok(logged.some(e => e.where === 'teams' && /unreachable/.test(e.message)), 'the failure is in the error log');
 });
 
-test('a reset link used twice at once only works once', async () => {
+test('a reset code used twice at once only works once', async () => {
   await auth({ action: 'forgot_password', identifier: 'clem' });
-  const token = tokenFromLastEmail();
+  const code = codeFromLastEmail();
   const results = await Promise.all([
-    auth({ action: 'reset_password', token, password: 'first-new-password1' }),
-    auth({ action: 'reset_password', token, password: 'second-new-password1' }),
+    auth({ action: 'reset_password', identifier: 'clem', code, password: 'first-new-password1' }),
+    auth({ action: 'reset_password', identifier: 'clem', code, password: 'second-new-password1' }),
   ]);
   assert.deepEqual(results.map(r => r.status).sort(), [200, 400]);
 });

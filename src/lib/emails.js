@@ -73,41 +73,43 @@ function layout({ appUrl, preheader, body }) {
 </html>`;
 }
 
-export function resetPasswordEmail({ username, link, appUrl, expiresMinutes = 30 }) {
+// A one-time code: 'verify' checks the account's email address, 'reset'
+// lets them choose a new password.
+export function codeEmail({ username, code, purpose, appUrl, expiresMinutes = 15 }) {
   const name = escapeHtml(username);
-  const href = escapeHtml(link);
-  const subject = 'Reset your FPL Checker password';
+  const digits = escapeHtml(code);
+  const reset = purpose === 'reset';
+  const subject = reset ? `${code} is your FPL Checker password reset code` : `${code} is your FPL Checker verification code`;
+  const heading = reset ? 'Reset your password' : 'Confirm your email';
+  const why = reset
+    ? 'We got a request to reset the password for your FPL Checker account. Enter this code to choose a new one:'
+    : 'Enter this code in FPL Checker to confirm this is your email address:';
+  const ignore = reset
+    ? 'Didn’t ask for this? You can ignore this email; your password won’t change.'
+    : 'Didn’t create an FPL Checker account? You can ignore this email.';
 
   const body = `
-            <h1 style="margin:0 0 18px;font-size:24px;line-height:30px;font-weight:700;color:${BRAND.ink};">Reset your password</h1>
+            <h1 style="margin:0 0 18px;font-size:24px;line-height:30px;font-weight:700;color:${BRAND.ink};">${heading}</h1>
             <p style="margin:0 0 14px;font-size:15px;line-height:23px;">Hi ${name},</p>
-            <p style="margin:0 0 26px;font-size:15px;line-height:23px;">We got a request to reset the password for your FPL Checker account. Tap the button to choose a new one.</p>
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;">
-              <tr>
-                <td align="center" bgcolor="${BRAND.ink}" style="background:${BRAND.ink};border-radius:10px;">
-                  <a href="${href}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;">Choose a new password</a>
-                </td>
-              </tr>
-            </table>
-            <p style="margin:0 0 22px;font-size:14px;line-height:21px;color:${BRAND.muted};">This link works once and expires in ${expiresMinutes} minutes.</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:23px;">${why}</p>
+            <p style="margin:0 0 20px;font-size:34px;line-height:40px;font-weight:700;letter-spacing:8px;color:${BRAND.ink};font-family:'SFMono-Regular',Menlo,Consolas,monospace;">${digits}</p>
+            <p style="margin:0 0 22px;font-size:14px;line-height:21px;color:${BRAND.muted};">The code works once and expires in ${expiresMinutes} minutes. Never share it with anyone.</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr><td style="border-top:1px solid #E4E3F0;font-size:0;line-height:0;height:1px;">&nbsp;</td></tr>
             </table>
-            <p style="margin:20px 0 6px;font-size:13px;line-height:19px;color:${BRAND.muted};">Button not working? Paste this link into your browser:</p>
-            <p style="margin:0 0 20px;font-size:13px;line-height:19px;word-break:break-all;"><a href="${href}" style="color:${BRAND.violet};">${href}</a></p>
-            <p style="margin:0;font-size:13px;line-height:19px;color:${BRAND.muted};">Didn't ask for this? You can ignore this email; your password won't change.</p>`;
+            <p style="margin:20px 0 0;font-size:13px;line-height:19px;color:${BRAND.muted};">${ignore}</p>`;
 
-  const text = `Reset your password
+  const text = `${heading}
 
 Hi ${username},
 
-We got a request to reset the password for your FPL Checker account. Open this link to choose a new one:
+${why}
 
-${link}
+${code}
 
-This link works once and expires in ${expiresMinutes} minutes.
+The code works once and expires in ${expiresMinutes} minutes. Never share it with anyone.
 
-Didn't ask for this? You can ignore this email; your password won't change.
+${ignore}
 
 FPL Checker
 ${appUrl}`;
@@ -115,7 +117,7 @@ ${appUrl}`;
   return {
     subject,
     text,
-    html: layout({ appUrl, preheader: `Choose a new password for ${username}. The link expires in ${expiresMinutes} minutes.`, body }),
+    html: layout({ appUrl, preheader: `Your code is ${code}. It expires in ${expiresMinutes} minutes.`, body }),
   };
 }
 

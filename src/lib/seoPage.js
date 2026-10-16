@@ -5,6 +5,8 @@
 // predictions page (/fpl-predictions) is rendered on request by
 // api/optimal-squad.js?page=predictions from the latest saved predictions.
 
+import { TERMS_VERSION } from './terms.js';
+
 export const SITE = 'https://fplchecker.co.uk';
 export const SITE_NAME = 'FPL Checker';
 
@@ -44,6 +46,7 @@ export const GUIDES = [
   { path: '/fpl-team-id', label: 'Find your FPL Team ID' },
   { path: '/fpl-chips-guide', label: 'FPL chips guide' },
   { path: '/fpl-points-system', label: 'How FPL points work' },
+  { path: '/terms', label: 'Terms and privacy' },
 ];
 
 // The browser extension (extension/) on the Chrome Web Store: empty until
@@ -357,6 +360,44 @@ export function staticPages() {
           ['How many points is a goal worth in FPL?', 'It depends on position: 10 for a goalkeeper, 6 for a defender, 5 for a midfielder and 4 for a forward.'],
           ['How do FPL bonus points work?', 'FPL scores every player’s match with the Bonus Points System (BPS). The top three get 3, 2 and 1 bonus points.'],
           ['Do substitutes score in FPL?', 'Only if one of your starters doesn’t play, then your bench comes on in order. With Bench Boost all four score.'],
+        ],
+      }),
+    },
+    {
+      path: '/terms',
+      html: layout({
+        path: '/terms',
+        title: 'Terms and Privacy | FPL Checker',
+        description: 'The terms for using FPL Checker, the free Fantasy Premier League tool, and how it handles your data: what is stored, why, who it is shared with and how to delete it.',
+        h1: 'Terms and privacy',
+        intro: `Plain-English terms for using FPL Checker, and what happens to your data. Last updated ${new Date(TERMS_VERSION).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
+        body: section('1. About FPL Checker', `<p>FPL Checker (fplchecker.co.uk) is a free, independent tool for Fantasy Premier League managers. It is not run by, endorsed by or linked to the Premier League, Fantasy Premier League or any football club. Player and fixture data comes from FPL’s public data.</p>`)
+          + section('2. Using the site', list([
+            'By using FPL Checker you agree to these terms. If you don’t agree, please don’t use it.',
+            'Predictions, ratings and suggestions are estimates from statistical models. They can be wrong, and nothing on the site is a promise of points. Decisions about your FPL team are yours.',
+            'The site is provided as it is, free of charge, and may change, pause or stop at any time. As far as the law allows, we aren’t liable for any loss from using it, including lost FPL points, rank or prizes.',
+            'Don’t misuse the site: no attempts to break in, overload it, scrape it at scale, or use it to harass anyone.',
+          ]))
+          + section('3. Accounts', list([
+            'An account is optional. You need one only to save teams across devices or get emails.',
+            'Keep your password private. You’re responsible for what happens under your account.',
+            'If you add an email address, we send a code to confirm it belongs to you. It is used for password reset codes and, only if you turn them on, deadline emails.',
+            'We may suspend or delete accounts that break these terms.',
+          ]))
+          + `<section class="seo-card" id="privacy"><h2>4. Your data</h2>${list([
+            '<b>What we store for an account</b>: your username, a scrambled (hashed) password that nobody can read, your email if you add one and whether it’s confirmed, your saved teams, your deadline email setting, when you joined and when you agreed to these terms.',
+            '<b>Without an account</b>: nothing that identifies you. Your browser keeps a few settings on your device, such as the last Team ID you checked and that you agreed to these terms.',
+            '<b>Cookies</b>: one cookie that keeps you logged in. No advertising or tracking cookies. We use privacy-friendly visit counts from our host that don’t identify you.',
+            '<b>Screenshots</b>: a team screenshot you upload is read on your device. It is only sent to us if you choose to report a problem with it.',
+            '<b>Who processes it</b>: our hosting, database and email providers, only to run the site. We never sell your data or share it for advertising.',
+            '<b>Push notifications</b>, if you turn them on, use your browser’s push service, and you can turn them off any time.',
+            '<b>Your rights</b>: you can change or remove your email from your account at any time, and ask for your account and its data to be deleted.',
+          ])}<p>The browser extension’s privacy details are on the <a href="/fpl-chrome-extension#privacy">extension page</a>.</p></section>`
+          + section('5. Changes', `<p>We may update these terms. When we do, the date above changes and you’ll be asked to agree again the next time you start the site or create an account.</p><p>These terms are governed by the law of England and Wales.</p>`),
+        faq: [
+          ['Is FPL Checker linked to the Premier League?', 'No. It is an independent fan-made tool and not affiliated with the Premier League or Fantasy Premier League.'],
+          ['Does FPL Checker sell my data?', 'No. Account data is used only to run the site, never sold or shared for advertising.'],
+          ['How do I delete my account?', 'Remove your email from your account to stop all emails, and ask for your account to be deleted to remove everything we hold.'],
         ],
       }),
     },
