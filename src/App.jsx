@@ -3,6 +3,7 @@
 // non-UI logic in src/lib/.
 import { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
@@ -2063,6 +2064,7 @@ export default function FPLSquadChecker() {
         </ScreenErrorBoundary>
       )}
       <Analytics />
+      <SpeedInsights />
     </div>
   );
 }
