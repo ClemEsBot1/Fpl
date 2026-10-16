@@ -6,11 +6,12 @@ import {
   buildSessionCookie, buildClearedSessionCookie, getSessionFromRequest,
   sessionMatchesRecord, isJsonRequest,
   userKeyFor, normalizeUsername, emailKeyFor,
-  createResetToken, resetKeyFor, RESET_TOKEN_TTL_SECONDS,
 } from '../src/lib/auth.js';
+import { CODE_TTL_SECONDS, issueCode, redeemCode } from '../src/lib/emailCodes.js';
+import { TERMS_VERSION } from '../src/lib/terms.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { pushHandler } from '../src/lib/push.js';
-import { resetPasswordEmail } from '../src/lib/emails.js';
+import { codeEmail } from '../src/lib/emails.js';
 import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
   deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
@@ -36,15 +37,19 @@ export const MAX_REGISTRATIONS_PER_IP = 5;
 export const RESET_WINDOW_SECONDS = 60 * 60;
 export const MAX_RESET_REQUESTS_PER_IP = 10;
 export const MAX_RESET_EMAILS_PER_USER = 3;
+// Verification codes: a few resends an hour per account.
+export const VERIFY_WINDOW_SECONDS = 60 * 60;
+export const MAX_VERIFY_EMAILS_PER_USER = 5;
 
-// Where reset links point. Fixed rather than taken from the request's Host
-// header, which a client controls.
+// The site's address in emails. Fixed rather than taken from the request's
+// Host header, which a client controls.
 const APP_URL = (process.env.APP_URL || 'https://fplchecker.co.uk').replace(/\/+$/, '');
 
 const EMAIL_TAKEN = 'That email is already used by another account.';
 const NO_ACCOUNT = 'No account found with that username or email.';
 const NO_EMAIL = "That account doesn't have an email address, so its password can't be reset by email.";
-const RESET_INVALID = 'This reset link is invalid or has expired. Ask for a new one.';
+const CODE_INVALID = 'That code is wrong or has expired. Check the latest email, or ask for a new code.';
+const NEED_TERMS = 'Please agree to the Terms to create an account.';
 const TOO_MANY = 'Too many attempts. Please wait 15 minutes and try again.';
 const BAD_LOGIN = 'Incorrect username, email or password.';
 const LOG_IN_AGAIN = 'Please log in again.';
@@ -69,11 +74,41 @@ async function emailAvailable(redis, email, username) {
   return !owner || owner === normalizeUsername(username);
 }
 
+// How emails are sent: the test override, the real mailer, or none.
+const mailerFor = mailOverride => mailOverride || (mailerConfigured() ? sendMail : null);
+
+// Emails a fresh verification code to the account's address. Best-effort:
+// false when email isn't set up or the send failed, and the person can ask
+// for another.
+async function sendVerifyCode(redis, secret, send, record) {
+  if (!send || !record.email || record.emailVerified) return false;
+  try {
+    const code = await issueCode(redis, secret, 'verify', record.username, { email: record.email });
+    await send({ to: record.email, ...codeEmail({ username: record.username, code, purpose: 'verify', appUrl: APP_URL, expiresMinutes: CODE_TTL_SECONDS / 60 }) });
+    return true;
+  } catch (e) {
+    console.error('verify email failed:', e && e.message);
+    return false;
+  }
+}
+
+// The account a "forgot password" form names: by username or by email.
+async function recordFor(redis, identifier) {
+  if (identifier.includes('@')) {
+    const email = normalizeEmail(identifier);
+    const owner = email.ok && email.email ? await redis.get(emailKeyFor(email.email)) : null;
+    const record = owner ? await getJSON(redis, userKeyFor(owner)) : null;
+    return record && record.email === email.email ? record : null;
+  }
+  return validateUsername(identifier).ok ? getJSON(redis, userKeyFor(identifier)) : null;
+}
+
 // What every signed-in response carries: the account and its saved teams,
 // so the app doesn't need a second request for the teams.
 function account(record) {
   return {
     ok: true, username: record.username, email: record.email || '', teams: Array.isArray(record.teams) ? record.teams : [],
+    emailVerified: !!(record.email && record.emailVerified),
     digestTeamId: record.digest && record.digest.teamId ? record.digest.teamId : null,
     ...(isAdmin(record.username) ? { admin: true } : {}),
   };
@@ -158,9 +193,9 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
   res.status(400).json({ error: 'unknown_admin_op' });
 }
 
-function signIn(res, record, secret) {
+function signIn(res, record, secret, extra = {}) {
   res.setHeader('Set-Cookie', buildSessionCookie(signSessionToken(record.username, secret, record.sessionVersion || 0, record.authId)));
-  res.status(200).json(account(record));
+  res.status(200).json({ ...account(record), ...extra });
 }
 
 function storageFailed(res, e, redis) {
@@ -261,6 +296,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
     const emailCheck = normalizeEmail(body.email);
     if (!emailCheck.ok) { res.status(400).json({ error: emailCheck.error }); return; }
+    if (body.acceptTerms !== true) { res.status(400).json({ error: NEED_TERMS }); return; }
 
     // Only accounts actually created count towards the per-network limit:
     // an attempt that fails below hands its place back.
@@ -287,8 +323,9 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
         res.status(409).json({ error: EMAIL_TAKEN });
         return;
       }
-      const record = { username, passwordHash: await hashPassword(password), teams: [], sessionVersion: 0, authId: generateAuthId(), createdAt: new Date().toISOString() };
-      if (emailCheck.email) record.email = emailCheck.email;
+      const now = new Date().toISOString();
+      const record = { username, passwordHash: await hashPassword(password), teams: [], sessionVersion: 0, authId: generateAuthId(), createdAt: now, termsVersion: TERMS_VERSION, termsAcceptedAt: now };
+      if (emailCheck.email) { record.email = emailCheck.email; record.emailVerified = false; }
       // Created only if the username is still free: two sign-ups racing
       // for the same name can't overwrite one another.
       if (!(await createJSON(redis, key, record))) {
@@ -297,7 +334,8 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
         return;
       }
       if (emailCheck.email) await redis.set(emailKeyFor(emailCheck.email), normalizeUsername(username));
-      signIn(res, record, secret);
+      const codeSent = await sendVerifyCode(redis, secret, mailerFor(mailOverride), record);
+      signIn(res, record, secret, emailCheck.email ? { codeSent } : {});
     } catch (e) {
       await giveBack();
       storageFailed(res, e, redis);
@@ -372,12 +410,14 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       const updated = await updateJSON(redis, userKeyFor(session.username), record => {
         if (!sessionMatchesRecord(session, record)) { problem = 'signed_out'; return null; }
         if (teamId && !record.email) { problem = 'no_email'; return null; }
+        if (teamId && !record.emailVerified) { problem = 'unverified'; return null; }
         const next = { ...record };
         if (teamId) next.digest = { teamId };
         else delete next.digest;
         return next;
       });
       if (problem === 'no_email') { res.status(400).json({ error: 'Add an email address to your account first.' }); return; }
+      if (problem === 'unverified') { res.status(400).json({ error: 'Confirm your email address first: enter the code we emailed you.' }); return; }
       if (updated === undefined || problem) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
       res.status(200).json(account(updated));
     } catch (e) {
@@ -403,8 +443,8 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
         if (!sessionMatchesRecord(session, record)) { signedOut = true; return null; }
         oldEmail = record.email;
         const next = { ...record };
-        if (emailCheck.email) next.email = emailCheck.email;
-        else delete next.email;
+        if (emailCheck.email && emailCheck.email !== record.email) { next.email = emailCheck.email; next.emailVerified = false; }
+        else if (!emailCheck.email) { delete next.email; delete next.emailVerified; delete next.digest; }
         return next;
       });
       if (updated === undefined || signedOut) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
@@ -412,6 +452,56 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
         await redis.del(emailKeyFor(oldEmail));
       }
       if (emailCheck.email) await redis.set(emailKeyFor(emailCheck.email), normalizeUsername(updated.username));
+      const changed = emailCheck.email && emailCheck.email !== oldEmail;
+      const codeSent = changed ? await sendVerifyCode(redis, secret, mailerFor(mailOverride), updated) : false;
+      res.status(200).json({ ...account(updated), ...(changed ? { codeSent } : {}) });
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
+  // Email a new code to confirm the logged-in user's address.
+  if (action === 'send_verify') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+    const send = mailerFor(mailOverride);
+    if (!send) { res.status(503).json({ error: "Emails aren't set up on this site yet." }); return; }
+    try {
+      const record = await getJSON(redis, userKeyFor(session.username));
+      if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      if (!record.email) { res.status(400).json({ error: 'Add an email address to your account first.' }); return; }
+      if (record.emailVerified) { res.status(200).json(account(record)); return; }
+      if (await bump(redis, `ratelimit:verify:user:${normalizeUsername(record.username)}`, VERIFY_WINDOW_SECONDS) > MAX_VERIFY_EMAILS_PER_USER) {
+        res.status(429).json({ error: "We've sent several codes already. Check your inbox and spam folder, or try again in an hour." });
+        return;
+      }
+      if (!(await sendVerifyCode(redis, secret, send, record))) { res.status(502).json({ error: "Couldn't send the email right now. Please try again later." }); return; }
+      res.status(200).json({ ...account(record), codeSent: true, message: `We've sent a 6-digit code to ${maskEmail(record.email)}.` });
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
+  // The code from that email: marks the address confirmed. It must be the
+  // address the code went to, not one changed to since.
+  if (action === 'verify_email') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+    try {
+      const record = await getJSON(redis, userKeyFor(session.username));
+      if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      if (!record.email) { res.status(400).json({ error: 'Add an email address to your account first.' }); return; }
+      if (record.emailVerified) { res.status(200).json(account(record)); return; }
+      const entry = await redeemCode(redis, secret, 'verify', record.username, body.code);
+      if (!entry || entry.email !== record.email) { res.status(400).json({ error: CODE_INVALID }); return; }
+      let signedOut = false;
+      const updated = await updateJSON(redis, userKeyFor(session.username), r => {
+        if (!sessionMatchesRecord(session, r) || r.email !== entry.email) { signedOut = true; return null; }
+        return { ...r, emailVerified: true };
+      });
+      if (updated === undefined || signedOut) { res.status(400).json({ error: CODE_INVALID }); return; }
       res.status(200).json(account(updated));
     } catch (e) {
       storageFailed(res, e, redis);
@@ -419,7 +509,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     return;
   }
 
-  // Step 1 of a reset: email a one-time link to the account's address.
+  // Step 1 of a reset: email a one-time code to the account's address.
   // Says plainly when no account matches or it has no email, so people
   // aren't left waiting for an email that will never come. (That does let
   // someone check whether a username or email has an account; the per-IP
@@ -427,7 +517,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
   if (action === 'forgot_password') {
     const identifier = typeof body.identifier === 'string' ? body.identifier.trim() : '';
     if (!identifier) { res.status(400).json({ error: 'Enter your username or email.' }); return; }
-    const send = mailOverride || (mailerConfigured() ? sendMail : null);
+    const send = mailerFor(mailOverride);
     if (!send) {
       res.status(503).json({ error: "Password reset by email isn't set up on this site yet." });
       return;
@@ -437,17 +527,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
         res.status(429).json({ error: 'Too many reset requests. Please try again in an hour.' });
         return;
       }
-
-      let record = null;
-      if (identifier.includes('@')) {
-        const email = normalizeEmail(identifier);
-        const owner = email.ok && email.email ? await redis.get(emailKeyFor(email.email)) : null;
-        if (owner) record = await getJSON(redis, userKeyFor(owner));
-        if (record && record.email !== email.email) record = null;
-      } else if (validateUsername(identifier).ok) {
-        record = await getJSON(redis, userKeyFor(identifier));
-      }
-
+      const record = await recordFor(redis, identifier);
       if (!record) { res.status(404).json({ error: NO_ACCOUNT }); return; }
       if (!record.email) { res.status(400).json({ error: NO_EMAIL }); return; }
 
@@ -455,12 +535,9 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
         res.status(429).json({ error: "We've already sent several reset emails to this account. Check your inbox and spam folder, or try again in an hour." });
         return;
       }
-      const token = createResetToken();
-      const entry = { username: normalizeUsername(record.username), expiresAt: Date.now() + RESET_TOKEN_TTL_SECONDS * 1000 };
-      await redis.set(resetKeyFor(token), JSON.stringify(entry), 'EX', RESET_TOKEN_TTL_SECONDS);
-      const link = `${APP_URL}/?reset=${encodeURIComponent(token)}`;
-      await send({ to: record.email, ...resetPasswordEmail({ username: record.username, link, appUrl: APP_URL, expiresMinutes: RESET_TOKEN_TTL_SECONDS / 60 }) });
-      res.status(200).json({ ok: true, message: `We've sent a reset link to ${maskEmail(record.email)}. It expires in 30 minutes; check your spam folder if it doesn't arrive.` });
+      const code = await issueCode(redis, secret, 'reset', record.username, { email: record.email });
+      await send({ to: record.email, ...codeEmail({ username: record.username, code, purpose: 'reset', appUrl: APP_URL, expiresMinutes: CODE_TTL_SECONDS / 60 }) });
+      res.status(200).json({ ok: true, message: `We've sent a 6-digit code to ${maskEmail(record.email)}. It expires in ${CODE_TTL_SECONDS / 60} minutes; check your spam folder if it doesn't arrive.` });
     } catch (e) {
       console.error('forgot_password failed:', e && e.message);
       res.status(502).json({ error: "Couldn't send the reset email right now. Please try again later." });
@@ -468,37 +545,33 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     return;
   }
 
-  // Step 2: the link's token plus a new password. The token works once, and
-  // every session from before the reset is signed out.
+  // Step 2: the same username or email, the emailed code and a new
+  // password. The code works once, and every session from before the reset
+  // is signed out. Getting the code also proves the email is theirs.
   if (action === 'reset_password') {
-    const { token, password } = body;
-    if (typeof token !== 'string' || !token || token.length > 200) { res.status(400).json({ error: RESET_INVALID }); return; }
-    const parse = raw => { try { return raw ? JSON.parse(raw) : null; } catch { return null; } };
+    const identifier = typeof body.identifier === 'string' ? body.identifier.trim() : '';
+    const { password } = body;
+    if (!identifier || identifier.length > 254) { res.status(400).json({ error: CODE_INVALID }); return; }
     try {
-      // The password rules depend on the account, so look at the link
-      // first without using it up: a password that fails them can be fixed
-      // and sent again with the same link.
-      const resetKey = resetKeyFor(token);
-      const peek = parse(await redis.get(resetKey));
-      if (!peek || !(peek.expiresAt > Date.now())) { res.status(400).json({ error: RESET_INVALID }); return; }
-      const passwordCheck = validatePassword(password, peek.username);
+      const record = await recordFor(redis, identifier);
+      if (!record || !record.email) { res.status(400).json({ error: CODE_INVALID }); return; }
+      // Checked before the code, so a password that fails the rules can be
+      // fixed and sent again with the same code.
+      const passwordCheck = validatePassword(password, record.username);
       if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
-      // Read and delete in one step, so the same link can't be used twice
-      // even by two requests at once.
-      const [[, raw]] = await redis.multi().get(resetKey).del(resetKey).exec();
-      const entry = parse(raw);
-      if (!entry || !(entry.expiresAt > Date.now())) { res.status(400).json({ error: RESET_INVALID }); return; }
+      const entry = await redeemCode(redis, secret, 'reset', record.username, body.code);
+      if (!entry || entry.email !== record.email) { res.status(400).json({ error: CODE_INVALID }); return; }
 
       // Hash before touching the record, so the read-modify-write below is
       // quick.
       const passwordHash = await hashPassword(password);
-      const updated = await updateJSON(redis, userKeyFor(entry.username), record => ({
-        ...record, passwordHash, sessionVersion: (record.sessionVersion || 0) + 1,
+      const updated = await updateJSON(redis, userKeyFor(record.username), r => ({
+        ...r, passwordHash, sessionVersion: (r.sessionVersion || 0) + 1, ...(r.email === entry.email ? { emailVerified: true } : {}),
       }));
-      if (updated === undefined) { res.status(400).json({ error: RESET_INVALID }); return; }
+      if (updated === undefined) { res.status(400).json({ error: CODE_INVALID }); return; }
       // A forgotten password often comes after failed guesses; don't leave
       // the account locked now that it has a new one.
-      await reset(redis, `ratelimit:login:user:${entry.username}`);
+      await reset(redis, `ratelimit:login:user:${normalizeUsername(record.username)}`);
       signIn(res, updated, secret);
     } catch (e) {
       storageFailed(res, e, redis);

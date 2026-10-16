@@ -1164,3 +1164,15 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-digest { margin-top: 12px; }
 .fpl-digest-row { display: flex; gap: 10px; align-items: flex-start; font-size: 0.85rem; line-height: 1.45; cursor: pointer; }
 .fpl-digest-row input { accent-color: var(--lime, #CEFF10); width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; }
+
+/* Sign-up's Terms box, the Terms pop-up's summary and the "confirm your
+   email" bar. */
+.fpl-terms-check { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; font-size: 0.8rem; line-height: 1.45; color: var(--ink); cursor: pointer; }
+.fpl-terms-check input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; accent-color: var(--blue); }
+.fpl-terms-check a, .fpl-dialog-card .fpl-meta a { color: var(--blue); }
+.fpl-terms-list { margin: 0 0 14px; padding-left: 1.1em; display: grid; gap: 8px; font-size: 0.88rem; line-height: 1.5; }
+.fpl-verify-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 16px 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-alt); font-size: 0.85rem; }
+.fpl-verify-bar span { flex: 1 1 220px; }
+.fpl-verify-bar .fpl-btn { padding: 8px 14px; min-height: 40px; }
+.fpl-verify-bar-x { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; color: var(--ink-dim); cursor: pointer; }
+.fpl-verify-bar-x:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

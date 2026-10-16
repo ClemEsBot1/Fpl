@@ -29,7 +29,8 @@ async function usersWithDigest(redis) {
     cursor = String(next);
   } while (cursor !== '0');
   const records = await Promise.all([...new Set(keys)].map(k => getJSON(redis, k).catch(() => null)));
-  return records.filter(r => r && r.username && r.email && r.digest);
+  // Only to confirmed addresses (see verify_email in api/auth.js).
+  return records.filter(r => r && r.username && r.email && r.emailVerified && r.digest);
 }
 
 const page = (res, status, title, text) => res.status(status).setHeader('Content-Type', 'text/html; charset=utf-8').setHeader('Cache-Control', 'no-store')

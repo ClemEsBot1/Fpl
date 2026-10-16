@@ -108,4 +108,8 @@
     <loc>https://fplchecker.co.uk/fpl-points-system</loc>
     <changefreq>weekly</changefreq>
   </url>
+  <url>
+    <loc>https://fplchecker.co.uk/terms</loc>
+    <changefreq>weekly</changefreq>
+  </url>
 </urlset>

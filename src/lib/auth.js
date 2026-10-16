@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -76,18 +76,6 @@ export function normalizeEmail(email) {
 // login.
 export function emailKeyFor(email) {
   return `email:${String(email).trim().toLowerCase()}`;
-}
-
-// Password-reset links carry a random token; only its SHA-256 is stored,
-// so someone who can read the database can't use a pending reset.
-export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
-
-export function createResetToken() {
-  return randomBytes(32).toString('base64url');
-}
-
-export function resetKeyFor(token) {
-  return `pwreset:${createHash('sha256').update(String(token)).digest('hex')}`;
 }
 
 // Usernames are stored case-insensitively (so "Clem" and "clem" collide),

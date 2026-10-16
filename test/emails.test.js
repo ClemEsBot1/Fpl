@@ -1,21 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resetPasswordEmail } from '../src/lib/emails.js';
+import { codeEmail } from '../src/lib/emails.js';
 
-const link = 'https://fplchecker.co.uk/?reset=abc123';
-
-test('reset email has the link in both the HTML and plain-text versions', () => {
-  const mail = resetPasswordEmail({ username: 'Clem', link, appUrl: 'https://fplchecker.co.uk' });
-  assert.equal(mail.subject, 'Reset your FPL Checker password');
-  assert.ok(mail.html.includes(`href="${link}"`));
-  assert.ok(mail.text.includes(link));
-  assert.match(mail.text, /expires in 30 minutes/);
-  assert.match(mail.html, /icons\/icon-192\.png/);
+test('code emails put the code in the subject, HTML and text, and say what it is for', () => {
+  const reset = codeEmail({ username: 'Clem', code: '042137', purpose: 'reset', appUrl: 'https://fplchecker.co.uk' });
+  assert.equal(reset.subject, '042137 is your FPL Checker password reset code');
+  assert.ok(reset.html.includes('042137') && reset.text.includes('042137'));
+  assert.match(reset.text, /expires in 15 minutes/);
+  assert.match(reset.text, /your password won’t change/);
+  assert.match(reset.html, /icons\/icon-192\.png/);
+  const verify = codeEmail({ username: 'Clem', code: '000001', purpose: 'verify', appUrl: 'https://fplchecker.co.uk' });
+  assert.equal(verify.subject, '000001 is your FPL Checker verification code');
+  assert.match(verify.text, /Confirm your email/);
 });
 
-test('reset email escapes what it puts into HTML', () => {
-  const mail = resetPasswordEmail({ username: '<b>x</b>', link: 'https://example.com/?a=1&b=2', appUrl: 'https://example.com' });
+test('code emails escape what they put into HTML', () => {
+  const mail = codeEmail({ username: '<b>x</b>', code: '123456', purpose: 'verify', appUrl: 'https://example.com' });
   assert.ok(!mail.html.includes('<b>x</b>'));
   assert.ok(mail.html.includes('&lt;b&gt;x&lt;/b&gt;'));
-  assert.ok(mail.html.includes('?a=1&amp;b=2'));
 });
