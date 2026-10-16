@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "uk.co.fplchecker.app",
+        "sha256_cert_fingerprints": ["40:6C:A4:30:FA:9F:54:EF:BA:10:4A:0C:F3:AD:81:B4:9C:9A:D2:84:C0:27:55:00:F9:BC:E6:7F:C3:66:21:8A"]
+      }
+    }]
