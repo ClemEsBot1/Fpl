@@ -1,7 +1,7 @@
 // Pieces shared across screens: header, loading/error states, player
 // search and fixture-difficulty chips.
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Bookmark, ChevronDown, LogOut, Mail, RotateCcw, Search, User } from 'lucide-react';
+import { AlertTriangle, Bookmark, ChevronDown, LogOut, Mail, RotateCcw, Search, Trash2, User } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
 
@@ -23,7 +23,7 @@ export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   );
 }
 
-export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onEmailClick, onMyTeamsClick, onLogoutClick }) {
+export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onEmailClick, onDeleteClick, onMyTeamsClick, onLogoutClick }) {
   // One panel open at a time: opening the account panel closes the
   // gameweek panel and vice versa (they share the same corner of the
   // screen and used to stack on top of each other).
@@ -98,6 +98,14 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
               >
                 <LogOut size={14} /> Log out
               </button>
+              {onDeleteClick && (
+                <button
+                  onClick={() => { setOpenPanel(null); onDeleteClick(); }}
+                  style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--line)', marginTop: 4, color: 'var(--red)', padding: '10px 10px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
+                >
+                  <Trash2 size={14} /> Delete account
+                </button>
+              )}
             </div>
           )}
           {gwOptions && gwOptions.length > 0 && (

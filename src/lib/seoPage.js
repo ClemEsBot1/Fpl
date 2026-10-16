@@ -47,6 +47,7 @@ export const GUIDES = [
   { path: '/fpl-chips-guide', label: 'FPL chips guide' },
   { path: '/fpl-points-system', label: 'How FPL points work' },
   { path: '/terms', label: 'Terms and privacy' },
+  { path: '/delete-account', label: 'Delete your account' },
 ];
 
 // The browser extension (extension/) on the Chrome Web Store: empty until
@@ -391,13 +392,45 @@ export function staticPages() {
             '<b>Screenshots</b>: a team screenshot you upload is read on your device. It is only sent to us if you choose to report a problem with it.',
             '<b>Who processes it</b>: our hosting, database and email providers, only to run the site. We never sell your data or share it for advertising.',
             '<b>Push notifications</b>, if you turn them on, use your browser’s push service, and you can turn them off any time.',
-            '<b>Your rights</b>: you can change or remove your email from your account at any time, and ask for your account and its data to be deleted.',
+            '<b>Your rights</b>: you can change or remove your email at any time, and <a href="/delete-account">delete your account</a> and all its data yourself, straight away.',
           ])}<p>The browser extension’s privacy details are on the <a href="/fpl-chrome-extension#privacy">extension page</a>.</p></section>`
           + section('5. Changes', `<p>We may update these terms. When we do, the date above changes and you’ll be asked to agree again the next time you start the site or create an account.</p><p>These terms are governed by the law of England and Wales.</p>`),
         faq: [
           ['Is FPL Checker linked to the Premier League?', 'No. It is an independent fan-made tool and not affiliated with the Premier League or Fantasy Premier League.'],
           ['Does FPL Checker sell my data?', 'No. Account data is used only to run the site, never sold or shared for advertising.'],
-          ['How do I delete my account?', 'Remove your email from your account to stop all emails, and ask for your account to be deleted to remove everything we hold.'],
+          ['How do I delete my account?', 'Log in, open the account menu and choose Delete account. It removes your account and everything stored with it straight away.'],
+        ],
+      }),
+    },
+    {
+      path: '/delete-account',
+      html: layout({
+        path: '/delete-account',
+        title: 'Delete Your FPL Checker Account | FPL Checker',
+        description: 'How to delete your FPL Checker account and its data, in the app or on the website: what is deleted, what is kept and how quickly. Free, immediate and permanent.',
+        h1: 'Delete your FPL Checker account',
+        intro: 'You can delete your FPL Checker account yourself at any time, in the Android app or on fplchecker.co.uk. It takes effect straight away.',
+        cta: { href: '/?delete-account', label: 'Delete my account' },
+        body: section('How to delete it', steps([
+          'Open the FPL Checker app or <a href="/?delete-account">fplchecker.co.uk</a> and log in.',
+          'Tap your username at the top to open the account menu.',
+          'Tap <b>Delete account</b>, enter your password and tap <b>Delete my account</b>.',
+        ]) + '<p>The button above opens the site with the delete step ready; you’ll be asked to log in first if you aren’t.</p>')
+          + section('What is deleted', list([
+            'Your account: username and password (stored only scrambled).',
+            'Your email address, and whether it was confirmed.',
+            'Your saved teams and squads, and your deadline email setting.',
+            'Any pending verification or password reset codes.',
+          ]) + '<p>All of it is deleted immediately and permanently. It can’t be recovered, and your username and email become free for anyone to use again.</p>')
+          + section('What is kept', list([
+            'Nothing tied to your account.',
+            'Push notifications are linked to your device, not your account: turn them off in the app or your browser settings to stop them.',
+            'A screenshot you chose to send with a problem report isn’t linked to your account.',
+          ]))
+          + section('Forgotten your password?', '<p>Use <b>Forgot password?</b> on the log-in screen to get a code by email, then delete the account. If your account has no email address and you can’t log in, it holds nothing that identifies you and can simply be left.</p>'),
+        faq: [
+          ['How long does deleting my FPL Checker account take?', 'It happens immediately when you confirm with your password.'],
+          ['Does deleting my FPL Checker account affect my Fantasy Premier League team?', 'No. FPL Checker is separate from Fantasy Premier League, so your FPL team and account are not touched.'],
         ],
       }),
     },
