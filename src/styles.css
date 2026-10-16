@@ -1176,6 +1176,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-verify-bar .fpl-btn { padding: 8px 14px; min-height: 40px; }
 .fpl-verify-bar-x { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; color: var(--ink-dim); cursor: pointer; }
 .fpl-verify-bar-x:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.fpl-tester-bar a.fpl-btn { display: inline-flex; align-items: center; text-decoration: none; }
 /* The delete-account confirm button: clearly destructive, not the usual
    bright call to action. */
 .fpl-dialog-card .fpl-btn-danger { background: rgba(255,90,90,0.16); color: #FF8A8A; border: 1px solid rgba(255,90,90,0.6); box-shadow: none; }

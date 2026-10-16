@@ -20,6 +20,7 @@ import { HomeScreen } from './screens/HomeScreen.jsx';
 import { TeamIdForm } from './screens/IntroScreen.jsx';
 import { TermsDialog } from './components/TermsDialog.jsx';
 import { TERMS_VERSION } from './lib/terms.js';
+import { TESTER_GROUP_URL, TESTER_OPT_IN_URL, isAppLaunch, showTesterBar } from './lib/androidTesters.js';
 import './styles.css';
 
 // Everything but the home screen loads on demand, so the first visit only
@@ -228,6 +229,21 @@ function writeTermsAccepted() {
   termsAcceptedThisVisit = true;
   try { localStorage.setItem(TERMS_KEY, TERMS_VERSION); } catch { /* storage unavailable */ }
 }
+// The Android tester bar: hidden for good once closed, or once this
+// browser has been opened by the app (the app shares its storage).
+const TESTER_BAR_KEY = 'fpl_tester_bar';
+function readTesterBarShown() {
+  if (typeof window === 'undefined') return false;
+  let stored = null;
+  try { stored = localStorage.getItem(TESTER_BAR_KEY); } catch { /* storage unavailable */ }
+  const inApp = stored === 'app' || isAppLaunch(document.referrer);
+  if (inApp && stored !== 'app') { try { localStorage.setItem(TESTER_BAR_KEY, 'app'); } catch { /* storage unavailable */ } }
+  const standalone = !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  return showTesterBar({ userAgent: navigator.userAgent, referrer: document.referrer, standalone, inApp, dismissed: stored === 'hidden' });
+}
+function writeTesterBarHidden() {
+  try { localStorage.setItem(TESTER_BAR_KEY, 'hidden'); } catch { /* storage unavailable */ }
+}
 function readTeamParam() {
   const team = new URLSearchParams(window.location.search).get('team');
   return team && /^\d{1,10}$/.test(team) ? team : null;
@@ -294,6 +310,7 @@ export default function FPLSquadChecker() {
   const [termsOpen, setTermsOpen] = useState(false);
   // The "confirm your email" bar, hidden for this visit once dismissed.
   const [verifyBarHidden, setVerifyBarHidden] = useState(false);
+  const [testerBarShown, setTesterBarShown] = useState(readTesterBarShown);
 
   const staticPromiseRef = useRef(null);
   // The most recently loaded static data (to tell when its gameweek has
@@ -1858,6 +1875,14 @@ export default function FPLSquadChecker() {
             <span>Confirm your email to get password reset codes and deadline emails.</span>
             <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => openAuthDialog('verify')}>Enter code</button>
             <button type="button" className="fpl-verify-bar-x" aria-label="Hide for now" onClick={() => setVerifyBarHidden(true)}><X size={16} aria-hidden="true" /></button>
+          </div>
+        )}
+        {testerBarShown && !(session && session.email && !session.emailVerified && !verifyBarHidden) && stage !== 'welcome' && stage !== 'boot' && (
+          <div className="fpl-verify-bar fpl-tester-bar" role="status">
+            <span>Help test the FPL Checker Android app on Google Play for 2 weeks. Join the group, then tap Become a tester.</span>
+            <a className="fpl-btn" href={TESTER_GROUP_URL} target="_blank" rel="noopener noreferrer">1. Join group</a>
+            <a className="fpl-btn fpl-btn-solid" href={TESTER_OPT_IN_URL} target="_blank" rel="noopener noreferrer">2. Become a tester</a>
+            <button type="button" className="fpl-verify-bar-x" aria-label="Don’t show again" onClick={() => { writeTesterBarHidden(); setTesterBarShown(false); }}><X size={16} aria-hidden="true" /></button>
           </div>
         )}
         <ScreenErrorBoundary key={stage}>
