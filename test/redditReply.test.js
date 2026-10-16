@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { redditReplies, replyData } from '../src/lib/redditReply.js';
+import { VARIANTS, redditReplies, replyData } from '../src/lib/redditReply.js';
 
 const pl = (id, webName, extra = {}) => ({ id, webName, team: 1, price: 6.0, status: 'a', news: '', selectedBy: 20, ...extra });
 const slot = (player, next, starting = true) => ({ player, nextMatchPredicted: next, isStarting: starting });
@@ -32,9 +32,12 @@ test('the replies are built from the team: captain, the swap, a doubt and differ
 test('every reply links the site and says it’s ours', () => {
   const replies = redditReplies(data);
   assert.deepEqual(replies.map(r => r.id), ['rate', 'captain', 'transfer', 'differential', 'quick']);
-  for (const r of replies) {
-    assert.ok(r.text.includes('[FPL Checker](https://fplchecker.co.uk)'), `${r.id}: a Markdown link, so Reddit links it`);
-    assert.match(r.text, /my site/, r.id);
+  for (let v = 0; v < VARIANTS; v++) {
+    for (const r of redditReplies(data, v)) {
+      assert.match(r.text, /\[(FPL Checker|fplchecker\.co\.uk)\]\(https:\/\/fplchecker\.co\.uk\)/, `${r.id} ${v}: a Markdown link, so Reddit links it`);
+      assert.match(r.text, /my (own )?site|I (made|built|run)|it’s mine/, `${r.id} ${v}: says it's ours`);
+      assert.doesNotMatch(r.text, /undefined|NaN|\{S\}/, `${r.id} ${v}`);
+    }
   }
   const rate = replies[0].text;
   assert.match(rate, /^Not bad at all tbh\. Ran it through \[FPL Checker\]\(https:\/\/fplchecker\.co\.uk\) and your XI’s looking at about 27\.8 this week\. I’d stick the armband on Salah \(7\.4\), Haaland’s not far off though\./);
@@ -48,4 +51,14 @@ test('replies that need a missing piece are left out', () => {
   assert.deepEqual(ids, ['rate', 'captain', 'quick']);
   assert.match(redditReplies({ ...data, suggestions: [] })[0].text, /wouldn’t change much/);
   assert.deepEqual(redditReplies({ ...data, squad: [], suggestions: [], allPlayers: [] }), []);
+});
+
+test('each reply has ten different wordings, cycling round', () => {
+  for (const id of ['rate', 'captain', 'transfer', 'differential', 'quick']) {
+    const texts = Array.from({ length: VARIANTS }, (_, v) => redditReplies(data, v).find(r => r.id === id).text);
+    assert.equal(new Set(texts).size, VARIANTS, `${id}: all ten differ`);
+    assert.equal(redditReplies(data, VARIANTS).find(r => r.id === id).text, texts[0], 'wraps back to the first');
+  }
+  assert.equal(redditReplies(data, -1)[0].text, redditReplies(data, VARIANTS - 1)[0].text);
+  assert.equal(VARIANTS, 10);
 });

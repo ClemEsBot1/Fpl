@@ -12,7 +12,7 @@ import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
 import { predictionRange, pickReasons } from '../lib/playerInsight.js';
 import { planTransfers, xiPointsForWeek } from '../lib/transferPlan.js';
 import { squadChipWeeks } from '../lib/chipPlanner.js';
-import { redditReplies } from '../lib/redditReply.js';
+import { VARIANTS as REDDIT_VARIANTS, redditReplies } from '../lib/redditReply.js';
 import { SHARE_URL, shareLinks, shareMessage } from '../lib/shareLinks.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 
@@ -1428,9 +1428,6 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   );
 }
 
-// Admins only: a reply for an r/FantasyPL post about this team, ready to
-// copy (src/lib/redditReply.js). Each one links the site and says it's
-// ours.
 // Opt in to the deadline email (src/lib/digest.js) for this team: its
 // best captain and transfer about a day before each deadline.
 function DeadlineEmail({ session, teamId }) {
@@ -1464,14 +1461,31 @@ function DeadlineEmail({ session, teamId }) {
   );
 }
 
+// Admins only: a reply for an r/FantasyPL post about this team, ready to
+// copy (src/lib/redditReply.js). Each one links the site and says it's
+// ours. After each copy the next of its wordings is shown (remembered on
+// this device), so replies don't all read the same.
+const REDDIT_VARIANT_KEY = 'fpl_reddit_variant';
+function readVariant() {
+  try { return Number(localStorage.getItem(REDDIT_VARIANT_KEY)) || 0; } catch { return 0; }
+}
+
 function RedditReply({ data }) {
-  const replies = useMemo(() => redditReplies(data), [data]);
+  const [variant, setVariant] = useState(readVariant);
+  const replies = useMemo(() => redditReplies(data, variant), [data, variant]);
   const [pick, setPick] = useState('rate');
   const [copied, setCopied] = useState(false);
   const reply = replies.find(r => r.id === pick) || replies[0];
   if (!reply) return null;
   const copy = async () => {
-    try { await navigator.clipboard.writeText(reply.text); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setCopied(false); }
+    try {
+      await navigator.clipboard.writeText(reply.text);
+      setCopied(true);
+      const nextVariant = (variant + 1) % REDDIT_VARIANTS;
+      try { localStorage.setItem(REDDIT_VARIANT_KEY, String(nextVariant)); } catch { /* storage unavailable */ }
+      // The copied text stays up while "Copied" shows, then the next wording.
+      setTimeout(() => { setCopied(false); setVariant(nextVariant); }, 2000);
+    } catch { setCopied(false); }
   };
   return (
     <section className="fpl-glass fpl-home-card fpl-reddit" aria-labelledby="reddit-h">
@@ -1482,6 +1496,7 @@ function RedditReply({ data }) {
         ))}
       </div>
       <p className="fpl-reddit-text">{reply.text}</p>
+      <p className="fpl-meta" style={{ margin: 0 }}>Wording {variant + 1} of {REDDIT_VARIANTS}: the next one shows after you copy.</p>
       <div className="fpl-admin-actions">
         <button type="button" className="fpl-btn fpl-btn-solid" onClick={copy}>
           {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy'}
