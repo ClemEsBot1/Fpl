@@ -21,7 +21,12 @@ test('the Android app’s Digital Asset Links file is served for the Play packag
   const fs = await import('node:fs');
   const links = JSON.parse(fs.readFileSync(new URL('../public/.well-known/assetlinks.json', import.meta.url), 'utf8'));
   assert.equal(links[0].target.package_name, 'uk.co.fplchecker.app');
-  assert.match(links[0].target.sha256_cert_fingerprints[0], /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/);
+  // The upload key (PWABuilder) and Google Play's app signing key: the
+  // installed app is signed by the second one.
+  const prints = links[0].target.sha256_cert_fingerprints;
+  assert.equal(prints.length, 2);
+  for (const print of prints) assert.match(print, /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/);
+  assert.equal(new Set(prints).size, 2, 'two different keys');
   const headers = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')).headers;
   const rule = headers.find(h => h.source === '/.well-known/assetlinks.json');
   assert.ok(rule && rule.headers.some(h => h.key === 'Content-Type' && h.value === 'application/json'));
