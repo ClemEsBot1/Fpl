@@ -23,7 +23,7 @@
 
 .fpl-input { font-family:'IBM Plex Mono',monospace; font-size:1.1rem; letter-spacing:0.04em;
   background:var(--panel-alt); border:2px solid var(--line); color:var(--ink); border-radius:5px;
-  padding:12px 14px; width:100%; }
+  padding:12px 14px; width:100%; box-sizing:border-box; }
 .fpl-input:focus { outline:none; border-color:var(--blue); }
 .fpl-input::placeholder { color:var(--ink-dim); }
 
