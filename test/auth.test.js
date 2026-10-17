@@ -331,10 +331,10 @@ test('a user can delete their own account with their password, and everything go
   const reg = await call(redis, { action: 'register', acceptTerms: true, username: 'leaving', password: 'correct-horse1', email: 'leaving@example.com' });
   const cookie = cookieFrom(reg);
   assert.equal((await call(redis, { action: 'delete_account', password: 'correct-horse1' })).status, 401, 'needs a session');
-  const wrong = await call(redis, { action: 'delete_account', password: 'wrong-password1' }, undefined, cookie);
+  const wrong = await call(redis, { action: 'delete_account', password: 'wrong-password1', confirm: 'DELETE' }, undefined, cookie);
   assert.equal(wrong.status, 401);
   assert.ok(await redis.get('user:leaving'), 'not deleted on a wrong password');
-  const done = await call(redis, { action: 'delete_account', password: 'correct-horse1' }, undefined, cookie);
+  const done = await call(redis, { action: 'delete_account', password: 'correct-horse1', confirm: 'DELETE' }, undefined, cookie);
   assert.equal(done.status, 200);
   assert.equal(done.body.deleted, true);
   assert.match(done.headers['Set-Cookie'], /Max-Age=0/, 'logged out');

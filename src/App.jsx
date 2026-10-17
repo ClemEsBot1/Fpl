@@ -82,6 +82,7 @@ const HindsightScreen = lazyScreen(hindsightChunk, 'HindsightScreen');
 const WelcomeScreen = lazyScreen(welcomeChunk, 'WelcomeScreen');
 const MiniLeagueScreen = lazyScreen(leagueChunk, 'MiniLeagueScreen');
 const MyTeamsScreen = lazyScreen(accountChunk, 'MyTeamsScreen');
+const ProfileScreen = lazyScreen(accountChunk, 'ProfileScreen');
 const AuthDialog = lazyScreen(accountChunk, 'AuthDialog');
 const GwRecap = lazyScreen(recapChunk, 'GwRecap');
 const FixturesScreen = lazyScreen(toolsChunk, 'FixturesScreen');
@@ -120,7 +121,7 @@ function navSectionFor(stage, resultsData) {
     case 'screenshotForm': case 'review': return 'screenshot';
     case 'customBuild': return 'build';
     case 'hindsight': return 'lookback';
-    case 'myTeams': return 'saved';
+    case 'myTeams': case 'profile': return 'saved';
     case 'league': return 'league';
     case 'fixtures': return 'fixtures';
     case 'compare': return 'compare';
@@ -305,6 +306,11 @@ export default function FPLSquadChecker() {
   // password with an emailed code) or 'verify' (the code that confirms the
   // account's email).
   const [authDialog, setAuthDialog] = useState(null);
+  // A message shown at the top of the pop-up when it opens (after a Google
+  // sign-in that needs something more).
+  const [authNotice, setAuthNotice] = useState('');
+  // A message at the top of the profile page (after linking Google).
+  const [profileNotice, setProfileNotice] = useState('');
   // Log-in opened from a delete-account link: go on to deleting after.
   const deleteAfterLoginRef = useRef(false);
   // The Terms pop-up shown the first time someone presses Start.
@@ -401,8 +407,11 @@ export default function FPLSquadChecker() {
     // pop-up, after logging in if needed.
     const params = new URLSearchParams(window.location.search);
     const wantsDelete = params.has('delete-account');
-    if (wantsDelete) {
+    // Back from "Continue with Google" (api/auth.js): what happened.
+    const googleOutcome = params.get('google');
+    if (wantsDelete || googleOutcome) {
       params.delete('delete-account');
+      params.delete('google');
       const query = params.toString();
       window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
     }
@@ -418,6 +427,8 @@ export default function FPLSquadChecker() {
       if (wantsDelete) {
         deleteAfterLoginRef.current = !loggedIn;
         setAuthDialog(loggedIn ? 'delete' : 'login');
+      } else if (googleOutcome) {
+        afterGoogle(googleOutcome, loggedIn);
       }
     })();
     return () => clearTimeout(timer);
@@ -452,7 +463,10 @@ export default function FPLSquadChecker() {
 
   // Signed-in responses carry the account and its saved teams.
   function applyAccount(data) {
-    setSession({ username: data.username, email: data.email || '', emailVerified: !!data.emailVerified, admin: !!data.admin, digestTeamId: data.digestTeamId || null });
+    setSession({
+      username: data.username, email: data.email || '', emailVerified: !!data.emailVerified, admin: !!data.admin, digestTeamId: data.digestTeamId || null,
+      hasPassword: data.hasPassword !== false, google: !!data.google, createdAt: data.createdAt || null,
+    });
     if (Array.isArray(data.teams)) setSavedTeams(data.teams);
     else fetchSavedTeams();
   }
@@ -478,8 +492,9 @@ export default function FPLSquadChecker() {
     return { ok: false, error: result.error };
   }
 
-  function openAuthDialog(mode) {
+  function openAuthDialog(mode, notice = '') {
     setAuthError('');
+    setAuthNotice(notice);
     setAuthDialog(mode);
   }
 
@@ -498,6 +513,24 @@ export default function FPLSquadChecker() {
     deleteAfterLoginRef.current = false;
     setAuthDialog(after || (mode === 'register' && result.data.email && !result.data.emailVerified ? 'verify' : null));
     leaveWelcome();
+  }
+
+  // Where "Continue with Google" left off: a new account is offered a
+  // username and password as a backup; anything that didn't work says why.
+  function afterGoogle(outcome, loggedIn) {
+    const problems = {
+      terms: ['register', 'Tick the box to agree to the Terms, then sign up with Google again.'],
+      cancelled: ['login', 'Google sign-in was cancelled.'],
+      error: ['login', 'Google sign-in didn’t work. Please try again.'],
+      unavailable: ['login', 'Google sign-in isn’t available right now. Use a username and password instead.'],
+      limit: ['login', 'Too many new accounts from this network. Please try again later.'],
+    };
+    if (outcome === 'new' && loggedIn) { writeTermsAccepted(); setStageRaw('home'); openAuthDialog('backup'); return; }
+    if (outcome === 'signed_in' && loggedIn) { setStageRaw(s => (s === 'welcome' || s === 'boot' ? 'home' : s)); return; }
+    if (outcome === 'linked' && loggedIn) { setProfileNotice('Google connected: you can now sign in with Google.'); setStageRaw('profile'); return; }
+    if (outcome === 'in_use' && loggedIn) { setProfileNotice('That Google account is already linked to a different FPL Checker account.'); setStageRaw('profile'); return; }
+    const problem = problems[outcome];
+    if (problem && !loggedIn) openAuthDialog(problem[0], problem[1]);
   }
 
   // The welcome page is for people who aren't logged in.
@@ -526,16 +559,37 @@ export default function FPLSquadChecker() {
     leaveWelcome();
   }
 
-  async function handleDeleteAccount(password) {
+  async function handleDeleteAccount({ password, confirm }) {
     setAuthError('');
     setAuthLoading(true);
-    const result = await postJson('/api/auth', { action: 'delete_account', password });
+    const result = await postJson('/api/auth', { action: 'delete_account', password, confirm });
     setAuthLoading(false);
     if (!result.ok) { setAuthError(result.error); return; }
     setSession(null);
     setSavedTeams([]);
     setAuthDialog(null);
     setStage('welcome');
+  }
+
+  // A username and password for an account made with Google.
+  async function handleSetCredentials({ username, password }) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await postJson('/api/auth', { action: 'set_credentials', username, password });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return; }
+    applyAccount(result.data);
+    setAuthDialog(null);
+  }
+
+  async function handleChangePassword({ currentPassword, password }) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await postJson('/api/auth', { action: 'change_password', currentPassword, password });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return; }
+    applyAccount(result.data);
+    setAuthDialog(null);
   }
 
   async function handleVerifyEmail(code) {
@@ -1862,10 +1916,8 @@ export default function FPLSquadChecker() {
           onGoHome={goHome}
           session={session}
           onLoginClick={() => openAuthDialog('login')}
-          onEmailClick={() => openAuthDialog('email')}
-          onDeleteClick={() => openAuthDialog('delete')}
-          onMyTeamsClick={() => setStage('myTeams')}
-          onLogoutClick={handleLogout}
+          onProfileClick={() => setStage('profile')}
+          profileOpen={stage === 'profile'}
         />
       )}
       <div className="fpl-shell">
@@ -2004,6 +2056,19 @@ export default function FPLSquadChecker() {
             {stage === 'admin' && (session && session.admin
               ? <AdminScreen session={session} />
               : <ErrorScreen message="This page is for admins only." retryLabel="Home" onRetry={() => setStage('home')} />)}
+            {stage === 'profile' && session && (
+              <ProfileScreen
+                session={session}
+                notice={profileNotice}
+                onDismissNotice={() => setProfileNotice('')}
+                savedTeams={savedTeams}
+                homeTeamId={homeTeam.teamId}
+                onPickTeam={id => { if (!homeTeam.teamId) rememberHomeTeam(id); }}
+                onOpenDialog={mode => openAuthDialog(mode)}
+                onMyTeams={() => setStage('myTeams')}
+                onLogout={handleLogout}
+              />
+            )}
             {stage === 'myTeams' && (
               <MyTeamsScreen
                 teams={savedTeams}
@@ -2033,7 +2098,12 @@ export default function FPLSquadChecker() {
               // Remount when switching between log-in and email so the fields start fresh.
               key={authDialog}
               initialMode={authDialog}
+              initialNotice={authNotice}
               currentEmail={session ? session.email : ''}
+              currentUsername={session ? session.username : ''}
+              hasPassword={session ? session.hasPassword !== false : true}
+              onSetCredentials={handleSetCredentials}
+              onChangePassword={handleChangePassword}
               onSubmit={handleAuthSubmit}
               onSetEmail={handleSetEmail}
               onForgot={handleForgotPassword}

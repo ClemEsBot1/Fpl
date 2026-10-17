@@ -199,6 +199,12 @@ function parseCookieHeader(header) {
 // Convenience: given a raw `Cookie` request header and the JWT secret,
 // returns { username } for a valid session or null. Used by every
 // endpoint that requires auth so they don't each reimplement this.
+// One cookie's value from the request, or null.
+export function readCookie(req, name) {
+  const raw = req.headers && req.headers.cookie;
+  return raw ? (parseCookieHeader(raw)[name] ?? null) : null;
+}
+
 export function getSessionFromRequest(req, secret) {
   const raw = req.headers && req.headers.cookie;
   if (!raw) return null;

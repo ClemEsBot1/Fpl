@@ -4,9 +4,13 @@ import {
   validateUsername, validateNewUsername, validatePassword, normalizeEmail,
   hashPassword, verifyPassword, signSessionToken, generateAuthId,
   buildSessionCookie, buildClearedSessionCookie, getSessionFromRequest,
-  sessionMatchesRecord, isJsonRequest,
+  sessionMatchesRecord, isJsonRequest, readCookie,
   userKeyFor, normalizeUsername, emailKeyFor,
 } from '../src/lib/auth.js';
+import {
+  GOOGLE_STATE_COOKIE, authorizationUrl, clearedStateCookie, exchangeCode, googleConfig, googleKeyFor,
+  newState, parseState, redirectUriFor, stateCookie, stateMatches, suggestUsername,
+} from '../src/lib/googleAuth.js';
 import { CODE_TTL_SECONDS, issueCode, redeemCode } from '../src/lib/emailCodes.js';
 import { TERMS_VERSION } from '../src/lib/terms.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
@@ -110,6 +114,7 @@ function account(record) {
   return {
     ok: true, username: record.username, email: record.email || '', teams: Array.isArray(record.teams) ? record.teams : [],
     emailVerified: !!(record.email && record.emailVerified),
+    hasPassword: !!record.passwordHash, google: !!record.googleSub, createdAt: record.createdAt || null,
     digestTeamId: record.digest && record.digest.teamId ? record.digest.teamId : null,
     ...(isAdmin(record.username) ? { admin: true } : {}),
   };
@@ -209,10 +214,129 @@ function storageFailed(res, e, redis) {
   res.status(502).json({ error: 'storage_failed' });
 }
 
+// Sends the browser somewhere else, setting any cookies first.
+function redirect(res, location, cookies = []) {
+  if (cookies.length) res.setHeader('Set-Cookie', cookies);
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Location', location);
+  res.status(302);
+  res.end();
+}
+
+const sessionCookieFor = (record, secret) => buildSessionCookie(signSessionToken(record.username, secret, record.sessionVersion || 0, record.authId));
+
+// "Continue with Google" (src/lib/googleAuth.js). Signs in the account
+// that Google account is linked to; else links it to the account with the
+// same, confirmed, email; else (if the Terms were agreed to) creates an
+// account, and the app then offers a username and password as a backup.
+// With ?link=1 it links Google to the signed-in account instead. Every
+// outcome ends back on the site with ?google=<what happened>.
+async function handleGoogle(req, res, redis, secret, google = {}) {
+  const config = google.config !== undefined ? google.config : googleConfig();
+  const step = req.query.google;
+  if (step === 'config') { res.status(200).json({ enabled: !!config }); return; }
+  if (!config) { redirect(res, '/?google=unavailable'); return; }
+  const redirectUri = redirectUriFor(APP_URL);
+
+  if (step === 'start') {
+    const state = newState({ link: req.query.link === '1', terms: req.query.terms === '1' });
+    redirect(res, authorizationUrl({ clientId: config.clientId, redirectUri, state }), [stateCookie(state)]);
+    return;
+  }
+  if (step !== 'callback') { res.status(400).json({ error: 'unknown_action' }); return; }
+
+  const cleared = clearedStateCookie();
+  const done = (outcome, record) => redirect(res, `/?google=${outcome}`, record ? [cleared, sessionCookieFor(record, secret)] : [cleared]);
+  if (req.query.error) { done('cancelled'); return; }
+  const state = typeof req.query.state === 'string' ? req.query.state : '';
+  if (!stateMatches(state, readCookie(req, GOOGLE_STATE_COOKIE))) { done('error'); return; }
+  const { link, terms } = parseState(state) || {};
+
+  let claims;
+  try {
+    claims = await exchangeCode({ code: req.query.code, ...config, redirectUri, fetchImpl: google.fetchImpl || fetch });
+  } catch (e) {
+    console.error('google exchange failed:', e && e.message);
+  }
+  if (!claims) { done('error'); return; }
+
+  try {
+    const gKey = googleKeyFor(claims.sub);
+    const linkedTo = await redis.get(gKey);
+    let linked = linkedTo ? await getJSON(redis, userKeyFor(linkedTo)) : null;
+    if (linked && linked.googleSub !== claims.sub) linked = null;
+
+    if (link) {
+      const session = getSessionFromRequest(req, secret);
+      const record = session ? await getJSON(redis, userKeyFor(session.username)) : null;
+      if (!sessionMatchesRecord(session, record)) { done('error'); return; }
+      if (linked && normalizeUsername(linked.username) !== normalizeUsername(record.username)) { done('in_use'); return; }
+      const updated = await updateJSON(redis, userKeyFor(record.username), r => ({
+        ...r, googleSub: claims.sub, ...(claims.emailVerified && r.email === claims.email ? { emailVerified: true } : {}),
+      }));
+      if (updated === undefined) { done('error'); return; }
+      await redis.set(gKey, normalizeUsername(record.username));
+      done('linked', updated);
+      return;
+    }
+
+    if (linked) { done('signed_in', linked); return; }
+
+    // The account that already has this (confirmed) email gets Google
+    // linked to it. Only a confirmed one: anyone can type an address in.
+    let emailOwner = null;
+    if (claims.emailVerified) {
+      const owner = await redis.get(emailKeyFor(claims.email));
+      emailOwner = owner ? await getJSON(redis, userKeyFor(owner)) : null;
+      if (emailOwner && emailOwner.email === claims.email && emailOwner.emailVerified) {
+        const updated = await updateJSON(redis, userKeyFor(emailOwner.username), r => ({ ...r, googleSub: claims.sub }));
+        if (updated === undefined) { done('error'); return; }
+        await redis.set(gKey, normalizeUsername(updated.username));
+        done('signed_in', updated);
+        return;
+      }
+    }
+
+    // A new account: only after the Terms were agreed to on the site.
+    if (!terms) { done('terms'); return; }
+    if (await bump(redis, `ratelimit:register:ip:${clientIp(req)}`, REGISTER_WINDOW_SECONDS) > MAX_REGISTRATIONS_PER_IP) { done('limit'); return; }
+    const now = new Date().toISOString();
+    let record = null;
+    for (let attempt = 0; attempt < 3 && !record; attempt++) {
+      const username = await suggestUsername(claims, async name => !!(await redis.get(userKeyFor(name))));
+      const candidate = {
+        username, passwordHash: null, googleSub: claims.sub, teams: [], sessionVersion: 0, authId: generateAuthId(),
+        createdAt: now, termsVersion: TERMS_VERSION, termsAcceptedAt: now,
+        ...(claims.emailVerified ? { email: claims.email, emailVerified: true } : {}),
+      };
+      if (await createJSON(redis, userKeyFor(username), candidate)) record = candidate;
+    }
+    if (!record) { done('error'); return; }
+    await redis.set(gKey, normalizeUsername(record.username));
+    if (record.email) {
+      // An account that typed this address in but never confirmed it loses
+      // it: Google has just shown it's this person's.
+      if (emailOwner && emailOwner.email === claims.email) {
+        await updateJSON(redis, userKeyFor(emailOwner.username), r => {
+          const next = { ...r };
+          delete next.email; delete next.emailVerified; delete next.digest;
+          return next;
+        });
+      }
+      await redis.set(emailKeyFor(record.email), normalizeUsername(record.username));
+    }
+    done('new', record);
+  } catch (e) {
+    console.error('google sign-in failed:', (e && e.stack) || e);
+    recordError(redis, 'auth', e);
+    done('error');
+  }
+}
+
 // `redisOverride` and `mailOverride` are never passed in production
 // (Vercel always calls `handler(req, res)`) — they exist purely so tests
 // can inject an in-memory Redis and capture emails instead of sending them.
-export default async function handler(req, res, redisOverride, mailOverride, adminOverride) {
+export default async function handler(req, res, redisOverride, mailOverride, adminOverride, googleOverride) {
   // Push notifications live here too (src/lib/push.js), so they don't need
   // a serverless function of their own.
   if (req.query && req.query.push) return pushHandler(req, res, redisOverride ? { redis: redisOverride } : {});
@@ -228,6 +352,13 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
   // The deadline email (src/lib/digest.js): the scheduled send and the
   // unsubscribe link.
   if (req.query && req.query.digest) return digestHandler(req, res, { redis: redisOverride || getRedis(), secret, ...(mailOverride ? { send: mailOverride } : {}) });
+
+  if (req.query && req.query.google) {
+    let redis;
+    try { redis = redisOverride || getRedis(); } catch { redirect(res, '/?google=unavailable'); return; }
+    await handleGoogle(req, res, redis, secret, googleOverride);
+    return;
+  }
 
   if (req.method === 'GET') {
     const session = getSessionFromRequest(req, secret);
@@ -463,23 +594,92 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
   }
 
   // Deletes the logged-in user's account for good: the record, its saved
-  // teams and settings, its email lookup and any pending codes. Needs the
-  // password again, counted like a login so it can't be used to guess it.
+  // teams and settings, its email and Google lookups and any pending codes.
+  // Needs the word "delete" typed out, and the password again (counted like
+  // a login so it can't be used to guess it). An account made with Google
+  // that never set a password has none to give.
   if (action === 'delete_account') {
     const session = getSessionFromRequest(req, secret);
     if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
-    if (typeof body.password !== 'string' || !body.password) { res.status(400).json({ error: 'Enter your password to delete your account.' }); return; }
+    if (typeof body.confirm !== 'string' || body.confirm.trim().toLowerCase() !== 'delete') { res.status(400).json({ error: 'Type DELETE to confirm.' }); return; }
     try {
       const record = await getJSON(redis, userKeyFor(session.username));
       if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
       const userLimitKey = `ratelimit:login:user:${normalizeUsername(record.username)}`;
-      if (await bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_USER) { res.status(429).json({ error: TOO_MANY }); return; }
-      if (!(await verifyPassword(body.password, record.passwordHash))) { res.status(401).json({ error: 'That password isn’t right.' }); return; }
+      if (record.passwordHash) {
+        if (typeof body.password !== 'string' || !body.password) { res.status(400).json({ error: 'Enter your password to delete your account.' }); return; }
+        if (await bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_USER) { res.status(429).json({ error: TOO_MANY }); return; }
+        if (!(await verifyPassword(body.password, record.passwordHash))) { res.status(401).json({ error: 'That password isn’t right.' }); return; }
+      }
       await deleteAccount(redis, record.username);
       const name = normalizeUsername(record.username);
       await Promise.all(['verify', 'reset'].flatMap(p => [redis.del(`code:${p}:${name}`), redis.del(`code:${p}:${name}:tries`)]).concat(reset(redis, userLimitKey)));
       res.setHeader('Set-Cookie', buildClearedSessionCookie());
       res.status(200).json({ ok: true, deleted: true });
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
+  // A username and password for an account made with Google, so it can
+  // also log in without it. The username may stay as it is or change to a
+  // free one; changing it moves the account (and its lookups) to the new
+  // name and signs this session in under it.
+  if (action === 'set_credentials') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+    const wanted = typeof body.username === 'string' ? body.username.trim() : '';
+    try {
+      const record = await getJSON(redis, userKeyFor(session.username));
+      if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      if (record.passwordHash) { res.status(400).json({ error: 'This account already has a password. Change it from your profile.' }); return; }
+      const username = wanted || record.username;
+      const renaming = normalizeUsername(username) !== normalizeUsername(record.username);
+      if (renaming || username !== record.username) {
+        const check = validateNewUsername(username);
+        if (!check.ok) { res.status(400).json({ error: check.error }); return; }
+      }
+      const passwordCheck = validatePassword(body.password, username);
+      if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
+      const passwordHash = await hashPassword(body.password);
+      if (!renaming) {
+        const updated = await updateJSON(redis, userKeyFor(record.username), r => (r.passwordHash ? null : { ...r, username, passwordHash }));
+        if (!updated || updated.passwordHash !== passwordHash) { res.status(409).json({ error: 'This account already has a password. Change it from your profile.' }); return; }
+        signIn(res, updated, secret);
+        return;
+      }
+      const moved = { ...record, username, passwordHash };
+      if (!(await createJSON(redis, userKeyFor(username), moved))) { res.status(409).json({ error: 'That username is already taken.' }); return; }
+      await redis.del(userKeyFor(record.username));
+      const name = normalizeUsername(username);
+      if (record.email && (await redis.get(emailKeyFor(record.email))) === normalizeUsername(record.username)) await redis.set(emailKeyFor(record.email), name);
+      if (record.googleSub) await redis.set(googleKeyFor(record.googleSub), name);
+      signIn(res, moved, secret);
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
+  // A new password, given the current one. Signs out every other session.
+  if (action === 'change_password') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+    try {
+      const record = await getJSON(redis, userKeyFor(session.username));
+      if (!sessionMatchesRecord(session, record)) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      if (!record.passwordHash) { res.status(400).json({ error: 'Set a username and password first.' }); return; }
+      const userLimitKey = `ratelimit:login:user:${normalizeUsername(record.username)}`;
+      if (await bump(redis, userLimitKey, LOGIN_WINDOW_SECONDS) > MAX_FAILED_LOGINS_PER_USER) { res.status(429).json({ error: TOO_MANY }); return; }
+      if (typeof body.currentPassword !== 'string' || !(await verifyPassword(body.currentPassword, record.passwordHash))) { res.status(401).json({ error: 'Your current password isn’t right.' }); return; }
+      const passwordCheck = validatePassword(body.password, record.username);
+      if (!passwordCheck.ok) { res.status(400).json({ error: passwordCheck.error }); return; }
+      const passwordHash = await hashPassword(body.password);
+      const updated = await updateJSON(redis, userKeyFor(record.username), r => ({ ...r, passwordHash, sessionVersion: (r.sessionVersion || 0) + 1 }));
+      if (updated === undefined) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      await reset(redis, userLimitKey);
+      signIn(res, updated, secret);
     } catch (e) {
       storageFailed(res, e, redis);
     }

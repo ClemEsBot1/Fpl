@@ -1,7 +1,7 @@
 // Pieces shared across screens: header, loading/error states, player
 // search and fixture-difficulty chips.
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Bookmark, ChevronDown, LogOut, Mail, RotateCcw, Search, Trash2, User } from 'lucide-react';
+import { AlertTriangle, ChevronDown, RotateCcw, Search, User } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
 
@@ -23,13 +23,10 @@ export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   );
 }
 
-export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onEmailClick, onDeleteClick, onMyTeamsClick, onLogoutClick }) {
-  // One panel open at a time: opening the account panel closes the
-  // gameweek panel and vice versa (they share the same corner of the
-  // screen and used to stack on top of each other).
-  const [openPanel, setOpenPanel] = useState(null); // null | 'account' | 'gameweek'
+export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, session, onLoginClick, onProfileClick, profileOpen = false }) {
+  // The gameweek panel; the account button opens the profile page.
+  const [openPanel, setOpenPanel] = useState(null); // null | 'gameweek'
   const menuOpen = openPanel === 'gameweek';
-  const accountMenuOpen = openPanel === 'account';
   const toggle = panel => setOpenPanel(current => (current === panel ? null : panel));
   const headerRef = useRef(null);
 
@@ -69,45 +66,15 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
           <button
-            onClick={() => { if (session) toggle('account'); else { setOpenPanel(null); onLoginClick(); } }}
-            aria-label="Account"
-            aria-expanded={session ? accountMenuOpen : undefined}
+            onClick={() => { setOpenPanel(null); if (session) onProfileClick(); else onLoginClick(); }}
+            aria-label={session ? `Your profile (${session.username})` : 'Log in'}
+            aria-current={profileOpen ? 'page' : undefined}
             className="fpl-mono"
-            style={{ background: accountMenuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', maxWidth: 140 }}
+            style={{ background: profileOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', maxWidth: 140 }}
           >
             <User size={14} style={{ flexShrink: 0 }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session ? session.username : 'Log in'}</span>
           </button>
-          {accountMenuOpen && session && (
-            <div className="fpl-block" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 20, padding: 6, minWidth: 160 }}>
-              <button
-                onClick={() => { setOpenPanel(null); onMyTeamsClick(); }}
-                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
-              >
-                <Bookmark size={14} /> My Teams
-              </button>
-              <button
-                onClick={() => { setOpenPanel(null); onEmailClick(); }}
-                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
-              >
-                <Mail size={14} /> {session.email ? 'Change email' : 'Add email'}
-              </button>
-              <button
-                onClick={() => { setOpenPanel(null); onLogoutClick(); }}
-                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'var(--ink)', padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
-              >
-                <LogOut size={14} /> Log out
-              </button>
-              {onDeleteClick && (
-                <button
-                  onClick={() => { setOpenPanel(null); onDeleteClick(); }}
-                  style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--line)', marginTop: 4, color: 'var(--red)', padding: '10px 10px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}
-                >
-                  <Trash2 size={14} /> Delete account
-                </button>
-              )}
-            </div>
-          )}
           {gwOptions && gwOptions.length > 0 && (
             <button
               onClick={() => toggle('gameweek')}
