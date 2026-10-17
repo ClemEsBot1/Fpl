@@ -7,6 +7,7 @@
 import { del as blobDel, head as blobHead, list as blobList } from '@vercel/blob';
 import { getJSON, setJSON, updateJSON } from './redis.js';
 import { emailKeyFor, normalizeUsername, userKeyFor } from './auth.js';
+import { googleKeyFor } from './googleAuth.js';
 import { recentErrors } from './errorLog.js';
 
 const FPL = 'https://fantasy.premierleague.com/api/';
@@ -121,6 +122,9 @@ export async function deleteUser(redis, username) {
   await redis.del(key);
   if (record.email && (await redis.get(emailKeyFor(record.email))) === normalizeUsername(record.username)) {
     await redis.del(emailKeyFor(record.email));
+  }
+  if (record.googleSub && (await redis.get(googleKeyFor(record.googleSub))) === normalizeUsername(record.username)) {
+    await redis.del(googleKeyFor(record.googleSub));
   }
   return true;
 }

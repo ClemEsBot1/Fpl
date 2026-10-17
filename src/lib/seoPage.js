@@ -413,8 +413,8 @@ export function staticPages() {
         cta: { href: '/?delete-account', label: 'Delete my account' },
         body: section('How to delete it', steps([
           'Open the FPL Checker app or <a href="/?delete-account">fplchecker.co.uk</a> and log in.',
-          'Tap your username at the top to open the account menu.',
-          'Tap <b>Delete account</b>, enter your password and tap <b>Delete my account</b>.',
+          'Tap your username at the top to open your profile.',
+          'Tap <b>Delete account</b>, enter your password (if you signed up with Google and never set one, you won’t be asked), type <b>DELETE</b> and tap <b>Delete my account</b>.',
         ]) + '<p>The button above opens the site with the delete step ready; you’ll be asked to log in first if you aren’t.</p>')
           + section('What is deleted', list([
             'Your account: username and password (stored only scrambled).',
@@ -429,7 +429,7 @@ export function staticPages() {
           ]))
           + section('Forgotten your password?', '<p>Use <b>Forgot password?</b> on the log-in screen to get a code by email, then delete the account. If your account has no email address and you can’t log in, it holds nothing that identifies you and can simply be left.</p>'),
         faq: [
-          ['How long does deleting my FPL Checker account take?', 'It happens immediately when you confirm with your password.'],
+          ['How long does deleting my FPL Checker account take?', 'It happens immediately once you confirm with your password and by typing DELETE.'],
           ['Does deleting my FPL Checker account affect my Fantasy Premier League team?', 'No. FPL Checker is separate from Fantasy Premier League, so your FPL team and account are not touched.'],
         ],
       }),

@@ -6,6 +6,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/auth/google", "destination": "/api/auth?google=start" },
+    { "source": "/auth/google/callback", "destination": "/api/auth?google=callback" },
     {
       "source": "/fpl-best-goalkeepers",
       "destination": "/api/optimal-squad?page=position&pos=goalkeepers"
