@@ -37,7 +37,8 @@ test('the weekly predictions page lists the best XI and the top players, safely 
 
 test('every guide page declares the favicon Google shows in search results', () => {
   for (const { path, html } of staticPages()) {
-    assert.ok(html.includes('<link rel="icon" href="/favicon.ico" sizes="48x48">'), path);
+    assert.ok(html.includes('<link rel="icon" href="/favicon-48x48.png" type="image/png" sizes="48x48">'), path);
+    assert.ok(html.includes('href="/favicon.ico"'), path);
     assert.ok(html.includes('href="/favicon-96x96.png"'), path);
   }
 });

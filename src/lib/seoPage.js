@@ -89,7 +89,8 @@ export function layout({ path, title, description, h1, intro, body, faq = [], ct
 <meta name="description" content="${escapeHtml(description)}">
 ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${SITE + canonical}">`}
 <meta name="theme-color" content="#0a081e">
-<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon-48x48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" href="/favicon-96x96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
