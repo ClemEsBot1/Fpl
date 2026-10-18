@@ -37,3 +37,6 @@ screenshot-reports
 # Downloaded data for the ML model (scripts/ml/fpl_data.py)
 scripts/ml/.cache
 __pycache__
+
+# graphify knowledge graph (rebuilt by hooks)
+graphify-out/
