@@ -3,10 +3,10 @@
 // any team's squad for a gameweek. Also the gameweek picked in the header.
 import { useEffect, useRef, useState } from 'react';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from '../lib/fplClient.js';
-import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel } from '../lib/predictions.js';
+import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, withModelPredictions } from '../lib/predictions.js';
 import { liveTeamScore, projectedBonus, teamStates } from '../lib/live.js';
 import { computeOptimalXiTotal } from '../lib/squadLogic.js';
-import { readGwParam, writeGwParam } from '../lib/appStorage.js';
+import { readGwParam, readModelChoice, writeGwParam, writeModelChoice } from '../lib/appStorage.js';
 import { currentGwId, defaultGwId, isGwFinished } from '../lib/gameweeks.js';
 
 // How long live points for a gameweek that's still being played stay fresh.
@@ -42,8 +42,17 @@ export function scoreSlots(slots, staticData, liveById, isPastGw) {
   }).filter(Boolean);
 }
 
-export function useFplData() {
+// `admin`: whether the logged-in account may switch to the ML model's
+// predictions (see withModelPredictions).
+export function useFplData({ admin = false } = {}) {
   const [selectedGw, setSelectedGw] = useState(readGwParam); // null = use current/next gameweek
+  const [modelChoice, setModelChoiceState] = useState(readModelChoice);
+  const useModel = admin && modelChoice === 'ml';
+  // Read by loads already under way, so they use the choice made since.
+  const useModelRef = useRef(useModel);
+  useModelRef.current = useModel;
+  const setModelChoice = choice => { writeModelChoice(choice); setModelChoiceState(choice); };
+  const viewOf = data => (useModelRef.current ? withModelPredictions(data) : data);
   const [gwOptions, setGwOptions] = useState([]);
   // The current static data, for screens that show it directly (Home).
   const [liveStatic, setLiveStatic] = useState(null);
@@ -68,8 +77,12 @@ export function useFplData() {
   // planning for has closed (the app was left open past a deadline) it's
   // loaded afresh for the next one. FPL is often unavailable for a while
   // just after a deadline, so if that fails the old data is used until the
-  // next attempt works.
+  // next attempt works. ensureStaticData() gives it as the screens show
+  // it (the ML model's figures, when an admin picked them).
   function ensureStaticData() {
+    return loadFormulaData().then(viewOf);
+  }
+  function loadFormulaData() {
     const loaded = staticDataRef.current;
     const outdated = loaded && loaded.targetEvent && isEventLocked(loaded.targetEvent)
       && loaded.allEvents.some(e => e.id > loaded.targetEvent.id);
@@ -161,9 +174,11 @@ export function useFplData() {
   // today's data; a past gameweek is rebuilt from only the gameweeks before
   // it (see src/lib/asOf.js), so its predictions can't see what happened
   // since. If that can't be loaded, falls back to today's data and says so.
-  async function staticDataForGw(gwId) {
-    const base = await ensureStaticData();
-    if (!gwId || gwId >= currentGwId(base)) return base;
+  // `formula` keeps the formula's predictions whatever an admin picked.
+  async function staticDataForGw(gwId, { formula = false } = {}) {
+    const view = formula ? data => data : viewOf;
+    const base = await loadFormulaData();
+    if (!gwId || gwId >= currentGwId(base)) return view(base);
     if (!asOfCacheRef.current.has(gwId)) {
       asOfCacheRef.current.set(gwId, loadStaticDataAsOf(base, gwId).catch(err => {
         asOfCacheRef.current.delete(gwId);
@@ -171,9 +186,9 @@ export function useFplData() {
       }));
     }
     try {
-      return await asOfCacheRef.current.get(gwId);
+      return view(await asOfCacheRef.current.get(gwId));
     } catch {
-      return { ...base, asOfFailedGwId: gwId };
+      return { ...view(base), asOfFailedGwId: gwId };
     }
   }
 
@@ -183,7 +198,7 @@ export function useFplData() {
   // one is kept.
   async function formulaSnapshot(snap, gwId) {
     if (!snapshotFromModel(snap)) return snap;
-    const gwStatic = await staticDataForGw(gwId);
+    const gwStatic = await staticDataForGw(gwId, { formula: true });
     if (!gwStatic || gwStatic.asOfFailedGwId) return snap;
     try { return formulaSnapshotFor(snap, gwStatic); } catch { return snap; }
   }
@@ -347,7 +362,8 @@ export function useFplData() {
   }
 
   return {
-    selectedGw, setSelectedGw, gwOptions, liveStatic, staticDataRef,
+    selectedGw, setSelectedGw, gwOptions, liveStatic: useModel ? withModelPredictions(liveStatic) : liveStatic, staticDataRef,
+    modelChoice: useModel ? 'ml' : 'formula', setModelChoice, modelAvailable: !!(liveStatic && liveStatic.mlBuiltAt),
     ensureStaticData, getOptimalXiTotal, staticDataForGw, formulaSnapshot, liveForGw, fixturesForGw, loadTeamForGw,
   };
 }

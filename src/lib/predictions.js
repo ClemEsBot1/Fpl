@@ -597,6 +597,20 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   // reasonable starting point, not backtest-tuned — see
   // scripts/calibrate-weights.mjs if you want to calibrate it against real
   // results.
+  addSelectionValues(predictionsById, playersByPosition, allPlayers, weights.selectionShrinkage);
+
+  return {
+    teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById,
+    selectionShrinkage: weights.selectionShrinkage,
+    mlBuiltAt: mlById ? ml.builtAt || null : null,
+    seasonId: seasonIdFor(bootstrap.events),
+    totalPlayers: Number(bootstrap.total_players) || 0,
+  };
+}
+
+// Sets each prediction's selectionValue / nextMatchSelectionValue: the
+// figure shrunk toward its position's average (see buildStaticDataFromRaw).
+function addSelectionValues(predictionsById, playersByPosition, allPlayers, shrinkage) {
   const avgPredictedByPosition = {};
   const avgNextMatchByPosition = {};
   POSITION_ORDER.forEach(pos => {
@@ -607,16 +621,30 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   });
   allPlayers.forEach(p => {
     const pred = predictionsById[p.id];
-    pred.selectionValue = weights.selectionShrinkage * pred.predicted + (1 - weights.selectionShrinkage) * avgPredictedByPosition[p.positionId];
-    pred.nextMatchSelectionValue = weights.selectionShrinkage * pred.nextMatchPredicted + (1 - weights.selectionShrinkage) * avgNextMatchByPosition[p.positionId];
+    pred.selectionValue = shrinkage * pred.predicted + (1 - shrinkage) * avgPredictedByPosition[p.positionId];
+    pred.nextMatchSelectionValue = shrinkage * pred.nextMatchPredicted + (1 - shrinkage) * avgNextMatchByPosition[p.positionId];
   });
+}
 
-  return {
-    teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById,
-    mlBuiltAt: mlById ? ml.builtAt || null : null,
-    seasonId: seasonIdFor(bootstrap.events),
-    totalPlayers: Number(bootstrap.total_players) || 0,
-  };
+// The same static data predicting with the ML model's figures (each
+// player's breakdown.ml) in place of the formula's, for admins comparing
+// the two. Players the model has nothing for keep the formula's figures.
+// Without the model's file for this gameweek it's the data unchanged.
+const modelViews = new WeakMap();
+export function withModelPredictions(staticData) {
+  if (!staticData || !staticData.mlBuiltAt) return staticData;
+  if (modelViews.has(staticData)) return modelViews.get(staticData);
+  const predictionsById = {};
+  for (const [id, pred] of Object.entries(staticData.predictionsById)) {
+    const ml = pred.breakdown && pred.breakdown.ml;
+    predictionsById[id] = ml
+      ? { ...pred, predicted: ml.predicted, nextMatchPredicted: ml.next, byGw: ml.byGw, range: ml.range, source: 'ml' }
+      : { ...pred };
+  }
+  addSelectionValues(predictionsById, staticData.playersByPosition, staticData.allPlayers, staticData.selectionShrinkage ?? DEFAULT_PREDICTION_WEIGHTS.selectionShrinkage);
+  const view = { ...staticData, predictionsById, predictionSource: 'ml' };
+  modelViews.set(staticData, view);
+  return view;
 }
 
 // Gameweeks predicted one by one for the transfer plan (byGw).

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
+  seasonIdFor, snapshotIsForSeason, withModelPredictions, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
 } from '../src/lib/predictions.js';
 import { league } from './helpers/league.js';
 
@@ -284,6 +284,31 @@ test("the formula predicts; the ML model's figures ride along when its file is f
   // A file for another gameweek or season is ignored.
   assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, gwId: target + 1 } }).predictionsById[fit.id].breakdown.ml, null);
   assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, season: '1999-00' } }).predictionsById[fit.id].breakdown.ml, null);
+});
+
+test("the admin's ML view predicts with the model's figures where it has some, and the formula's elsewhere", () => {
+  const { bootstrap, fixtures } = league();
+  const target = bootstrap.events.find(e => new Date(e.deadline_time).getTime() > Date.now()).id;
+  const season = seasonIdFor(bootstrap.events);
+  const fit = bootstrap.elements[3];
+  const mlData = { season, gwId: target, builtAt: '2026-10-01T04:20:00Z', byId: { [fit.id]: [6, 4, 4, 4, 2] } };
+  const sd = buildStaticDataFromRaw(bootstrap, fixtures, { mlData });
+  const view = withModelPredictions(sd);
+  const p = view.predictionsById[fit.id];
+  assert.equal(p.source, 'ml');
+  assert.equal(p.nextMatchPredicted, 6);
+  assert.equal(p.predicted, 4.5);
+  assert.deepEqual(p.byGw.map(w => w.points), [6, 4, 4, 4, 2]);
+  assert.ok(p.selectionValue !== sd.predictionsById[fit.id].selectionValue, 'picking uses the model too');
+  const other = bootstrap.elements[0].id;
+  assert.equal(view.predictionsById[other].predicted, sd.predictionsById[other].predicted, 'no model figure: the formula stays');
+  assert.equal(view.predictionSource, 'ml');
+  assert.equal(sd.predictionsById[fit.id].source, 'formula', 'the formula data is left as it was');
+  assert.equal(withModelPredictions(sd), view, 'the same view each time');
+  const noModel = buildStaticDataFromRaw(bootstrap, fixtures, {});
+  assert.equal(withModelPredictions(noModel), noModel, 'nothing to switch to without the model file');
+  const { squad } = buildOptimalTeam(view, SQUAD_BUDGET);
+  assert.equal(squad.length, 15);
 });
 
 test('a player ruled out is predicted 0, machine-learning figure included', async () => {
