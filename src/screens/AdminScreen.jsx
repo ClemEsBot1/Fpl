@@ -2,7 +2,7 @@
 // src/lib/adminServer.js). Every request goes through /api/auth, which
 // checks the session belongs to an admin before doing anything.
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BarChart3, BrainCircuit, Camera, Check, Copy, Download, ExternalLink, Megaphone, MessageSquare, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
+import { Activity, BarChart3, BrainCircuit, Camera, Check, Copy, Download, ExternalLink, Megaphone, MessageSquare, RefreshCw, Scale, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { fmtPts } from '../lib/format.js';
 
@@ -484,12 +484,99 @@ function Insights() {
   );
 }
 
+// The measures the head-to-head compares, and which way is better.
+const H2H_MEASURES = [
+  { key: 'meanAbsError', label: 'Typical miss', fmt: v => `±${fmtPts(v)}`, better: 'low' },
+  { key: 'correlation', label: 'Correlation', fmt: v => v.toFixed(2), better: 'high' },
+  { key: 'topTenAverageActual', label: 'Top 10 picks scored', fmt: v => fmtPts(v), better: 'high' },
+  { key: 'xiPoints', label: 'Best XI scored', fmt: v => String(v), better: 'high' },
+];
+const h2hWinner = (m, f, ml) => (f === ml ? null : (m.better === 'low' ? ml < f : ml > f) ? 'ml' : 'formula');
+
+// Formula v ML model on the gameweeks that have finished: each one's
+// predictions from before the deadline, scored on what players got.
+function HeadToHead() {
+  const [state, setState] = useState({ status: 'loading' });
+  useEffect(() => {
+    adminCall('head_to_head').then(r => setState(r.ok && r.data && !r.data.error ? { status: 'ready', data: r.data } : { status: 'error', error: (r.data && r.data.error) || r.error }));
+  }, []);
+  if (state.status === 'loading') return <SkeletonRows rows={6} label="Scoring both models on finished gameweeks…" />;
+  if (state.status === 'error') return <p role="alert">{state.error === 'fpl_unavailable' ? 'FPL isn’t answering right now. Try again in a minute.' : state.error}</p>;
+  const scored = state.data.weeks.filter(w => w.formula && w.ml).slice().reverse();
+  const missing = state.data.weeks.filter(w => !(w.formula && w.ml));
+  const tally = H2H_MEASURES.map(m => {
+    const wins = { formula: 0, ml: 0 };
+    let f = 0, ml = 0;
+    scored.forEach(w => { const who = h2hWinner(m, w.formula[m.key], w.ml[m.key]); if (who) wins[who] += 1; f += w.formula[m.key]; ml += w.ml[m.key]; });
+    return { m, wins, f: scored.length ? f / scored.length : null, ml: scored.length ? ml / scored.length : null };
+  });
+  return (
+    <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-h2h">
+      <h2 id="adm-h2h" className="fpl-home-h"><Scale size={18} aria-hidden="true" /> Formula v ML model</h2>
+      <p className="fpl-home-text" style={{ margin: 0 }}>
+        Each model's predictions from before the deadline, against what players scored. The miss, correlation and top 10 count players who played; the best XI is the £100m squad each would have picked (at today's prices), captain doubled.
+      </p>
+      {scored.length ? (
+        <>
+          <div className="fpl-h2h-scroll">
+            <table className="fpl-admin-table fpl-h2h">
+              <thead>
+                <tr><th scope="col" rowSpan={2}>Gameweek</th>{H2H_MEASURES.map(m => <th key={m.key} scope="colgroup" colSpan={2}>{m.label}</th>)}</tr>
+                <tr>{H2H_MEASURES.map(m => [<th key={`${m.key}-f`} scope="col">Formula</th>, <th key={`${m.key}-m`} scope="col">ML</th>])}</tr>
+              </thead>
+              <tbody>
+                {scored.map(w => (
+                  <tr key={w.gwId}>
+                    <th scope="row">GW{w.gwId}</th>
+                    {H2H_MEASURES.map(m => {
+                      const who = h2hWinner(m, w.formula[m.key], w.ml[m.key]);
+                      return [
+                        <td key={`${m.key}-f`} className={`fpl-mono${who === 'formula' ? ' is-win' : ''}`}>{m.fmt(w.formula[m.key])}</td>,
+                        <td key={`${m.key}-m`} className={`fpl-mono${who === 'ml' ? ' is-win' : ''}`}>{m.fmt(w.ml[m.key])}</td>,
+                      ];
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+              {scored.length > 1 ? (
+                <tfoot>
+                  <tr>
+                    <th scope="row">Average</th>
+                    {tally.map(({ m, f, ml }) => {
+                      const who = h2hWinner(m, Math.round(f * 100), Math.round(ml * 100));
+                      return [
+                        <td key={`${m.key}-f`} className={`fpl-mono${who === 'formula' ? ' is-win' : ''}`}>{m.fmt(m.key === 'xiPoints' ? Math.round(f) : Math.round(f * 100) / 100)}</td>,
+                        <td key={`${m.key}-m`} className={`fpl-mono${who === 'ml' ? ' is-win' : ''}`}>{m.fmt(m.key === 'xiPoints' ? Math.round(ml) : Math.round(ml * 100) / 100)}</td>,
+                      ];
+                    })}
+                  </tr>
+                </tfoot>
+              ) : null}
+            </table>
+          </div>
+          <ul className="fpl-h2h-tally">
+            {tally.map(({ m, wins }) => (
+              <li key={m.key}><span>{m.label}</span><span className="fpl-mono">Formula {wins.formula} · ML {wins.ml}</span></li>
+            ))}
+          </ul>
+        </>
+      ) : <p className="fpl-meta" style={{ margin: 0 }}>No finished gameweek has predictions saved from both models yet.</p>}
+      {missing.length ? (
+        <p className="fpl-meta" style={{ margin: 0 }}>
+          Not compared: {missing.map(w => `GW${w.gwId} (no ${w.missing.map(x => (x === 'ml' ? 'ML file' : x === 'formula' ? 'saved formula predictions' : 'FPL points')).join(' or ')})`).join(', ')}.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 const TABS = [
   { id: 'health', label: 'Model and data', Icon: Activity },
   { id: 'insights', label: 'Usage and feedback', Icon: BarChart3 },
   { id: 'reports', label: 'Screenshot reports', Icon: Camera },
   { id: 'users', label: 'Users', Icon: Users },
   { id: 'social', label: 'Social', Icon: Megaphone },
+  { id: 'h2h', label: 'Formula v ML', Icon: Scale },
 ];
 
 export function AdminScreen({ session }) {
@@ -500,14 +587,14 @@ export function AdminScreen({ session }) {
         <h1 className="fpl-tool-h"><ShieldCheck size={22} aria-hidden="true" /> Admin</h1>
         <p className="fpl-tool-sub">Signed in as {session.username}. Only admins see this page, and the server checks every request.</p>
       </header>
-      <div className="fpl-seg" role="tablist" aria-label="Admin sections">
+      <div className="fpl-seg fpl-admin-tabs" role="tablist" aria-label="Admin sections">
         {TABS.map(({ id, label, Icon }) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
             <Icon size={14} aria-hidden="true" /> {label}
           </button>
         ))}
       </div>
-      {tab === 'health' ? <Health /> : tab === 'insights' ? <Insights /> : tab === 'reports' ? <Reports /> : tab === 'social' ? <Social /> : <UsersTab me={session.username} />}
+      {tab === 'health' ? <Health /> : tab === 'insights' ? <Insights /> : tab === 'reports' ? <Reports /> : tab === 'social' ? <Social /> : tab === 'h2h' ? <HeadToHead /> : <UsersTab me={session.username} />}
     </div>
   );
 }

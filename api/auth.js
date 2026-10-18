@@ -18,7 +18,7 @@ import { pushHandler } from '../src/lib/push.js';
 import { codeEmail } from '../src/lib/emails.js';
 import { recordError, clearErrors } from '../src/lib/errorLog.js';
 import {
-  deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, refreshBestSquad,
+  deleteReport, deleteUser, findUser, healthReport, isAdmin, listReports, modelHeadToHead, refreshBestSquad,
   setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats, usersCsv,
   deleteUser as deleteAccount,
 } from '../src/lib/adminServer.js';
@@ -135,6 +135,9 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
   switch (body.op) {
     case 'health':
       res.status(200).json(await healthReport(redis, { host, ...admin }));
+      return;
+    case 'head_to_head':
+      res.status(200).json(await modelHeadToHead(redis, { host, ...admin }));
       return;
     case 'retrain':
       res.status(200).json(await triggerRetrain(admin));
