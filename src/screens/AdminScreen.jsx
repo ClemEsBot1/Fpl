@@ -67,7 +67,7 @@ function Health() {
         {d.ml ? (
           <p className="fpl-home-text" style={{ margin: 0 }}>
             Predicting <b>GW{d.ml.gwId}</b> ({d.ml.season}) for {d.ml.players} players, trained on {Number(d.ml.trainedRows || 0).toLocaleString('en-GB')} rows. Last built <b>{ago(d.ml.builtAt)}</b>.
-            {d.gameweek && d.ml.gwId !== d.gameweek ? <span className="fpl-admin-warn"> FPL is on GW{d.gameweek}: the predictions are out of date, so the app is using the formula.</span> : null}
+            {d.gameweek && d.ml.gwId !== d.gameweek ? <span className="fpl-admin-warn"> FPL is on GW{d.gameweek}: the predictions are out of date, so the app is using the formula alone.</span> : null}
           </p>
         ) : <p className="fpl-admin-warn" style={{ margin: 0 }}>No ML predictions deployed yet: the app is using the formula. Run the retraining workflow.</p>}
         {d.mlWeeks.length ? (
@@ -491,49 +491,73 @@ const H2H_MEASURES = [
   { key: 'topTenAverageActual', label: 'Top 10 picks scored', fmt: v => fmtPts(v), better: 'high' },
   { key: 'xiPoints', label: 'Best XI scored', fmt: v => String(v), better: 'high' },
 ];
-const h2hWinner = (m, f, ml) => (f === ml ? null : (m.better === 'low' ? ml < f : ml > f) ? 'ml' : 'formula');
+const H2H_MODELS = [
+  { key: 'formula', label: 'Formula' },
+  { key: 'ml', label: 'ML' },
+  { key: 'blend', label: 'Blend' },
+];
+const POSITION_LABELS = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+// The model that did best on a measure, or null for a tie at the top.
+function h2hWinner(m, values) {
+  const best = m.better === 'low' ? Math.min(...values) : Math.max(...values);
+  const at = values.flatMap((v, i) => (v === best ? [i] : []));
+  return at.length === 1 ? H2H_MODELS[at[0]].key : null;
+}
 
-// Formula v ML model on the gameweeks that have finished: each one's
-// predictions from before the deadline, scored on what players got.
+// Formula v ML model v their blend on the gameweeks that have finished:
+// each one's predictions from before the deadline, scored on what players
+// got.
 function HeadToHead() {
   const [state, setState] = useState({ status: 'loading' });
   useEffect(() => {
     adminCall('head_to_head').then(r => setState(r.ok && r.data && !r.data.error ? { status: 'ready', data: r.data } : { status: 'error', error: (r.data && r.data.error) || r.error }));
   }, []);
-  if (state.status === 'loading') return <SkeletonRows rows={6} label="Scoring both models on finished gameweeks…" />;
+  if (state.status === 'loading') return <SkeletonRows rows={6} label="Scoring the models on finished gameweeks…" />;
   if (state.status === 'error') return <p role="alert">{state.error === 'fpl_unavailable' ? 'FPL isn’t answering right now. Try again in a minute.' : state.error}</p>;
-  const scored = state.data.weeks.filter(w => w.formula && w.ml).slice().reverse();
-  const missing = state.data.weeks.filter(w => !(w.formula && w.ml));
+  const scored = state.data.weeks.filter(w => H2H_MODELS.every(({ key }) => w[key])).slice().reverse();
+  const missing = state.data.weeks.filter(w => w.missing);
+  const priorWeeks = scored.some(w => !w.blendLearned);
   const tally = H2H_MEASURES.map(m => {
-    const wins = { formula: 0, ml: 0 };
-    let f = 0, ml = 0;
-    scored.forEach(w => { const who = h2hWinner(m, w.formula[m.key], w.ml[m.key]); if (who) wins[who] += 1; f += w.formula[m.key]; ml += w.ml[m.key]; });
-    return { m, wins, f: scored.length ? f / scored.length : null, ml: scored.length ? ml / scored.length : null };
+    const wins = Object.fromEntries(H2H_MODELS.map(({ key }) => [key, 0]));
+    const sums = Object.fromEntries(H2H_MODELS.map(({ key }) => [key, 0]));
+    scored.forEach(w => {
+      const who = h2hWinner(m, H2H_MODELS.map(({ key }) => w[key][m.key]));
+      if (who) wins[who] += 1;
+      H2H_MODELS.forEach(({ key }) => { sums[key] += w[key][m.key]; });
+    });
+    const avg = Object.fromEntries(H2H_MODELS.map(({ key }) => [key, scored.length ? sums[key] / scored.length : null]));
+    return { m, wins, avg };
   });
+  const fmtAvg = (m, v) => m.fmt(m.key === 'xiPoints' ? Math.round(v) : Math.round(v * 100) / 100);
+  const bw = state.data.blendWeights;
   return (
     <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-h2h">
-      <h2 id="adm-h2h" className="fpl-home-h"><Scale size={18} aria-hidden="true" /> Formula v ML model</h2>
+      <h2 id="adm-h2h" className="fpl-home-h"><Scale size={18} aria-hidden="true" /> Formula v ML model v blend</h2>
       <p className="fpl-home-text" style={{ margin: 0 }}>
-        Each model's predictions from before the deadline, against what players scored. The miss, correlation and top 10 count players who played; the best XI is the £100m squad each would have picked (at today's prices), captain doubled.
+        Each one's predictions from before the deadline, against what players scored. The miss, correlation and top 10 count players who played; the best XI is the £100m squad each would have picked (at today's prices), captain doubled.
+      </p>
+      <p className="fpl-meta" style={{ margin: 0 }}>
+        {bw
+          ? <>The blend counts the ML model at {[1, 2, 3, 4].map(pos => `${POSITION_LABELS[pos]} ${Math.round(bw.weights[pos] * 100)}%`).join(' · ')}, learned from {bw.weeks} finished gameweek{bw.weeks === 1 ? '' : 's'}{bw.throughGw ? ` (to GW${bw.throughGw})` : ''}.</>
+          : <>The blend counts each model half until the refresh job has learned its weights.</>}
       </p>
       {scored.length ? (
         <>
           <div className="fpl-h2h-scroll">
             <table className="fpl-admin-table fpl-h2h">
               <thead>
-                <tr><th scope="col" rowSpan={2}>Gameweek</th>{H2H_MEASURES.map(m => <th key={m.key} scope="colgroup" colSpan={2}>{m.label}</th>)}</tr>
-                <tr>{H2H_MEASURES.map(m => [<th key={`${m.key}-f`} scope="col">Formula</th>, <th key={`${m.key}-m`} scope="col">ML</th>])}</tr>
+                <tr><th scope="col" rowSpan={2}>Gameweek</th>{H2H_MEASURES.map(m => <th key={m.key} scope="colgroup" colSpan={H2H_MODELS.length}>{m.label}</th>)}</tr>
+                <tr>{H2H_MEASURES.map(m => H2H_MODELS.map(({ key, label }) => <th key={`${m.key}-${key}`} scope="col">{label}</th>))}</tr>
               </thead>
               <tbody>
                 {scored.map(w => (
                   <tr key={w.gwId}>
-                    <th scope="row">GW{w.gwId}</th>
+                    <th scope="row">GW{w.gwId}{w.blendLearned ? '' : '*'}</th>
                     {H2H_MEASURES.map(m => {
-                      const who = h2hWinner(m, w.formula[m.key], w.ml[m.key]);
-                      return [
-                        <td key={`${m.key}-f`} className={`fpl-mono${who === 'formula' ? ' is-win' : ''}`}>{m.fmt(w.formula[m.key])}</td>,
-                        <td key={`${m.key}-m`} className={`fpl-mono${who === 'ml' ? ' is-win' : ''}`}>{m.fmt(w.ml[m.key])}</td>,
-                      ];
+                      const who = h2hWinner(m, H2H_MODELS.map(({ key }) => w[key][m.key]));
+                      return H2H_MODELS.map(({ key }) => (
+                        <td key={`${m.key}-${key}`} className={`fpl-mono${who === key ? ' is-win' : ''}`}>{m.fmt(w[key][m.key])}</td>
+                      ));
                     })}
                   </tr>
                 ))}
@@ -542,21 +566,21 @@ function HeadToHead() {
                 <tfoot>
                   <tr>
                     <th scope="row">Average</th>
-                    {tally.map(({ m, f, ml }) => {
-                      const who = h2hWinner(m, Math.round(f * 100), Math.round(ml * 100));
-                      return [
-                        <td key={`${m.key}-f`} className={`fpl-mono${who === 'formula' ? ' is-win' : ''}`}>{m.fmt(m.key === 'xiPoints' ? Math.round(f) : Math.round(f * 100) / 100)}</td>,
-                        <td key={`${m.key}-m`} className={`fpl-mono${who === 'ml' ? ' is-win' : ''}`}>{m.fmt(m.key === 'xiPoints' ? Math.round(ml) : Math.round(ml * 100) / 100)}</td>,
-                      ];
+                    {tally.map(({ m, avg }) => {
+                      const who = h2hWinner(m, H2H_MODELS.map(({ key }) => Math.round(avg[key] * 100)));
+                      return H2H_MODELS.map(({ key }) => (
+                        <td key={`${m.key}-${key}`} className={`fpl-mono${who === key ? ' is-win' : ''}`}>{fmtAvg(m, avg[key])}</td>
+                      ));
                     })}
                   </tr>
                 </tfoot>
               ) : null}
             </table>
           </div>
+          {priorWeeks ? <p className="fpl-meta" style={{ margin: 0 }}>* Before the blend went live: its figures are worked out at half each.</p> : null}
           <ul className="fpl-h2h-tally">
             {tally.map(({ m, wins }) => (
-              <li key={m.key}><span>{m.label}</span><span className="fpl-mono">Formula {wins.formula} · ML {wins.ml}</span></li>
+              <li key={m.key}><span>{m.label}</span><span className="fpl-mono">{H2H_MODELS.map(({ key, label }) => `${label} ${wins[key]}`).join(' · ')}</span></li>
             ))}
           </ul>
         </>
@@ -576,7 +600,7 @@ const TABS = [
   { id: 'reports', label: 'Screenshot reports', Icon: Camera },
   { id: 'users', label: 'Users', Icon: Users },
   { id: 'social', label: 'Social', Icon: Megaphone },
-  { id: 'h2h', label: 'Formula v ML', Icon: Scale },
+  { id: 'h2h', label: 'Formula v ML v blend', Icon: Scale },
 ];
 
 export function AdminScreen({ session }) {

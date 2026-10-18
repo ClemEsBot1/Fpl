@@ -4,6 +4,7 @@ import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { indexNowEnabled, pingIndexNow } from '../src/lib/indexNow.js';
 import { SITE } from '../src/lib/seoPage.js';
+import { refreshBlendWeights, siteBase } from '../src/lib/modelWeeks.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 // The Odds API (the-odds-api.com) — free tier (500 requests/month) is
@@ -76,12 +77,10 @@ async function fetchRecentMinutesServer(gwId) {
 // The ML model's predictions, deployed with the app as public/ml/
 // predictions.json (rebuilt daily by .github/workflows/ml-retrain.yml).
 // Best-effort like the others: without them the formula predicts.
-async function fetchMlServer(req) {
+async function fetchMlServer(base) {
   try {
-    const host = req.headers && req.headers.host;
-    if (!host) return null;
-    const proto = host.startsWith('localhost') ? 'http' : 'https';
-    const r = await fetch(`${proto}://${host}/ml/predictions.json`, { signal: AbortSignal.timeout(5000) });
+    if (!base) return null;
+    const r = await fetch(`${base}/ml/predictions.json`, { signal: AbortSignal.timeout(5000) });
     if (!r.ok) return null;
     const data = await r.json();
     return data && data.byId ? data : null;
@@ -119,12 +118,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    const base = siteBase(req.headers && req.headers.host);
     const [bootstrap, fixturesRaw, playerHistoryData, oddsApiEvents, mlData] = await Promise.all([
       fetchFplJsonServer('bootstrap-static/'),
       fetchFplJsonServer('fixtures/'),
       fetchPlayerHistoryServer(),
       fetchOddsServer(),
-      fetchMlServer(req),
+      fetchMlServer(base),
     ]);
     if (forceGwId !== null && !bootstrap.events.some(e => e.id === forceGwId)) {
       res.status(400).json({ error: 'unknown_gw' });
@@ -152,7 +152,11 @@ export default async function handler(req, res) {
 
     const plannedGw = forceGwId || (getTargetEvent(bootstrap.events) || {}).id;
     const recentMinutesById = plannedGw ? await fetchRecentMinutesServer(plannedGw) : null;
-    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData, recentMinutesById, mlData });
+    // How much the model counts in the blend, learned from the finished
+    // gameweeks (src/lib/modelWeeks.js). Best-effort: without them it's
+    // half each.
+    const blendData = mlData ? await refreshBlendWeights({ bootstrap, base, blob: { get, put } }).catch(() => null) : null;
+    const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { ...(forceGwId ? { forceGwId } : {}), playerHistoryData, oddsData, recentMinutesById, mlData, blendData });
     const gwId = staticData.targetEvent ? staticData.targetEvent.id : 1;
 
     // After the last deadline of the season there's no gameweek left to
@@ -177,8 +181,9 @@ export default async function handler(req, res) {
       season: staticData.seasonId,
       builtAt: new Date().toISOString(),
       backfilled: !!forceGwId,
-      // Picked with the formula's predictions (see snapshotFromModel).
-      source: 'formula',
+      // Picked with the blend, or the formula's alone without the model's
+      // file for this gameweek (see snapshotFromModel).
+      source: staticData.predictionSource,
     };
 
     await put(snapshotPathnameFor(gwId), JSON.stringify(snapshot), {
@@ -201,7 +206,17 @@ export default async function handler(req, res) {
         const byGwById = Object.fromEntries(
           Object.entries(staticData.predictionsById).map(([id, pred]) => [id, (pred.byGw || []).map(w => w.points)]),
         );
-        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, season: staticData.seasonId, savedAt: snapshot.builtAt, predictedById, byGwById, source: 'formula' }), {
+        // With the blend, each model's own figures too, for the admin
+        // head-to-head and for learning the blend's weights once the
+        // gameweek has been played (src/lib/modelWeeks.js).
+        const blended = staticData.predictionSource === 'blend';
+        const figures = key => Object.fromEntries(Object.entries(staticData.predictionsById)
+          .filter(([, pred]) => pred.breakdown && pred.breakdown[key])
+          .map(([id, pred]) => [id, pred.breakdown[key].next]));
+        const models = blended
+          ? { formulaById: Object.fromEntries(Object.entries(staticData.predictionsById).map(([id, pred]) => [id, pred.breakdown.formula ? pred.breakdown.formula.next : pred.nextMatchPredicted])), mlById: figures('ml'), mlBuiltAt: staticData.mlBuiltAt, blendWeights: staticData.blendWeights }
+          : {};
+        await put(predictionsPathnameFor(gwId), JSON.stringify({ gwId, season: staticData.seasonId, savedAt: snapshot.builtAt, predictedById, byGwById, source: staticData.predictionSource, ...models }), {
           access: 'public', contentType: 'application/json', allowOverwrite: true,
         });
       } catch { /* non-fatal — accuracy tracking just skips this gameweek */ }
@@ -213,7 +228,7 @@ export default async function handler(req, res) {
       ? await pingIndexNow(['/', '/fpl-predictions', '/fpl-tips', '/fpl-players', '/fpl-price-changes', '/fpl-deadline', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek', `/gw/${gwId}`].map(p => SITE + p))
       : null;
 
-    res.status(200).json({ ok: true, gwId, indexNow, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData, usedOdds: !!(oddsData && oddsData.length), matchedFixtureCount: oddsData ? oddsData.length : 0 });
+    res.status(200).json({ ok: true, gwId, indexNow, builtAt: snapshot.builtAt, backfilled: snapshot.backfilled, playerCount: snapshot.playerIds.length, usedPlayerHistory: !!playerHistoryData, usedOdds: !!(oddsData && oddsData.length), matchedFixtureCount: oddsData ? oddsData.length : 0, source: staticData.predictionSource, blendWeights: staticData.blendWeights });
   } catch (e) {
     res.status(502).json({ error: 'refresh_failed', detail: String((e && e.message) || e) });
   }

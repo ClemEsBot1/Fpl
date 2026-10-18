@@ -11,6 +11,7 @@
 
 import { buildCareerBaselineByCode, buildLastSeasonStatsByCode } from './playerHistory.js';
 import { buildOddsByTeam, oddsAdjustmentForMatches } from './oddsAdjustment.js';
+import { blendValue, blendWeightsFrom } from './blend.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
@@ -277,7 +278,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
 
   // The machine-learning model's points (p.ml: this gameweek and each of
   // the next four, from public/ml/predictions.json; see scripts/ml/), when
-  // there are some, take the place of the formula's. FPL's availability
+  // there are some, are blended with the formula's. FPL's availability
   // flag scales this gameweek. A model trained on injury history
   // (p.mlInjuryAware) already allows for how long an injury lasts in the
   // later weeks, so only this one is scaled for an injury; a suspension or
@@ -300,14 +301,29 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
       byGw: scaled.slice(0, PLAN_GWS).map((v, k) => ({ event: firstEvent + k, points: Math.round(v * 10) / 10 })).filter(w => w.event <= 38),
     };
   }
-  // The formula is what the app predicts with; the model's figures ride
-  // along in the breakdown for comparison while it keeps learning.
+  // With the model's figures and a weight for the player's position
+  // (options.blendWeight, see src/lib/blend.js), the app predicts with a
+  // blend of the two; otherwise with the formula's. Each model's own
+  // figures stay in the breakdown, for admins viewing either one alone
+  // (withPredictionSource) and for comparing them.
+  const round1 = x => Math.round(x * 10) / 10;
+  const w = mlOut && typeof options.blendWeight === 'number' ? options.blendWeight : null;
+  let out = { predicted: round1(predicted), nextMatchPredicted: round1(nextMatchPredicted), byGw, source: 'formula', range: null };
+  if (w !== null) {
+    const mlByEvent = new Map(mlOut.byGw.map(g => [g.event, g.points]));
+    const next = blendValue(out.nextMatchPredicted, mlOut.next, w);
+    // The model's likely range, moved with the figure.
+    const shift = next - mlOut.next;
+    out = {
+      predicted: round1(blendValue(out.predicted, mlOut.predicted, w)),
+      nextMatchPredicted: round1(next),
+      byGw: byGw.map(g => (mlByEvent.has(g.event) ? { event: g.event, points: round1(blendValue(g.points, mlByEvent.get(g.event), w)) } : g)),
+      source: 'blend',
+      range: mlOut.range ? { floor: round1(Math.max(0, mlOut.range.floor + shift)), ceiling: round1(Math.max(0, mlOut.range.ceiling + shift)) } : null,
+    };
+  }
   return {
-    predicted: Math.round(predicted * 10) / 10,
-    nextMatchPredicted: Math.round(nextMatchPredicted * 10) / 10,
-    byGw,
-    source: 'formula',
-    range: null,
+    ...out,
     baseAvail,
     availNote,
     fixtureMult,
@@ -321,6 +337,8 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
     // multipliers themselves. Nothing here changes what predicted/
     // nextMatchPredicted equal; this is purely for explaining them.
     breakdown: {
+      formula: w !== null ? { next: round1(nextMatchPredicted), predicted: round1(predicted), byGw } : null,
+      blendWeight: w,
       ml: mlOut ? {
         next: Math.round(mlOut.next * 10) / 10,
         predicted: Math.round(mlOut.predicted * 10) / 10,
@@ -478,7 +496,12 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   const recentMinutesById = options.recentMinutesById || null;
   // The ML model's predictions, when they're for this gameweek and season.
   const ml = options.mlData;
-  const mlById = ml && ml.byId && ml.gwId === targetEvent.id && ml.season === seasonIdFor(bootstrap.events) ? ml.byId : null;
+  const seasonId = seasonIdFor(bootstrap.events);
+  const mlById = ml && ml.byId && ml.gwId === targetEvent.id && ml.season === seasonId ? ml.byId : null;
+  // How much the model counts in the blend, per position (src/lib/blend.js):
+  // the weights the refresh job last learned (options.blendData), when
+  // they're this season's, or half each.
+  const blendWeights = mlById ? blendWeightsFrom(options.blendData && options.blendData.season === seasonId ? options.blendData : null) : null;
 
   const allPlayers = bootstrap.elements.map(e => {
     const seasonPoints = e.total_points;
@@ -580,7 +603,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   allPlayers.forEach(p => {
     const baseline = careerBaselineByCode[p.code] ?? epNextBaselineByPosition[p.positionId];
     const epNextShrink = { confidence: epNextConfidence, baseline };
-    predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink, { weights, targetEventId: targetEvent.id });
+    predictionsById[p.id] = computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink, { weights, targetEventId: targetEvent.id, blendWeight: blendWeights ? blendWeights[p.positionId] : null });
   });
 
   // "Winner's curse" correction for SELECTION only (squad-picking and
@@ -603,7 +626,10 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById,
     selectionShrinkage: weights.selectionShrinkage,
     mlBuiltAt: mlById ? ml.builtAt || null : null,
-    seasonId: seasonIdFor(bootstrap.events),
+    // 'blend' with the model's figures for this gameweek, else 'formula'.
+    predictionSource: mlById ? 'blend' : 'formula',
+    blendWeights,
+    seasonId,
     totalPlayers: Number(bootstrap.total_players) || 0,
   };
 }
@@ -626,25 +652,28 @@ function addSelectionValues(predictionsById, playersByPosition, allPlayers, shri
   });
 }
 
-// The same static data predicting with the ML model's figures (each
-// player's breakdown.ml) in place of the formula's, for admins comparing
-// the two. Players the model has nothing for keep the formula's figures.
-// Without the model's file for this gameweek it's the data unchanged.
-const modelViews = new WeakMap();
-export function withModelPredictions(staticData) {
-  if (!staticData || !staticData.mlBuiltAt) return staticData;
-  if (modelViews.has(staticData)) return modelViews.get(staticData);
+// The same static data predicting with one model alone, the formula's
+// ('formula', each player's breakdown.formula) or the ML model's ('ml',
+// breakdown.ml), in place of the blend, for admins comparing them. A
+// player the model has nothing for keeps the formula's figures. Without the
+// model's file for this gameweek every view is the formula's: the data
+// unchanged. The view's predictionView says which it is.
+const sourceViews = new WeakMap();
+export function withPredictionSource(staticData, source) {
+  if (!staticData || !staticData.mlBuiltAt || (source !== 'formula' && source !== 'ml')) return staticData;
+  if (!sourceViews.has(staticData)) sourceViews.set(staticData, {});
+  const views = sourceViews.get(staticData);
+  if (views[source]) return views[source];
   const predictionsById = {};
   for (const [id, pred] of Object.entries(staticData.predictionsById)) {
-    const ml = pred.breakdown && pred.breakdown.ml;
-    predictionsById[id] = ml
-      ? { ...pred, predicted: ml.predicted, nextMatchPredicted: ml.next, byGw: ml.byGw, range: ml.range, source: 'ml' }
+    const fig = pred.breakdown && pred.breakdown[source];
+    predictionsById[id] = fig
+      ? { ...pred, predicted: fig.predicted, nextMatchPredicted: fig.next, byGw: fig.byGw, range: source === 'ml' ? fig.range : null, source }
       : { ...pred };
   }
   addSelectionValues(predictionsById, staticData.playersByPosition, staticData.allPlayers, staticData.selectionShrinkage ?? DEFAULT_PREDICTION_WEIGHTS.selectionShrinkage);
-  const view = { ...staticData, predictionsById, predictionSource: 'ml' };
-  modelViews.set(staticData, view);
-  return view;
+  views[source] = { ...staticData, predictionsById, predictionView: source };
+  return views[source];
 }
 
 // Gameweeks predicted one by one for the transfer plan (byGw).

@@ -1251,11 +1251,11 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 
 /* Admin: formula v ML model head-to-head. */
 .fpl-h2h-scroll { overflow-x: auto; min-width: 0; max-width: 100%; }
-.fpl-h2h { min-width: 640px; }
+.fpl-h2h { min-width: 860px; }
 .fpl-h2h thead tr:first-child th { text-align: center; }
 .fpl-h2h td.is-win { color: var(--green); font-weight: 700; }
 .fpl-h2h tfoot { border-top: 1px solid var(--line); }
-.fpl-h2h-tally { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); font-size: 0.82rem; }
-.fpl-h2h-tally li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.fpl-h2h-tally { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); font-size: 0.82rem; }
+.fpl-h2h-tally li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
 /* The admin page's sections wrap onto more lines on a phone. */
 .fpl-admin-tabs { display: flex; flex-wrap: wrap; justify-self: start; max-width: 100%; }

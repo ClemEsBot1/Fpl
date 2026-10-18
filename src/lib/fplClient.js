@@ -108,33 +108,48 @@ export async function fetchMlPredictions(gwId = null) {
   }
 }
 
+// How much the model counts in the blend, per position, as the refresh job
+// last learned it (src/lib/modelWeeks.js). Best-effort: without it the
+// blend is half each.
+export async function fetchBlendWeights() {
+  try {
+    const r = await fetch('/api/optimal-squad?blend=1', { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function loadStaticData() {
-  const [bootstrap, fixturesRaw, playerHistoryData, oddsData, recent, mlData] = await Promise.all([
+  const [bootstrap, fixturesRaw, playerHistoryData, oddsData, recent, mlData, blendData] = await Promise.all([
     fetchFplJson('bootstrap-static/'),
     fetchFplJson('fixtures/'),
     fetchPlayerHistory(),
     fetchOdds(),
     fetchRecentMinutes(),
     fetchMlPredictions(),
+    fetchBlendWeights(),
   ]);
   const target = getTargetEvent(bootstrap.events);
   const recentMinutesById = recent && target && recent.gwId === target.id ? recent.minutes : null;
-  const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData, recentMinutesById, mlData });
+  const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData, recentMinutesById, mlData, blendData });
   // Kept so a past gameweek can be rebuilt "as of" its deadline.
-  return { ...staticData, raw: { bootstrap, fixturesRaw, playerHistoryData } };
+  return { ...staticData, raw: { bootstrap, fixturesRaw, playerHistoryData, blendData } };
 }
 
 // Static data for a past gameweek, using only what was known before its
 // deadline: player stats from earlier gameweeks (/api/as-of, see
 // src/lib/asOf.js), with that gameweek as the target. Bookmaker odds are
-// left out — the cached odds are for upcoming matches only.
+// left out — the cached odds are for upcoming matches only. The blend uses
+// today's weights.
 export async function loadStaticDataAsOf(base, gwId) {
   const [r, mlData] = await Promise.all([fetch(`/api/as-of?gw=${gwId}`), fetchMlPredictions(gwId)]);
   if (!r.ok) throw new Error('status ' + r.status);
   const asOf = await r.json();
   const bootstrap = applyAsOfStats(base.raw.bootstrap, asOf);
   const staticData = buildStaticDataFromRaw(bootstrap, base.raw.fixturesRaw, {
-    forceGwId: gwId, playerHistoryData: base.raw.playerHistoryData, oddsData: null, recentMinutesById: recentMinutesFromAsOf(asOf), mlData,
+    forceGwId: gwId, playerHistoryData: base.raw.playerHistoryData, oddsData: null, recentMinutesById: recentMinutesFromAsOf(asOf), mlData, blendData: base.raw.blendData,
   });
   return { ...staticData, raw: base.raw, asOfGwId: gwId };
 }

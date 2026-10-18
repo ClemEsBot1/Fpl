@@ -94,9 +94,19 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
       <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8, letterSpacing: '0.03em' }}>WHY THIS PREDICTION</div>
       {b.ml ? (
         <p style={{ fontSize: '0.78rem', lineHeight: 1.5, margin: '0 0 10px' }}>
-          Predicted by the formula below. For comparison, the <b>machine-learning model</b> says <span className="fpl-mono">{fmtPts(b.ml.next)}</span> this gameweek
-          {b.ml.range ? <> (likely <span className="fpl-mono">{fmtPts(b.ml.range.floor)}–{fmtPts(b.ml.range.ceiling)}</span>)</> : null}.
-          It's retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings and injury history, and keeps learning from each finished week.
+          {b.formula && typeof b.blendWeight === 'number' ? (
+            <>
+              A blend of two models. The formula below says <span className="fpl-mono">{fmtPts(b.formula.next)}</span> this gameweek and the <b>machine-learning model</b> <span className="fpl-mono">{fmtPts(b.ml.next)}</span>
+              {b.ml.range ? <> (likely <span className="fpl-mono">{fmtPts(b.ml.range.floor)}–{fmtPts(b.ml.range.ceiling)}</span>)</> : null}.
+              The model counts for <span className="fpl-mono">{Math.round(b.blendWeight * 100)}%</span> for this position, learned from which of the two has been nearer in recent gameweeks.
+            </>
+          ) : (
+            <>
+              Predicted by the formula below. For comparison, the <b>machine-learning model</b> says <span className="fpl-mono">{fmtPts(b.ml.next)}</span> this gameweek
+              {b.ml.range ? <> (likely <span className="fpl-mono">{fmtPts(b.ml.range.floor)}–{fmtPts(b.ml.range.ceiling)}</span>)</> : null}.
+            </>
+          )}
+          {' '}The model is retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings and injury history, and keeps learning from each finished week.
         </p>
       ) : null}
       {inputRows.map(([label, val], i) => (

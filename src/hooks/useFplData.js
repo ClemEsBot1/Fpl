@@ -3,7 +3,7 @@
 // any team's squad for a gameweek. Also the gameweek picked in the header.
 import { useEffect, useRef, useState } from 'react';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from '../lib/fplClient.js';
-import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, withModelPredictions } from '../lib/predictions.js';
+import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, withPredictionSource } from '../lib/predictions.js';
 import { liveTeamScore, projectedBonus, teamStates } from '../lib/live.js';
 import { computeOptimalXiTotal } from '../lib/squadLogic.js';
 import { readGwParam, readModelChoice, writeGwParam, writeModelChoice } from '../lib/appStorage.js';
@@ -42,17 +42,17 @@ export function scoreSlots(slots, staticData, liveById, isPastGw) {
   }).filter(Boolean);
 }
 
-// `admin`: whether the logged-in account may switch to the ML model's
-// predictions (see withModelPredictions).
+// `admin`: whether the logged-in account may switch from the blend to the
+// formula's or the ML model's predictions alone (see withPredictionSource).
 export function useFplData({ admin = false } = {}) {
   const [selectedGw, setSelectedGw] = useState(readGwParam); // null = use current/next gameweek
   const [modelChoice, setModelChoiceState] = useState(readModelChoice);
-  const useModel = admin && modelChoice === 'ml';
+  const choice = admin ? modelChoice : 'blend';
   // Read by loads already under way, so they use the choice made since.
-  const useModelRef = useRef(useModel);
-  useModelRef.current = useModel;
-  const setModelChoice = choice => { writeModelChoice(choice); setModelChoiceState(choice); };
-  const viewOf = data => (useModelRef.current ? withModelPredictions(data) : data);
+  const choiceRef = useRef(choice);
+  choiceRef.current = choice;
+  const setModelChoice = next => { writeModelChoice(next); setModelChoiceState(next); };
+  const viewOf = data => withPredictionSource(data, choiceRef.current);
   const [gwOptions, setGwOptions] = useState([]);
   // The current static data, for screens that show it directly (Home).
   const [liveStatic, setLiveStatic] = useState(null);
@@ -78,7 +78,7 @@ export function useFplData({ admin = false } = {}) {
   // loaded afresh for the next one. FPL is often unavailable for a while
   // just after a deadline, so if that fails the old data is used until the
   // next attempt works. ensureStaticData() gives it as the screens show
-  // it (the ML model's figures, when an admin picked them).
+  // it (one model's figures alone, when an admin picked one).
   function ensureStaticData() {
     return loadFormulaData().then(viewOf);
   }
@@ -174,9 +174,9 @@ export function useFplData({ admin = false } = {}) {
   // today's data; a past gameweek is rebuilt from only the gameweeks before
   // it (see src/lib/asOf.js), so its predictions can't see what happened
   // since. If that can't be loaded, falls back to today's data and says so.
-  // `formula` keeps the formula's predictions whatever an admin picked.
+  // `formula` uses the formula's predictions alone whatever an admin picked.
   async function staticDataForGw(gwId, { formula = false } = {}) {
-    const view = formula ? data => data : viewOf;
+    const view = formula ? data => withPredictionSource(data, 'formula') : viewOf;
     const base = await loadFormulaData();
     if (!gwId || gwId >= currentGwId(base)) return view(base);
     if (!asOfCacheRef.current.has(gwId)) {
@@ -362,8 +362,8 @@ export function useFplData({ admin = false } = {}) {
   }
 
   return {
-    selectedGw, setSelectedGw, gwOptions, liveStatic: useModel ? withModelPredictions(liveStatic) : liveStatic, staticDataRef,
-    modelChoice: useModel ? 'ml' : 'formula', setModelChoice, modelAvailable: !!(liveStatic && liveStatic.mlBuiltAt),
+    selectedGw, setSelectedGw, gwOptions, liveStatic: withPredictionSource(liveStatic, choice), staticDataRef,
+    modelChoice: choice, setModelChoice, modelAvailable: !!(liveStatic && liveStatic.mlBuiltAt),
     ensureStaticData, getOptimalXiTotal, staticDataForGw, formulaSnapshot, liveForGw, fixturesForGw, loadTeamForGw,
   };
 }

@@ -267,8 +267,8 @@ function ModelLearning({ playersById }) {
         <span className="fpl-mono fpl-home-meta">GW{pred.gwId}</span>
       </div>
       <p className="fpl-home-text" style={{ margin: 0 }}>
-        The app predicts with its formula. Alongside it, a machine-learning model is retrained every day on {Number(pred.trainedRows || 0).toLocaleString('en-GB')} player-gameweeks,
-        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}, and again every 2 hours before a deadline. Its figure shows next to each player's prediction, and each finished gameweek is added, so it keeps learning.
+        The app's predictions blend its formula with a machine-learning model, retrained every day on {Number(pred.trainedRows || 0).toLocaleString('en-GB')} player-gameweeks,
+        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}, and again every 2 hours before a deadline. Each finished gameweek is added, so it keeps learning, and the blend leans toward whichever of the two has been nearer lately.
       </p>
       {weeks.length ? (
         <ol className="fpl-ml-weeks" aria-label="Typical miss per player, each gameweek">
