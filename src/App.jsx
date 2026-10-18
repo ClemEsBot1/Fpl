@@ -251,20 +251,22 @@ export default function FPLSquadChecker() {
         return;
       }
 
-      // Current (open) gameweek. With an admin's ML view the squad is built
-      // here from the model's figures: the server's is the formula's.
-      const fromModel = staticData.predictionSource === 'ml';
-      const cacheKey = `fpl_optimal_squad_${staticData.seasonId || ''}_gw${resolvedGwId}${fromModel ? '_ml' : ''}`;
+      // Current (open) gameweek. The server's squad is picked with the
+      // blend (or the formula alone, before the model's file is out); when
+      // what's on screen predicts otherwise (an admin's view of one model
+      // alone, or the model's file came out since), it's built here.
+      const viewSource = staticData.predictionView || staticData.predictionSource || 'formula';
+      const cacheKey = `fpl_optimal_squad_${staticData.seasonId || ''}_gw${resolvedGwId}_${viewSource}`;
       let squad = null, bankTenths = null, builtAt = null;
 
       // 1) Prefer the shared snapshot our server refreshes automatically (see
       // api/refresh-optimal.js) — computed once and reused by every visitor,
       // rather than every browser solving the same optimisation on its own.
-      if (!fromModel) try {
+      try {
         const res = await fetch(`/api/optimal-squad?gw=${resolvedGwId}`);
         if (res.ok) {
           const snap = await res.json();
-          if (snap && snap.gwId === resolvedGwId && isThisSeason(snap)) {
+          if (snap && snap.gwId === resolvedGwId && isThisSeason(snap) && (snap.source || 'formula') === viewSource) {
             const hydrated = hydrateSquadSnapshot(snap, staticData);
             if (hydrated) { squad = hydrated.squad; bankTenths = hydrated.bankTenths; builtAt = snap.builtAt; }
           }
@@ -490,8 +492,8 @@ export default function FPLSquadChecker() {
 
   const { homeTeam, rememberHomeTeam, loadHomeTeam, homeLive } = useHomeTeam({ stage, savedTeams, fpl, buildResultsData });
 
-  // An admin switching between the formula and the ML model: the squad on
-  // screen is worked out again with the other one's predictions.
+  // An admin switching between the blend, the formula and the ML model: the
+  // squad on screen is worked out again with the chosen predictions.
   const modelChoiceRef = useRef(modelChoice);
   useEffect(() => {
     if (modelChoiceRef.current === modelChoice) return;

@@ -73,11 +73,17 @@ export function readTeamParam() {
   return team && /^\d{1,10}$/.test(team) ? team : null;
 }
 
-// Admins only: whether squads are predicted with the formula or the ML
-// model ('formula' | 'ml'), kept on this device.
-const MODEL_KEY = 'fpl_admin_model';
+// Admins only: whether squads are predicted with the blend everyone sees,
+// or the formula or the ML model alone ('blend' | 'formula' | 'ml'), kept
+// on this device. A new key, so a choice from before the blend doesn't
+// carry over.
+const MODEL_KEY = 'fpl_admin_predictions';
+export const MODEL_CHOICES = ['blend', 'formula', 'ml'];
 export function readModelChoice() {
-  try { return localStorage.getItem(MODEL_KEY) === 'ml' ? 'ml' : 'formula'; } catch { return 'formula'; }
+  try {
+    const choice = localStorage.getItem(MODEL_KEY);
+    return MODEL_CHOICES.includes(choice) ? choice : 'blend';
+  } catch { return 'blend'; }
 }
 export function writeModelChoice(choice) {
   try { localStorage.setItem(MODEL_KEY, choice); } catch { /* storage unavailable */ }

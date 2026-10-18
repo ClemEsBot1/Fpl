@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, withModelPredictions, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
+  seasonIdFor, snapshotIsForSeason, withPredictionSource, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
 } from '../src/lib/predictions.js';
 import { league } from './helpers/league.js';
 
@@ -259,7 +259,7 @@ test('bookmaker odds count once per priced match, and only in the weeks priced',
   assert.equal(Math.round((dgwOdds.nextMatchPredicted - dgwNone.nextMatchPredicted) * 10) / 10, 0.8);
 });
 
-test("the formula predicts; the ML model's figures ride along when its file is for this gameweek and season", () => {
+test("predictions blend the formula's and the ML model's figures when its file is for this gameweek and season", () => {
   const { bootstrap, fixtures } = league();
   const target = bootstrap.events.find(e => new Date(e.deadline_time).getTime() > Date.now()).id;
   const season = seasonIdFor(bootstrap.events);
@@ -270,44 +270,80 @@ test("the formula predicts; the ML model's figures ride along when its file is f
   const sd = buildStaticDataFromRaw(bootstrap, fixtures, { mlData });
   const p = sd.predictionsById[fit.id];
   const withoutMl = buildStaticDataFromRaw(bootstrap, fixtures, {}).predictionsById[fit.id];
-  assert.equal(p.source, 'formula');
-  assert.equal(p.nextMatchPredicted, withoutMl.nextMatchPredicted, 'the model doesn\'t change the prediction');
-  assert.deepEqual(p.byGw, withoutMl.byGw);
+  assert.equal(p.source, 'blend');
+  assert.equal(sd.predictionSource, 'blend');
+  assert.deepEqual(sd.blendWeights, { 1: 0.5, 2: 0.5, 3: 0.5, 4: 0.5 }, 'half each with no learned weights');
+  assert.equal(p.breakdown.blendWeight, 0.5);
+  assert.equal(p.breakdown.formula.next, withoutMl.nextMatchPredicted, 'the formula\'s own figure is kept');
+  assert.deepEqual(p.breakdown.formula.byGw, withoutMl.byGw);
+  const half = (f, m) => Math.round((f + m) / 2 * 10) / 10;
+  assert.equal(p.nextMatchPredicted, half(withoutMl.nextMatchPredicted, 6));
+  assert.equal(p.predicted, half(withoutMl.predicted, 4.5));
+  assert.deepEqual(p.byGw.map(w => w.points), withoutMl.byGw.map((w, k) => half(w.points, [6, 4, 4, 4, 2][k])));
   assert.equal(p.breakdown.ml.next, 6);
   assert.equal(p.breakdown.ml.predicted, 4.5); // the next four weeks' average
   assert.deepEqual(p.breakdown.ml.byGw.map(w => w.points), [6, 4, 4, 4, 2]);
   assert.equal(sd.mlBuiltAt, '2026-10-01T04:20:00Z');
   // FPL's 50% flag still halves the model's figure.
   assert.equal(sd.predictionsById[doubt.id].breakdown.ml.next, 2.5);
-  // Players the model has nothing for have no figure from it.
-  assert.equal(sd.predictionsById[bootstrap.elements[0].id].breakdown.ml, null);
+  // Players the model has nothing for have no figure from it, and keep the formula's.
+  const other = bootstrap.elements[0].id;
+  assert.equal(sd.predictionsById[other].breakdown.ml, null);
+  assert.equal(sd.predictionsById[other].source, 'formula');
+  assert.equal(sd.predictionsById[other].nextMatchPredicted, buildStaticDataFromRaw(bootstrap, fixtures, {}).predictionsById[other].nextMatchPredicted);
+  // Learned weights, when they're this season's: the model counting 80%.
+  const pos = bootstrap.elements[3].element_type;
+  const learned = buildStaticDataFromRaw(bootstrap, fixtures, { mlData, blendData: { season, weights: { 1: 0.8, 2: 0.8, 3: 0.8, 4: 0.8 } } });
+  assert.equal(learned.blendWeights[pos], 0.8);
+  assert.equal(learned.predictionsById[fit.id].nextMatchPredicted, Math.round((0.2 * withoutMl.nextMatchPredicted + 0.8 * 6) * 10) / 10);
+  const lastSeason = buildStaticDataFromRaw(bootstrap, fixtures, { mlData, blendData: { season: '1999-00', weights: { 1: 0.8, 2: 0.8, 3: 0.8, 4: 0.8 } } });
+  assert.equal(lastSeason.blendWeights[pos], 0.5, "last season's weights aren't used");
+  // Without the model's file it's the formula alone.
+  const formulaOnly = buildStaticDataFromRaw(bootstrap, fixtures, {});
+  assert.equal(formulaOnly.predictionSource, 'formula');
+  assert.equal(formulaOnly.blendWeights, null);
+  assert.equal(formulaOnly.predictionsById[fit.id].source, 'formula');
   // A file for another gameweek or season is ignored.
   assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, gwId: target + 1 } }).predictionsById[fit.id].breakdown.ml, null);
   assert.equal(buildStaticDataFromRaw(bootstrap, fixtures, { mlData: { ...mlData, season: '1999-00' } }).predictionsById[fit.id].breakdown.ml, null);
 });
 
-test("the admin's ML view predicts with the model's figures where it has some, and the formula's elsewhere", () => {
+test("an admin's formula or ML view predicts with that model alone, and the formula's figures where the model has none", () => {
   const { bootstrap, fixtures } = league();
   const target = bootstrap.events.find(e => new Date(e.deadline_time).getTime() > Date.now()).id;
   const season = seasonIdFor(bootstrap.events);
   const fit = bootstrap.elements[3];
   const mlData = { season, gwId: target, builtAt: '2026-10-01T04:20:00Z', byId: { [fit.id]: [6, 4, 4, 4, 2] } };
   const sd = buildStaticDataFromRaw(bootstrap, fixtures, { mlData });
-  const view = withModelPredictions(sd);
-  const p = view.predictionsById[fit.id];
+  const formulaAlone = buildStaticDataFromRaw(bootstrap, fixtures, {}).predictionsById[fit.id];
+
+  const ml = withPredictionSource(sd, 'ml');
+  const p = ml.predictionsById[fit.id];
   assert.equal(p.source, 'ml');
   assert.equal(p.nextMatchPredicted, 6);
   assert.equal(p.predicted, 4.5);
   assert.deepEqual(p.byGw.map(w => w.points), [6, 4, 4, 4, 2]);
   assert.ok(p.selectionValue !== sd.predictionsById[fit.id].selectionValue, 'picking uses the model too');
+  assert.equal(ml.predictionView, 'ml');
+
+  const formula = withPredictionSource(sd, 'formula');
+  const f = formula.predictionsById[fit.id];
+  assert.equal(f.source, 'formula');
+  assert.equal(f.nextMatchPredicted, formulaAlone.nextMatchPredicted);
+  assert.equal(f.predicted, formulaAlone.predicted);
+  assert.deepEqual(f.byGw, formulaAlone.byGw);
+  assert.equal(f.range, null);
+  assert.equal(formula.predictionView, 'formula');
+
   const other = bootstrap.elements[0].id;
-  assert.equal(view.predictionsById[other].predicted, sd.predictionsById[other].predicted, 'no model figure: the formula stays');
-  assert.equal(view.predictionSource, 'ml');
-  assert.equal(sd.predictionsById[fit.id].source, 'formula', 'the formula data is left as it was');
-  assert.equal(withModelPredictions(sd), view, 'the same view each time');
+  assert.equal(ml.predictionsById[other].predicted, sd.predictionsById[other].predicted, 'no model figure: the formula stays');
+  assert.equal(sd.predictionsById[fit.id].source, 'blend', 'the blended data is left as it was');
+  assert.equal(withPredictionSource(sd, 'ml'), ml, 'the same view each time');
+  assert.equal(withPredictionSource(sd, 'blend'), sd, 'the blend is the data itself');
   const noModel = buildStaticDataFromRaw(bootstrap, fixtures, {});
-  assert.equal(withModelPredictions(noModel), noModel, 'nothing to switch to without the model file');
-  const { squad } = buildOptimalTeam(view, SQUAD_BUDGET);
+  assert.equal(withPredictionSource(noModel, 'ml'), noModel, 'nothing to switch to without the model file');
+  assert.equal(withPredictionSource(noModel, 'formula'), noModel);
+  const { squad } = buildOptimalTeam(ml, SQUAD_BUDGET);
   assert.equal(squad.length, 15);
 });
 

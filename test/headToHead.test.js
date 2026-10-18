@@ -64,12 +64,79 @@ test('the admin head-to-head scores each finished gameweek that has both files, 
   const out = await modelHeadToHead(redis, { host: 'localhost:3000', fetchImpl, blob });
   assert.equal(out.season, season);
   const week = out.weeks.find(w => w.gwId === last);
-  assert.ok(week.formula && week.ml, 'both scored');
+  assert.ok(week.formula && week.ml && week.blend, 'all three scored');
   assert.equal(week.ml.meanAbsError, week.formula.meanAbsError);
+  assert.equal(week.blendLearned, false, 'saved before the blend: worked out at half each');
+  assert.equal(week.blend.meanAbsError, week.formula.meanAbsError);
+  assert.equal(out.blendWeights, null, 'no weights learned yet');
   assert.deepEqual(out.weeks.find(w => w.gwId === finished[0]).missing, ['formula', 'ml']);
   // Scored once: the second look reads it back without fetching it again.
   urls.length = 0;
   const again = await modelHeadToHead(redis, { host: 'localhost:3000', fetchImpl, blob });
   assert.deepEqual(again.weeks.find(w => w.gwId === last), week);
   assert.ok(!urls.some(u => u.includes(`event/${last}/live/`) || u.includes(`predictions-gw${last}.json`)), 'the scored week is not fetched again');
+});
+
+test("the blend that ran is scored as it was, from the file saved with each model's figures", async () => {
+  const { modelHeadToHead } = await import('../src/lib/adminServer.js');
+  const { fakeRedis } = await import('./helpers/fakeRedis.js');
+  const { seasonIdFor } = await import('../src/lib/predictions.js');
+  const season = seasonIdFor(bootstrap.events);
+  const finished = bootstrap.events.filter(e => e.finished).map(e => e.id);
+  const last = finished[finished.length - 1];
+  const exact = Object.fromEntries(ids.map(id => [id, scored(id)]));
+  const off = Object.fromEntries(ids.map(id => [id, scored(id) + 2]));
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(url);
+    const body = url.endsWith('bootstrap-static/') ? bootstrap : url.endsWith('fixtures/') ? fixtures : url.includes('/live/') ? { elements: live } : null;
+    return { ok: !!body, json: async () => body };
+  };
+  const files = {
+    [`predictions-gw${last}.json`]: { gwId: last, season, source: 'blend', predictedById: exact, formulaById: off, mlById: off, mlBuiltAt: 'y' },
+    'blend-weights.json': { season, throughGw: last, weights: { 1: 0.4, 2: 0.5, 3: 0.6, 4: 0.7 }, weeks: 3 },
+  };
+  const blob = { get: async pathname => (files[pathname] ? { stream: new Response(JSON.stringify(files[pathname])).body } : null) };
+  const out = await modelHeadToHead(fakeRedis(), { host: 'localhost:3000', fetchImpl, blob });
+  const week = out.weeks.find(w => w.gwId === last);
+  assert.equal(week.blendLearned, true);
+  assert.equal(week.blend.meanAbsError, 0, 'the blend as saved');
+  assert.equal(week.formula.meanAbsError, 2);
+  assert.equal(week.mlBuiltAt, 'y');
+  assert.ok(!urls.some(u => u.includes(`/ml/predictions-gw${last}.json`)), "the model's figures came with the saved file");
+  assert.deepEqual(out.blendWeights.weights, { 1: 0.4, 2: 0.5, 3: 0.6, 4: 0.7 });
+  assert.equal(out.blendWeights.weeks, 3);
+});
+
+test('the refresh job learns the weights once a gameweek has finished, and keeps them until the next', async () => {
+  const { refreshBlendWeights } = await import('../src/lib/modelWeeks.js');
+  const { seasonIdFor } = await import('../src/lib/predictions.js');
+  const season = seasonIdFor(bootstrap.events);
+  const finished = bootstrap.events.filter(e => e.finished).map(e => e.id);
+  const last = finished[finished.length - 1];
+  // The model spot on, the formula 2 out, for every finished gameweek.
+  const exact = Object.fromEntries(ids.map(id => [id, scored(id)]));
+  const off = Object.fromEntries(ids.map(id => [id, scored(id) + 2]));
+  const files = Object.fromEntries(finished.map(gw => [`predictions-gw${gw}.json`, { gwId: gw, season, source: 'blend', predictedById: off, formulaById: off, mlById: exact }]));
+  const puts = [];
+  const blob = {
+    get: async pathname => (files[pathname] ? { stream: new Response(JSON.stringify(files[pathname])).body } : null),
+    put: async (pathname, body) => { puts.push(pathname); files[pathname] = JSON.parse(body); },
+  };
+  const fetchImpl = async url => ({ ok: url.includes('/live/'), json: async () => ({ elements: live }) });
+  const now = () => new Date('2026-10-18T06:00:00Z');
+  const learned = await refreshBlendWeights({ bootstrap, base: null, fetchImpl, blob, now });
+  assert.equal(learned.season, season);
+  assert.equal(learned.throughGw, last);
+  assert.deepEqual(learned.gws, finished.slice(-8));
+  for (const pos of [1, 2, 3, 4]) assert.ok(learned.weights[pos] > 0.5, `the model counts for more: ${pos} ${learned.weights[pos]}`);
+  assert.deepEqual(puts, ['blend-weights.json']);
+  // Kept: nothing new has finished.
+  const again = await refreshBlendWeights({ bootstrap, base: null, fetchImpl, blob, now });
+  assert.deepEqual(again, learned);
+  assert.equal(puts.length, 1, 'not learned again');
+  // Last season's weights are learned again.
+  files['blend-weights.json'] = { ...learned, season: '1999-00' };
+  await refreshBlendWeights({ bootstrap, base: null, fetchImpl, blob, now });
+  assert.equal(puts.length, 2);
 });

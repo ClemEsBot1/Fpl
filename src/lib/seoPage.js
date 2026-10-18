@@ -146,7 +146,7 @@ export function staticPages() {
           '<b>Form and underlying stats</b>: recent points, expected goals and assists, set pieces.',
           '<b>Betting odds</b>: the bookmakers’ view of goals and clean sheets for each match.',
           '<b>Injury and suspension news</b>: a player FPL rules out is predicted 0; a doubt is scaled by his chance of playing.',
-        ])}<p>A machine-learning model trained on every gameweek since 2020 runs alongside, and its figure is shown next to each player for comparison.</p>`)
+        ])}<p>That formula is blended with a machine-learning model trained on every gameweek since 2020. How much each counts is learned from how close each has been in recent gameweeks, position by position.</p>`)
           + section('What you can do with it', list([
             'See your squad’s predicted points for the gameweek, captain doubled.',
             'Pick the best starting XI and bench order automatically.',

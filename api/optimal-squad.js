@@ -1,5 +1,6 @@
 import { get, list } from '@vercel/blob';
 import { snapshotPathnameFor } from './refresh-optimal.js';
+import { BLEND_WEIGHTS_PATHNAME } from '../src/lib/modelWeeks.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/predictions.js';
 import { SITE, predictionsPage } from '../src/lib/seoPage.js';
@@ -373,8 +374,21 @@ async function socialHandler(req, res) {
   }
 }
 
+// GET ?blend=1 — the blend's weights the refresh job last learned (see
+// src/lib/modelWeeks.js), for the app to blend with the same ones.
+async function blendWeightsHandler(req, res) {
+  try {
+    const data = await readBlobJson(BLEND_WEIGHTS_PATHNAME);
+    if (!data) { res.status(404).setHeader('Cache-Control', 'public, max-age=300, s-maxage=300').json({ error: 'not_learned_yet' }); return; }
+    res.status(200).setHeader('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=86400').json(data);
+  } catch (e) {
+    res.status(502).setHeader('Cache-Control', 'no-store').json({ error: 'blend_failed', detail: String((e && e.message) || e) });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.query && req.query.social) return socialHandler(req, res);
+  if (req.query && req.query.blend) return blendWeightsHandler(req, res);
   if (req.query && req.query.page) return seoHtml(req, res);
   const gwId = Number(req.query && req.query.gw);
   if (!gwId || !Number.isInteger(gwId) || gwId < 1) {
