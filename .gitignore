@@ -39,4 +39,6 @@ scripts/ml/.cache
 __pycache__
 
 # graphify knowledge graph (rebuilt by hooks)
-graphify-out/
+graphify-out/*
+# Answers to the report's questions (graphify save-result), kept between sessions.
+!graphify-out/memory/
