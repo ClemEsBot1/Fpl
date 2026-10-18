@@ -1,0 +1,59 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null && cd \"$CLAUDE_PROJECT_DIR\" && graphify update . >/dev/null 2>&1; true",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"$CLAUDE_PROJECT_DIR/graphify-out/graph.json\" ] && echo 'Codebase questions: answer from the knowledge graph, not memory. Run graphify query \"<question>\" (or graphify explain / graphify path) before reading or grepping source.'; true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null && graphify hook-guard search; true",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null && graphify hook-guard read; true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null && cd \"$CLAUDE_PROJECT_DIR\" && graphify update . >/dev/null 2>&1; true",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
