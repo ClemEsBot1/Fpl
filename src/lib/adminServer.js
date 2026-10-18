@@ -4,11 +4,14 @@
 //
 // Admins are the usernames in ADMIN_USERNAMES (comma separated), "clem"
 // when it isn't set.
-import { del as blobDel, head as blobHead, list as blobList } from '@vercel/blob';
+import { del as blobDel, get as blobGet, head as blobHead, list as blobList } from '@vercel/blob';
 import { getJSON, setJSON, updateJSON } from './redis.js';
 import { emailKeyFor, normalizeUsername, userKeyFor } from './auth.js';
 import { googleKeyFor } from './googleAuth.js';
 import { recentErrors } from './errorLog.js';
+import { predictionsPathnameFor } from './accuracy.js';
+import { compareGameweek } from './headToHead.js';
+import { buildStaticDataFromRaw, seasonIdFor, snapshotFromModel, snapshotIsForSeason } from './predictions.js';
 
 const FPL = 'https://fantasy.premierleague.com/api/';
 const REPORTS_PREFIX = 'screenshot-reports/';
@@ -247,6 +250,54 @@ export async function healthReport(redis, { host, fetchImpl = fetch, blob = { he
     canRefresh: !!process.env.CRON_SECRET,
     errors: await recentErrors(redis, 25),
   };
+}
+
+/* ------------------------ formula v ML model ------------------------ */
+
+const HEAD_TO_HEAD_GWS = 8;
+
+async function blobJson(blob, pathname) {
+  const r = await blob.get(pathname, { access: 'public', useCache: false });
+  return r ? JSON.parse(await new Response(r.stream).text()) : null;
+}
+
+// The formula and the ML model side by side for the last few finished
+// gameweeks (src/lib/headToHead.js). A gameweek is kept in Redis once it's
+// scored: its points and both sets of predictions never change.
+export async function modelHeadToHead(redis, { host, fetchImpl = fetch, blob = { get: blobGet } } = {}) {
+  const base = host ? `${host.startsWith('localhost') ? 'http' : 'https'}://${host}` : null;
+  const [bootstrap, fixtures] = await Promise.all([jsonFrom(fetchImpl, `${FPL}bootstrap-static/`), jsonFrom(fetchImpl, `${FPL}fixtures/`)]);
+  if (!bootstrap || !fixtures) return { error: 'fpl_unavailable' };
+  const season = seasonIdFor(bootstrap.events);
+  const finished = (bootstrap.events || []).filter(e => e.finished && e.data_checked !== false).slice(-HEAD_TO_HEAD_GWS);
+  let staticData = null;
+  const positionById = Object.fromEntries((bootstrap.elements || []).map(e => [e.id, e.element_type]));
+  const weeks = [];
+  for (const event of finished) {
+    const key = `admin:head-to-head:${season}:gw${event.id}`;
+    const cached = await getJSON(redis, key);
+    if (cached) { weeks.push(cached); continue; }
+    const [saved, mlFile, live] = await Promise.all([
+      blobJson(blob, predictionsPathnameFor(event.id)).catch(() => null),
+      base ? jsonFrom(fetchImpl, `${base}/ml/predictions-gw${event.id}.json`) : null,
+      jsonFrom(fetchImpl, `${FPL}event/${event.id}/live/`),
+    ]);
+    // A saved file the model picked (see snapshotFromModel) isn't the formula's.
+    const formula = saved && saved.predictedById && snapshotIsForSeason(saved, season, bootstrap.events) && !snapshotFromModel(saved) ? saved.predictedById : null;
+    const ml = mlFile && mlFile.byId && mlFile.season === season && mlFile.gwId === event.id
+      ? Object.fromEntries(Object.entries(mlFile.byId).map(([id, v]) => [id, Array.isArray(v) ? v[0] : v]))
+      : null;
+    if (!formula || !ml || !live) {
+      weeks.push({ gwId: event.id, missing: [!formula && 'formula', !ml && 'ml', !live && 'points'].filter(Boolean) });
+      continue;
+    }
+    staticData = staticData || buildStaticDataFromRaw(bootstrap, fixtures);
+    const result = compareGameweek({ formula, ml, live: live.elements || [], positionById, staticData });
+    const week = { gwId: event.id, formula: result.formula, ml: result.ml, mlBuiltAt: mlFile.builtAt || null };
+    if (result.formula && result.ml) await setJSON(redis, key, week);
+    weeks.push(week);
+  }
+  return { season, weeks };
 }
 
 // Starts the ML retraining workflow now (needs GITHUB_DISPATCH_TOKEN: a

@@ -910,7 +910,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-plan .fpl-btn { justify-self: start; }
 
 /* Tool screens: Fixtures, Compare players, Live. */
-.fpl-tool { padding: 20px 16px 100px; display: grid; gap: 14px; min-width: 0; }
+.fpl-tool { padding: 20px 16px 100px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
 @media (min-width: 900px) { .fpl-tool { padding: 28px 32px 60px; } }
 .fpl-tool-head { display: grid; gap: 4px; }
 .fpl-tool-h { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.5rem; letter-spacing: -0.01em; }
@@ -946,7 +946,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-compare-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .fpl-compare-add { max-width: 420px; }
-.fpl-compare-wrap { overflow-x: auto; }
+.fpl-compare-wrap { overflow-x: auto; position: relative; } /* keeps the screen-reader-only labels inside it from widening the page */
 .fpl-compare { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: calc(130px + var(--cols) * 120px); }
 .fpl-compare col:first-child, .fpl-compare tbody th { width: 130px; }
 .fpl-compare thead th { vertical-align: top; padding: 0 6px 12px; text-align: center; font-weight: 400; }
@@ -1248,3 +1248,14 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-model-switch-note { font-size: 0.75rem; }
 .fpl-seg button:disabled { opacity: 0.45; cursor: not-allowed; }
 .fpl-seg button:active:not(:disabled) { transform: scale(0.97); }
+
+/* Admin: formula v ML model head-to-head. */
+.fpl-h2h-scroll { overflow-x: auto; min-width: 0; max-width: 100%; }
+.fpl-h2h { min-width: 640px; }
+.fpl-h2h thead tr:first-child th { text-align: center; }
+.fpl-h2h td.is-win { color: var(--green); font-weight: 700; }
+.fpl-h2h tfoot { border-top: 1px solid var(--line); }
+.fpl-h2h-tally { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); font-size: 0.82rem; }
+.fpl-h2h-tally li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+/* The admin page's sections wrap onto more lines on a phone. */
+.fpl-admin-tabs { display: flex; flex-wrap: wrap; justify-self: start; max-width: 100%; }
