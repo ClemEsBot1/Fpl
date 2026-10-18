@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blueskyConfigured, blueskyRecord, captainPost, customPost, markSent, sentKey, sentTo, differentialPost, duePosts, pastResults, postBluesky, previewPost, resultsPost, runSocial, tweetLength, xIntentUrl } from '../src/lib/social.js';
+import { captainPost, customPost, differentialPost, duePosts, pastResults, previewPost, resultsPost, tweetLength, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, blueskyRecord, postBluesky } from '../src/lib/bluesky.js';
+import { markSent, sentKey, sentTo, runSocial } from '../src/lib/socialSent.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { seoModel } from '../src/lib/seoDynamic.js';
 import { fakeRedis } from './helpers/fakeRedis.js';

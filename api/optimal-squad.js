@@ -5,7 +5,9 @@ import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/pre
 import { SITE, predictionsPage } from '../src/lib/seoPage.js';
 import { summariseAccuracy } from '../src/lib/accuracy.js';
 import { getRedis } from '../src/lib/redis.js';
-import { blueskyConfigured, customPost, duePosts, pastResults, postBluesky, runSocial, sentTo, xIntentUrl } from '../src/lib/social.js';
+import { customPost, duePosts, pastResults, xIntentUrl } from '../src/lib/social.js';
+import { blueskyConfigured, postBluesky } from '../src/lib/bluesky.js';
+import { runSocial, sentTo } from '../src/lib/socialSent.js';
 import { mailerConfigured, sendMail } from '../src/lib/mailer.js';
 import { socialDraftEmail } from '../src/lib/emails.js';
 import { embedCaptainsHtml, leaguePage, tipsPage } from '../src/lib/seoExtra.js';

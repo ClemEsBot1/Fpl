@@ -22,7 +22,7 @@ import {
   setReportDone, signOutEverywhere, socialPosts, socialSend, triggerRetrain, userStats, usersCsv,
   deleteUser as deleteAccount,
 } from '../src/lib/adminServer.js';
-import { markSent } from '../src/lib/social.js';
+import { markSent } from '../src/lib/socialSent.js';
 import { recordEvent, usageReport } from '../src/lib/usage.js';
 import { addFeedback, cleanFeedback, clearFeedback, listFeedback } from '../src/lib/feedback.js';
 import { digestHandler } from '../src/lib/digestHandler.js';
