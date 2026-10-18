@@ -9,7 +9,9 @@ Rules:
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 - Use the graph, not memory, for codebase questions. Hooks in .claude/settings.json rebuild it at session start and after each reply.
+## Pull requests
 
+- Merge your own PRs yourself: once CI is green on the latest commit, there is no merge conflict and no review comment is left unanswered, squash-merge it without waiting to be asked.
 ## Bugs
 
 - When you find a bug while working on something else, fix it in the same PR (with a test that fails without the fix) instead of only reporting it or asking first. Say in the PR what it was.
