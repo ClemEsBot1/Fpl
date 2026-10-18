@@ -2,7 +2,7 @@
 // src/lib/adminServer.js). Every request goes through /api/auth, which
 // checks the session belongs to an admin before doing anything.
 import { useCallback, useEffect, useState } from 'react';
-import { Activity, BrainCircuit, Camera, Check, Copy, Download, ExternalLink, Megaphone, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
+import { Activity, BarChart3, BrainCircuit, Camera, Check, Copy, Download, ExternalLink, Megaphone, MessageSquare, RefreshCw, Search, ShieldCheck, Trash2, TriangleAlert, Undo2, UserX, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import { fmtPts } from '../lib/format.js';
 
@@ -421,8 +421,72 @@ function UsersTab({ me }) {
   );
 }
 
+// What people use (src/lib/usage.js) and what they've written in.
+function Insights() {
+  const [usage, setUsage] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  useEffect(() => {
+    adminCall('usage').then(r => setUsage(r.ok ? r.data : { error: r.error }));
+    adminCall('feedback').then(r => setFeedback(r.ok ? r.data.feedback : { error: r.error }));
+  }, []);
+  const shownDays = 7;
+  return (
+    <div className="fpl-admin-grid">
+      <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-usage">
+        <h2 id="adm-usage" className="fpl-home-h"><BarChart3 size={18} aria-hidden="true" /> What people use</h2>
+        {!usage ? <SkeletonRows rows={5} label="Counting…" /> : usage.error ? <p role="alert">{usage.error}</p> : (
+          <div className="fpl-admin-usage-wrap">
+            <table className="fpl-admin-usage">
+              <thead>
+                <tr>
+                  <th scope="col">Action</th>
+                  {usage.days.slice(0, shownDays).map((d, i) => <th key={d} scope="col" className="fpl-mono">{i === 0 ? 'Today' : d.slice(5)}</th>)}
+                  <th scope="col">14 days</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.rows.map(row => (
+                  <tr key={row.name}>
+                    <th scope="row">{row.label}</th>
+                    {row.counts.slice(0, shownDays).map((n, i) => <td key={i} className="fpl-mono">{n || '·'}</td>)}
+                    <td className="fpl-mono"><b>{row.total}</b></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="fpl-meta" style={{ margin: '8px 0 0' }}>Counted from today on: no cookies, nothing personal. Sign-ups and logins are counted on the server.</p>
+          </div>
+        )}
+      </section>
+      <section className="fpl-glass fpl-tool-card" aria-labelledby="adm-feedback">
+        <h2 id="adm-feedback" className="fpl-home-h"><MessageSquare size={18} aria-hidden="true" /> Feedback</h2>
+        {!feedback ? <SkeletonRows rows={3} label="Loading feedback…" /> : feedback.error ? <p role="alert">{feedback.error}</p> : !feedback.length ? <p className="fpl-tool-note">No feedback yet.</p> : (
+          <>
+            <ul className="fpl-admin-feedback">
+              {feedback.map((f, i) => (
+                <li key={`${f.at}-${i}`}>
+                  <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{f.text}</p>
+                  <span className="fpl-mono fpl-meta">
+                    {new Date(f.at).toLocaleString('en-GB')}{f.username ? ` · ${f.username}` : ''}{f.page ? ` · on ${f.page}` : ''}
+                    {f.email ? <> · <a className="fpl-link" href={`mailto:${f.email}`}>{f.email}</a></> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="fpl-btn fpl-btn-danger" style={{ marginTop: 10 }} onClick={async () => {
+              if (!window.confirm('Delete all feedback?')) return;
+              if ((await adminCall('feedback_clear')).ok) setFeedback([]);
+            }}><Trash2 size={15} aria-hidden="true" /> Clear all</button>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
 const TABS = [
   { id: 'health', label: 'Model and data', Icon: Activity },
+  { id: 'insights', label: 'Usage and feedback', Icon: BarChart3 },
   { id: 'reports', label: 'Screenshot reports', Icon: Camera },
   { id: 'users', label: 'Users', Icon: Users },
   { id: 'social', label: 'Social', Icon: Megaphone },
@@ -443,7 +507,7 @@ export function AdminScreen({ session }) {
           </button>
         ))}
       </div>
-      {tab === 'health' ? <Health /> : tab === 'reports' ? <Reports /> : tab === 'social' ? <Social /> : <UsersTab me={session.username} />}
+      {tab === 'health' ? <Health /> : tab === 'insights' ? <Insights /> : tab === 'reports' ? <Reports /> : tab === 'social' ? <Social /> : <UsersTab me={session.username} />}
     </div>
   );
 }

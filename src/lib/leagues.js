@@ -311,3 +311,14 @@ export function headToHead(you, rival) {
     edge: round(yourOnly.reduce((s, r) => s + (r.starting ? r.predicted : 0), 0) - theirOnly.reduce((s, r) => s + (r.starting ? r.predicted : 0), 0)),
   };
 }
+
+// A team's most recent gameweek of transfers from FPL's entry/<id>/
+// transfers/ list (FPL only shows them once that deadline has passed):
+// { gw, moves: [{ inId, outId }] }, or null when there are none.
+export function latestTransfers(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  const gw = Math.max(...list.map(t => Number(t.event) || 0));
+  if (!gw) return null;
+  const moves = list.filter(t => Number(t.event) === gw).map(t => ({ inId: t.element_in, outId: t.element_out }));
+  return { gw, moves };
+}

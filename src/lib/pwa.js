@@ -2,6 +2,7 @@
 // and exposes Chrome's "install this app" prompt so the home screen can
 // offer an Install button.
 import { useEffect, useState } from 'react';
+import { track } from './track.js';
 
 export function registerServiceWorker() {
   // Dev builds change on every save; a service worker would serve stale code.
@@ -23,6 +24,7 @@ if (typeof window !== 'undefined') {
     notify();
   });
   window.addEventListener('appinstalled', () => {
+    track('install');
     deferredPrompt = null;
     notify();
   });

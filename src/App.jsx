@@ -6,7 +6,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ErrorScreen, Header, LoadingScreen } from './components/common.jsx';
 import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDeadlineSoon, officialGwPoints } from './lib/format.js';
-import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from './lib/fplClient.js';
+import { fetchFplJson, loadStaticData, loadStaticDataAsOf, onFplStale } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, formulaSnapshotFor, getDefaultEvent, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, snapshotIsForSeason } from './lib/predictions.js';
 import { forEachLimited, livePointsFor, memberWeekStats, parseStandings, predictedXiTotal, privateLeagues } from './lib/leagues.js';
 import { liveTeamScore, projectedBonus, teamStates } from './lib/live.js';
@@ -14,13 +14,16 @@ import { summariseAccuracy } from './lib/accuracy.js';
 import { buildRecap, lastFinishedGw, leagueSlide, markRecapSeen, recapSeenFor } from './lib/recap.js';
 import { clearTeamEdit, saveTeamEdit, teamEditFor } from './lib/teamEdits.js';
 import { computeOptimalXiTotal, computeSquadScore, ensureCaptaincy, matchExtractedSquad, squadProblems, suggestCaptain, suggestTransfers } from './lib/squadLogic.js';
-import { Bookmark, CalendarRange, Camera, Compass, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2, X } from 'lucide-react';
+import { Bookmark, MessageSquare, CalendarRange, Camera, Compass, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2, X } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
 import { TeamIdForm } from './screens/IntroScreen.jsx';
 import { TermsDialog } from './components/TermsDialog.jsx';
 import { TERMS_VERSION } from './lib/terms.js';
+import { track } from './lib/track.js';
+import { parseTeamId } from './lib/teamIdInput.js';
+import { showIosInstallTip } from './lib/iosInstall.js';
 import { TESTER_GROUP_URL, TESTER_OPT_IN_URL, isAppLaunch, showTesterBar } from './lib/androidTesters.js';
 import './styles.css';
 
@@ -243,6 +246,15 @@ function readTesterBarShown() {
   const standalone = !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   return showTesterBar({ userAgent: navigator.userAgent, referrer: document.referrer, standalone, inApp, dismissed: stored === 'hidden' });
 }
+// The iPhone "Add to Home Screen" tip, hidden for good once closed.
+const IOS_TIP_KEY = 'fpl_ios_tip';
+function readIosTipShown() {
+  if (typeof window === 'undefined') return false;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(IOS_TIP_KEY) === 'hidden'; } catch { /* storage unavailable */ }
+  const standalone = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  return showIosInstallTip({ userAgent: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints || 0, standalone, dismissed });
+}
 function writeTesterBarHidden() {
   try { localStorage.setItem(TESTER_BAR_KEY, 'hidden'); } catch { /* storage unavailable */ }
 }
@@ -318,6 +330,15 @@ export default function FPLSquadChecker() {
   // The "confirm your email" bar, hidden for this visit once dismissed.
   const [verifyBarHidden, setVerifyBarHidden] = useState(false);
   const [testerBarShown, setTesterBarShown] = useState(readTesterBarShown);
+  const [iosTipShown, setIosTipShown] = useState(readIosTipShown);
+  // When FPL is down: the time of the saved data being shown instead.
+  const [fplStaleAt, setFplStaleAt] = useState(null);
+  useEffect(() => onFplStale(setFplStaleAt), []);
+  // Counts the screens worth knowing about as they're opened.
+  useEffect(() => {
+    const name = { league: 'league', live: 'live', customBuild: 'build_squad' }[stage];
+    if (name) track(name);
+  }, [stage]);
 
   const staticPromiseRef = useRef(null);
   // The most recently loaded static data (to tell when its gameweek has
@@ -571,6 +592,16 @@ export default function FPLSquadChecker() {
     setStage('welcome');
   }
 
+  // The "Send feedback" pop-up. True once it's sent.
+  async function handleSendFeedback({ text, email }) {
+    setAuthError('');
+    setAuthLoading(true);
+    const result = await postJson('/api/auth', { action: 'feedback', text, email, page: stage });
+    setAuthLoading(false);
+    if (!result.ok) { setAuthError(result.error); return false; }
+    return true;
+  }
+
   // A username and password for an account made with Google.
   async function handleSetCredentials({ username, password }) {
     setAuthError('');
@@ -639,7 +670,9 @@ export default function FPLSquadChecker() {
   }
 
   async function handleSaveTeamId(teamId, label, gwId) {
-    return handleTeamsResult(await postJson('/api/teams', { type: 'teamId', teamId, label, gwId }));
+    const result = handleTeamsResult(await postJson('/api/teams', { type: 'teamId', teamId, label, gwId }));
+    if (result.ok) track('save_team');
+    return result;
   }
 
   // Saves the squad as it stands: players, armbands, the starting XI and
@@ -1039,6 +1072,7 @@ export default function FPLSquadChecker() {
   }
 
   async function loadOptimalSquadForGw(gwId) {
+    track('best_squad');
     const ticket = newTicket();
     showLoading(ticket, `Testing lineups within £${SQUAD_BUDGET.toFixed(1)}m…`);
     loadResultsScreen();
@@ -1393,7 +1427,8 @@ export default function FPLSquadChecker() {
   // `ignoreSaved` shows the picks on FPL even when changes are saved.
   async function handleTeamIdSubmit(rawId, gwOverride, { ignoreSaved = false } = {}) {
     const ticket = newTicket();
-    const teamId = (rawId || '').trim();
+    const teamId = parseTeamId(rawId);
+    if (!gwOverride && teamId) track('team_check');
     if (!/^\d+$/.test(teamId)) {
       showError(ticket, 'Enter a numeric Team ID — just the number from your FPL URL.');
       return;
@@ -1531,6 +1566,7 @@ export default function FPLSquadChecker() {
   // FPL data once each player is matched.
   async function handleScreenshot(shot) {
     const ticket = newTicket();
+    track('screenshot_check');
     setReviewShotImg(shot.img);
     showLoading(ticket, 'Loading player data…');
     let staticData;
@@ -1846,6 +1882,7 @@ export default function FPLSquadChecker() {
     ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', desc: 'Past gameweeks against the best XI', group: 'Tools', Icon: History, run: handleViewHindsight }] : []),
     { id: 'saved', label: 'Saved teams', desc: 'Team IDs and squads on your account', group: 'Tools', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
     { id: 'about', label: 'About this app', desc: 'What it does and how it predicts', group: 'App', Icon: Info, run: () => setStage('welcome') },
+    { id: 'feedback', label: 'Send feedback', desc: 'Report a problem or suggest something', group: 'App', Icon: MessageSquare, run: () => openAuthDialog('feedback') },
     ...(session && session.admin ? [{ id: 'admin', label: 'Admin', desc: 'Model, data, reports and users', group: 'App', Icon: ShieldCheck, run: () => setStage('admin') }] : []),
     ...(install ? [{ id: 'install', label: 'Install the app', desc: 'Open it full screen, like an app', group: 'App', Icon: Download, run: install }] : []),
   ];
@@ -1930,6 +1967,18 @@ export default function FPLSquadChecker() {
             <button type="button" className="fpl-verify-bar-x" aria-label="Hide for now" onClick={() => setVerifyBarHidden(true)}><X size={16} aria-hidden="true" /></button>
           </div>
         )}
+        {fplStaleAt && stage !== 'welcome' && stage !== 'boot' && (
+          <div className="fpl-verify-bar" role="status">
+            <span>FPL is updating right now, so this shows its data from {new Date(fplStaleAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. It refreshes once FPL is back.</span>
+            <button type="button" className="fpl-verify-bar-x" aria-label="Hide" onClick={() => setFplStaleAt(null)}><X size={16} aria-hidden="true" /></button>
+          </div>
+        )}
+        {iosTipShown && stage !== 'welcome' && stage !== 'boot' && (
+          <div className="fpl-verify-bar" role="status">
+            <span>Get FPL Checker on your iPhone: tap <b>Share</b> <span aria-hidden="true">⬆︎</span>, then <b>Add to Home Screen</b>.</span>
+            <button type="button" className="fpl-verify-bar-x" aria-label="Don’t show again" onClick={() => { try { localStorage.setItem(IOS_TIP_KEY, 'hidden'); } catch { /* storage unavailable */ } setIosTipShown(false); }}><X size={16} aria-hidden="true" /></button>
+          </div>
+        )}
         {testerBarShown && !(session && session.email && !session.emailVerified && !verifyBarHidden) && stage !== 'welcome' && stage !== 'boot' && (
           <div className="fpl-verify-bar fpl-tester-bar" role="status">
             <span>Help test the FPL Checker Android app on Google Play for 2 weeks. Join the group, then tap Become a tester.</span>
@@ -1944,7 +1993,7 @@ export default function FPLSquadChecker() {
             {stage === 'welcome' && (
               <WelcomeScreen
                 loggedIn={!!session}
-                onStart={() => { if (readTermsAccepted()) setStage('home'); else setTermsOpen(true); }}
+                onStart={() => { track('start'); if (readTermsAccepted()) setStage('home'); else setTermsOpen(true); }}
                 onSignUp={() => openAuthDialog('register')}
                 onLogIn={() => openAuthDialog('login')}
               />
@@ -2103,6 +2152,7 @@ export default function FPLSquadChecker() {
               currentUsername={session ? session.username : ''}
               hasPassword={session ? session.hasPassword !== false : true}
               onSetCredentials={handleSetCredentials}
+              onSendFeedback={handleSendFeedback}
               onChangePassword={handleChangePassword}
               onSubmit={handleAuthSubmit}
               onSetEmail={handleSetEmail}

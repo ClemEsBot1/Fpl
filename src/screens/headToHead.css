@@ -7,3 +7,5 @@
 .fpl-h2h-list li.is-bench { opacity: 0.6; }
 .fpl-h2h-name { min-width: 0; }
 .fpl-h2h-pts { color: var(--blue); flex: none; }
+.fpl-h2h-transfers { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.fpl-h2h-transfers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.85rem; }

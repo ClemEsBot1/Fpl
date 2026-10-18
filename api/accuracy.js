@@ -81,6 +81,8 @@ export default async function handler(req, res) {
       .setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400')
       .json({ gwId, gwName: gwName || `Gameweek ${gwId}`, ...summary });
   } catch (e) {
-    res.status(502).setHeader('Cache-Control', 'no-store').json({ error: 'accuracy_failed', detail: String((e && e.message) || e) });
+    const detail = String((e && e.message) || e);
+    console.error('accuracy failed:', detail);
+    res.status(502).setHeader('Cache-Control', 'no-store').json({ error: 'accuracy_failed', detail });
   }
 }

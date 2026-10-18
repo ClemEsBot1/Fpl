@@ -9,6 +9,21 @@ import { applyAsOfStats, recentMinutesFromAsOf } from './asOf.js';
 const RETRY_DELAYS_MS = [700, 2000];
 const retryable = status => status === 429 || status >= 500;
 
+// When FPL is down the proxy answers with its last good copy and an
+// X-Fpl-Stale-At header; the app shows a note saying how old it is.
+const staleListeners = new Set();
+let staleAt = null;
+export function onFplStale(fn) {
+  staleListeners.add(fn);
+  if (staleAt) fn(staleAt);
+  return () => staleListeners.delete(fn);
+}
+function noteStale(at) {
+  if (!at || at === staleAt) return;
+  staleAt = at;
+  staleListeners.forEach(fn => fn(at));
+}
+
 export async function fetchFplJson(path, { retryDelays = RETRY_DELAYS_MS } = {}) {
   // Calls our own /api/fpl serverless function (added via Vercel), which
   // fetches FPL server-side — no CORS issue, no dependence on third-party
@@ -21,7 +36,10 @@ export async function fetchFplJson(path, { retryDelays = RETRY_DELAYS_MS } = {})
       // Offline or the connection dropped.
       if (attempt >= retryDelays.length) throw e;
     }
-    if (r && r.ok) return r.json();
+    if (r && r.ok) {
+      noteStale(r.headers && r.headers.get && r.headers.get('X-Fpl-Stale-At'));
+      return r.json();
+    }
     if (r && (!retryable(r.status) || attempt >= retryDelays.length)) throw new Error('status ' + r.status);
     // A little jitter so a burst of retries doesn't arrive together.
     await new Promise(resolve => setTimeout(resolve, retryDelays[attempt] * (0.75 + Math.random() / 2)));
