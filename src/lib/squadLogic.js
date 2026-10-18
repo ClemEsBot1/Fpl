@@ -241,6 +241,8 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
     const counts = clubCounts(list);
     let best = null;
     for (const out of list) {
+      // Only the squad's own players go out, never one just suggested in.
+      if (!slotById.has(out.id)) continue;
       const [inP] = replacementsFor(out, tenths(out.price) + bank, counts);
       if (!inP) continue;
       const gain = xiTotal(swapIn(list, out, inP), predictionsById) - base;
@@ -259,8 +261,8 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
     let best = null;
     for (let i = 0; i < list.length; i++) {
       for (let j = 0; j < list.length; j++) {
-        if (i === j) continue;
         const a = list[i], b = list[j];
+        if (i === j || !slotById.has(a.id) || !slotById.has(b.id)) continue;
         const pot = tenths(a.price) + tenths(b.price) + bank;
         for (const inA of replacementsFor(a, pot, countsA, PAIR_CANDIDATES)) {
           const afterA = swapIn(list, a, inA);
