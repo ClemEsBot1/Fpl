@@ -16,6 +16,9 @@
 //             post filled in: X's API charges for every post, its share
 //             link doesn't. Also listed on the admin page's Social tab.
 //
+// Bluesky posting is in src/lib/bluesky.js, and which posts have been sent
+// (in Redis) in src/lib/socialSent.js.
+//
 // Run by POST /api/optimal-squad?social=post (CRON_SECRET), which
 // .github/workflows/transfer-snapshots.yml calls every 20 minutes: each run
 // sends each channel at most one post that is due and it hasn't had (Redis
@@ -27,9 +30,9 @@
 import { createHash } from 'node:crypto';
 import { SITE } from './seoPage.js';
 import { priceData } from './seoMore.js';
+import { blueskyRecord } from './bluesky.js';
 
 const HOUR = 3600_000;
-const SENT_TTL_SECONDS = 60 * 24 * 3600;
 const TAGS = '#FPL #FPLCommunity';
 export const LABELS = { results: 'result', differential: 'differential', preview: 'preview', captain: 'captain picks', prices: 'price changes' };
 
@@ -41,84 +44,6 @@ export function tweetLength(text) {
 // Opens X's composer with `text` filled in.
 export function xIntentUrl(text) {
   return `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
-}
-
-/* --------------------------------------------------------------- Bluesky */
-
-export function blueskyConfigured(env = process.env) {
-  return !!(env.BLUESKY_HANDLE && env.BLUESKY_APP_PASSWORD);
-}
-
-const graphemes = text => [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(text)].length;
-const bytes = text => new TextEncoder().encode(text).length;
-
-// A Bluesky post record: links shown without https:// (Bluesky counts
-// their full length), made clickable, and hashtags made into tags, both
-// by facets with UTF-8 byte offsets. null when it's over Bluesky's 300.
-export function blueskyRecord(text, createdAt = new Date().toISOString()) {
-  let out = '';
-  const facets = [];
-  let last = 0;
-  for (const m of text.matchAll(/https?:\/\/\S+/g)) {
-    out += text.slice(last, m.index);
-    const shown = m[0].replace(/^https?:\/\//, '');
-    facets.push({ index: { byteStart: bytes(out), byteEnd: bytes(out) + bytes(shown) }, features: [{ $type: 'app.bsky.richtext.facet#link', uri: m[0] }] });
-    out += shown;
-    last = m.index + m[0].length;
-  }
-  out += text.slice(last);
-  for (const m of out.matchAll(/(^|\s)#(\w+)/g)) {
-    const start = bytes(out.slice(0, m.index + m[1].length));
-    facets.push({ index: { byteStart: start, byteEnd: start + bytes(`#${m[2]}`) }, features: [{ $type: 'app.bsky.richtext.facet#tag', tag: m[2] }] });
-  }
-  if (graphemes(out) > 300) return null;
-  return { $type: 'app.bsky.feed.post', text: out, facets, langs: ['en-GB'], createdAt };
-}
-
-async function xrpc(service, method, { token, body, contentType = 'application/json', fetchImpl }) {
-  const r = await fetchImpl(`${service}/xrpc/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': contentType, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: contentType === 'application/json' ? JSON.stringify(body) : body,
-    signal: AbortSignal.timeout(15_000),
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`Bluesky ${method} ${r.status}: ${data.error || ''} ${data.message || ''}`.trim());
-  return data;
-}
-
-// Posts `text` as the bot account, with a link card for its first link
-// (the site's preview image as the picture, when it can be fetched), or
-// the picture given ({ png, alt }), then likes and reposts it.
-export async function postBluesky(text, env = process.env, fetchImpl = fetch, { image = null } = {}) {
-  const record = blueskyRecord(text);
-  if (!record) throw new Error('too long for Bluesky');
-  const service = (env.BLUESKY_SERVICE || 'https://bsky.social').replace(/\/+$/, '');
-  const session = await xrpc(service, 'com.atproto.server.createSession', { body: { identifier: env.BLUESKY_HANDLE, password: env.BLUESKY_APP_PASSWORD }, fetchImpl });
-  const link = record.facets.find(f => f.features[0].uri);
-  if (image && image.png) {
-    // A picture ({ png, alt }) instead of a link card: the link in the
-    // text stays clickable.
-    const blob = (await xrpc(service, 'com.atproto.repo.uploadBlob', { token: session.accessJwt, body: image.png, contentType: 'image/png', fetchImpl })).blob;
-    record.embed = { $type: 'app.bsky.embed.images', images: [{ image: blob, alt: image.alt || '', aspectRatio: { width: 1200, height: 675 } }] };
-  } else if (link) {
-    const external = { uri: link.features[0].uri, title: 'FPL Checker', description: 'Free FPL points predictor: predicted points for every player, your best XI, captain and transfers.' };
-    try {
-      const img = await fetchImpl(`${SITE}/og-image.png`, { signal: AbortSignal.timeout(10_000) });
-      if (img.ok) external.thumb = (await xrpc(service, 'com.atproto.repo.uploadBlob', { token: session.accessJwt, body: Buffer.from(await img.arrayBuffer()), contentType: 'image/png', fetchImpl })).blob;
-    } catch { /* the card just has no picture */ }
-    record.embed = { $type: 'app.bsky.embed.external', external };
-  }
-  const out = await xrpc(service, 'com.atproto.repo.createRecord', { token: session.accessJwt, body: { repo: session.did, collection: 'app.bsky.feed.post', record }, fetchImpl });
-  // The bot's own like and repost of it. Best-effort: the post is out
-  // either way, so a failure here doesn't count it as unsent.
-  const subject = { uri: out.uri, cid: out.cid };
-  for (const collection of ['app.bsky.feed.like', 'app.bsky.feed.repost']) {
-    try {
-      await xrpc(service, 'com.atproto.repo.createRecord', { token: session.accessJwt, body: { repo: session.did, collection, record: { $type: collection, subject, createdAt: new Date().toISOString() } }, fetchImpl });
-    } catch { /* still posted */ }
-  }
-  return out.uri;
 }
 
 /* ------------------------------------------------------------- the posts */
@@ -256,50 +181,4 @@ export function customPost(text) {
   if (!blueskyRecord(clean)) return { error: 'too_long_for_bluesky' };
   const id = createHash('sha256').update(clean).digest('hex').slice(0, 16);
   return { post: { key: `custom:${id}`, type: 'custom', label: 'Custom post', text: clean } };
-}
-
-// The Redis key that marks `post` as sent to `channel`, shared by the
-// scheduled run and the admin page's buttons so neither repeats the other.
-export const sentKey = (channel, post) => `social:${channel}:${post.key}`;
-
-// Which channels each post has gone to: { [post.key]: ['bluesky', …] }.
-export async function sentTo(redis, posts, channels) {
-  const out = {};
-  for (const post of posts) {
-    out[post.key] = [];
-    for (const name of channels) if (await redis.get(sentKey(name, post))) out[post.key].push(name);
-  }
-  return out;
-}
-
-// X posts go out by hand from the admin page (the API is paid), so the
-// page ticks them off itself: the 'x' channel's key, set or cleared.
-export const POST_KEY = /^\d{4}-\d{2}:((results|differential|preview|captain):gw\d{1,2}|prices:\d{4}-\d{2}-\d{2})$/;
-export async function markSent(redis, channel, key, done) {
-  if (!POST_KEY.test(key)) return false;
-  if (done) await redis.set(sentKey(channel, { key }), '1', 'EX', SENT_TTL_SECONDS);
-  else await redis.del(sentKey(channel, { key }));
-  return true;
-}
-
-// Sends each channel ({ name, send(post) }) the first due post it hasn't
-// had. The Redis key is taken first so two overlapping runs can't both
-// send it; a failed send gives it back for the next run.
-export async function runSocial({ redis, posts, channels }) {
-  const results = {};
-  for (const channel of channels) {
-    results[channel.name] = { sent: null };
-    for (const post of posts) {
-      const key = sentKey(channel.name, post);
-      if ((await redis.set(key, '1', 'EX', SENT_TTL_SECONDS, 'NX')) !== 'OK') continue;
-      try {
-        results[channel.name] = { sent: post.type, id: (await channel.send(post)) || null };
-      } catch (e) {
-        await redis.del(key);
-        results[channel.name] = { error: String((e && e.message) || e), type: post.type };
-      }
-      break;
-    }
-  }
-  return results;
 }

@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, squadProblems, substitutePlayers, substitutionOptions, suggestTransfers, swapPlayerInSquad } from '../src/lib/squadLogic.js';
 import { normalize, playerMatchesSearch, levenshtein } from '../src/lib/format.js';
+import { buildStaticDataFromRaw } from '../src/lib/predictions.js';
+import { league } from './helpers/league.js';
 
 // A legal 15: 2 GKP, 5 DEF, 5 MID, 3 FWD, each at a different club.
 const POSITIONS = [1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4];
@@ -99,6 +101,24 @@ test('a downgrade that pays for an upgrade is suggested as a pair, cheaper move 
   assert.deepEqual(suggestions.map(s => s.inPlayer.id), [100, 101]);
   assert.equal(suggestions[0].group, suggestions[1].group);
   assert.match(suggestions[0].reason, /Frees £2.0m for StarMid/);
+});
+
+test('transfer suggestions only take players out of the squad, never one they just suggested bringing in', () => {
+  // A squad from the synthetic league where the next-best move after the
+  // first suggestion was to sell the player that suggestion brings in.
+  const { bootstrap, fixtures } = league();
+  const staticData = buildStaticDataFromRaw(bootstrap, fixtures);
+  const ids = [268, 408, 458, 379, 440, 438, 412, 391, 402, 430, 400, 347, 284, 375, 326];
+  const starters = new Set([402, 408, 458, 379, 430, 268, 440, 438, 412, 400, 347]);
+  const squad = ids.map(id => {
+    const pred = staticData.predictionsById[id];
+    return { player: staticData.playersById[id], predicted: pred.predicted, availNote: pred.availNote, isStarting: starters.has(id), isCaptain: false, isViceCaptain: false, multiplier: starters.has(id) ? 1 : 0 };
+  });
+  const suggestions = suggestTransfers(squad, staticData.allPlayers, staticData.predictionsById, 56);
+  assert.ok(suggestions.length > 0);
+  for (const s of suggestions) assert.ok(s.out && ids.includes(s.out.player.id), `suggests selling ${s.out && s.out.player.id}, who isn't in the squad`);
+  const outs = suggestions.map(s => s.out.player.id);
+  assert.equal(new Set(outs).size, outs.length, 'each player is sold at most once');
 });
 
 test('transfers are judged over 4 gameweeks, and a free one must beat rolling it', () => {

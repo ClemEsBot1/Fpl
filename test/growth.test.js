@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shareLinks, shareMessage } from '../src/lib/shareLinks.js';
 import { seoModel } from '../src/lib/seoDynamic.js';
-import { duePosts, pricesPost, POST_KEY } from '../src/lib/social.js';
+import { duePosts, pricesPost } from '../src/lib/social.js';
+import { POST_KEY } from '../src/lib/socialSent.js';
 import { accuracyPage } from '../src/lib/seoMore.js';
 
 test('share message and links carry the rating, points and the site', () => {
