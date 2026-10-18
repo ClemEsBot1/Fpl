@@ -1232,3 +1232,12 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-row-action { flex: none; font-size: 0.7rem; color: var(--blue); }
 .fpl-profile-row-chevron { flex: none; color: var(--ink-dim); }
 .fpl-profile-row.is-danger, .fpl-profile-row.is-danger .fpl-profile-row-icon { color: #FF8A8A; }
+
+/* Admin: usage table and feedback inbox. */
+.fpl-admin-usage-wrap { overflow-x: auto; }
+.fpl-admin-usage { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.fpl-admin-usage th, .fpl-admin-usage td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.fpl-admin-usage th[scope="row"], .fpl-admin-usage thead th:first-child { text-align: left; font-weight: 500; }
+.fpl-admin-usage thead th { font-size: 0.66rem; color: var(--ink-dim); font-weight: 500; }
+.fpl-admin-feedback { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fpl-admin-feedback li { display: grid; gap: 4px; padding: 10px 12px; border-radius: 8px; background: var(--panel-alt); border: 1px solid var(--line); overflow-wrap: anywhere; }

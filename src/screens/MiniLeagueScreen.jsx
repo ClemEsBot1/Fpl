@@ -7,7 +7,8 @@ import { SkeletonRows } from '../components/common.jsx';
 import './headToHead.css';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { fmtPrice, fmtPts } from '../lib/format.js';
-import { expectedPositions, forEachLimited, headToHead, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { expectedPositions, forEachLimited, headToHead, latestTransfers, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { parseLeagueId } from '../lib/teamIdInput.js';
 
 const LEAGUE_KEY = 'fpl_league_id';
 // Members' teams are fetched a few at a time, so a 50-team league doesn't
@@ -205,7 +206,32 @@ function H2hColumn({ title, rows, teamsById }) {
 
 // Pick any rival in the league and see who you share, who's unique to each
 // side, each XI's predicted total and the edge from the differing players.
-function HeadToHead({ members, teams, youEntry, teamsById }) {
+// The rival's latest transfers (FPL shows them once that deadline passes).
+function RivalTransfers({ entry, rivalName, playersById, fetchJson }) {
+  const [state, setState] = useState({ entry: null, data: null });
+  useEffect(() => {
+    let live = true;
+    fetchJson(`entry/${entry}/transfers/`)
+      .then(list => { if (live) setState({ entry, data: latestTransfers(list) || 'none' }); })
+      .catch(() => { if (live) setState({ entry, data: 'none' }); });
+    return () => { live = false; };
+  }, [entry, fetchJson]);
+  if (state.entry !== entry || !state.data) return <p className="fpl-home-hint">Loading {rivalName}'s transfers…</p>;
+  if (state.data === 'none') return <p className="fpl-home-hint">{rivalName} hasn't made a transfer yet this season.</p>;
+  const name = id => (playersById[id] ? playersById[id].webName : `#${id}`);
+  return (
+    <div className="fpl-h2h-transfers">
+      <h3 className="fpl-mono fpl-meta" style={{ margin: '0 0 6px' }}>{rivalName.toUpperCase()}'S GW{state.data.gw} TRANSFERS</h3>
+      <ul>
+        {state.data.moves.map((m, i) => (
+          <li key={i}><span className="fpl-diff-down">{name(m.outId)}</span> <span aria-label="out, in">→</span> <span className="fpl-diff-up">{name(m.inId)}</span></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function HeadToHead({ members, teams, youEntry, teamsById, playersById, fetchJson }) {
   const others = useMemo(() => members.filter(m => String(m.entry) !== String(youEntry)), [members, youEntry]);
   const [rivalEntry, setRivalEntry] = useState(null);
   const chosen = rivalEntry != null && others.some(m => String(m.entry) === String(rivalEntry)) ? rivalEntry : (others[0] ? others[0].entry : null);
@@ -240,6 +266,7 @@ function HeadToHead({ members, teams, youEntry, teamsById }) {
             <H2hColumn title={`Only ${rivalName}`} rows={h.theirOnly} teamsById={teamsById} />
           </div>
           <p className="fpl-home-hint">{h.shared.length} players shared. Captains: you {h.yourCaptain ? h.yourCaptain.webName : '–'}, {rivalName} {h.theirCaptain ? h.theirCaptain.webName : '–'}.</p>
+          {fetchJson && <RivalTransfers entry={chosen} rivalName={rivalName} playersById={playersById || {}} fetchJson={fetchJson} />}
         </>
       ) : <p className="fpl-home-text" style={{ margin: 0 }}>Loading {rivalName}'s team…</p>}
     </section>
@@ -435,7 +462,7 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
       <LeagueDifferentials members={shownMembers} teams={teams} youEntry={standings.data.members.find(m => String(m.entry) === String(homeTeamId)).entry} liveGwId={gwId} />
     )}
     {standings.status === 'ready' && homeTeamId && standings.data.members.some(m => String(m.entry) === String(homeTeamId)) && (
-      <HeadToHead members={shownMembers} teams={teams} youEntry={standings.data.members.find(m => String(m.entry) === String(homeTeamId)).entry} teamsById={teamsById} />
+      <HeadToHead members={shownMembers} teams={teams} youEntry={standings.data.members.find(m => String(m.entry) === String(homeTeamId)).entry} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} />
     )}
     </div>
     </div>
@@ -500,7 +527,7 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
             placeholder="Another league ID"
             aria-label="League ID"
             value={idInput}
-            onChange={e => setIdInput(e.target.value.replace(/[^0-9]/g, ''))}
+            onChange={e => setIdInput(parseLeagueId(e.target.value))}
           />
           <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!idInput}>Show</button>
         </form>

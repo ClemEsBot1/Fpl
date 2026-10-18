@@ -13,6 +13,7 @@ import { Shirt as ShirtKit } from '../components/Pitch.jsx';
 import { notificationState, notifyNewAlerts, setNotifications, stopPush, syncPush } from '../lib/notify.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
 import { SkeletonRows } from '../components/common.jsx';
+import { parseTeamId } from '../lib/teamIdInput.js';
 
 function ScoreRing({ score }) {
   return (
@@ -33,7 +34,7 @@ function TeamIdEntry({ onCheck, initial = '' }) {
         placeholder="e.g. 1234567"
         aria-label="FPL Team ID"
         value={value}
-        onChange={e => setValue(e.target.value.replace(/[^0-9]/g, ''))}
+        onChange={e => setValue(parseTeamId(e.target.value))}
       />
       <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!value}>Check</button>
     </form>

@@ -15,6 +15,7 @@ import { squadChipWeeks } from '../lib/chipPlanner.js';
 import { VARIANTS as REDDIT_VARIANTS, redditReplies } from '../lib/redditReply.js';
 import { SHARE_URL, shareLinks, shareMessage } from '../lib/shareLinks.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
+import { track } from '../lib/track.js';
 
 // Every input that fed into a player's predicted points, in plain language
 // — see computePlayerPrediction in src/lib/predictions.js for where each
@@ -565,6 +566,7 @@ export function ResultsActions({ squad, teamName, gwName, teamsById, deadline, s
       // the same figure: the XI at their multipliers (captain 2x, or 3x).
       const canvas = await drawShareCard({ teamName, gwName, total, slots: squad, teamsById, siteUrl: 'fplchecker.co.uk', score });
       const result = await shareCard(canvas, { title: `${teamName} · ${gwName}`, fileName: 'fpl-squad.png' });
+      if (result !== 'cancelled') track('share');
       setShareState(result === 'downloaded' ? 'Image downloaded' : '');
     } catch {
       setShareState("Couldn't create the image");

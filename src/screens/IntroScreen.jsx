@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { fmtPts } from '../lib/format.js';
+import { parseTeamId } from '../lib/teamIdInput.js';
 
 // "How accurate were we?" — last gameweek's predictions against what
 // players actually scored (api/accuracy.js). Hidden until there's data.
@@ -39,14 +40,14 @@ export function TeamIdForm({ value, onChange, onSubmit, onBack }) {
       </button>
       <h1 className="fpl-display fpl-screen-title">Your FPL Team ID</h1>
       <p style={{ color: 'var(--ink-dim)', fontSize: '0.85rem', marginBottom: 16, lineHeight: 1.5 }}>
-        Open <span className="fpl-mono">fantasy.premierleague.com</span>, go to Points or My Team, and take the number after <span className="fpl-mono">/entry/</span> in the URL.
+        Open <span className="fpl-mono">fantasy.premierleague.com</span>, go to Points or My Team, and take the number after <span className="fpl-mono">/entry/</span> in the URL, or just paste the whole link.
       </p>
       <input
         className="fpl-input"
         inputMode="numeric"
         placeholder="e.g. 1234567"
         value={value}
-        onChange={e => onChange(e.target.value.replace(/[^0-9]/g, ''))}
+        onChange={e => onChange(parseTeamId(e.target.value))}
         onKeyDown={e => { if (e.key === 'Enter' && value) onSubmit(); }}
       />
       <button

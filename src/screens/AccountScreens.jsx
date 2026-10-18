@@ -1,9 +1,10 @@
 // Log in / sign up (a pop-up over the current screen) and the saved-teams list.
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowRight, Bell, Bookmark, Check, ChevronRight, FileText, KeyRound, Link2, Loader2, LogOut, Mail, RotateCcw, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bell, Bookmark, Check, ChevronRight, FileText, KeyRound, Link2, Loader2, LogOut, Mail, MessageSquare, RotateCcw, ShieldCheck, Trash2, X } from 'lucide-react';
 import { TERMS_PATH } from '../lib/terms.js';
 import { fetchFplJson } from '../lib/fplClient.js';
 import { careerStats } from '../lib/career.js';
+import { parseTeamId } from '../lib/teamIdInput.js';
 
 /* ----------------------------------------------------------------------------
    ACCOUNTS: LOGIN / REGISTER + SAVED TEAMS
@@ -17,8 +18,8 @@ const inputStyle = { width: '100%', background: 'var(--panel-alt)', color: 'var(
 const hintStyle = { fontSize: '0.66rem', color: 'var(--ink-dim)', margin: '-10px 0 14px' };
 const linkStyle = { width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--blue)', padding: '14px 0 0', cursor: 'pointer', fontSize: '0.78rem' };
 
-const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email', forgot: 'Reset your password', reset: 'Choose a new password', verify: 'Confirm your email', delete: 'Delete your account', backup: 'Add a backup login', password: 'Change your password' };
-const SUBMIT_LABELS = { login: 'Log in', register: 'Create account', email: 'Save email', forgot: 'Email me a code', reset: 'Save new password', verify: 'Confirm email', delete: 'Delete my account', backup: 'Save username and password', password: 'Save new password' };
+const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email', forgot: 'Reset your password', reset: 'Choose a new password', verify: 'Confirm your email', delete: 'Delete your account', backup: 'Add a backup login', password: 'Change your password', feedback: 'Send feedback' };
+const SUBMIT_LABELS = { login: 'Log in', register: 'Create account', email: 'Save email', forgot: 'Email me a code', reset: 'Save new password', verify: 'Confirm email', delete: 'Delete my account', backup: 'Save username and password', password: 'Save new password', feedback: 'Send' };
 
 // Google's "G", in its own colours (its sign-in branding rules).
 function GoogleMark() {
@@ -58,7 +59,7 @@ const cleanCode = value => value.replace(/\D/g, '').slice(0, 6);
 // account made with Google) | 'password' (change it). Uses a native
 // <dialog> opened with showModal(), which gives focus trapping,
 // Escape-to-close and an inert page behind it.
-export function AuthDialog({ initialMode = 'login', initialNotice = '', currentEmail = '', currentUsername = '', hasPassword = true, onSubmit, onSetEmail, onForgot, onReset, onVerify, onResendVerify, onDelete, onSetCredentials, onChangePassword, onClearError, error, loading, onClose }) {
+export function AuthDialog({ initialMode = 'login', initialNotice = '', currentEmail = '', currentUsername = '', hasPassword = true, onSendFeedback, onSubmit, onSetEmail, onForgot, onReset, onVerify, onResendVerify, onDelete, onSetCredentials, onChangePassword, onClearError, error, loading, onClose }) {
   const dialogRef = useRef(null);
   const pressedOnBackdropRef = useRef(false);
   const [mode, setModeState] = useState(initialMode);
@@ -67,7 +68,9 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
   const [newPassword, setNewPassword] = useState('');
   const [confirmWord, setConfirmWord] = useState('');
   const googleEnabled = useGoogleEnabled();
-  const [email, setEmail] = useState(initialMode === 'email' ? currentEmail : '');
+  const [email, setEmail] = useState(initialMode === 'email' || initialMode === 'feedback' ? currentEmail : '');
+  const [message, setMessage] = useState('');
+  const [sent, setSent] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [code, setCode] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -75,7 +78,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
 
   function focusFirstField() {
     setTimeout(() => {
-      const field = dialogRef.current && dialogRef.current.querySelector('input');
+      const field = dialogRef.current && dialogRef.current.querySelector('textarea, input');
       if (field) field.focus();
     }, 0);
   }
@@ -93,7 +96,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
     if (dialog && !dialog.open) dialog.showModal();
     // showModal() focuses the first focusable element (the close button);
     // start in the first field instead.
-    const firstField = dialog && dialog.querySelector('input');
+    const firstField = dialog && dialog.querySelector('textarea, input');
     if (firstField) firstField.focus();
     return () => { if (dialog && dialog.open) dialog.close(); };
   }, []);
@@ -109,6 +112,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
     else if (mode === 'delete') onDelete({ password, confirm: confirmWord });
     else if (mode === 'backup') onSetCredentials({ username, password });
     else if (mode === 'password') onChangePassword({ currentPassword: password, password: newPassword });
+    else if (mode === 'feedback') { if (await onSendFeedback({ text: message, email })) setSent(true); }
     else onSubmit(mode, { username, password, email: mode === 'register' ? email : undefined, acceptTerms: mode === 'register' ? acceptTerms : undefined });
   }
 
@@ -125,6 +129,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
     delete: confirmWord.trim().toLowerCase() === 'delete' && (!hasPassword || password !== ''),
     backup: Boolean(username.trim() && password),
     password: Boolean(password && newPassword),
+    feedback: message.trim() !== '',
     register: Boolean(username && password && acceptTerms),
   }[mode] ?? Boolean(username && password);
 
@@ -174,6 +179,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
             delete: 'This deletes your account, saved teams, email and settings straight away. It can’t be undone.',
             backup: 'You’re signed in with Google. Pick a username and password too, so you can still log in without it. You can skip this.',
             password: 'Enter your current password, then a new one. Other devices will be signed out.',
+            feedback: 'Something broken, confusing or missing? Tell us. Every message is read.',
           }[mode] || "Save your Team ID(s) or squads so you don't have to re-enter them."}
         </div>
 
@@ -199,6 +205,25 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
           )}
 
           {(mode === 'reset' || mode === 'verify') && codeField}
+
+          {mode === 'feedback' && sent && (
+            <div role="status" className="fpl-block" style={{ padding: 12, fontSize: '0.9rem', lineHeight: 1.5, marginBottom: 16 }}>Thanks! Your message has been sent.</div>
+          )}
+          {mode === 'feedback' && !sent && (
+            <>
+              <label htmlFor="auth-feedback" className="fpl-mono" style={labelStyle}>YOUR MESSAGE</label>
+              <textarea
+                id="auth-feedback"
+                rows={5}
+                maxLength={2000}
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical', minHeight: 110 }}
+              />
+              <label htmlFor="auth-feedback-email" className="fpl-mono" style={labelStyle}>EMAIL <span style={{ textTransform: 'none' }}>(optional, if you’d like a reply)</span></label>
+              <input id="auth-feedback-email" type="email" className="fpl-mono" autoComplete="email" inputMode="email" autoCapitalize="none" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
+            </>
+          )}
 
           {mode === 'delete' && (
             <>
@@ -362,9 +387,12 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
             </div>
           )}
 
-          <button type="submit" disabled={loading || !canSubmit} className={`fpl-btn ${mode === 'delete' ? 'fpl-btn-danger' : 'fpl-btn-solid'}`} style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
+          {!(mode === 'feedback' && sent) && <button type="submit" disabled={loading || !canSubmit} className={`fpl-btn ${mode === 'delete' ? 'fpl-btn-danger' : 'fpl-btn-solid'}`} style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, opacity: loading ? 0.6 : 1 }}>
             {loading ? <Loader2 size={16} className="fpl-spin" /> : SUBMIT_LABELS[mode]}
-          </button>
+          </button>}
+          {mode === 'feedback' && sent && (
+            <button type="button" onClick={onClose} className="fpl-btn fpl-btn-solid" style={{ width: '100%' }}>Close</button>
+          )}
         </form>
 
         {(mode === 'login' || mode === 'register') && googleEnabled && (
@@ -571,7 +599,7 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
           <form onSubmit={showTyped} className="fpl-block" style={{ padding: 14 }}>
             <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--ink-dim)', lineHeight: 1.5 }}>Add your FPL Team ID to see every season you’ve played, your best rank and this season so far.</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="fpl-input" style={{ flex: 1, minWidth: 0 }} inputMode="numeric" placeholder="e.g. 1234567" aria-label="FPL Team ID" value={typed} onChange={e => setTyped(e.target.value.replace(/\D/g, ''))} />
+              <input className="fpl-input" style={{ flex: 1, minWidth: 0 }} inputMode="numeric" placeholder="e.g. 1234567" aria-label="FPL Team ID" value={typed} onChange={e => setTyped(parseTeamId(e.target.value))} />
               <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!typed}>Show</button>
             </div>
           </form>
@@ -651,6 +679,7 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
               : <SettingRow icon={Link2} title="Google" detail="Connect to sign in with one tap" action="Connect" href="/auth/google?link=1" />
           )}
           <SettingRow icon={Bell} title="Deadline emails" detail={session.digestTeamId ? `On for team ${session.digestTeamId}` : 'Off: turn on from your team’s page'} onAction={onMyTeams} />
+          <SettingRow icon={MessageSquare} title="Send feedback" detail="Report a problem or suggest something" onAction={() => onOpenDialog('feedback')} />
           <SettingRow icon={FileText} title="Terms and privacy" href={TERMS_PATH} />
           <SettingRow icon={LogOut} title="Log out" onAction={onLogout} />
         </div>

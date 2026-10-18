@@ -23,6 +23,8 @@ import {
   deleteUser as deleteAccount,
 } from '../src/lib/adminServer.js';
 import { markSent } from '../src/lib/social.js';
+import { recordEvent, usageReport } from '../src/lib/usage.js';
+import { addFeedback, cleanFeedback, clearFeedback, listFeedback } from '../src/lib/feedback.js';
 import { digestHandler } from '../src/lib/digestHandler.js';
 import { cleanTeamId } from '../src/lib/digest.js';
 
@@ -174,6 +176,16 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
       res.setHeader('Cache-Control', 'no-store');
       res.status(200).json(await usersCsv(redis));
       return;
+    case 'usage':
+      res.status(200).json(await usageReport(redis, 14));
+      return;
+    case 'feedback':
+      res.status(200).json({ feedback: await listFeedback(redis, 100) });
+      return;
+    case 'feedback_clear':
+      await clearFeedback(redis);
+      res.status(200).json({ ok: true });
+      return;
     case 'clear_errors':
       await clearErrors(redis);
       res.status(200).json({ ok: true });
@@ -198,6 +210,9 @@ async function handleAdmin(req, res, redis, secret, body, admin = {}) {
   }
   res.status(400).json({ error: 'unknown_admin_op' });
 }
+
+// Adds to a usage counter without ever failing the request.
+const count = (redis, name) => recordEvent(redis, name).catch(() => false);
 
 function signIn(res, record, secret, extra = {}) {
   res.setHeader('Set-Cookie', buildSessionCookie(signSessionToken(record.username, secret, record.sessionVersion || 0, record.authId)));
@@ -280,7 +295,7 @@ async function handleGoogle(req, res, redis, secret, google = {}) {
       return;
     }
 
-    if (linked) { done('signed_in', linked); return; }
+    if (linked) { await count(redis, 'login'); done('signed_in', linked); return; }
 
     // The account that already has this (confirmed) email gets Google
     // linked to it. Only a confirmed one: anyone can type an address in.
@@ -325,6 +340,7 @@ async function handleGoogle(req, res, redis, secret, google = {}) {
       }
       await redis.set(emailKeyFor(record.email), normalizeUsername(record.username));
     }
+    await count(redis, 'signup_google');
     done('new', record);
   } catch (e) {
     console.error('google sign-in failed:', (e && e.stack) || e);
@@ -409,6 +425,36 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     return;
   }
 
+  // One of the app's usage counters (src/lib/usage.js). Fire and forget.
+  if (action === 'event') {
+    try {
+      if (await bump(redis, `ratelimit:event:ip:${clientIp(req)}`, 60 * 60) > 300) { res.status(429).json({ ok: false }); return; }
+      res.status(200).json({ ok: await recordEvent(redis, body.name) });
+    } catch {
+      res.status(200).json({ ok: false });
+    }
+    return;
+  }
+
+  // The "Send feedback" button: a message for the admin page, from anyone.
+  if (action === 'feedback') {
+    const entry = cleanFeedback(body);
+    if (!entry) { res.status(400).json({ error: 'Write a message first.' }); return; }
+    try {
+      if (await bump(redis, `ratelimit:feedback:ip:${clientIp(req)}`, 60 * 60) > 5) {
+        res.status(429).json({ error: 'Thanks! You’ve sent a few already. Try again in an hour.' });
+        return;
+      }
+      const session = getSessionFromRequest(req, secret);
+      await addFeedback(redis, entry, session ? session.username : null);
+      await recordEvent(redis, 'feedback');
+      res.status(200).json({ ok: true });
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
   if (action === 'admin') {
     try {
       await handleAdmin(req, res, redis, secret, body, adminOverride);
@@ -467,6 +513,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       }
       if (emailCheck.email) await redis.set(emailKeyFor(emailCheck.email), normalizeUsername(username));
       const codeSent = await sendVerifyCode(redis, secret, mailerFor(mailOverride), record);
+      await count(redis, 'signup');
       signIn(res, record, secret, emailCheck.email ? { codeSent } : {});
     } catch (e) {
       await giveBack();
@@ -523,6 +570,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       if (record.email) {
         try { await redis.set(emailKeyFor(record.email), normalizeUsername(record.username), 'NX'); } catch { /* best-effort */ }
       }
+      await count(redis, 'login');
       signIn(res, record, secret);
     } catch (e) {
       storageFailed(res, e, redis);

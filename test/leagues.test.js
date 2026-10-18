@@ -196,3 +196,15 @@ test('head-to-head needs both squads', async () => {
   assert.equal(headToHead(null, { squad: [] }), null);
   assert.equal(headToHead({ squad: [] }, { squad: [] }), null);
 });
+
+test('a rival’s latest gameweek of transfers', async () => {
+  const { latestTransfers } = await import('../src/lib/leagues.js');
+  assert.equal(latestTransfers([]), null);
+  assert.equal(latestTransfers(null), null);
+  const list = [
+    { event: 6, element_in: 1, element_out: 2 },
+    { event: 8, element_in: 3, element_out: 4 },
+    { event: 8, element_in: 5, element_out: 6 },
+  ];
+  assert.deepEqual(latestTransfers(list), { gw: 8, moves: [{ inId: 3, outId: 4 }, { inId: 5, outId: 6 }] });
+});

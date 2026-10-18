@@ -4,13 +4,15 @@
 // Only the FPL endpoints the app actually calls. Anything else is refused,
 // so the function can't be used as a general-purpose FPL proxy.
 const ALLOWED_PATHS = [
-  { re: /^bootstrap-static\/$/, maxAge: 300 },
-  { re: /^fixtures\/$/, maxAge: 300 },
+  // `shared`: the same for everyone, so the last good copy is kept to fall
+  // back on when FPL is down (src/lib/lastGood.js).
+  { re: /^bootstrap-static\/$/, maxAge: 300, shared: true },
+  { re: /^fixtures\/$/, maxAge: 300, shared: true },
   // One gameweek's matches, refreshed every minute for the live screen.
-  { re: /^fixtures\/\?event=\d{1,2}$/, maxAge: 60 },
+  { re: /^fixtures\/\?event=\d{1,2}$/, maxAge: 60, shared: true },
   { re: /^entry\/\d{1,10}\/$/, maxAge: 120 },
   { re: /^entry\/\d{1,10}\/event\/\d{1,2}\/picks\/$/, maxAge: 120 },
-  { re: /^event\/\d{1,2}\/live\/$/, maxAge: 60 },
+  { re: /^event\/\d{1,2}\/live\/$/, maxAge: 60, shared: true },
   { re: /^leagues-classic\/\d{1,10}\/standings\/$/, maxAge: 300 },
   { re: /^entry\/\d{1,10}\/transfers\/$/, maxAge: 300 },
   { re: /^entry\/\d{1,10}\/history\/$/, maxAge: 300 },
@@ -34,3 +36,7 @@ export function fplCacheControl(rule, status) {
   if (!rule || status !== 200) return 'no-store';
   return `public, max-age=${Math.min(60, rule.maxAge)}, s-maxage=${rule.maxAge}, stale-while-revalidate=${rule.maxAge * 4}`;
 }
+
+// A saved copy served while FPL is down: cached briefly, so the real data
+// is back within a minute of FPL recovering.
+export const STALE_CACHE_CONTROL = 'public, max-age=30, s-maxage=60';
