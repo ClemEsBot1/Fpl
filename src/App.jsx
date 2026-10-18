@@ -17,6 +17,7 @@ import { ensureCaptaincy, matchExtractedSquad, squadProblems } from './lib/squad
 import { Bookmark, MessageSquare, CalendarRange, Camera, Compass, Download, GitCompareArrows, History, House, Info, Radio, ShieldCheck, Shirt, Trophy, Users, Wand2 } from 'lucide-react';
 import { FooterNav, SideNav } from './components/AppNav.jsx';
 import { NoticeBars } from './components/NoticeBars.jsx';
+import { ModelSwitch } from './components/ModelSwitch.jsx';
 import { ScreenErrorBoundary } from './components/ScreenErrorBoundary.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
@@ -64,6 +65,10 @@ function navSectionFor(stage, resultsData) {
   }
 }
 
+// The screens whose squads are predicted (results covers My team, Best
+// squad, saved and screenshot squads): admins get the formula / ML switch.
+const MODEL_SWITCH_STAGES = ['home', 'results', 'customBuild', 'league'];
+
 export default function FPLSquadChecker() {
   const { stage, setStage, setStageRaw, newTicket, isCurrent, showStage, showLoading, showError, loadingMessage, errorMessage, errorAction } = useStage();
   const [teamIdInput, setTeamIdInput] = useState('');
@@ -79,8 +84,8 @@ export default function FPLSquadChecker() {
   const restoreViewRef = useRef(readViewParam());
   const account = useAccount({ stage, setStage, setStageRaw, skipWelcome: () => !!restoreViewRef.current || readInApp() });
   const { session, savedTeams, openAuthDialog, handleTeamsResult } = account;
-  const fpl = useFplData();
-  const { selectedGw, setSelectedGw, gwOptions, liveStatic, staticDataRef, ensureStaticData, staticDataForGw, formulaSnapshot, liveForGw, fixturesForGw, loadTeamForGw } = fpl;
+  const fpl = useFplData({ admin: !!(session && session.admin) });
+  const { selectedGw, setSelectedGw, gwOptions, liveStatic, staticDataRef, ensureStaticData, staticDataForGw, formulaSnapshot, liveForGw, fixturesForGw, loadTeamForGw, modelChoice, setModelChoice, modelAvailable } = fpl;
   const { resultsData, setResultsData, currentStaticDataRef, buildResultsData, finalizeResults, handleSquadUpdate, rescoreSquadForGw, handleSaveTeamChanges } = useResults({ screens: { newTicket, isCurrent, setStageRaw, showLoading, showError }, fpl, handleTeamsResult });
   // The Terms pop-up shown the first time someone presses Start.
   const [termsOpen, setTermsOpen] = useState(false);
@@ -246,14 +251,16 @@ export default function FPLSquadChecker() {
         return;
       }
 
-      // Current (open) gameweek.
-      const cacheKey = `fpl_optimal_squad_${staticData.seasonId || ''}_gw${resolvedGwId}`;
+      // Current (open) gameweek. With an admin's ML view the squad is built
+      // here from the model's figures: the server's is the formula's.
+      const fromModel = staticData.predictionSource === 'ml';
+      const cacheKey = `fpl_optimal_squad_${staticData.seasonId || ''}_gw${resolvedGwId}${fromModel ? '_ml' : ''}`;
       let squad = null, bankTenths = null, builtAt = null;
 
       // 1) Prefer the shared snapshot our server refreshes automatically (see
       // api/refresh-optimal.js) — computed once and reused by every visitor,
       // rather than every browser solving the same optimisation on its own.
-      try {
+      if (!fromModel) try {
         const res = await fetch(`/api/optimal-squad?gw=${resolvedGwId}`);
         if (res.ok) {
           const snap = await res.json();
@@ -482,6 +489,24 @@ export default function FPLSquadChecker() {
   /* ---------- Home: the remembered team's summary ---------- */
 
   const { homeTeam, rememberHomeTeam, loadHomeTeam, homeLive } = useHomeTeam({ stage, savedTeams, fpl, buildResultsData });
+
+  // An admin switching between the formula and the ML model: the squad on
+  // screen is worked out again with the other one's predictions.
+  const modelChoiceRef = useRef(modelChoice);
+  useEffect(() => {
+    if (modelChoiceRef.current === modelChoice) return;
+    modelChoiceRef.current = modelChoice;
+    if (stage === 'results' && resultsData && !resultsData.gwUnavailable) {
+      if (resultsData.isOptimalBuild) loadOptimalSquadForGw(resultsData.gwId);
+      else if (resultsData.entryMeta && resultsData.entryMeta.teamId) handleTeamIdSubmit(String(resultsData.entryMeta.teamId), resultsData.gwId);
+      else rescoreSquadForGw(resultsData.gwId);
+    } else if (stage === 'home' && homeTeam.teamId) {
+      loadHomeTeam(homeTeam.teamId);
+    } else if (stage === 'customBuild') {
+      ensureStaticData().then(setCustomStaticData, () => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelChoice]);
   // The menu item to highlight while loading or on an error.
   const lastNavRef = useRef('home');
 
@@ -642,7 +667,9 @@ export default function FPLSquadChecker() {
       stats: memberWeekStats({ gw: weekGw, picks: livePicks, liveById, transfers, entry: result.entry, history }),
     };
   };
-  const loadLeagueTeam = useCallback((entryId, gwId) => loadLeagueTeamRef.current(entryId, gwId), []);
+  // A new one when an admin switches model, so the league loads again.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loadLeagueTeam = useCallback((entryId, gwId) => loadLeagueTeamRef.current(entryId, gwId), [modelChoice]);
 
   /* ---------- The gameweek recap ---------- */
 
@@ -744,6 +771,9 @@ export default function FPLSquadChecker() {
       {showNav && <SideNav items={navItems} active={activeNav} />}
       <main ref={mainRef} tabIndex={-1} className={`fpl-main${wideStage ? ' fpl-main-wide' : ''}${stage === 'league' ? ' fpl-main-full' : ''}`}>
         <NoticeBars stage={stage} session={session} onEnterCode={() => openAuthDialog('verify')} />
+        {session && session.admin && MODEL_SWITCH_STAGES.includes(stage) && (
+          <ModelSwitch choice={modelChoice} available={modelAvailable} onChange={setModelChoice} />
+        )}
         <ScreenErrorBoundary key={stage}>
           <Suspense fallback={<LoadingScreen />}>
             {stage === 'boot' && <LoadingScreen />}
