@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \"$CLAUDE_PROJECT_DIR/graphify-out/graph.json\" ] && echo 'Codebase questions: answer from the knowledge graph, not memory. Run graphify query \"<question>\" (or graphify explain / graphify path) before reading or grepping source.'; true",
+            "command": "[ -f \"$CLAUDE_PROJECT_DIR/graphify-out/graph.json\" ] && echo 'Codebase questions: answer from the knowledge graph, not memory. Run graphify query \"<question>\" --budget 5000 (or graphify explain / graphify path) before reading or grepping source.'; true",
             "timeout": 5
           }
         ]
