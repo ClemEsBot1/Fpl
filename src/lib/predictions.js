@@ -407,6 +407,19 @@ export function getDefaultEvent(events, now = Date.now()) {
   return live && !live.finished && (!target || live.id < target.id) ? live : target;
 }
 
+// FPL's events with a gameweek counted as finished once every one of its
+// matches is: FPL only sets an event's own `finished` once it has checked
+// the data, which can be a day or more after the last match, and until
+// then the app would keep showing the gameweek as still being played.
+export function withPlayedOutEvents(events, fixturesRaw) {
+  const byEvent = {};
+  (fixturesRaw || []).forEach(f => {
+    if (f.event === null || f.event === undefined) return;
+    (byEvent[f.event] ||= []).push(f);
+  });
+  return (events || []).map(e => (!e.finished && byEvent[e.id] && byEvent[e.id].every(f => f.finished) ? { ...e, finished: true } : e));
+}
+
 // A gameweek is "closed" once its deadline has passed: picks are locked in,
 // so it's safe to browse as history and nothing about it should recompute.
 export function isEventLocked(event, now = Date.now()) {
@@ -623,7 +636,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   addSelectionValues(predictionsById, playersByPosition, allPlayers, weights.selectionShrinkage);
 
   return {
-    teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: bootstrap.events, formEligible, predictionsById,
+    teamsById, allPlayers, playersById, playersByPosition, fixturesByTeam, targetEvent, allEvents: withPlayedOutEvents(bootstrap.events, fixturesRaw), formEligible, predictionsById,
     selectionShrinkage: weights.selectionShrinkage,
     mlBuiltAt: mlById ? ml.builtAt || null : null,
     // 'blend' with the model's figures for this gameweek, else 'formula'.

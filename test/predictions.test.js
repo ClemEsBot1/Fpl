@@ -396,3 +396,19 @@ test('a best squad the model picked is rebuilt with the formula; formula ones ar
   assert.ok(snap.playerIds.includes(snap.captainId));
   snap.playerIds.forEach(id => assert.equal(snap.predictedById[id], sd.predictionsById[id].nextMatchPredicted));
 });
+
+test("a gameweek whose matches are all over counts as finished before FPL marks it so", async () => {
+  const { defaultGwId, isGwFinished } = await import('../src/lib/gameweeks.js');
+  const { bootstrap, fixtures } = league();
+  // GW6's deadline has passed; FPL hasn't checked its data yet.
+  const gw6Done = fixtures.map(f => (f.event === 6 ? { ...f, finished: true } : f));
+  const sd = buildStaticDataFromRaw(bootstrap, gw6Done);
+  assert.equal(bootstrap.events.find(e => e.id === 6).finished, false);
+  assert.equal(isGwFinished(sd, 6), true);
+  assert.equal(defaultGwId(sd), 7, 'on to the next gameweek');
+  // One match still to finish: still being played.
+  const oneLeft = gw6Done.map((f, i) => (f.event === 6 && i === gw6Done.findIndex(x => x.event === 6) ? { ...f, finished: false } : f));
+  const live = buildStaticDataFromRaw(bootstrap, oneLeft);
+  assert.equal(isGwFinished(live, 6), false);
+  assert.equal(defaultGwId(live), 6);
+});
