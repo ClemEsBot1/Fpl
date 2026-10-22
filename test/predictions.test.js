@@ -412,3 +412,13 @@ test("a gameweek whose matches are all over counts as finished before FPL marks 
   assert.equal(isGwFinished(live, 6), false);
   assert.equal(defaultGwId(live), 6);
 });
+
+test('fixture difficulty moves a prediction by 0.15 a step, from 0.65 to 1.38', async () => {
+  const { computePlayerPrediction } = await import('../src/lib/predictions.js');
+  const base = { id: 1, positionId: 3, team: 1, epNext: 0, pointsPerGame: 5, appearanceShare: 1, form: 5, status: 'a' };
+  const mult = difficulty => computePlayerPrediction(base, { 1: [{ event: 10, opponent: 2, isHome: true, difficulty }] }, true, null, { targetEventId: 10 }).breakdown.nextFixtureMult;
+  assert.equal(mult(3), 1);
+  assert.equal(mult(2), 1.15);
+  assert.equal(mult(1), 1.3);
+  assert.equal(mult(5), 0.7);
+});
