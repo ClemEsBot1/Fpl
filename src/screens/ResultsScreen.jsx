@@ -1,7 +1,7 @@
 // Results for a squad: predicted points per player, captaincy, transfer
 // suggestions, chip timing, editing, saving, sharing and reminders.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, ArrowUpDown, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Copy, Crown, Download, Edit3, ExternalLink, Info, LayoutGrid, List as ListIcon, MessageSquare, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Sparkles, Trophy, X, Zap } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, ArrowUpDown, Ban, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Copy, Crown, Download, Edit3, ExternalLink, Info, LayoutGrid, List as ListIcon, Lock, MessageSquare, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Sparkles, Trophy, X, Zap } from 'lucide-react';
 import { DifficultyChips } from '../components/common.jsx';
 import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
@@ -300,38 +300,87 @@ function weeklyPoints(players, predictionsById) {
 
 // Transfers planned over the next few gameweeks (src/lib/transferPlan.js):
 // what to do each week, rolling or taking a hit where that pays, against
-// keeping the squad as it is. This week's moves can be made from here.
+// keeping the squad as it is. You can shorten the plan, keep a player it
+// wants to sell, or rule out one it wants to buy; it also shows what
+// rolling this week's transfer instead would cost. This week's moves can be
+// made from here.
 export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers, predictionsById, onMakeMoves }) {
-  const plan = useMemo(() => {
-    const { pointsById, events } = weeklyPoints(allPlayers, predictionsById);
-    return planTransfers({ squadPlayers: squad.map(s => s.player), bankTenths, freeTransfers, allPlayers, pointsById, events });
-  }, [squad, bankTenths, freeTransfers, allPlayers, predictionsById]);
+  const [horizon, setHorizon] = useState(null);
+  const [keep, setKeep] = useState([]);
+  const [avoid, setAvoid] = useState([]);
+  const weekly = useMemo(() => weeklyPoints(allPlayers, predictionsById), [allPlayers, predictionsById]);
+  const args = useMemo(() => ({
+    squadPlayers: squad.map(s => s.player), bankTenths, freeTransfers, allPlayers, ...weekly, horizon, keep, avoid,
+  }), [squad, bankTenths, freeTransfers, allPlayers, weekly, horizon, keep, avoid]);
+  const plan = useMemo(() => planTransfers(args), [args]);
+  const first = plan && plan.weeks[0];
+  const rolled = useMemo(() => (first && first.moves.length ? planTransfers({ ...args, rollFirst: true }) : null), [args, first]);
   if (!plan) return null;
-  const first = plan.weeks[0];
+  const maxWeeks = weekly.events.length;
+  const byId = Object.fromEntries(allPlayers.map(p => [p.id, p]));
+  const add = (setList, id) => setList(list => (list.includes(id) ? list : [...list, id]));
+  const drop = (setList, id) => setList(list => list.filter(x => x !== id));
+  const locks = [
+    ...keep.map(id => ({ id, kind: 'keep', text: `Keeping ${byId[id] ? byId[id].webName : id}`, remove: () => drop(setKeep, id) })),
+    ...avoid.map(id => ({ id, kind: 'avoid', text: `Not buying ${byId[id] ? byId[id].webName : id}`, remove: () => drop(setAvoid, id) })),
+  ];
+  const fmtDelta = v => (v > 0 ? `+${fmtPts(v)}` : v < 0 ? `−${fmtPts(-v)}` : '±0');
   return (
     <section className="fpl-block fpl-plan" aria-labelledby="plan-h">
-      <h3 id="plan-h" className="fpl-plan-h">Plan for the next {plan.weeks.length} gameweeks</h3>
+      <div className="fpl-plan-head">
+        <h3 id="plan-h" className="fpl-plan-h">Plan for the next {plan.weeks.length} gameweeks</h3>
+        {maxWeeks > 2 && (
+          <div className="fpl-seg fpl-plan-horizon" role="group" aria-label="Gameweeks to plan">
+            {Array.from({ length: maxWeeks - 1 }, (_, i) => i + 2).map(n => {
+              const on = (horizon || maxWeeks) === n;
+              return <button key={n} type="button" className={on ? 'is-on' : ''} aria-pressed={on} onClick={() => setHorizon(n === maxWeeks ? null : n)}>{n} GWs</button>;
+            })}
+          </div>
+        )}
+      </div>
       <ol className="fpl-plan-weeks">
-        {plan.weeks.map(w => (
-          <li key={w.event}>
-            <span className="fpl-mono fpl-plan-gw">GW{w.event}</span>
-            <span className="fpl-plan-moves">
-              {w.moves.length ? w.moves.map(m => (
-                <span key={m.out.id} className="fpl-plan-move">
-                  {m.out.webName} <ArrowRight size={12} aria-label="for" /> <b>{m.in.webName}</b>
+        {plan.weeks.map(w => {
+          const delta = Math.round((w.points - w.baseline) * 10) / 10;
+          return (
+            <li key={w.event}>
+              <span className="fpl-mono fpl-plan-gw">GW{w.event}</span>
+              <span className="fpl-plan-moves">
+                {w.moves.length ? w.moves.map(m => (
+                  <span key={m.out.id} className="fpl-plan-move">
+                    <span>{m.out.webName} <ArrowRight size={12} aria-label="for" /> <b>{m.in.webName}</b></span>
+                    <span className="fpl-plan-lock-btns">
+                      <button type="button" className="fpl-link" onClick={() => add(setKeep, m.out.id)}><Lock size={12} aria-hidden="true" /> Keep {m.out.webName}</button>
+                      <button type="button" className="fpl-link" onClick={() => add(setAvoid, m.in.id)}><Ban size={12} aria-hidden="true" /> Not {m.in.webName}</button>
+                    </span>
+                  </span>
+                )) : <span className="fpl-meta">Roll the transfer</span>}
+              </span>
+              <span className="fpl-mono fpl-meta fpl-plan-ft">
+                {w.freeBefore} free{w.hits ? <b className="fpl-plan-hit"> −{w.hits * 4}</b> : null}
+                <span className={`fpl-plan-pts${delta > 0 ? ' is-up' : ''}`} title="Predicted points this week, against keeping the squad as it is">
+                  {fmtPts(w.points)} <small>{fmtDelta(delta)}</small>
                 </span>
-              )) : <span className="fpl-meta">Roll the transfer</span>}
-            </span>
-            <span className="fpl-mono fpl-meta fpl-plan-ft">
-              {w.freeBefore} free{w.hits ? <b className="fpl-plan-hit"> −{w.hits * 4}</b> : null}
-            </span>
-          </li>
-        ))}
+              </span>
+            </li>
+          );
+        })}
       </ol>
+      {locks.length > 0 && (
+        <ul className="fpl-plan-locks" aria-label="Your rules for this plan">
+          {locks.map(l => (
+            <li key={`${l.kind}-${l.id}`}>
+              <button type="button" className="fpl-chip-btn" onClick={l.remove} aria-label={`${l.text}: remove`}>
+                {l.kind === 'keep' ? <Lock size={12} aria-hidden="true" /> : <Ban size={12} aria-hidden="true" />} {l.text} <X size={12} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="fpl-meta" style={{ margin: 0 }}>
         {plan.gain > 0
           ? <><b className="fpl-plan-gain">+{fmtPts(plan.gain)} pts</b> over these weeks against making no transfers, hits included.</>
           : 'No transfers beat keeping this squad over these weeks.'}
+        {rolled ? <> Rolling this week&rsquo;s transfer instead: {rolled.gain > 0 ? `+${fmtPts(rolled.gain)}` : fmtPts(rolled.gain)} pts ({fmtPts(Math.max(0, plan.total - rolled.total))} fewer).</> : null}
       </p>
       {first.moves.length && onMakeMoves ? (
         <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onMakeMoves(first.moves)}>
