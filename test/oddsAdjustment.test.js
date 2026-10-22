@@ -46,3 +46,14 @@ test('odds are kept for every priced gameweek from the target on', () => {
   assert.equal(byTeam[1][6][0].isHome, false);
   assert.equal(byTeam[2][4], undefined, 'before the target');
 });
+
+test("the clean-sheet nudge is centred on the odds' average, so an ordinary match adds nothing", () => {
+  // A match the odds rate like an average one: 37.4% clean-sheet chance.
+  const even = { homeWinProb: 0.37, drawProb: 0.256, awayWinProb: 0.374 };
+  const nudge = computeOddsAdjustment({ probs: even, isHome: true, positionId: 2 });
+  assert.ok(Math.abs(nudge) < 0.01, `an average match: ${nudge}`);
+  // A big favourite still gains and an underdog still loses, within the cap.
+  const fav = { homeWinProb: 0.75, drawProb: 0.15, awayWinProb: 0.10 };
+  assert.ok(computeOddsAdjustment({ probs: fav, isHome: true, positionId: 1 }) > 0.4);
+  assert.ok(computeOddsAdjustment({ probs: fav, isHome: false, positionId: 2 }) === -0.5);
+});

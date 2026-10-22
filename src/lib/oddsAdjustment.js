@@ -71,7 +71,7 @@ export function computeOddsAdjustment({ probs, isHome, positionId, cleanSheet = 
 
   if (positionId === 1 || positionId === 2) {
     const csProb = estimateCleanSheetProbability(teamWinProb, drawProb);
-    const leagueAverageCleanSheetRate = cleanSheet.baseline ?? 0.30;
+    const leagueAverageCleanSheetRate = cleanSheet.baseline ?? 0.374; // the odds' average, see DEFAULT_PREDICTION_WEIGHTS
     const raw = (csProb - leagueAverageCleanSheetRate) * (cleanSheet.scale ?? 4);
     const cap = cleanSheet.cap ?? ODDS_WEIGHTS.cleanSheetNudgeCap;
     return Math.max(-cap, Math.min(cap, raw));
