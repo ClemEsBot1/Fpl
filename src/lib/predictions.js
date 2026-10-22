@@ -41,7 +41,7 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
   // late team news, which flatters ep_next there, so this stops at 0.6
   // rather than the 0.9 the backtest liked best.
   epNext: 0.6, ppg: 0.4, form: 0,
-  xgRegression: 0.15,                            // how much of the xG/actual gap to credit, per computePlayerPrediction
+  xgRegression: 0.3,                             // how much of the xG/actual gap to credit, per computePlayerPrediction (backtested: 0.3 beat 0.15)
   selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
   oddsAdjustment: 1.0,                           // scales the already-capped nudge from src/lib/oddsAdjustment.js; 1.0 = trust it at face value
   // GKP/DEF odds nudge (src/lib/oddsAdjustment.js): points per unit of
@@ -64,6 +64,19 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
   attackingCap: 0.25,
   attackingBaseline: 0.382,
   fixtureWindowGws: 4,                           // `predicted` averages over this many gameweeks (doubles count twice, blanks zero)
+  // The fixture multiplier per FDR step from 3 (an average opponent), and
+  // its range. Backtested over 2022-23 to 2025-26 with real odds
+  // (scripts/backtest.mjs, ODDS=), with xgRegression 0.3: twice the old
+  // 0.075 (range 0.8-1.18) picked about 1.4 more points a gameweek for the
+  // best XI, with and without FPL's expected points, and a lower miss.
+  fixtureStep: 0.15,
+  fixtureMin: 0.65,
+  fixtureMax: 1.38,
+  // A double gameweek's second match counts this much, and a match after
+  // under 4 days' rest this much: neither moved the backtest either way
+  // (0.8-1.0 and 0.85-1.0), so they stay as reasoned.
+  doubleDiscount: 0.92,
+  congestionDiscount: 0.92,
   recentMinutes: 0.5,                            // how far fewer recent minutes (last 4 gameweeks) than over the season pull the non-ep_next part down; 0 = off
 };
 
@@ -171,7 +184,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   // from FPL's own 1-5 difficulty rating. (Opponent attack/defence strength
   // by position was backtested over 2024-25 and 2025-26 and did no better.)
   function fixtureMultFor(f) {
-    return Math.max(0.8, Math.min(1.18, 1 + (3 - f.difficulty) * 0.075));
+    return Math.max(weights.fixtureMin, Math.min(weights.fixtureMax, 1 + (3 - f.difficulty) * weights.fixtureStep));
   }
 
   // `predicted` is a per-gameweek average over the next
@@ -212,7 +225,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   // than just the first — missing this was the difference between
   // correctly flagging a double-gameweek player as the standout captain
   // pick and quietly treating them the same as anyone with one game.
-  const DOUBLE_FIXTURE_DISCOUNT = 0.92; // modest rotation/fatigue discount on the 2nd+ fixture of a double — not a precise model, just "not a clean free 2x"
+  const DOUBLE_FIXTURE_DISCOUNT = weights.doubleDiscount; // rotation/fatigue on the 2nd+ fixture of a double
   const nextFixtureMult = isBlankThisEvent
     ? 0
     : thisEventFixtures.reduce((sum, f, i) => sum + fixtureMultFor(f) * (i === 0 ? 1 : DOUBLE_FIXTURE_DISCOUNT), 0);
@@ -244,7 +257,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   // (rearranged or festive-period fixtures) is still a real, if partial,
   // signal worth a modest discount rather than none at all.
   const REST_DAYS_THRESHOLD = 4; // a normal gap is ~7 days
-  const CONGESTION_DISCOUNT = 0.92;
+  const CONGESTION_DISCOUNT = weights.congestionDiscount;
   const restDays = p.daysSinceLastFixture;
   const congestionMult = (typeof restDays === 'number' && restDays < REST_DAYS_THRESHOLD) ? CONGESTION_DISCOUNT : 1;
 
