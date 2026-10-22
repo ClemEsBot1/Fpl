@@ -64,3 +64,40 @@ test('unsubscribe removes it; requests must be JSON', async () => {
   await call({ push: 'unsubscribe' }, { redis, body: { endpoint: SUB.endpoint } });
   assert.equal(await redis.get(subscriptionKey(SUB.endpoint)), null);
 });
+
+test('pushed alerts flag a prediction drop against the first figure the server saw', async () => {
+  const redis = fakeRedis();
+  await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [7] } });
+  const staticFor = pts => ({
+    targetEvent: { id: 8, name: 'Gameweek 8', deadline_time: new Date(NOW + 48 * 3600e3).toISOString() },
+    playersById: { 7: { id: 7, webName: 'Isak', status: 'a' } },
+    predictionsById: { 7: { nextMatchPredicted: pts } },
+  });
+  const sent = [];
+  const sender = { sendNotification: async (sub, payload) => { sent.push(JSON.parse(payload).tag); } };
+  const auth = { 'content-type': 'application/json', authorization: 'Bearer cron' };
+  await call({ push: 'send' }, { redis, sender, staticData: staticFor(6), now: NOW, headers: auth });
+  assert.deepEqual(sent, []);
+  await call({ push: 'send' }, { redis, sender, staticData: staticFor(2), now: NOW, headers: auth });
+  assert.deepEqual(sent, ['drop-7-8-2']);
+});
+
+test('the 2h deadline push says when the team has made no transfer yet', async () => {
+  const redis = fakeRedis();
+  await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [], teamId: 123 } });
+  assert.equal(JSON.parse(await redis.get(subscriptionKey(SUB.endpoint))).teamId, 123);
+  const staticData = { targetEvent: { id: 8, name: 'Gameweek 8', deadline_time: new Date(NOW + 3600e3).toISOString() }, playersById: {}, predictionsById: {} };
+  const bodies = [];
+  const sender = { sendNotification: async (sub, payload) => { bodies.push(JSON.parse(payload).body); } };
+  const auth = { 'content-type': 'application/json', authorization: 'Bearer cron' };
+  const asked = [];
+  const fetchTransfers = async id => { asked.push(id); return [{ event: 7 }]; };
+  await call({ push: 'send' }, { redis, sender, staticData, now: NOW, headers: auth, fetchTransfers });
+  assert.deepEqual(asked, [123]);
+  assert.match(bodies[0], /^You haven't made a transfer for Gameweek 8 yet\./);
+  // Already transferred: the plain reminder.
+  const redis2 = fakeRedis();
+  await call({ push: 'subscribe' }, { redis: redis2, body: { subscription: SUB, playerIds: [], teamId: 123 } });
+  await call({ push: 'send' }, { redis: redis2, sender, staticData, now: NOW, headers: auth, fetchTransfers: async () => [{ event: 8 }] });
+  assert.doesNotMatch(bodies[1], /haven't made/);
+});
