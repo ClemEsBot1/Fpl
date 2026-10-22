@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import handler from '../api/fpl.js';
+import handler, { MAX_ENTRY_FETCHES_PER_IP } from '../api/fpl.js';
 import { MAX_AGE_MS, SAVE_EVERY_MS, readLastGood, saveLastGood } from '../src/lib/lastGood.js';
 import { fakeRedis } from './helpers/fakeRedis.js';
 
@@ -53,4 +53,18 @@ test('no saved copy, or a team-specific path: the error goes through', async () 
   assert.equal((await call('entry/123/', down(503), redis)).status, 503, 'team data isn’t kept');
   assert.equal((await call('entry/123/', ok('{}'), null)).status, 200, 'works without storage');
   assert.equal((await call('entry/999/', async () => ({ ok: false, status: 404, text: async () => '"not found"' }), redis)).status, 404);
+});
+
+test('caps per-entry fetches per IP, but never the shared hot path', async () => {
+  const redis = fakeRedis();
+  // Up to the cap, per-entry requests go through.
+  for (let i = 0; i < MAX_ENTRY_FETCHES_PER_IP; i++) {
+    assert.equal((await call('entry/1234567/', ok('{"id":1}'), redis)).status, 200, `request ${i}`);
+  }
+  // The next one from the same IP is refused.
+  const limited = await call('entry/1234567/', ok('{"id":1}'), redis);
+  assert.equal(limited.status, 429, 'enumeration is capped');
+  assert.equal(limited.body.error, 'rate_limited');
+  // The shared, edge-cached hot path is never limited, even past the cap.
+  assert.equal((await call('bootstrap-static/', ok('{"events":[]}'), redis)).status, 200);
 });
