@@ -58,3 +58,40 @@ test("a squad player's prediction dropping since first seen this gameweek is fla
   // A new gameweek starts afresh.
   assert.deepEqual(buildAlerts(withPred(2.4), [7], NOW, { baseline: { gwId: 7, byId: { 7: 6 } } }), []);
 });
+
+test('an injured or dropped player comes with a swap idea for the same money', () => {
+  const players = [
+    { id: 1, webName: 'Isak', positionId: 4, team: 1, price: 8.5, status: 'i', news: 'Hamstring', note: 'Injured' },
+    { id: 2, webName: 'Wood', positionId: 4, team: 2, price: 7.0, status: 'a' },
+    { id: 3, webName: 'Haaland', positionId: 4, team: 3, price: 14.5, status: 'a' },
+    { id: 4, webName: 'Wissa', positionId: 4, team: 4, price: 6.5, status: 'd' },
+    { id: 5, webName: 'Saka', positionId: 3, team: 5, price: 8.0, status: 'a' },
+  ];
+  const d = data(48, players);
+  d.allPlayers = players;
+  d.predictionsById[2].predicted = 5.2;
+  d.predictionsById[3].predicted = 8;
+  d.predictionsById[4].predicted = 6;
+  d.predictionsById[5].predicted = 7;
+  const news = buildAlerts(d, [1], NOW).find(a => a.kind === 'news');
+  // Haaland costs too much, Wissa is doubtful, Saka plays elsewhere.
+  assert.match(news.body, /Swap idea: Wood \(£7\.0m, 5\.2 pts a week\)\.$/);
+  // No swap from a player you already own.
+  assert.doesNotMatch(buildAlerts(d, [1, 2], NOW).find(a => a.kind === 'news').body, /Swap idea/);
+});
+
+test('a swap idea keeps to three a club', () => {
+  const squad = [1, 10, 11, 12].map((id, i) => ({ id, webName: `P${id}`, positionId: i ? 3 : 4, team: i ? 9 : 1, price: 8, status: i ? 'a' : 'i', note: i ? null : 'Injured', news: 'x' }));
+  const pool = [{ id: 2, webName: 'Clubmate', positionId: 4, team: 9, price: 7, status: 'a' }, { id: 3, webName: 'Other', positionId: 4, team: 8, price: 7, status: 'a' }];
+  const d = data(48, [...squad, ...pool]);
+  d.allPlayers = [...squad, ...pool];
+  d.predictionsById[2].predicted = 9;
+  d.predictionsById[3].predicted = 4;
+  assert.match(buildAlerts(d, [1, 10, 11, 12], NOW).find(a => a.kind === 'news').body, /Swap idea: Other/);
+});
+
+test('two hours out with no transfer made, the deadline alert says so', () => {
+  const alerts = buildAlerts(data(1, []), [], NOW, { noTransferYet: true });
+  assert.match(alerts[0].body, /^You haven't made a transfer for Gameweek 8 yet\. /);
+  assert.doesNotMatch(buildAlerts(data(5, []), [], NOW, { noTransferYet: true })[0].body, /haven't made/, 'only in the last two hours');
+});

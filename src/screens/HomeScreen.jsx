@@ -197,7 +197,7 @@ function Alerts({ staticData, homeTeam }) {
   useEffect(() => { notifyNewAlerts(alerts); }, [alerts]);
   // With notifications on, the server is told this squad, so it can push
   // its alerts with the app closed.
-  useEffect(() => { if (notify === 'on' && squad) syncPush(squad.map(s => s.player.id)); }, [notify, squad]);
+  useEffect(() => { if (notify === 'on' && squad) syncPush(squad.map(s => s.player.id), homeTeam.teamId); }, [notify, squad, homeTeam.teamId]);
   if (!staticData || !homeTeam.teamId) return null;
   const toggle = async () => {
     const next = await setNotifications(notify !== 'on');
