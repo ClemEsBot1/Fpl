@@ -1271,3 +1271,22 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-h2h-tally li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
 /* The admin page's sections wrap onto more lines on a phone. */
 .fpl-admin-tabs { display: flex; flex-wrap: wrap; justify-self: start; max-width: 100%; }
+
+/* Set-piece tags on player rows, the set-piece table, the template card */
+.fpl-sp-tag { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 4px; font: 600 0.58rem 'IBM Plex Mono', monospace; letter-spacing: 0.02em; color: var(--lime); border: 1px solid rgba(206,255,16,0.4); vertical-align: 1px; }
+.fpl-sp-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.fpl-sp-table th, .fpl-sp-table td { text-align: left; padding: 7px 8px; border-top: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+.fpl-sp-table thead th { border-top: 0; font: 600 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.06em; color: var(--ink-dim); text-transform: uppercase; }
+.fpl-sp-table tbody th { font-size: 0.72rem; color: var(--ink-dim); width: 1%; white-space: nowrap; }
+.fpl-sp-table td span { display: block; }
+.fpl-sp-table td span + span { font-size: 0.72rem; }
+.fpl-template { padding: 14px; margin-bottom: 16px; display: grid; gap: 12px; }
+.fpl-template-cols { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .fpl-template-cols { grid-template-columns: 1fr 1fr; } }
+.fpl-template-h { margin: 0 0 6px; font-size: 0.6rem; letter-spacing: 0.06em; color: var(--ink-dim); font-weight: 600; }
+.fpl-template-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.fpl-template-list li { display: grid; grid-template-columns: 1fr auto 52px; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
+.fpl-template-list li > :last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.fpl-template-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpl-template-up { color: var(--green); }
+.fpl-template-down { color: #FF8A8A; }

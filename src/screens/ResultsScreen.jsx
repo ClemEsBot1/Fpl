@@ -16,6 +16,8 @@ import { VARIANTS as REDDIT_VARIANTS, redditReplies } from '../lib/redditReply.j
 import { SHARE_URL, shareLinks, shareMessage } from '../lib/shareLinks.js';
 import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 import { track } from '../lib/track.js';
+import { setPieceTags } from '../lib/setPieces.js';
+import { templateReport } from '../lib/ownership.js';
 
 // Every input that fed into a player's predicted points, in plain language
 // — see computePlayerPrediction in src/lib/predictions.js for where each
@@ -163,9 +165,12 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
             {isCaptain && <span className="fpl-armband" title="Captain">C</span>}
             {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
           </div>
-          <div className="fpl-row-sub">{team ? team.short_name : '—'} · {fmtPrice(player.price)}</div>
+          <div className="fpl-row-sub">
+            {team ? team.short_name : '—'} · {fmtPrice(player.price)}
+            {setPieceTags(player).map(t => <span key={t} className="fpl-sp-tag">{t}</span>)}
+          </div>
           <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
-            {fmtPts(player.displaySeasonPoints)} pts · {fmtPts(player.displaySeasonPPG)} pts/match{player.displayIsLastSeason ? ' (LS)' : ''}
+            {fmtPts(player.displaySeasonPoints)} pts · {fmtPts(player.displaySeasonPPG)} pts/match{player.displayIsLastSeason ? ' (LS)' : ''}{typeof player.selectedBy === 'number' ? ` · ${fmtOwn(player.selectedBy)} owned` : ''}
           </div>
           {availNote && <div className="fpl-availnote">{availNote}</div>}
           {slot.breakdown && (
@@ -387,6 +392,59 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
           Make the GW{first.event} {first.moves.length === 1 ? 'transfer' : 'transfers'}
         </button>
       ) : null}
+    </section>
+  );
+}
+
+// Your squad against the template (src/lib/ownership.js): how much of it
+// you own, the template players you're missing with what's at stake on
+// them this gameweek, and your differentials with what they could gain.
+const fmtOwn = v => `${v < 10 ? v.toFixed(1) : Math.round(v)}%`;
+export function TemplateCard({ squad, allPlayers, predictionsById }) {
+  const r = useMemo(() => templateReport(squad.map(s => s.player), allPlayers, predictionsById), [squad, allPlayers, predictionsById]);
+  if (!r.template.length) return null;
+  const missing = r.missing.slice(0, 5);
+  const diffs = r.differentials.slice(0, 5);
+  return (
+    <section className="fpl-block fpl-template" aria-labelledby="template-h">
+      <div>
+        <h3 id="template-h" className="fpl-plan-h">Template vs differential</h3>
+        <p className="fpl-meta" style={{ margin: '4px 0 0' }}>
+          You own <b>{r.templateOwned}</b> of the {r.template.length} players in at least 20% of teams.
+          {r.missingPoints > 0 || r.differentialPoints > 0 ? <> This gameweek: <b className="fpl-template-down">−{fmtPts(r.missingPoints)}</b> at stake on the ones you don&rsquo;t have, <b className="fpl-template-up">+{fmtPts(r.differentialPoints)}</b> to gain from your differentials.</> : null}
+        </p>
+      </div>
+      <div className="fpl-template-cols">
+        <div>
+          <h4 className="fpl-mono fpl-template-h">MISSING FROM THE TEMPLATE</h4>
+          {missing.length ? (
+            <ul className="fpl-template-list">
+              {missing.map(m => (
+                <li key={m.player.id}>
+                  <span className="fpl-template-name">{m.player.webName}</span>
+                  <span className="fpl-mono fpl-meta">{fmtOwn(m.selectedBy)}</span>
+                  <span className="fpl-mono fpl-template-down" title="Points the field gets from him and you don't, this gameweek">−{fmtPts(m.atStake)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="fpl-meta" style={{ margin: 0 }}>None: you have the whole template.</p>}
+        </div>
+        <div>
+          <h4 className="fpl-mono fpl-template-h">YOUR DIFFERENTIALS (UNDER 10%)</h4>
+          {diffs.length ? (
+            <ul className="fpl-template-list">
+              {diffs.map(d => (
+                <li key={d.player.id}>
+                  <span className="fpl-template-name">{d.player.webName}</span>
+                  <span className="fpl-mono fpl-meta">{fmtOwn(d.selectedBy)}</span>
+                  <span className="fpl-mono fpl-template-up" title="What he gains you on the field this gameweek">+{fmtPts(d.edge)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="fpl-meta" style={{ margin: 0 }}>None: everyone you own is in 10% of teams or more.</p>}
+        </div>
+      </div>
+      <p className="fpl-mono fpl-meta" style={{ margin: 0, fontSize: '0.62rem' }}>Ownership is FPL&rsquo;s overall figure. Points are this gameweek&rsquo;s predictions, before the armband.</p>
     </section>
   );
 }
@@ -1415,6 +1473,10 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             Estimated from currently scheduled fixtures for your squad as it stands now — this will shift as gameweeks pass, your squad changes, and FPL confirms any blank/double gameweeks.
           </p>
         </div>
+      )}
+
+      {!isPastGw && allPlayers && predictionsById && (
+        <TemplateCard squad={squad} allPlayers={allPlayers} predictionsById={predictionsById} />
       )}
 
       {canEdit && (
