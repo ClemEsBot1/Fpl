@@ -62,16 +62,19 @@ export function estimateCleanSheetProbability(teamWinProb, drawProb) {
 // isHome: whether the player's team is the home side in this fixture.
 // positionId: FPL element_type (1=GKP, 2=DEF, 3=MID, 4=FWD).
 // Returns a capped points adjustment (can be 0 if there's no odds signal).
-export function computeOddsAdjustment({ probs, isHome, positionId }) {
+// cleanSheet: { scale, cap } for the GKP/DEF nudge (see
+// DEFAULT_PREDICTION_WEIGHTS in predictions.js).
+export function computeOddsAdjustment({ probs, isHome, positionId, cleanSheet = {} }) {
   if (!probs) return 0;
   const teamWinProb = isHome ? probs.homeWinProb : probs.awayWinProb;
   const drawProb = probs.drawProb;
 
   if (positionId === 1 || positionId === 2) {
     const csProb = estimateCleanSheetProbability(teamWinProb, drawProb);
-    const leagueAverageCleanSheetRate = 0.30; // rough long-run PL average, not per-season tuned
-    const raw = (csProb - leagueAverageCleanSheetRate) * 4; // scale factor, reasoned not backtested
-    return Math.max(-ODDS_WEIGHTS.cleanSheetNudgeCap, Math.min(ODDS_WEIGHTS.cleanSheetNudgeCap, raw));
+    const leagueAverageCleanSheetRate = cleanSheet.baseline ?? 0.30;
+    const raw = (csProb - leagueAverageCleanSheetRate) * (cleanSheet.scale ?? 4);
+    const cap = cleanSheet.cap ?? ODDS_WEIGHTS.cleanSheetNudgeCap;
+    return Math.max(-cap, Math.min(cap, raw));
   }
 
   const evenMatchBaseline = 1 / 3;
@@ -206,7 +209,7 @@ export function buildOddsByTeam(oddsData, fromEventId) {
 // A player's odds nudge for the gameweek: the average over their team's
 // matches that week (a double gameweek's two fixtures can point in
 // opposite directions).
-export function oddsAdjustmentForMatches(matches, positionId) {
+export function oddsAdjustmentForMatches(matches, positionId, cleanSheet = {}) {
   if (!Array.isArray(matches) || !matches.length) return 0;
-  return matches.reduce((sum, m) => sum + computeOddsAdjustment({ probs: m.probs, isHome: m.isHome, positionId }), 0) / matches.length;
+  return matches.reduce((sum, m) => sum + computeOddsAdjustment({ probs: m.probs, isHome: m.isHome, positionId, cleanSheet }), 0) / matches.length;
 }
