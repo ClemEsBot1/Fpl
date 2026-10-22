@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { careerStats } from '../src/lib/career.js';
+import { careerStats, rankChartPoints } from '../src/lib/career.js';
 
 const history = {
   current: [
@@ -52,4 +52,29 @@ test('a brand new manager: nothing past, nothing played', () => {
   assert.equal(c.bestSeason, null);
   assert.equal(c.thisSeason, null);
   assert.equal(careerStats(null).seasons, 0);
+});
+
+test('the season gameweek by gameweek, for the rank chart', () => {
+  const history = {
+    current: [
+      { event: 1, points: 60, total_points: 60, overall_rank: 2_000_000, rank: 3_000_000, event_transfers_cost: 0 },
+      { event: 2, points: 80, total_points: 136, overall_rank: 500_000, rank: 100_000, event_transfers_cost: 4 },
+      { event: 3, points: null },
+    ],
+    chips: [{ name: 'bboost', event: 2 }],
+  };
+  assert.deepEqual(careerStats(history).gwHistory, [
+    { gw: 1, points: 60, total: 60, overallRank: 2_000_000, gwRank: 3_000_000, hit: 0, chip: null, rankChange: null },
+    { gw: 2, points: 80, total: 136, overallRank: 500_000, gwRank: 100_000, hit: 4, chip: 'Bench Boost', rankChange: 1_500_000 },
+  ]);
+});
+
+test('rank chart: rank 1 at the top, on a log scale, gameweeks spread across', () => {
+  const pts = rankChartPoints([{ gw: 1, overallRank: 1_000_000 }, { gw: 2, overallRank: 1000 }, { gw: 3, overallRank: 10_000_000 }], { width: 200, height: 100, pad: 0 });
+  assert.deepEqual(pts.map(p => p.x), [0, 100, 200]);
+  assert.ok(pts[1].y < pts[0].y && pts[0].y < pts[2].y, 'a better rank sits higher');
+  assert.equal(pts[1].y, 0);
+  assert.equal(pts[2].y, 100);
+  assert.deepEqual(rankChartPoints([], { width: 10, height: 10 }), []);
+  assert.equal(rankChartPoints([{ gw: 1, overallRank: 5 }], { width: 200, height: 100, pad: 0 })[0].x, 100, 'one point is centred');
 });
