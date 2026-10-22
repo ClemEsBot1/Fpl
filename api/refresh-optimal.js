@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { put, get } from '@vercel/blob';
 import { buildStaticDataFromRaw, buildOptimalTeam, getTargetEvent, isEventLocked, recentMinutesFromLive, RECENT_MINUTES_GWS, SQUAD_BUDGET } from '../src/lib/predictions.js';
 import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
@@ -89,6 +90,16 @@ async function fetchMlServer(base) {
   }
 }
 
+// Constant-time compare of the bearer header against the expected value, so
+// the secret can't be recovered a character at a time by timing the reply.
+// Mismatched lengths short-circuit (timingSafeEqual needs equal lengths),
+// which leaks only the length of what the caller sent, not the secret.
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return ba.length === bb.length && timingSafeEqual(ba, bb);
+}
+
 export default async function handler(req, res) {
   // Authenticate both trigger sources with one check:
   //  - Vercel's own daily cron (see vercel.json) auto-sends this header using
@@ -98,7 +109,7 @@ export default async function handler(req, res) {
   //    the app works fine on the daily schedule alone).
   const expected = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
-  if (!expected || auth !== `Bearer ${expected}`) {
+  if (!expected || !safeEqual(auth, `Bearer ${expected}`)) {
     res.status(401).json({ error: 'unauthorized' });
     return;
   }
