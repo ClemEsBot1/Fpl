@@ -67,3 +67,36 @@ test('the bank and the club limit are respected', () => {
   const rich = planTransfers({ ...setup({ poolPts: { 103: flat(9) }, bank: 40 }), freeTransfers: 1 });
   assert.equal(rich.weeks[0].moves[0].in.id, 103);
 });
+
+test('a kept player is never sold, even when he is out', () => {
+  const plan = planTransfers({ ...setup({ squadPts: { 8: flat(0) }, poolPts: { 101: flat(6) } }), freeTransfers: 1, keep: [8] });
+  assert.ok(plan.weeks.every(w => w.moves.every(m => m.out.id !== 8)));
+});
+
+test('an avoided player is never bought', () => {
+  const plan = planTransfers({ ...setup({ squadPts: { 8: flat(0) }, poolPts: { 101: flat(6) } }), freeTransfers: 1, avoid: [101] });
+  assert.ok(plan.weeks.every(w => w.moves.every(m => m.in.id !== 101)));
+});
+
+test('the horizon caps how many weeks are planned', () => {
+  const plan = planTransfers({ ...setup(), freeTransfers: 1, horizon: 3 });
+  assert.equal(plan.weeks.length, 3);
+  assert.deepEqual(plan.weeks.map(w => w.event), [10, 11, 12]);
+});
+
+test('rollFirst plans with no move in the first week', () => {
+  const args = { ...setup({ squadPts: { 8: flat(0) }, poolPts: { 101: flat(6) } }), freeTransfers: 1 };
+  const rolled = planTransfers({ ...args, rollFirst: true });
+  assert.equal(rolled.weeks[0].moves.length, 0);
+  assert.equal(rolled.weeks[0].freeBefore, 1);
+  // The bank of two lets week 2 make the move; still behind moving now.
+  assert.ok(rolled.weeks[1].moves.some(m => m.in.id === 101));
+  assert.ok(rolled.total < planTransfers(args).total);
+});
+
+test('each week carries what the unchanged squad would score', () => {
+  const plan = planTransfers({ ...setup({ squadPts: { 8: flat(0) }, poolPts: { 101: flat(6) } }), freeTransfers: 1 });
+  plan.weeks.forEach(w => assert.equal(typeof w.baseline, 'number'));
+  assert.ok(plan.weeks[0].points > plan.weeks[0].baseline);
+  assert.equal(Math.round(plan.weeks.reduce((s, w) => s + w.baseline, 0) * 10) / 10, plan.baseline);
+});

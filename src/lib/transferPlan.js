@@ -40,10 +40,14 @@ export function xiPointsForWeek(players, pointsOf, k) {
 }
 
 // squadPlayers: the 15 player objects. pointsById: { [id]: [week 0, week 1, …] }.
-// Returns { weeks: [{ event, moves: [{ out, in }], hits, freeBefore, points }],
-// total, baseline, gain } — baseline being the squad with no moves at all.
-export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlayers, pointsById, events }) {
-  const weeks = events.length;
+// keep: ids never sold. avoid: ids never bought. horizon: plan at most this
+// many weeks. rollFirst: make no move in the first week (to compare with
+// moving now).
+// Returns { weeks: [{ event, moves: [{ out, in }], hits, freeBefore, points,
+// baseline }], total, baseline, gain } — baseline being the squad with no
+// moves at all.
+export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlayers, pointsById, events, keep = [], avoid = [], horizon = null, rollFirst = false }) {
+  const weeks = horizon ? Math.min(events.length, horizon) : events.length;
   if (!weeks || squadPlayers.length !== 15) return null;
   const pts = (p, k) => (pointsById[p.id] && pointsById[p.id][k]) || 0;
   const tenths = p => Math.round(p.price * 10);
@@ -55,9 +59,11 @@ export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlay
 
   // Players worth buying: the best of each position over the whole plan.
   const owned = new Set(squadPlayers.map(p => p.id));
+  const kept = new Set(keep);
+  const avoided = new Set(avoid);
   const pool = { 1: [], 2: [], 3: [], 4: [] };
-  allPlayers.forEach(p => { if (!owned.has(p.id) && pointsById[p.id]) pool[p.positionId].push(p); });
-  const total = p => pointsById[p.id].reduce((s, v) => s + v, 0);
+  allPlayers.forEach(p => { if (!owned.has(p.id) && !avoided.has(p.id) && pointsById[p.id]) pool[p.positionId].push(p); });
+  const total = p => pointsById[p.id].slice(0, weeks).reduce((s, v) => s + v, 0);
   Object.values(pool).forEach(list => { list.sort((a, b) => total(b) - total(a)); list.length = Math.min(list.length, POOL_PER_POSITION); });
 
   const clubCount = players => {
@@ -77,6 +83,7 @@ export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlay
     };
     const moves = [];
     players.forEach(out => {
+      if (kept.has(out.id)) return;
       pool[out.positionId].forEach(inP => {
         if (ids.has(inP.id)) return;
         if (tenths(inP) > bank + tenths(out)) return;
@@ -106,12 +113,13 @@ export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlay
     return { players, bank };
   }
 
+  const baselineByWeek = Array.from({ length: weeks }, (_, k) => Math.round(xiPointsForWeek(squadPlayers, pts, k) * 10) / 10);
   const start = { players: squadPlayers, bank: bankTenths || 0, free: Math.max(0, Math.min(MAX_FREE_TRANSFERS, freeTransfers)), score: 0, weeks: [] };
   let beam = [start];
   for (let k = 0; k < weeks; k++) {
     const next = [];
     for (const st of beam) {
-      const options = singles(st.players, st.bank, k);
+      const options = rollFirst && k === 0 ? [] : singles(st.players, st.bank, k);
       const actions = [[]];
       options.forEach(m => actions.push([m]));
       const pairs = [];
@@ -131,7 +139,7 @@ export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlay
         const score = st.score + points - hits * TRANSFER_HIT_COST;
         next.push({
           ...after, free, score,
-          weeks: [...st.weeks, { event: events[k], moves: moves.map(m => ({ out: m.out, in: m.in })), hits, freeBefore: st.free, points: Math.round(points * 10) / 10 }],
+          weeks: [...st.weeks, { event: events[k], moves: moves.map(m => ({ out: m.out, in: m.in })), hits, freeBefore: st.free, points: Math.round(points * 10) / 10, baseline: baselineByWeek[k] }],
           outlook: score + restOf(after.players, k + 1),
         });
       }
