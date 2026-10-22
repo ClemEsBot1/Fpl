@@ -75,6 +75,15 @@ async function fetchFpl(path) {
   return r.json();
 }
 
+// Writes `fields` onto the subscription as it is now, re-read just before
+// writing, so a send run doesn't put back a squad the browser has since
+// replaced, or a subscription it has since removed.
+async function patchRecord(redis, key, fields) {
+  const current = await getJSON(redis, key);
+  if (!current) return;
+  await setJSON(redis, key, { ...current, ...fields });
+}
+
 // Whether a team has made no transfer in gameweek `event`, from FPL's
 // entry/{id}/transfers/ list; null when that couldn't be read.
 async function noTransferYet(fetchTransfers, teamId, event) {
@@ -101,7 +110,7 @@ export async function sendPushAlerts({ redis, sender, staticData, now = Date.now
     const baseline = predictionBaseline(previous, staticData, playerIds);
     if (baseline && JSON.stringify(baseline) !== JSON.stringify(previous)) {
       record = { ...record, baseline };
-      await setJSON(redis, key, record);
+      await patchRecord(redis, key, { baseline });
     }
     const seen = previous && baseline && previous.gwId === baseline.gwId ? previous : null;
     const isNew = a => !(record.sent || []).includes(a.id);
@@ -127,7 +136,7 @@ export async function sendPushAlerts({ redis, sender, staticData, now = Date.now
       await redis.del(key);
       removed++;
     } else if (delivered.length) {
-      await setJSON(redis, key, { ...record, sent: [...(record.sent || []), ...delivered].slice(-MAX_SENT) });
+      await patchRecord(redis, key, { sent: [...(record.sent || []), ...delivered].slice(-MAX_SENT) });
     }
   }
   return { sent, removed };

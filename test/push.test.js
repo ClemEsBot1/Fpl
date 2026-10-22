@@ -101,3 +101,28 @@ test('the 2h deadline push says when the team has made no transfer yet', async (
   await call({ push: 'send' }, { redis: redis2, sender, staticData, now: NOW, headers: auth, fetchTransfers: async () => [{ event: 8 }] });
   assert.doesNotMatch(bodies[1], /haven't made/);
 });
+
+test('a send run never undoes a subscribe or unsubscribe that lands while it sends', async () => {
+  const staticData = {
+    targetEvent: { id: 8, name: 'Gameweek 8', deadline_time: new Date(NOW + 5 * 3600e3).toISOString() },
+    playersById: {}, predictionsById: {},
+  };
+  const auth = { 'content-type': 'application/json', authorization: 'Bearer cron' };
+  const key = subscriptionKey(SUB.endpoint);
+
+  // A new squad saved mid-send keeps its players.
+  const redis = fakeRedis();
+  await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [1] } });
+  const resubscribe = { sendNotification: async () => { await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [2, 3] } }); } };
+  await call({ push: 'send' }, { redis, sender: resubscribe, staticData, now: NOW, headers: auth });
+  const after = JSON.parse(await redis.get(key));
+  assert.deepEqual(after.playerIds, [2, 3]);
+  assert.deepEqual(after.sent, ['deadline-8-24h']);
+
+  // An unsubscribe mid-send stays unsubscribed.
+  const redis2 = fakeRedis();
+  await call({ push: 'subscribe' }, { redis: redis2, body: { subscription: SUB, playerIds: [1] } });
+  const unsubscribe = { sendNotification: async () => { await call({ push: 'unsubscribe' }, { redis: redis2, body: { endpoint: SUB.endpoint } }); } };
+  await call({ push: 'send' }, { redis: redis2, sender: unsubscribe, staticData, now: NOW, headers: auth });
+  assert.equal(await redis2.get(key), null);
+});
