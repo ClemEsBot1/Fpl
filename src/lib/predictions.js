@@ -54,6 +54,15 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
   cleanSheetScale: 4,
   cleanSheetCap: 0.5,
   cleanSheetBaseline: 0.374,
+  // MID/FWD odds nudge: points per unit of win chance above the baseline,
+  // at most the cap either way per match. The baseline is the average
+  // chance the odds give a team (0.382 over 2022-23 to 2025-26); against
+  // the old 1/3 it added ~0.15 to nearly every one. Backtested, half the
+  // old strength (scale 3, cap 0.5) did best on the miss and correlation
+  // both with and without FPL's expected points; stronger did worse.
+  attackingScale: 1.5,
+  attackingCap: 0.25,
+  attackingBaseline: 0.382,
   fixtureWindowGws: 4,                           // `predicted` averages over this many gameweeks (doubles count twice, blanks zero)
   recentMinutes: 0.5,                            // how far fewer recent minutes (last 4 gameweeks) than over the season pull the non-ep_next part down; 0 = off
 };
@@ -501,6 +510,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   const oddsByTeam = buildOddsByTeam(options.oddsData, targetEvent.id);
   const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
   const cleanSheet = { scale: weights.cleanSheetScale, cap: weights.cleanSheetCap, baseline: weights.cleanSheetBaseline };
+  const attacking = { scale: weights.attackingScale, cap: weights.attackingCap, baseline: weights.attackingBaseline };
 
   // League matches each team has played before the target gameweek, for
   // the share of them a player appeared in, and in the last
@@ -587,8 +597,8 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       recentMinutesShare: recentMinutesById && teamRecentMatches[e.team]
         ? Math.min(1, (recentMinutesById[e.id] || 0) / (90 * teamRecentMatches[e.team])) : null,
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
-      oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type, cleanSheet)])),
-      oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type, cleanSheet),
+      oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type, cleanSheet, attacking)])),
+      oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type, cleanSheet, attacking),
       ml: mlById ? mlById[e.id] || null : null,
       mlInjuryAware: !!(mlById && ml.injuryAware),
       // The model's 10th-90th percentile for this gameweek: [low, high].

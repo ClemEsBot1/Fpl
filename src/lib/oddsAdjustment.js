@@ -24,7 +24,7 @@
 ============================================================================ */
 
 export const ODDS_WEIGHTS = {
-  attackingNudgeCap: 0.5,   // max points added/removed for MID/FWD, per match
+  attackingNudgeCap: 0.25,  // max points added/removed for MID/FWD, per match
   cleanSheetNudgeCap: 0.5,  // max points added/removed for GKP/DEF, per match
 };
 
@@ -64,7 +64,7 @@ export function estimateCleanSheetProbability(teamWinProb, drawProb) {
 // Returns a capped points adjustment (can be 0 if there's no odds signal).
 // cleanSheet: { scale, cap } for the GKP/DEF nudge (see
 // DEFAULT_PREDICTION_WEIGHTS in predictions.js).
-export function computeOddsAdjustment({ probs, isHome, positionId, cleanSheet = {} }) {
+export function computeOddsAdjustment({ probs, isHome, positionId, cleanSheet = {}, attacking = {} }) {
   if (!probs) return 0;
   const teamWinProb = isHome ? probs.homeWinProb : probs.awayWinProb;
   const drawProb = probs.drawProb;
@@ -77,9 +77,10 @@ export function computeOddsAdjustment({ probs, isHome, positionId, cleanSheet = 
     return Math.max(-cap, Math.min(cap, raw));
   }
 
-  const evenMatchBaseline = 1 / 3;
-  const raw = (teamWinProb - evenMatchBaseline) * 3; // scale factor, reasoned not backtested
-  return Math.max(-ODDS_WEIGHTS.attackingNudgeCap, Math.min(ODDS_WEIGHTS.attackingNudgeCap, raw));
+  const evenMatchBaseline = attacking.baseline ?? 0.382; // the odds' average, see DEFAULT_PREDICTION_WEIGHTS
+  const raw = (teamWinProb - evenMatchBaseline) * (attacking.scale ?? 1.5);
+  const cap = attacking.cap ?? ODDS_WEIGHTS.attackingNudgeCap;
+  return Math.max(-cap, Math.min(cap, raw));
 }
 
 /* ----------------------------------------------------------------------------
@@ -209,7 +210,7 @@ export function buildOddsByTeam(oddsData, fromEventId) {
 // A player's odds nudge for the gameweek: the average over their team's
 // matches that week (a double gameweek's two fixtures can point in
 // opposite directions).
-export function oddsAdjustmentForMatches(matches, positionId, cleanSheet = {}) {
+export function oddsAdjustmentForMatches(matches, positionId, cleanSheet = {}, attacking = {}) {
   if (!Array.isArray(matches) || !matches.length) return 0;
-  return matches.reduce((sum, m) => sum + computeOddsAdjustment({ probs: m.probs, isHome: m.isHome, positionId, cleanSheet }), 0) / matches.length;
+  return matches.reduce((sum, m) => sum + computeOddsAdjustment({ probs: m.probs, isHome: m.isHome, positionId, cleanSheet, attacking }), 0) / matches.length;
 }

@@ -57,3 +57,13 @@ test("the clean-sheet nudge is centred on the odds' average, so an ordinary matc
   assert.ok(computeOddsAdjustment({ probs: fav, isHome: true, positionId: 1 }) > 0.4);
   assert.ok(computeOddsAdjustment({ probs: fav, isHome: false, positionId: 2 }) === -0.5);
 });
+
+test("the attacking nudge is centred on the odds' average win chance, and gentle", () => {
+  // A team the odds give an average 38.2% chance of winning: no nudge.
+  const even = { homeWinProb: 0.382, drawProb: 0.26, awayWinProb: 0.358 };
+  assert.ok(Math.abs(computeOddsAdjustment({ probs: even, isHome: true, positionId: 3 })) < 0.01);
+  // A big favourite's forwards gain, at most 0.25 a match; an underdog's lose.
+  const fav = { homeWinProb: 0.8, drawProb: 0.12, awayWinProb: 0.08 };
+  assert.equal(computeOddsAdjustment({ probs: fav, isHome: true, positionId: 4 }), 0.25);
+  assert.equal(computeOddsAdjustment({ probs: fav, isHome: false, positionId: 3 }), -0.25);
+});
