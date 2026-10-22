@@ -16,6 +16,11 @@ Rules:
 
 - When you find a bug while working on something else, fix it in the same PR (with a test that fails without the fix) instead of only reporting it or asking first. Say in the PR what it was.
 
+## Suggesting features
+
+- Before suggesting any feature or improvement, check the code for it first: run a targeted `graphify query "<feature>" --budget 5000` (or `graphify explain`) for each idea, and open the files it points to. Don't build the list from file names, the welcome page or memory.
+- Only suggest what isn't there. If something exists in part, say so and name the file, and suggest the missing piece instead (e.g. "price forecast exists in src/lib/priceForecast.js; missing: X").
+
 <!-- graphify-rules-start (managed by `graphify init`) -->
 ## Use Graphify before grep
 
