@@ -3,7 +3,7 @@
 // (see api/auth.js), so it doesn't need a function of its own:
 //
 //   GET  ?push=key          the server's public key, for subscribing
-//   POST ?push=subscribe    { subscription, playerIds }: save or update one
+//   POST ?push=subscribe    { subscription, playerIds, teamId? }: save or update one
 //   POST ?push=unsubscribe  { endpoint }
 //   POST ?push=send         sends each subscriber the alerts not sent to
 //                           them before. Needs CRON_SECRET, like
@@ -18,7 +18,8 @@ import { createHash } from 'node:crypto';
 import webpush from 'web-push';
 import { getRedis, getJSON, setJSON } from './redis.js';
 import { bump, clientIp } from './rateLimit.js';
-import { buildAlerts } from './alerts.js';
+import { buildAlerts, predictionBaseline } from './alerts.js';
+import { cleanTeamId } from './digest.js';
 import { buildStaticDataFromRaw } from './predictions.js';
 import { isJsonRequest } from './auth.js';
 
@@ -74,16 +75,42 @@ async function fetchFpl(path) {
   return r.json();
 }
 
+// Whether a team has made no transfer in gameweek `event`, from FPL's
+// entry/{id}/transfers/ list; null when that couldn't be read.
+async function noTransferYet(fetchTransfers, teamId, event) {
+  try {
+    const list = await fetchTransfers(teamId);
+    return Array.isArray(list) ? !list.some(t => t && t.event === event) : null;
+  } catch { return null; }
+}
+
 // Sends every subscriber the alerts they haven't had yet. Each record
 // keeps the ids it was sent, so an alert goes once; a subscription the
-// push service says is gone (404, 410) is deleted.
-export async function sendPushAlerts({ redis, sender, staticData, now = Date.now() }) {
+// push service says is gone (404, 410) is deleted. Each record also keeps
+// its squad's predictions as first seen this gameweek, so a later drop is
+// pushed too. With a team id, the two-hour deadline alert checks FPL for
+// a transfer this gameweek (one request per team, only then).
+export async function sendPushAlerts({ redis, sender, staticData, now = Date.now(), fetchTransfers = id => fetchFpl(`entry/${id}/transfers/`) }) {
   let sent = 0;
   let removed = 0;
   for (const key of await allKeys(redis)) {
-    const record = await getJSON(redis, key);
+    let record = await getJSON(redis, key);
     if (!record || !record.subscription) continue;
-    const fresh = buildAlerts(staticData, record.playerIds || [], now).filter(a => !(record.sent || []).includes(a.id));
+    const playerIds = record.playerIds || [];
+    const previous = record.baseline || null;
+    const baseline = predictionBaseline(previous, staticData, playerIds);
+    if (baseline && JSON.stringify(baseline) !== JSON.stringify(previous)) {
+      record = { ...record, baseline };
+      await setJSON(redis, key, record);
+    }
+    const seen = previous && baseline && previous.gwId === baseline.gwId ? previous : null;
+    const isNew = a => !(record.sent || []).includes(a.id);
+    let fresh = buildAlerts(staticData, playerIds, now, { baseline: seen }).filter(isNew);
+    const target = staticData.targetEvent;
+    if (record.teamId && target && fresh.some(a => a.id === `deadline-${target.id}-2h`)
+      && await noTransferYet(fetchTransfers, record.teamId, target.id)) {
+      fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, noTransferYet: true }).filter(isNew);
+    }
     if (!fresh.length) continue;
     let gone = false;
     const delivered = [];
@@ -139,7 +166,12 @@ export async function pushHandler(req, res, deps = {}) {
     }
     const key = subscriptionKey(subscription.endpoint);
     const existing = await getJSON(redis, key);
-    await setJSON(redis, key, { subscription, playerIds: cleanPlayerIds(body.playerIds), sent: (existing && existing.sent) || [], at: Date.now() });
+    const teamId = cleanTeamId(body.teamId);
+    await setJSON(redis, key, {
+      subscription, playerIds: cleanPlayerIds(body.playerIds), sent: (existing && existing.sent) || [], at: Date.now(),
+      ...(teamId ? { teamId } : {}),
+      ...(existing && existing.baseline ? { baseline: existing.baseline } : {}),
+    });
     res.status(200).json({ ok: true });
     return;
   }
@@ -164,7 +196,7 @@ export async function pushHandler(req, res, deps = {}) {
     }
     try {
       const staticData = deps.staticData || buildStaticDataFromRaw(await fetchFpl('bootstrap-static/'), await fetchFpl('fixtures/'));
-      res.status(200).json({ ok: true, ...(await sendPushAlerts({ redis, sender, staticData, now: deps.now || Date.now() })) });
+      res.status(200).json({ ok: true, ...(await sendPushAlerts({ redis, sender, staticData, now: deps.now || Date.now(), ...(deps.fetchTransfers ? { fetchTransfers: deps.fetchTransfers } : {}) })) });
     } catch (e) {
       res.status(502).json({ error: 'send_failed', detail: String((e && e.message) || e) });
     }

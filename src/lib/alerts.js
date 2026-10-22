@@ -34,13 +34,38 @@ function deadlineBody(staticData, playerIds) {
     : 'Make your transfers and pick your captain before it passes.';
 }
 
+// A replacement for a player you'd want out: the best-predicted fit,
+// available, not already yours, the same position, no dearer than him (we
+// don't know your bank) and without a fourth player from one club. The
+// sentence for the alert's body, or ''.
+function swapIdea(staticData, out, playerIds) {
+  const owned = new Set(playerIds);
+  const clubs = {};
+  playerIds.forEach(id => {
+    const p = staticData.playersById[id];
+    if (p && id !== out.id) clubs[p.team] = (clubs[p.team] || 0) + 1;
+  });
+  const pool = staticData.allPlayers || Object.values(staticData.playersById);
+  let best = null;
+  let bestPts = -Infinity;
+  pool.forEach(p => {
+    const pred = staticData.predictionsById[p.id];
+    if (!pred || typeof pred.predicted !== 'number' || owned.has(p.id)) return;
+    if (p.positionId !== out.positionId || p.price > out.price || (p.status && p.status !== 'a')) return;
+    if ((clubs[p.team] || 0) >= 3) return;
+    if (pred.predicted > bestPts) { best = p; bestPts = pred.predicted; }
+  });
+  return best ? ` Swap idea: ${best.webName} (£${best.price.toFixed(1)}m, ${bestPts.toFixed(1)} pts a week).` : '';
+}
+
 // staticData: today's data. playerIds: your squad. Returns
 // [{ id, kind: 'deadline' | 'rise' | 'fall' | 'news' | 'drop', level: 'warn' | 'info',
 // title, body }], most urgent first. Each id is stable for as long as the
 // alert means the same thing, so a notification is only sent once. The
 // deadline comes first, then warnings. baseline: each player's prediction
-// when first seen this gameweek (see predictionBaseline).
-export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null } = {}) {
+// when first seen this gameweek (see predictionBaseline). noTransferYet:
+// the team has made no transfer this gameweek, said in the last two hours.
+export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null, noTransferYet = false } = {}) {
   if (!staticData) return [];
   const alerts = [];
   const target = staticData.targetEvent;
@@ -54,7 +79,7 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
         kind: 'deadline',
         level: soon ? 'warn' : 'info',
         title: `${target.name} deadline in ${hours ? `${hours}h ${Math.floor((left % HOUR) / 60000)}m` : `${Math.max(1, Math.round(left / 60000))} minutes`}`,
-        body: deadlineBody(staticData, playerIds),
+        body: `${soon && noTransferYet ? `You haven't made a transfer for ${target.name} yet. ` : ''}${deadlineBody(staticData, playerIds)}`,
       });
     }
   }
@@ -67,12 +92,13 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
     if (!p) return;
     const pred = staticData.predictionsById[id] || {};
     if (p.status && p.status !== 'a' && pred.availNote) {
+      const out = ['i', 's', 'u', 'n'].includes(p.status);
       alerts.push({
         id: `news-${id}-${hash(`${p.status}|${p.news || ''}`)}`,
         kind: 'news',
-        level: ['i', 's', 'u', 'n'].includes(p.status) ? 'warn' : 'info',
+        level: out ? 'warn' : 'info',
         title: `${p.webName}: ${pred.availNote}`,
-        body: p.news || 'Check the latest team news.',
+        body: (p.news || 'Check the latest team news.') + (out ? swapIdea(staticData, p, playerIds) : ''),
       });
     }
     const seen = baseline && target && baseline.gwId === target.id ? baseline.byId[id] : undefined;
@@ -83,7 +109,7 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
         kind: 'drop',
         level: 'warn',
         title: `${p.webName}'s prediction is down to ${nowPred.toFixed(1)} pts`,
-        body: `He was predicted ${seen.toFixed(1)} pts for ${target.name} when you first looked.${pred.availNote ? ` ${pred.availNote}.` : ''} Worth checking before the deadline.`,
+        body: `He was predicted ${seen.toFixed(1)} pts for ${target.name} when you first looked.${pred.availNote ? ` ${pred.availNote}.` : ''} Worth checking before the deadline.${swapIdea(staticData, p, playerIds)}`,
       });
     }
     if (typeof p.priceChangePercent === 'number' && Math.abs(p.priceChangePercent) >= PRICE_ALERT_AT) {

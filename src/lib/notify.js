@@ -67,12 +67,13 @@ async function pushRegistration() {
 }
 
 // Subscribes this browser to pushed alerts for `playerIds` (your squad), or
-// updates the squad on its subscription. Only re-sent when the squad has
-// changed. Quietly does nothing when push isn't available here or on the
-// server.
-export async function syncPush(playerIds) {
+// updates the squad on its subscription. `teamId` lets the server check
+// whether you've made a transfer before the deadline. Only re-sent when
+// either has changed. Quietly does nothing when push isn't available here
+// or on the server.
+export async function syncPush(playerIds, teamId = null) {
   if (notificationState() !== 'on') return;
-  const ids = [...playerIds].sort((a, b) => a - b).join(',');
+  const ids = [...playerIds].sort((a, b) => a - b).join(',') + (teamId ? `|${teamId}` : '');
   let last = null;
   try { last = localStorage.getItem(PUSH_KEY); } catch { /* storage unavailable */ }
   const reg = await pushRegistration();
@@ -88,7 +89,7 @@ export async function syncPush(playerIds) {
   }
   const saved = await fetch('/api/auth?push=subscribe', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: sub.toJSON(), playerIds }),
+    body: JSON.stringify({ subscription: sub.toJSON(), playerIds, ...(teamId ? { teamId: Number(teamId) } : {}) }),
   }).catch(() => null);
   if (saved && saved.ok) {
     try { localStorage.setItem(PUSH_KEY, ids); } catch { /* storage unavailable */ }
