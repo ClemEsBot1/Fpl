@@ -44,6 +44,16 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
   xgRegression: 0.15,                            // how much of the xG/actual gap to credit, per computePlayerPrediction
   selectionShrinkage: 0.85,                      // "winner's curse" correction — see buildStaticDataFromRaw
   oddsAdjustment: 1.0,                           // scales the already-capped nudge from src/lib/oddsAdjustment.js; 1.0 = trust it at face value
+  // GKP/DEF odds nudge (src/lib/oddsAdjustment.js): points per unit of
+  // clean-sheet chance above the baseline, at most the cap either way per
+  // match. The baseline is the average chance the odds give (0.374 over
+  // 2022-23 to 2025-26), so the nudge sorts keepers and defenders without
+  // lifting them all: against the old 0.30 it added ~0.3 to nearly every
+  // one, and backtested worse (scripts/backtest.mjs with ODDS=). A
+  // stronger nudge (scale 6-16, cap 0.75-2) was worse at every setting.
+  cleanSheetScale: 4,
+  cleanSheetCap: 0.5,
+  cleanSheetBaseline: 0.374,
   fixtureWindowGws: 4,                           // `predicted` averages over this many gameweeks (doubles count twice, blanks zero)
   recentMinutes: 0.5,                            // how far fewer recent minutes (last 4 gameweeks) than over the season pull the non-ep_next part down; 0 = off
 };
@@ -489,6 +499,8 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
   // the fetch/matching failed for this gameweek, just means oddsAdjustment
   // is 0 for everyone, same as before this feature existed.
   const oddsByTeam = buildOddsByTeam(options.oddsData, targetEvent.id);
+  const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
+  const cleanSheet = { scale: weights.cleanSheetScale, cap: weights.cleanSheetCap, baseline: weights.cleanSheetBaseline };
 
   // League matches each team has played before the target gameweek, for
   // the share of them a player appeared in, and in the last
@@ -575,8 +587,8 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       recentMinutesShare: recentMinutesById && teamRecentMatches[e.team]
         ? Math.min(1, (recentMinutesById[e.id] || 0) / (90 * teamRecentMatches[e.team])) : null,
       daysSinceLastFixture: restDaysByTeam[e.team] ?? null,
-      oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type)])),
-      oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type),
+      oddsByEvent: Object.fromEntries(Object.entries(oddsByTeam[e.team] || {}).map(([event, matches]) => [event, oddsAdjustmentForMatches(matches, e.element_type, cleanSheet)])),
+      oddsAdjustment: oddsAdjustmentForMatches((oddsByTeam[e.team] || {})[targetEvent.id], e.element_type, cleanSheet),
       ml: mlById ? mlById[e.id] || null : null,
       mlInjuryAware: !!(mlById && ml.injuryAware),
       // The model's 10th-90th percentile for this gameweek: [low, high].
@@ -610,7 +622,6 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
     epNextBaselineByPosition[pos] = pool.length ? pool.reduce((s, p) => s + p.epNext, 0) / pool.length : 0;
   });
   const careerBaselineByCode = buildCareerBaselineByCode(options.playerHistoryData);
-  const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
 
   const predictionsById = {};
   allPlayers.forEach(p => {

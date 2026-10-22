@@ -157,6 +157,11 @@ function pearson(x, y) {
 }
 const mae = (x, y) => x.reduce((a, v, i) => a + Math.abs(v - y[i]), 0) / x.length;
 
+// ODDS=odds.json: { season: [{ event, homeTeamId, awayTeamId, homeWinOdds,
+// drawOdds, awayWinOdds }] }, historical bookmaker odds. Each gameweek sees
+// only its own matches and the next gameweek's, as the app does.
+const ODDS = process.env.ODDS ? JSON.parse(fs.readFileSync(process.env.ODDS, 'utf8')) : null;
+const oddsFor = (season, G) => (ODDS && ODDS[season] ? ODDS[season].filter(m => m.event === G || m.event === G + 1) : null);
 const ML = process.env.ML_PREDS ? JSON.parse(fs.readFileSync(process.env.ML_PREDS, 'utf8')) : null;
 const DUMP = process.env.DUMP ? [] : null;
 // The ML model's predictions in place of the formula's, with the same
@@ -187,7 +192,7 @@ function run(variant, seasons) {
   let xiPts = 0, squad4 = 0, n = 0;
   for (const { S, hist } of seasons) {
     const staticAt = {};
-    const sd = G => (staticAt[G] ||= applyMl(buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {}, recentMinutesById: recentMinutesBefore(S, G) }), S.season, G));
+    const sd = G => (staticAt[G] ||= applyMl(buildStaticDataFromRaw(bootstrapBefore(S, G), S.fixtures, { forceGwId: G, playerHistoryData: hist, weights: variant.weights || {}, recentMinutesById: recentMinutesBefore(S, G), oddsData: oddsFor(S.season, G) }), S.season, G));
     for (let G = START; G <= END; G++) {
       if (!hasExpectedPoints(S, G)) continue;
       const data = sd(G);
