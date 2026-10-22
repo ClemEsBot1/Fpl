@@ -1,6 +1,6 @@
 // Two planning tools: the full fixture ticker, and players side by side.
 import { Fragment, useMemo, useState } from 'react';
-import { ArrowDownAZ, CalendarRange, ChevronDown, Compass, GitCompareArrows, Plus, Signal, TrendingDown, TrendingUp, Ticket, X } from 'lucide-react';
+import { ArrowDownAZ, CalendarRange, ChevronDown, CircleDot, Compass, GitCompareArrows, Plus, Signal, TrendingDown, TrendingUp, Ticket, X } from 'lucide-react';
 import { PlayerSearchPicker } from '../components/common.jsx';
 import { Shirt } from '../components/Pitch.jsx';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
@@ -8,6 +8,7 @@ import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { haulChance } from '../lib/captaincy.js';
 import { priceForecast } from '../lib/priceForecast.js';
 import { planChips } from '../lib/chipPlanner.js';
+import { clubSetPieces } from '../lib/setPieces.js';
 
 export const MAX_COMPARE = 3;
 
@@ -402,6 +403,33 @@ function ChipCard({ suggestion }) {
   );
 }
 
+// Every club's penalty, free-kick and corner takers, in FPL's order.
+function SetPieceTable({ staticData }) {
+  const clubs = useMemo(() => clubSetPieces(staticData.allPlayers, staticData.teamsById), [staticData]);
+  const names = list => (list.length ? list.slice(0, 2).map((p, k) => <span key={p.id} className={k ? 'fpl-meta' : undefined}>{p.webName}</span>) : <span className="fpl-meta">–</span>);
+  return (
+    <section className="fpl-glass fpl-tool-card">
+      <h2 className="fpl-tool-h2"><CircleDot size={18} aria-hidden="true" /> Set pieces</h2>
+      <p className="fpl-tool-sub">Who takes each club&rsquo;s penalties, direct free kicks and corners, first choice first, from FPL&rsquo;s own list.</p>
+      <div className="fpl-compare-wrap">
+        <table className="fpl-sp-table">
+          <thead><tr><th scope="col">Club</th><th scope="col">Penalties</th><th scope="col">Free kicks</th><th scope="col">Corners</th></tr></thead>
+          <tbody>
+            {clubs.map(c => (
+              <tr key={c.team.id}>
+                <th scope="row" className="fpl-mono">{c.team.short_name}</th>
+                <td>{names(c.penalties)}</td>
+                <td>{names(c.freekicks)}</td>
+                <td>{names(c.corners)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export function ExploreScreen({ staticData, compareIds, onToggleCompare }) {
   const prices = useMemo(() => (staticData ? priceForecast(staticData.allPlayers, { limit: 12 }) : { risers: [], fallers: [] }), [staticData]);
   const chips = useMemo(() => (staticData ? planChips(staticData) : null), [staticData]);
@@ -411,7 +439,7 @@ export function ExploreScreen({ staticData, compareIds, onToggleCompare }) {
     <div className="fpl-tool">
       <header className="fpl-tool-head">
         <h1 className="fpl-tool-h"><Compass size={22} aria-hidden="true" /> Explore</h1>
-        <p className="fpl-tool-sub">Every player, filterable and sortable; who is close to a price change tonight; and the best gameweeks for your chips.</p>
+        <p className="fpl-tool-sub">Every player, filterable and sortable; who is close to a price change tonight; every club&rsquo;s set-piece takers; and the best gameweeks for your chips.</p>
       </header>
 
       <PlayerExploreTable staticData={staticData} compareIds={compareIds} onToggleCompare={onToggleCompare} />
@@ -424,6 +452,8 @@ export function ExploreScreen({ staticData, compareIds, onToggleCompare }) {
           <PriceMoveList title="Likely fallers" rows={prices.fallers} teamsById={staticData.teamsById} Icon={TrendingDown} tone="down" />
         </div>
       </section>
+
+      <SetPieceTable staticData={staticData} />
 
       <section className="fpl-glass fpl-tool-card">
         <h2 className="fpl-tool-h2"><Ticket size={18} aria-hidden="true" /> Chip timing</h2>
