@@ -86,7 +86,7 @@ export function useResults({ screens, fpl, handleTeamsResult }) {
       squad, starters, bench, xiTotal, actualXiTotal: isPastGw ? actualXiTotal : null, captain, captainSuggestion, suggestions,
       entryMeta, bankTenths, activeChip, isOptimalBuild,
       isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled, entryHistory, liveTotal,
-      squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData)),
+      squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData, isPastGw ? gwId : null)),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
       allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById,
       asOfGwId: staticData.asOfGwId || null, asOfFailedGwId: staticData.asOfFailedGwId || null,
