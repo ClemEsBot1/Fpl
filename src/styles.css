@@ -1226,7 +1226,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (min-width: 560px) { .fpl-profile-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .fpl-profile-stat { padding: 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); min-width: 0; }
 .fpl-profile-stat.fpl-skel { height: 74px; width: auto !important; border-color: transparent; }
-.fpl-profile-stat-label { font-size: 0.6rem; letter-spacing: 0.06em; color: var(--ink-dim); }
+.fpl-profile-stat-label { text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.06em; color: var(--ink-dim); }
 .fpl-profile-stat-value { font: 700 1.2rem 'Space Grotesk', sans-serif; margin-top: 4px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fpl-profile-stat-sub { font-size: 0.64rem; color: var(--ink-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fpl-profile-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1234,7 +1234,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-chip .fpl-mono { color: var(--ink-dim); font-size: 0.68rem; }
 .fpl-profile-seasons { padding: 4px 12px; }
 .fpl-profile-seasons-head, .fpl-profile-season { display: grid; grid-template-columns: 1fr 0.8fr 1fr; gap: 8px; padding: 9px 0; font-size: 0.85rem; }
-.fpl-profile-seasons-head { font-size: 0.6rem; color: var(--ink-dim); letter-spacing: 0.06em; border-bottom: 1px solid var(--line); }
+.fpl-profile-seasons-head { text-transform: uppercase; font-size: 0.6rem; color: var(--ink-dim); letter-spacing: 0.06em; border-bottom: 1px solid var(--line); }
 .fpl-profile-season + .fpl-profile-season { border-top: 1px solid var(--line); }
 .fpl-profile-season > :not(:first-child), .fpl-profile-seasons-head > :not(:first-child) { text-align: right; }
 .fpl-profile-rows { padding: 4px 0; }
@@ -1260,7 +1260,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-rank-chart-side { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.72rem; color: var(--ink-dim); }
 .fpl-rank-chart-side b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .fpl-rank-chip { padding: 1px 7px; border-radius: 999px; color: var(--ink); background: rgba(206,255,16,0.12); border: 1px solid rgba(206,255,16,0.4); }
-.fpl-rank-chart-plot { position: relative; display: grid; gap: 6px; cursor: crosshair; touch-action: pan-y; border-radius: 8px; outline: none; }
+.fpl-rank-chart-plot { direction: ltr; position: relative; display: grid; gap: 6px; cursor: crosshair; touch-action: pan-y; border-radius: 8px; outline: none; }
 .fpl-rank-chart-plot:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
 .fpl-rank-line-wrap { position: relative; }
 .fpl-rank-line { display: block; width: 100%; height: 170px; overflow: visible; }

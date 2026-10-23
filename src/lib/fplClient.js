@@ -2,6 +2,7 @@
 // cached player-history and odds blobs.
 import { buildStaticDataFromRaw, getTargetEvent } from './predictions.js';
 import { applyAsOfStats, recentMinutesFromAsOf } from './asOf.js';
+import { t } from './i18n.js';
 
 // FPL turns some requests away when many arrive at once (a mini-league
 // loads several calls per team), and the proxy can time out. Those are
@@ -121,8 +122,15 @@ export async function fetchBlendWeights() {
   }
 }
 
+// FPL names every gameweek "Gameweek N"; this puts them in the app's
+// language, so every screen that shows event.name does too.
+export function localEventNames(bootstrap) {
+  if (!bootstrap || !Array.isArray(bootstrap.events)) return bootstrap;
+  return { ...bootstrap, events: bootstrap.events.map(e => ({ ...e, name: t('Gameweek {n}', { n: e.id }) })) };
+}
+
 export async function loadStaticData() {
-  const [bootstrap, fixturesRaw, playerHistoryData, oddsData, recent, mlData, blendData] = await Promise.all([
+  const [rawBootstrap, fixturesRaw, playerHistoryData, oddsData, recent, mlData, blendData] = await Promise.all([
     fetchFplJson('bootstrap-static/'),
     fetchFplJson('fixtures/'),
     fetchPlayerHistory(),
@@ -131,6 +139,7 @@ export async function loadStaticData() {
     fetchMlPredictions(),
     fetchBlendWeights(),
   ]);
+  const bootstrap = localEventNames(rawBootstrap);
   const target = getTargetEvent(bootstrap.events);
   const recentMinutesById = recent && target && recent.gwId === target.id ? recent.minutes : null;
   const staticData = buildStaticDataFromRaw(bootstrap, fixturesRaw, { playerHistoryData, oddsData, recentMinutesById, mlData, blendData });

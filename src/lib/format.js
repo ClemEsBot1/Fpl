@@ -1,6 +1,7 @@
 // Small shared helpers: player-name matching, number/price formatting and
 // countdowns.
-export const POSITION_LABELS = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+import { t } from './i18n.js';
+export const POSITION_LABELS = { 1: t('GKP'), 2: t('DEF'), 3: t('MID'), 4: t('FWD') };
 
 // Previously matched availNote against a fixed list of exact strings
 // ['Injured', 'Suspended', 'Unavailable'] to decide whether a player's
@@ -154,17 +155,18 @@ export function isDeadlineSoon(targetISO, now = Date.now()) {
   return diff > 0 && diff < 864e5;
 }
 
+// "2d 4h to deadline"; `bare` leaves off "to deadline".
 export function formatCountdown(targetISO, opts = {}) {
-  const { suffix = 'to deadline', passedLabel = 'Deadline passed' } = opts;
+  const { bare = false, passedLabel = t('Deadline passed') } = opts;
   if (!targetISO) return '';
   const diff = new Date(targetISO).getTime() - Date.now();
   if (diff <= 0) return passedLabel;
   const totalMins = Math.floor(diff / 60000);
-  const days = Math.floor(totalMins / 1440);
-  const hours = Math.floor((totalMins % 1440) / 60);
-  const mins = totalMins % 60;
-  if (days > 0) return `${days}d ${hours}h ${suffix}`;
-  return `${hours}h ${mins}m ${suffix}`;
+  const d = Math.floor(totalMins / 1440);
+  const h = Math.floor((totalMins % 1440) / 60);
+  const m = totalMins % 60;
+  if (d > 0) return bare ? t('{d}d {h}h', { d, h }) : t('{d}d {h}h to deadline', { d, h });
+  return bare ? t('{h}h {m}m', { h, m }) : t('{h}h {m}m to deadline', { h, m });
 }
 
 // A team's points for a gameweek that has started: FPL's own figure once

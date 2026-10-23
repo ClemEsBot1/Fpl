@@ -2,12 +2,16 @@
 import { AlertTriangle, Info, RotateCcw } from 'lucide-react';
 import { POSITION_LABELS, fmtPrice, fmtPts } from '../lib/format.js';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
+import { t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
 
 /* ----------------------------------------------------------------------------
    HINDSIGHT: BEST XI FOR A CLOSED GAMEWEEK
    Compact rows for the two side-by-side squads — no edit affordances, since
    both squads are locked in history and can't be changed.
 ---------------------------------------------------------------------------- */
+const RICH = { b: s => <strong>{s}</strong>, m: s => <strong className="fpl-mono">{s}</strong> };
+
 export function HindsightPlayerRow({ slot, teamsById }) {
   const { player, isCaptain, isViceCaptain, actualPoints, played } = slot;
   const team = teamsById[player.team];
@@ -17,19 +21,19 @@ export function HindsightPlayerRow({ slot, teamsById }) {
       <div className="fpl-row-main">
         <div className="fpl-row-name">
           {player.webName}
-          {isCaptain && <span className="fpl-armband" title="Captain">C</span>}
-          {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
+          {isCaptain && <span className="fpl-armband" title={t('Captain')}>{t('C')}</span>}
+          {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title={t('Vice-captain')}>{t('V')}</span>}
         </div>
         <div className="fpl-row-sub">{team ? team.short_name : '—'} · {fmtPrice(player.price)}</div>
         <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
-          {fmtPts(player.displaySeasonPoints)} pts · {fmtPts(player.displaySeasonPPG)} pts/match{player.displayIsLastSeason ? ' (LS)' : ''}
+          {t('{n} pts', { n: fmtPts(player.displaySeasonPoints) })} · {t('{n} pts/match', { n: fmtPts(player.displaySeasonPPG) })}{player.displayIsLastSeason ? ` (${t('LS')})` : ''}
         </div>
       </div>
       <div className="fpl-row-pred">
         <div className="fpl-row-pred-num" style={{ color: !played ? 'var(--ink-dim)' : (actualPoints >= 6 ? 'var(--lime)' : actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
-          {!played ? 'NP' : (actualPoints ?? '—')}
+          {!played ? t('NP') : (actualPoints ?? '—')}
         </div>
-        <div className="fpl-row-pred-label">{!played ? 'NOT PLAYED' : 'ACTUAL PTS'}</div>
+        <div className="fpl-row-pred-label" style={{ textTransform: 'uppercase' }}>{!played ? t('Not played') : t('Actual pts')}</div>
       </div>
     </div>
   );
@@ -58,7 +62,7 @@ export function HindsightSquadColumn({ title, squad, score, teamsById }) {
     <div style={{ marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
         <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: 0 }}>{title}</div>
-        <div className="fpl-mono" style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(score)} <span style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', fontWeight: 500 }}>PTS</span></div>
+        <div className="fpl-mono" style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(score)} <span style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', fontWeight: 500, textTransform: 'uppercase' }}>{t('pts')}</span></div>
       </div>
       <Pitch starters={starters} bench={bench} card={card} compact />
     </div>
@@ -71,9 +75,9 @@ export function HindsightScreen({ data, savedTeams, compare, onSelectCompare, on
       <div className="fpl-block" style={{ margin: '24px 16px', padding: '28px 16px', textAlign: 'center' }}>
         <Info size={28} style={{ color: 'var(--ink-dim)', margin: '0 auto 14px' }} />
         <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 6, color: 'var(--ink)' }}>
-          No saved optimal squad for {data.gwName || `gameweek ${data.gwId}`}, so there's nothing to compare against.
+          {t('No saved optimal squad for {gw}, so there’s nothing to compare against.', { gw: data.gwName || t('Gameweek {n}', { n: data.gwId }) })}
         </p>
-        <button className="fpl-btn fpl-btn-solid" onClick={onBack}>Back</button>
+        <button className="fpl-btn fpl-btn-solid" onClick={onBack}>{t('Back')}</button>
       </div>
     );
   }
@@ -85,20 +89,20 @@ export function HindsightScreen({ data, savedTeams, compare, onSelectCompare, on
   return (
     <div style={{ padding: '16px 16px 60px' }}>
       <h1 className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em', margin: '0 0 4px', fontWeight: 400 }}>
-        BEST XI · {gwName ? gwName.toUpperCase() : ''}
+        {t('Best XI').toUpperCase()} · {gwName ? gwName.toUpperCase() : ''}
       </h1>
       <div className="fpl-block" style={{ padding: 14, marginBottom: 22 }}>
         <div style={{ fontSize: '0.85rem', lineHeight: 1.5, color: 'var(--ink)' }}>
-          The predicted squad actually scored <strong className="fpl-mono">{fmtPts(predictedScore)}</strong> that gameweek — the best possible squad would have scored <strong className="fpl-mono">{fmtPts(hindsightScore)}</strong> ({pct}%).
+          {tr('The predicted squad actually scored <m>{a}</m> that gameweek — the best possible squad would have scored <m>{b}</m> ({pct}%).', { a: fmtPts(predictedScore), b: fmtPts(hindsightScore), pct }, RICH)}
           {compare && compare.score != null && (
-            <> Your saved <strong>{compare.label}</strong> scored <strong className="fpl-mono">{fmtPts(compare.score)}</strong> ({comparePct}%).</>
+            <> {tr('Your saved <b>{label}</b> scored <m>{n}</m> ({pct}%).', { label: compare.label, n: fmtPts(compare.score), pct: comparePct }, RICH)}</>
           )}
         </div>
       </div>
 
       {savedTeams && savedTeams.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 8px', color: 'var(--ink-dim)' }}>Compare with a saved team</div>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 8px', color: 'var(--ink-dim)' }}>{t('Compare with a saved team')}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {savedTeams.map(entry => (
               <button
@@ -117,7 +121,7 @@ export function HindsightScreen({ data, savedTeams, compare, onSelectCompare, on
             ))}
           </div>
           {compare && compare.loading && (
-            <div className="fpl-mono" style={{ fontSize: '0.7rem', color: 'var(--ink-dim)', marginTop: 8 }}>Loading…</div>
+            <div className="fpl-mono" style={{ fontSize: '0.7rem', color: 'var(--ink-dim)', marginTop: 8 }}>{t('Loading…')}</div>
           )}
           {compare && compare.error && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 8, color: 'var(--red)', fontSize: '0.78rem' }}>
@@ -127,14 +131,14 @@ export function HindsightScreen({ data, savedTeams, compare, onSelectCompare, on
         </div>
       )}
 
-      <HindsightSquadColumn title="What was predicted" squad={predictedSquad} score={predictedScore} teamsById={teamsById} />
+      <HindsightSquadColumn title={t('What was predicted')} squad={predictedSquad} score={predictedScore} teamsById={teamsById} />
       {compare && compare.squad && (
         <HindsightSquadColumn title={compare.label} squad={compare.squad} score={compare.score} teamsById={teamsById} />
       )}
-      <HindsightSquadColumn title="Best possible XI" squad={hindsightSquad} score={hindsightScore} teamsById={teamsById} />
+      <HindsightSquadColumn title={t('Best possible XI')} squad={hindsightSquad} score={hindsightScore} teamsById={teamsById} />
 
       <button className="fpl-btn" style={{ width: '100%', marginTop: 8, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={onBack}>
-        <RotateCcw size={16} /> Back
+        <RotateCcw size={16} /> {t('Back')}
       </button>
     </div>
   );

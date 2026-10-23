@@ -11,13 +11,15 @@ import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Clock, Repeat } fr
 import { fmtPrice, fmtPts } from '../lib/format.js';
 import { buildPriceWatch, buildTransferTrends, hasOfficialPriceData, nextPriceChangeAt, topByPoints } from '../lib/transferTrends.js';
 import { SkeletonRows } from './common.jsx';
+import { fmtNumber, t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
 
-const POS = ['', 'GKP', 'DEF', 'MID', 'FWD'];
+const POS = ['', t('GKP'), t('DEF'), t('MID'), t('FWD')];
 const EMPTY = {
-  in: 'No transfers yet this gameweek.',
-  out: 'No transfers yet this gameweek.',
-  rises: 'Nobody is close to a price rise.',
-  drops: 'Nobody is close to a price drop.',
+  in: t('No transfers yet this gameweek.'),
+  out: t('No transfers yet this gameweek.'),
+  rises: t('Nobody is close to a price rise.'),
+  drops: t('Nobody is close to a price drop.'),
 };
 
 function fmtCount(n) {
@@ -34,9 +36,14 @@ function PriceChip({ change }) {
   const Icon = rise ? ArrowUpRight : ArrowDownRight;
   const official = typeof change.percent === 'number';
   const strong = official ? change.confidence === 'very likely' : change.confidence === 'likely';
+  const OFFICIAL = {
+    'very likely': rise ? t('Very likely to rise') : t('Very likely to drop'),
+    likely: rise ? t('Likely to rise') : t('Likely to drop'),
+  };
+  const ESTIMATE = { likely: t('likely'), possible: t('possible') };
   const label = official
-    ? `${change.confidence[0].toUpperCase()}${change.confidence.slice(1)} to ${rise ? 'rise' : 'drop'}`
-    : `${rise ? '+' : '−'}£0.1m ${change.confidence}`;
+    ? OFFICIAL[change.confidence] || change.confidence
+    : `${rise ? '+' : '−'}£0.1m ${ESTIMATE[change.confidence] || change.confidence}`;
   return (
     <span className={`fpl-trend-chip ${rise ? 'is-rise' : 'is-fall'}${strong ? ' is-likely' : ''}`}>
       <Icon size={12} aria-hidden="true" />
@@ -54,12 +61,12 @@ function PriceChangeTimer() {
     return () => clearInterval(id);
   }, []);
   const mins = Math.max(0, Math.ceil((nextPriceChangeAt(new Date(now)).getTime() - now) / 60000));
-  const text = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+  const text = mins >= 60 ? t('{h}h {m}m', { h: Math.floor(mins / 60), m: mins % 60 }) : t('{m}m', { m: mins });
   return (
     <p className="fpl-price-timer">
       <Clock size={14} aria-hidden="true" />
-      <span>Price changes in <b className="fpl-mono">{text}</b></span>
-      <small>00:00 UK</small>
+      <span>{tr('Price changes in <b>{time}</b>', { time: text }, { b: s => <b className="fpl-mono">{s}</b> })}</span>
+      <small>{t('00:00 UK')}</small>
     </p>
   );
 }
@@ -70,10 +77,12 @@ function HourChip({ hourly, player, stat }) {
   if (!hourly || !hourly.byId || !hourly.minutes || (stat !== 'in' && stat !== 'out')) return null;
   const d = hourly.byId[player.id];
   const value = d ? (stat === 'in' ? d[0] : d[1]) : 0;
-  const span = hourly.minutes >= 50 && hourly.minutes <= 75 ? 'last hour' : `last ${hourly.minutes >= 60 ? `${Math.round(hourly.minutes / 60)}h` : `${hourly.minutes}m`}`;
+  const span = hourly.minutes >= 50 && hourly.minutes <= 75 ? t('last hour')
+    : hourly.minutes >= 60 ? t('last {h}h', { h: Math.round(hourly.minutes / 60) }) : t('last {m}m', { m: hourly.minutes });
+  const title = stat === 'in' ? t('Transfers in over the last {n} minutes', { n: hourly.minutes }) : t('Transfers out over the last {n} minutes', { n: hourly.minutes });
   return (
-    <span className={`fpl-trend-chip fpl-trend-hour${value ? ` is-${stat}` : ''}`} title={`Transfers ${stat} in the last ${hourly.minutes} minutes`}>
-      {value ? fmtCount(stat === 'in' ? value : -value) : 'None'} {span}
+    <span className={`fpl-trend-chip fpl-trend-hour${value ? ` is-${stat}` : ''}`} title={title}>
+      {value ? fmtCount(stat === 'in' ? value : -value) : t('None')} {span}
     </span>
   );
 }
@@ -109,7 +118,7 @@ function ScorerRow({ player, points, teamsById }) {
         <b>{player.webName}</b>
         <small>{team ? team.short_name : ''} · {fmtPrice(player.price)}</small>
       </span>
-      <span className="fpl-trend-count">{points}<small> pts</small></span>
+      <span className="fpl-trend-count">{points}<small> {t('pts')}</small></span>
     </li>
   );
 }
@@ -130,8 +139,8 @@ function pointsPanel(id, title, entries, format, teamsById, empty) {
 // Your team's players with their points, or null without a team loaded.
 const teamEntries = (team, pointsFor) => (team ? team.squad.map(s => ({ player: s.player, points: pointsFor(s) })) : null);
 const noTeam = teamPending => (teamPending
-  ? { loading: 'Loading your team…', waiting: true }
-  : { loading: 'Add your FPL Team ID on Home to see your own players here.' });
+  ? { loading: t('Loading your team…'), waiting: true }
+  : { loading: t('Add your FPL Team ID on Home to see your own players here.') });
 
 // The panels for a gameweek that has started: the highest scorers of all
 // players and on your team, then FPL's own numbers for the week.
@@ -140,23 +149,23 @@ function recapPanels(staticData, event, live, team, teamPending) {
   const name = id => (playersById[id] ? playersById[id].webName : '–');
   const all = live ? Object.entries(live).map(([id, l]) => ({ player: playersById[id], points: l.totalPoints })) : null;
   const facts = [
-    ['Average score', event.average_entry_score],
-    ['Highest score', event.highest_score],
-    ['Top player', event.top_element_info ? `${name(event.top_element_info.id)} · ${event.top_element_info.points} pts` : null],
-    ['Most captained', event.most_captained ? name(event.most_captained) : null],
-    ['Most transferred in', event.most_transferred_in ? name(event.most_transferred_in) : null],
-    ['Transfers made', event.transfers_made ? event.transfers_made.toLocaleString('en-GB') : null],
+    [t('Average score'), event.average_entry_score],
+    [t('Highest score'), event.highest_score],
+    [t('Top player'), event.top_element_info ? `${name(event.top_element_info.id)} · ${t('{n} pts', { n: event.top_element_info.points })}` : null],
+    [t('Most captained'), event.most_captained ? name(event.most_captained) : null],
+    [t('Most transferred in'), event.most_transferred_in ? name(event.most_transferred_in) : null],
+    [t('Transfers made'), event.transfers_made ? fmtNumber(event.transfers_made) : null],
   ].filter(([, v]) => v !== null && v !== undefined && v !== 0);
   return [
-    pointsPanel('scorers', `Top scorers in GW${event.id}`, all, String, teamsById,
-      { loading: 'Loading points…', waiting: true, none: 'No points scored yet this gameweek.' }),
-    pointsPanel('team-scorers', 'Top scorers on your team', teamEntries(team, s => s.actualPoints || 0), String, teamsById,
-      { ...noTeam(teamPending), none: 'None of your players has scored yet this gameweek.' }),
+    pointsPanel('scorers', t('Top scorers in GW{n}', { n: event.id }), all, String, teamsById,
+      { loading: t('Loading points…'), waiting: true, none: t('No points scored yet this gameweek.') }),
+    pointsPanel('team-scorers', t('Top scorers on your team'), teamEntries(team, s => s.actualPoints || 0), String, teamsById,
+      { ...noTeam(teamPending), none: t('None of your players has scored yet this gameweek.') }),
     {
-      id: 'numbers', title: `Gameweek ${event.id} in numbers`,
+      id: 'numbers', title: t('Gameweek {n} in numbers', { n: event.id }),
       body: facts.length ? (
         <dl className="fpl-trend-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-      ) : <p className="fpl-home-hint">FPL hasn't published this gameweek's numbers yet.</p>,
+      ) : <p className="fpl-home-hint">{t("FPL hasn't published this gameweek's numbers yet.")}</p>,
     },
   ];
 }
@@ -177,10 +186,10 @@ function upcomingPanels(staticData, team, teamPending, hourly) {
   const all = allPlayers.map(p => ({ player: p, points: predictionsById[p.id] ? predictionsById[p.id].predicted : 0 }));
   return [
     ...transfers,
-    pointsPanel('predicted', 'Highest predicted points', all, fmtPts, teamsById,
-      { loading: '', none: 'No predictions yet.' }),
-    pointsPanel('team-predicted', 'Highest predicted on your team', teamEntries(team, s => s.predicted), fmtPts, teamsById,
-      { ...noTeam(teamPending), none: 'No predictions for your players yet.' }),
+    pointsPanel('predicted', t('Highest predicted points'), all, fmtPts, teamsById,
+      { loading: '', none: t('No predictions yet.') }),
+    pointsPanel('team-predicted', t('Highest predicted on your team'), teamEntries(team, s => s.predicted), fmtPts, teamsById,
+      { ...noTeam(teamPending), none: t('No predictions for your players yet.') }),
   ];
 }
 
@@ -209,8 +218,8 @@ export function TransferTrends({ staticData, event, isPast, live, team, teamPend
   if (!staticData) {
     return (
       <section className="fpl-glass fpl-home-card fpl-trends" aria-labelledby="trends-h" aria-busy="true">
-        <h2 id="trends-h" className="fpl-home-h"><Repeat size={18} aria-hidden="true" /> Transfer trends</h2>
-        <SkeletonRows rows={6} label="Loading transfer trends…" />
+        <h2 id="trends-h" className="fpl-home-h"><Repeat size={18} aria-hidden="true" /> {t('Transfer trends')}</h2>
+        <SkeletonRows rows={6} label={t('Loading transfer trends…')} />
       </section>
     );
   }
@@ -230,13 +239,13 @@ export function TransferTrends({ staticData, event, isPast, live, team, teamPend
   return (
     <section className="fpl-glass fpl-home-card fpl-trends" aria-labelledby="trends-h">
       <div className="fpl-home-team-head">
-        <h2 id="trends-h" className="fpl-home-h"><Repeat size={18} aria-hidden="true" /> {isPast ? `Gameweek ${event.id} recap` : 'Transfer trends'}</h2>
-        <span className="fpl-mono fpl-home-meta">{isPast ? (event.finished ? 'Final' : 'Live') : `GW${event.id} so far`}</span>
+        <h2 id="trends-h" className="fpl-home-h"><Repeat size={18} aria-hidden="true" /> {isPast ? t('Gameweek {n} recap', { n: event.id }) : t('Transfer trends')}</h2>
+        <span className="fpl-mono fpl-home-meta">{isPast ? (event.finished ? t('Final') : t('Live')) : t('GW{n} so far', { n: event.id })}</span>
       </div>
       <PriceChangeTimer />
-      <div className="fpl-trends-track" ref={trackRef} onScroll={onScroll} tabIndex={0} aria-label="Transfer trends panels">
+      <div className="fpl-trends-track" ref={trackRef} onScroll={onScroll} tabIndex={0} aria-label={t('Transfer trends panels')}>
         {panels.map((panel, k) => (
-          <div key={panel.id} className="fpl-trends-panel" role="group" aria-roledescription="panel" aria-label={`${panel.title}, ${k + 1} of ${panels.length}`} aria-hidden={k !== current}>
+          <div key={panel.id} className="fpl-trends-panel" role="group" aria-roledescription="panel" aria-label={t('{title}, {k} of {n}', { title: panel.title, k: k + 1, n: panels.length })} aria-hidden={k !== current}>
             <h3 className="fpl-home-sub">{panel.title}</h3>
             {panel.body}
           </div>
@@ -245,20 +254,20 @@ export function TransferTrends({ staticData, event, isPast, live, team, teamPend
       <div className="fpl-carousel-nav">
         <div className="fpl-dots">
           {panels.map((panel, k) => (
-            <button key={panel.id} type="button" aria-label={`Show: ${panel.title}`} aria-current={k === current} onClick={() => go(k)} />
+            <button key={panel.id} type="button" aria-label={t('Show: {title}', { title: panel.title })} aria-current={k === current} onClick={() => go(k)} />
           ))}
         </div>
         <div className="fpl-arrows">
-          <button type="button" aria-label="Previous panel" disabled={current === 0} onClick={() => go(current - 1)}><ArrowLeft size={18} /></button>
-          <button type="button" aria-label="Next panel" disabled={current === panels.length - 1} onClick={() => go(current + 1)}><ArrowRight size={18} /></button>
+          <button type="button" aria-label={t('Previous panel')} disabled={current === 0} onClick={() => go(current - 1)}><ArrowLeft size={18} /></button>
+          <button type="button" aria-label={t('Next panel')} disabled={current === panels.length - 1} onClick={() => go(current + 1)}><ArrowRight size={18} /></button>
         </div>
       </div>
       <p className="fpl-home-hint">{isPast
-        ? "FPL only publishes transfer counts for the upcoming gameweek, so a past one shows its points instead."
+        ? t('FPL only publishes transfer counts for the upcoming gameweek, so a past one shows its points instead.')
         : hasOfficialPriceData(staticData.allPlayers)
-          ? "Price status is FPL's own Price Change Predictor: 100% means FPL expects the change at 00:00 UK. It's a guide, not a promise."
-          : "Price changes are an estimate from net transfers and ownership; FPL doesn't publish its formula."}
-        {!isPast && hourly ? ' "Last hour" is how many more transfers there have been since FPL\'s figures an hour ago.' : ''}</p>
+          ? t("Price status is FPL's own Price Change Predictor: 100% means FPL expects the change at 00:00 UK. It's a guide, not a promise.")
+          : t("Price changes are an estimate from net transfers and ownership; FPL doesn't publish its formula.")}
+        {!isPast && hourly ? ` ${t('"Last hour" is how many more transfers there have been since FPL\'s figures an hour ago.')}` : ''}</p>
     </section>
   );
 }

@@ -14,10 +14,12 @@ import { notificationState, notifyNewAlerts, setNotifications, stopPush, syncPus
 import { TransferTrends } from '../components/TransferTrends.jsx';
 import { SkeletonRows } from '../components/common.jsx';
 import { parseTeamId } from '../lib/teamIdInput.js';
+import { fmtDate, fmtNumber, plural, t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
 
 function ScoreRing({ score }) {
   return (
-    <div className="fpl-home-ring" style={{ '--v': Math.max(0, Math.min(100, score)) }} role="img" aria-label={`Squad score ${score} out of 100`}>
+    <div className="fpl-home-ring" style={{ '--v': Math.max(0, Math.min(100, score)) }} role="img" aria-label={t('Squad score {n} out of 100', { n: score })}>
       <span>{score}</span>
     </div>
   );
@@ -31,12 +33,12 @@ function TeamIdEntry({ onCheck, initial = '' }) {
         id="home-team-id"
         className="fpl-input"
         inputMode="numeric"
-        placeholder="e.g. 1234567"
-        aria-label="FPL Team ID"
+        placeholder={t('e.g. 1234567')}
+        aria-label={t('FPL Team ID')}
         value={value}
         onChange={e => setValue(parseTeamId(e.target.value))}
       />
-      <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!value}>Check</button>
+      <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!value}>{t('Check')}</button>
     </form>
   );
 }
@@ -47,10 +49,10 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
   if (!teamId) {
     return (
       <section className="fpl-glass fpl-home-card fpl-home-team" aria-labelledby="your-gw">
-        <h2 id="your-gw" className="fpl-home-h"><Shirt size={18} aria-hidden="true" /> Your gameweek</h2>
-        <p className="fpl-home-text">Add your FPL Team ID to see your predicted points, captain and best transfer here every time you open the app.</p>
+        <h2 id="your-gw" className="fpl-home-h"><Shirt size={18} aria-hidden="true" /> {t('Your gameweek')}</h2>
+        <p className="fpl-home-text">{t('Add your FPL Team ID to see your predicted points, captain and best transfer here every time you open the app.')}</p>
         <TeamIdEntry onCheck={onCheckTeam} />
-        <p className="fpl-home-hint">It's the number after <span className="fpl-mono">/entry/</span> in the address of your FPL points page. It's remembered on this device.</p>
+        <p className="fpl-home-hint">{tr("It's the number after <m>/entry/</m> in the address of your FPL points page. It's remembered on this device.", undefined, { m: s => <span className="fpl-mono">{s}</span> })}</p>
       </section>
     );
   }
@@ -58,19 +60,19 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
   if (status !== 'ready' || !data) {
     return (
       <section className="fpl-glass fpl-home-card fpl-home-team" aria-labelledby="your-gw" aria-busy={status !== 'error'}>
-        <h2 id="your-gw" className="fpl-home-h"><Shirt size={18} aria-hidden="true" /> Your gameweek</h2>
+        <h2 id="your-gw" className="fpl-home-h"><Shirt size={18} aria-hidden="true" /> {t('Your gameweek')}</h2>
         {status === 'error' ? (
           <>
             <p className="fpl-home-text" role="alert">{error}</p>
             <div className="fpl-home-actions">
-              <button type="button" className="fpl-btn" onClick={onRetry}><RotateCcw size={15} /> Try again</button>
-              <button type="button" className="fpl-link" onClick={onChangeTeam}>Use a different Team ID</button>
+              <button type="button" className="fpl-btn" onClick={onRetry}><RotateCcw size={15} /> {t('Try again')}</button>
+              <button type="button" className="fpl-link" onClick={onChangeTeam}>{t('Use a different Team ID')}</button>
             </div>
           </>
         ) : (
           <>
             <span className="fpl-skel fpl-skel-lg" aria-hidden="true" />
-            <SkeletonRows rows={4} label={`Loading team ${teamId}…`} />
+            <SkeletonRows rows={4} label={t('Loading team {id}…', { id: teamId })} />
           </>
         )}
       </section>
@@ -93,70 +95,70 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
   return (
     <section className="fpl-glass fpl-home-card fpl-home-team" aria-labelledby="your-gw">
       <div className="fpl-home-team-head">
-        <h2 id="your-gw" className="fpl-home-h"><Shirt size={18} aria-hidden="true" /> {entryMeta.teamName || `Team ${teamId}`}</h2>
-        <button type="button" className="fpl-link" onClick={onChangeTeam}>Change team</button>
+        <h2 id="your-gw" className="fpl-home-h"><Shirt size={18} aria-hidden="true" /> {entryMeta.teamName || t('Team {id}', { id: teamId })}</h2>
+        <button type="button" className="fpl-link" onClick={onChangeTeam}>{t('Change team')}</button>
       </div>
       <div className="fpl-home-team-grid">
         <div className="fpl-home-col">
           <div className="fpl-home-stat-row">
             {isPastGw ? (
-              <div className="fpl-home-stat">{gwPoints ?? '–'}<small>points in GW{gwId} · predicted {fmtPts(xiTotal)}</small></div>
+              <div className="fpl-home-stat">{gwPoints ?? '–'}<small>{t('points in GW{gw} · predicted {pts}', { gw: gwId, pts: fmtPts(xiTotal) })}</small></div>
             ) : (
-              <div className="fpl-home-stat">{fmtPts(xiTotal)}<small>predicted XI points</small></div>
+              <div className="fpl-home-stat">{fmtPts(xiTotal)}<small>{t('predicted XI points')}</small></div>
             )}
-            <div className="fpl-home-ring-wrap"><ScoreRing score={squadScore} /><span>Squad<br />score</span></div>
+            <div className="fpl-home-ring-wrap"><ScoreRing score={squadScore} /><span>{t('Squad score')}</span></div>
           </div>
           {entryMeta.savedChanges && (
-            <p className="fpl-home-hint">Showing your changes, not your team on FPL.</p>
+            <p className="fpl-home-hint">{t('Showing your changes, not your team on FPL.')}</p>
           )}
           {entryMeta.picksFromGwId && (
-            <p className="fpl-home-hint">Using your Gameweek {entryMeta.picksFromGwId} squad: this week's picks stay hidden until the deadline.</p>
+            <p className="fpl-home-hint">{t("Using your Gameweek {gw} squad: this week's picks stay hidden until the deadline.", { gw: entryMeta.picksFromGwId })}</p>
           )}
           <div className="fpl-home-players">
             {top.map(s => (
               <div key={s.player.id} className="fpl-home-player">
-                <span className="fpl-row-pos">{['', 'GKP', 'DEF', 'MID', 'FWD'][s.player.positionId]}</span>
-                <span className="fpl-home-player-name">{s.player.webName}{s.isCaptain && <span className="fpl-armband">C</span>}{s.isViceCaptain && <span className="fpl-armband fpl-armband-vc">V</span>}</span>
+                <span className="fpl-row-pos">{POSITION_LABELS[s.player.positionId]}</span>
+                <span className="fpl-home-player-name">{s.player.webName}{s.isCaptain && <span className="fpl-armband">{t('C')}</span>}{s.isViceCaptain && <span className="fpl-armband fpl-armband-vc">{t('V')}</span>}</span>
                 <span className="fpl-home-player-pts">{isPastGw ? shown(s) : fmtPts(s.predicted)}</span>
               </div>
             ))}
           </div>
-          <button type="button" className="fpl-link" onClick={onOpenTeam}>See all 15 players <ArrowRight size={14} /></button>
+          <button type="button" className="fpl-link" onClick={onOpenTeam}>{t('See all 15 players')} <ArrowRight size={14} /></button>
         </div>
 
         <div className="fpl-home-col">
           <div>
-            <h3 className="fpl-home-sub"><TriangleAlert size={15} aria-hidden="true" /> Needs a look</h3>
+            <h3 className="fpl-home-sub"><TriangleAlert size={15} aria-hidden="true" /> {t('Needs a look')}</h3>
             {worries.length ? worries.map(s => (
               <p key={s.player.id} className="fpl-home-worry"><b>{s.player.webName}</b> · {s.availNote}</p>
-            )) : <p className="fpl-home-hint">No injury or suspension worries in your starting XI.</p>}
+            )) : <p className="fpl-home-hint">{t('No injury or suspension worries in your starting XI.')}</p>}
           </div>
           <div>
-            <h3 className="fpl-home-sub"><ArrowRight size={15} aria-hidden="true" /> {isPastGw ? 'Transfers' : 'Best transfer'}</h3>
+            <h3 className="fpl-home-sub"><ArrowRight size={15} aria-hidden="true" /> {isPastGw ? t('Transfers') : t('Best transfer')}</h3>
             {isPastGw ? (
               <p className="fpl-home-hint">{entryHistory && entryHistory.event_transfers
-                ? `${entryHistory.event_transfers} transfer${entryHistory.event_transfers === 1 ? '' : 's'} made this gameweek${entryHistory.event_transfers_cost ? ` (−${entryHistory.event_transfers_cost} hit)` : ''}.`
-                : 'Transfers are only suggested for the upcoming gameweek.'}</p>
+                ? `${plural(entryHistory.event_transfers, t('1 transfer made this gameweek'), t('{n} transfers made this gameweek'))}${entryHistory.event_transfers_cost ? ` ${t('(−{n} hit)', { n: entryHistory.event_transfers_cost })}` : ''}.`
+                : t('Transfers are only suggested for the upcoming gameweek.')}</p>
             ) : best ? (
               <p className="fpl-home-transfer">
                 <span>{bestMoves.map((s, k) => (
-                  <span key={s.out.player.id}>{k > 0 ? ', ' : ''}<b>{s.out.player.webName}</b> out, <b>{s.inPlayer.webName}</b> in</span>
+                  <span key={s.out.player.id}>{k > 0 ? ', ' : ''}{tr('<b>{out}</b> out, <b>{in}</b> in', { out: s.out.player.webName, in: s.inPlayer.webName }, { b: x => <b>{x}</b> })}</span>
                 ))}</span>
-                <span className="fpl-mono">+{fmtPts(bestGain)} pts/wk · {bestCost >= 0 ? '+' : '−'}{fmtPrice(Math.abs(bestCost))}</span>
+                <span className="fpl-mono">{t('+{n} pts/wk', { n: fmtPts(bestGain) })} · {bestCost >= 0 ? '+' : '−'}{fmtPrice(Math.abs(bestCost))}</span>
               </p>
-            ) : <p className="fpl-home-hint">No transfer clearly beats your current XI.</p>}
+            ) : <p className="fpl-home-hint">{t('No transfer clearly beats your current XI.')}</p>}
           </div>
           {isPastGw ? (
             <div className="fpl-home-facts">
-              <div><b>{fmtPrice((bankTenths || 0) / 10)}</b><span>in the bank</span></div>
-              {entryHistory && entryHistory.rank ? <div><b>{entryHistory.rank.toLocaleString('en-GB')}</b><span>GW{gwId} rank</span></div> : null}
-              {entryHistory && entryHistory.overall_rank ? <div><b>{entryHistory.overall_rank.toLocaleString('en-GB')}</b><span>overall rank after</span></div> : null}
+              <div><b>{fmtPrice((bankTenths || 0) / 10)}</b><span>{t('in the bank')}</span></div>
+              {entryHistory && entryHistory.rank ? <div><b>{fmtNumber(entryHistory.rank)}</b><span>{t('GW{n} rank', { n: gwId })}</span></div> : null}
+              {entryHistory && entryHistory.overall_rank ? <div><b>{fmtNumber(entryHistory.overall_rank)}</b><span>{t('overall rank after')}</span></div> : null}
             </div>
           ) : (
             <div className="fpl-home-facts">
-              <div><b>{fmtPrice((bankTenths || 0) / 10)}</b><span>in the bank</span></div>
-              {entry && entry.summary_overall_rank ? <div><b>{entry.summary_overall_rank.toLocaleString('en-GB')}</b><span>overall rank</span></div> : null}
-              {entry && entry.current_event ? <div><b>{entry.summary_event_points ?? '–'}</b><span>points in GW{entry.current_event}</span></div> : null}
+              <div><b>{fmtPrice((bankTenths || 0) / 10)}</b><span>{t('in the bank')}</span></div>
+              {entry && entry.summary_overall_rank ? <div><b>{fmtNumber(entry.summary_overall_rank)}</b><span>{t('overall rank')}</span></div> : null}
+              {entry && entry.current_event ? <div><b>{entry.summary_event_points ?? '–'}</b><span>{t('points in GW{n}', { n: entry.current_event })}</span></div> : null}
             </div>
           )}
         </div>
@@ -208,10 +210,10 @@ function Alerts({ staticData, homeTeam }) {
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="alerts-h">
       <div className="fpl-home-team-head">
-        <h2 id="alerts-h" className="fpl-home-h"><Bell size={18} aria-hidden="true" /> Alerts</h2>
+        <h2 id="alerts-h" className="fpl-home-h"><Bell size={18} aria-hidden="true" /> {t('Alerts')}</h2>
         {notify !== 'unsupported' ? (
           <button type="button" className="fpl-link" onClick={toggle} disabled={notify === 'blocked'} aria-pressed={notify === 'on'}>
-            {notify === 'on' ? <><BellOff size={14} aria-hidden="true" /> Stop notifications</> : notify === 'blocked' ? 'Notifications blocked' : <><BellRing size={14} aria-hidden="true" /> Notify me</>}
+            {notify === 'on' ? <><BellOff size={14} aria-hidden="true" /> {t('Stop notifications')}</> : notify === 'blocked' ? t('Notifications blocked') : <><BellRing size={14} aria-hidden="true" /> {t('Notify me')}</>}
           </button>
         ) : null}
       </div>
@@ -228,13 +230,13 @@ function Alerts({ staticData, homeTeam }) {
           })}
         </ul>
       ) : (
-        <p className="fpl-home-text" style={{ margin: 0 }}>{squad ? 'All clear: no injury news or price moves for your players, and no deadline in the next day.' : 'Alerts for your players show here once your team has loaded.'}</p>
+        <p className="fpl-home-text" style={{ margin: 0 }}>{squad ? t('All clear: no injury news or price moves for your players, and no deadline in the next day.') : t('Alerts for your players show here once your team has loaded.')}</p>
       )}
       {alerts.length > 4 ? (
-        <button type="button" className="fpl-link" style={{ justifySelf: 'start' }} onClick={() => setShowAll(v => !v)}>{showAll ? 'Show fewer' : `Show all ${alerts.length}`}</button>
+        <button type="button" className="fpl-link" style={{ justifySelf: 'start' }} onClick={() => setShowAll(v => !v)}>{showAll ? t('Show fewer') : t('Show all {n}', { n: alerts.length })}</button>
       ) : null}
-      {notify === 'on' ? <p className="fpl-home-hint">Notifications come to this device.</p> : null}
-      {notify === 'blocked' ? <p className="fpl-home-hint">Your browser is blocking notifications for this site; allow them in its site settings.</p> : null}
+      {notify === 'on' ? <p className="fpl-home-hint">{t('Notifications come to this device.')}</p> : null}
+      {notify === 'blocked' ? <p className="fpl-home-hint">{t('Your browser is blocking notifications for this site; allow them in its site settings.')}</p> : null}
     </section>
   );
 }
@@ -263,15 +265,14 @@ function ModelLearning({ playersById }) {
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="ml-h">
       <div className="fpl-home-team-head">
-        <h2 id="ml-h" className="fpl-home-h"><BrainCircuit size={18} aria-hidden="true" /> How the model is learning</h2>
+        <h2 id="ml-h" className="fpl-home-h"><BrainCircuit size={18} aria-hidden="true" /> {t('How the model is learning')}</h2>
         <span className="fpl-mono fpl-home-meta">GW{pred.gwId}</span>
       </div>
       <p className="fpl-home-text" style={{ margin: 0 }}>
-        The app's predictions blend its formula with a machine-learning model, retrained every day on {Number(pred.trainedRows || 0).toLocaleString('en-GB')} player-gameweeks,
-        last on {new Date(pred.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}, and again every 2 hours before a deadline. Each finished gameweek is added, so it keeps learning, and the blend leans toward whichever of the two has been nearer lately.
+        {t("The app's predictions blend its formula with a machine-learning model, retrained every day on {rows} player-gameweeks, last on {date}, and again every 2 hours before a deadline. Each finished gameweek is added, so it keeps learning, and the blend leans toward whichever of the two has been nearer lately.", { rows: fmtNumber(Number(pred.trainedRows || 0)), date: fmtDate(pred.builtAt, { day: 'numeric', month: 'short' }) })}
       </p>
       {weeks.length ? (
-        <ol className="fpl-ml-weeks" aria-label="Typical miss per player, each gameweek">
+        <ol className="fpl-ml-weeks" aria-label={t('Typical miss per player, each gameweek')}>
           {weeks.map(w => (
             <li key={w.gwId}>
               <span className="fpl-mono fpl-ml-gw">GW{w.gwId}</span>
@@ -281,19 +282,19 @@ function ModelLearning({ playersById }) {
           ))}
         </ol>
       ) : (
-        <p className="fpl-home-hint">Its first scored week shows here once Gameweek {pred.gwId} is over.</p>
+        <p className="fpl-home-hint">{t('Its first scored week shows here once Gameweek {n} is over.', { n: pred.gwId })}</p>
       )}
-      {weeks.length ? <p className="fpl-home-hint">Typical miss per player who played, from predictions made before each deadline. Shorter is better.</p> : null}
+      {weeks.length ? <p className="fpl-home-hint">{t('Typical miss per player who played, from predictions made before each deadline. Shorter is better.')}</p> : null}
       {last && Array.isArray(last.misses) && last.misses.length ? (
         <details className="fpl-ml-misses">
-          <summary>GW{last.gwId}: biggest misses{typeof last.correlation === 'number' ? ` (correlation ${last.correlation.toFixed(2)})` : ''}</summary>
+          <summary>{t('GW{n}: biggest misses', { n: last.gwId })}{typeof last.correlation === 'number' ? ` ${t('(correlation {r})', { r: last.correlation.toFixed(2) })}` : ''}</summary>
           <table className="fpl-mini-table">
-            <caption className="fpl-sr-only">Gameweek {last.gwId}: predicted and actual points, biggest misses</caption>
-            <thead><tr><th scope="col">Player</th><th scope="col">Predicted</th><th scope="col">Scored</th></tr></thead>
+            <caption className="fpl-sr-only">{t('Gameweek {n}: predicted and actual points, biggest misses', { n: last.gwId })}</caption>
+            <thead><tr><th scope="col">{t('Player')}</th><th scope="col">{t('Predicted')}</th><th scope="col">{t('Scored')}</th></tr></thead>
             <tbody>
               {last.misses.map(([id, predicted, actual]) => (
                 <tr key={id}>
-                  <th scope="row">{(playersById && playersById[id] && playersById[id].webName) || `Player ${id}`}</th>
+                  <th scope="row">{(playersById && playersById[id] && playersById[id].webName) || t('Player {id}', { id })}</th>
                   <td className="fpl-mono">{fmtPts(predicted)}</td>
                   <td className={`fpl-mono ${actual > predicted ? 'is-up' : 'is-down'}`}>{actual}</td>
                 </tr>
@@ -303,8 +304,7 @@ function ModelLearning({ playersById }) {
         </details>
       ) : null}
       <p className="fpl-home-hint">
-        Tested on 2022-23 to 2025-26, predicting each week from earlier ones only: the best XI the model picks scored {BACKTEST.mlXi} pts a gameweek, against {BACKTEST.formulaXi} for the formula
-        (correlation with points {BACKTEST.mlCorr} vs {BACKTEST.formulaCorr}).
+        {t('Tested on 2022-23 to 2025-26, predicting each week from earlier ones only: the best XI the model picks scored {ml} pts a gameweek, against {formula} for the formula (correlation with points {mlCorr} vs {formulaCorr}).', { ml: BACKTEST.mlXi, formula: BACKTEST.formulaXi, mlCorr: BACKTEST.mlCorr, formulaCorr: BACKTEST.formulaCorr })}
       </p>
     </section>
   );
@@ -329,27 +329,27 @@ function PredictionCheck({ gwId, playersById }) {
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="accuracy-h" aria-busy={loading}>
       <div className="fpl-home-team-head">
-        <h2 id="accuracy-h" className="fpl-home-h"><Target size={18} aria-hidden="true" /> How accurate were we?</h2>
+        <h2 id="accuracy-h" className="fpl-home-h"><Target size={18} aria-hidden="true" /> {t('How accurate were we?')}</h2>
         {d && <span className="fpl-mono fpl-home-meta">GW{d.gwId}</span>}
       </div>
-      {!d ? <SkeletonRows rows={3} label="Loading how accurate the predictions were…" /> : (
+      {!d ? <SkeletonRows rows={3} label={t('Loading how accurate the predictions were…')} /> : (
         <>
           <div className="fpl-home-facts">
-            <div><b>{fmtPts(d.topTenAverageActual)}</b><span>pts each for our top 10 picks</span></div>
-            <div><b>{fmtPts(d.averageActual)}</b><span>pts for the average player</span></div>
-            <div><b>±{fmtPts(d.meanAbsError)}</b><span>typical miss per player</span></div>
+            <div><b>{fmtPts(d.topTenAverageActual)}</b><span>{t('pts each for our top 10 picks')}</span></div>
+            <div><b>{fmtPts(d.averageActual)}</b><span>{t('pts for the average player')}</span></div>
+            <div><b>±{fmtPts(d.meanAbsError)}</b><span>{t('typical miss per player')}</span></div>
           </div>
           {d.byPosition && Object.keys(d.byPosition).length > 1 ? (
-            <div className="fpl-acc-pos" aria-label="Typical miss by position">
+            <div className="fpl-acc-pos" aria-label={t('Typical miss by position')}>
               {Object.entries(d.byPosition).map(([pos, v]) => (
-                <span key={pos} className="fpl-mono"><b>{pos}</b> ±{fmtPts(v.meanAbsError)}</span>
+                <span key={pos} className="fpl-mono"><b>{t(pos)}</b> ±{fmtPts(v.meanAbsError)}</span>
               ))}
             </div>
           ) : null}
           {topPick && (
-            <p className="fpl-home-text">Our top pick, <b>{topPick.webName}</b>, was predicted {fmtPts(d.topPick.predicted)} and scored {d.topPick.actual}.</p>
+            <p className="fpl-home-text">{tr('Our top pick, <b>{name}</b>, was predicted {pred} and scored {actual}.', { name: topPick.webName, pred: fmtPts(d.topPick.predicted), actual: d.topPick.actual }, { b: s => <b>{s}</b> })}</p>
           )}
-          <p className="fpl-home-hint">Across {d.playersCompared} players who played, using predictions saved before the deadline.</p>
+          <p className="fpl-home-hint">{t('Across {n} players who played, using predictions saved before the deadline.', { n: d.playersCompared })}</p>
         </>
       )}
     </section>
@@ -361,8 +361,8 @@ function FixtureTicker({ staticData, fromGw }) {
   if (!staticData) {
     return (
       <section className="fpl-glass fpl-home-card" aria-labelledby="ticker-h" aria-busy="true">
-        <h2 id="ticker-h" className="fpl-home-h"><CalendarRange size={18} aria-hidden="true" /> Easiest fixtures</h2>
-        <SkeletonRows rows={6} label="Loading fixtures…" />
+        <h2 id="ticker-h" className="fpl-home-h"><CalendarRange size={18} aria-hidden="true" /> {t('Easiest fixtures')}</h2>
+        <SkeletonRows rows={6} label={t('Loading fixtures…')} />
       </section>
     );
   }
@@ -373,13 +373,13 @@ function FixtureTicker({ staticData, fromGw }) {
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="ticker-h">
       <div className="fpl-home-team-head">
-        <h2 id="ticker-h" className="fpl-home-h"><CalendarRange size={18} aria-hidden="true" /> Easiest fixtures</h2>
+        <h2 id="ticker-h" className="fpl-home-h"><CalendarRange size={18} aria-hidden="true" /> {t('Easiest fixtures')}</h2>
         <span className="fpl-mono fpl-home-meta">GW{gws[0]}{gws.length > 1 ? `–${gws[gws.length - 1]}` : ''}</span>
       </div>
       <div className="fpl-ticker-wrap">
         <table className="fpl-ticker">
           <thead>
-            <tr><th scope="col">Club</th>{gws.map(gw => <th key={gw} scope="col">GW{gw}</th>)}</tr>
+            <tr><th scope="col">{t('Club')}</th>{gws.map(gw => <th key={gw} scope="col">GW{gw}</th>)}</tr>
           </thead>
           <tbody>
             {shown.map(({ team, weeks }) => (
@@ -393,13 +393,13 @@ function FixtureTicker({ staticData, fromGw }) {
                           const c = DIFF_COLORS[f.difficulty] || DIFF_COLORS[3];
                           const name = f.opponent ? f.opponent.short_name : '?';
                           return (
-                            <span key={k} className="fpl-ticker-fx" style={{ background: c.bg, color: c.text }} title={`${f.opponent ? f.opponent.name : name} (${f.isHome ? 'home' : 'away'}), difficulty ${f.difficulty}`}>
+                            <span key={k} className="fpl-ticker-fx" style={{ background: c.bg, color: c.text }} title={f.isHome ? t('{team} (home), difficulty {n}', { team: f.opponent ? f.opponent.name : name, n: f.difficulty }) : t('{team} (away), difficulty {n}', { team: f.opponent ? f.opponent.name : name, n: f.difficulty })}>
                               {f.isHome ? name.toUpperCase() : name.toLowerCase()}
                             </span>
                           );
                         })}
                       </span>
-                    ) : <span className="fpl-ticker-blank" title="No match this gameweek">–</span>}
+                    ) : <span className="fpl-ticker-blank" title={t('No match this gameweek')}>–</span>}
                   </td>
                 ))}
               </tr>
@@ -408,9 +408,9 @@ function FixtureTicker({ staticData, fromGw }) {
         </table>
       </div>
       <div className="fpl-ticker-foot">
-        <span className="fpl-home-hint">Easiest run first. CAPITALS are home games, lower case away.</span>
+        <span className="fpl-home-hint">{t('Easiest run first. CAPITALS are home games, lower case away.')}</span>
         {rows.length > 8 && (
-          <button type="button" className="fpl-link" onClick={() => setShowAll(v => !v)}>{showAll ? 'Show fewer' : `Show all ${rows.length}`}</button>
+          <button type="button" className="fpl-link" onClick={() => setShowAll(v => !v)}>{showAll ? t('Show fewer') : t('Show all {n}', { n: rows.length })}</button>
         )}
       </div>
     </section>
@@ -436,14 +436,14 @@ function WeeklyPicks({ staticData }) {
   const { captain, differential } = picks;
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="picks-h">
-      <h2 id="picks-h" className="fpl-home-h"><Crown size={18} aria-hidden="true" /> Picks of the week</h2>
+      <h2 id="picks-h" className="fpl-home-h"><Crown size={18} aria-hidden="true" /> {t('Picks of the week')}</h2>
       <div className="fpl-picks">
-        <WeeklyPick icon={Crown} label="Captain" entry={captain} meta={`${fmtPts(captain.predicted)} pred`} teamsById={staticData.teamsById} />
+        <WeeklyPick icon={Crown} label={t('Captain')} entry={captain} meta={t('{n} pred', { n: fmtPts(captain.predicted) })} teamsById={staticData.teamsById} />
         {differential
-          ? <WeeklyPick icon={Target} label="Differential" entry={differential} meta={`${differential.owned.toFixed(1)}% owned`} teamsById={staticData.teamsById} />
-          : <p className="fpl-home-text" style={{ margin: 0 }}>No stand-out differential this week — the best picks are all widely owned.</p>}
+          ? <WeeklyPick icon={Target} label={t('Differential')} entry={differential} meta={t('{n}% owned', { n: differential.owned.toFixed(1) })} teamsById={staticData.teamsById} />
+          : <p className="fpl-home-text" style={{ margin: 0 }}>{t('No stand-out differential this week: the best picks are all widely owned.')}</p>}
       </div>
-      <p className="fpl-meta" style={{ margin: 0 }}>From this gameweek's predictions across every available player.</p>
+      <p className="fpl-meta" style={{ margin: 0 }}>{t("From this gameweek's predictions across every available player.")}</p>
     </section>
   );
 }
@@ -456,17 +456,17 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
   return (
     <div className="fpl-home">
       <div className="fpl-home-top">
-        <h1 className="fpl-display">{event ? event.name : 'Home'}</h1>
+        <h1 className="fpl-display">{event ? event.name : t('Home')}</h1>
         <div className="fpl-home-top-side">
           {/* The latest finished gameweek's recap, any time. */}
           {recapGw ? (
             <button type="button" className="fpl-recap-open" onClick={() => onOpenRecap(recapGw)}>
-              <Sparkles size={16} aria-hidden="true" /> GW{recapGw} recap
+              <Sparkles size={16} aria-hidden="true" /> {t('GW{n} recap', { n: recapGw })}
             </button>
           ) : null}
           {event && (
             <span className={`fpl-mono fpl-home-deadline${!isPast && isDeadlineSoon(event.deadline_time) ? ' fpl-deadline-soon' : ''}`}>
-              {isPast ? (event.finished ? 'Finished' : 'In progress') : formatCountdown(event.deadline_time)}
+              {isPast ? (event.finished ? t('Finished') : t('In progress')) : formatCountdown(event.deadline_time)}
             </span>
           )}
         </div>
@@ -491,7 +491,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
           teamPending={!!homeTeam.teamId && homeTeam.status !== 'error'}
         />
       </div>
-      <nav className="fpl-home-guides" aria-label="FPL guides">
+      <nav className="fpl-home-guides" aria-label={t('FPL guides')}>
         {GUIDES.map(g => <a key={g.path} href={g.path}>{g.label}</a>)}
       </nav>
     </div>

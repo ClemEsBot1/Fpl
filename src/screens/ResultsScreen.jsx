@@ -18,6 +18,9 @@ import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExp
 import { track } from '../lib/track.js';
 import { setPieceTags } from '../lib/setPieces.js';
 import { templateReport } from '../lib/ownership.js';
+import { fmtNumber, t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
+import { serverMessage } from '../lib/serverMessages.js';
 
 // Every input that fed into a player's predicted points, in plain language
 // — see computePlayerPrediction in src/lib/predictions.js for where each
@@ -29,6 +32,9 @@ import { templateReport } from '../lib/ownership.js';
 // this gameweek and a few reasons the player stands out. Shown only when
 // the prediction and player are passed (the full results rows); the recap
 // and older callers that pass only a breakdown skip it.
+// Bold and monospace parts inside translated sentences.
+const RICH = { b: s => <b>{s}</b>, m: s => <span className="fpl-mono">{s}</span> };
+
 function InsightHeader({ prediction, player }) {
   if (!prediction || !player) return null;
   const range = predictionRange(prediction, player);
@@ -37,7 +43,7 @@ function InsightHeader({ prediction, player }) {
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.03em' }}>LIKELY THIS GW</span>
+        <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.03em' }}>{t('LIKELY THIS GW')}</span>
         <span className="fpl-mono" style={{ fontSize: '0.8rem' }}>{fmtPts(range.floor)}–{fmtPts(range.ceiling)}<span className="fpl-dim" style={{ fontSize: '0.7rem' }}> (~{fmtPts(range.expected)})</span></span>
       </div>
       {reasons.length ? (
@@ -55,24 +61,24 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
 
   // Absolute-value inputs (not deltas) — no +/- sign.
   const inputRows = [
-    [`FPL's own model (ep_next, already counts this week's fixtures and fitness)${b.epNextShrunk ? ' — shrunk toward position average, early season' : ''}`, fmtPts(b.epNext)],
+    [`${t("FPL's own model (ep_next, already counts this week's fixtures and fitness)")}${b.epNextShrunk ? ` ${t('— shrunk toward position average, early season')}` : ''}`, fmtPts(b.epNext)],
   ];
   if (b.formEligible) {
     inputRows.push([
       b.appearanceShare !== null && b.appearanceShare !== undefined && b.appearanceShare < 1
-        ? `Season points-per-game × ${Math.round(b.appearanceShare * 100)}% of matches played`
-        : 'Season points-per-game',
+        ? t('Season points-per-game × {pct}% of matches played', { pct: Math.round(b.appearanceShare * 100) })
+        : t('Season points-per-game'),
       fmtPts(b.ppg),
     ]);
-    inputRows.push(['Recent form', fmtPts(b.form)]);
+    inputRows.push([t('Recent form'), fmtPts(b.form)]);
   }
 
   // Signed adjustments layered on top of the input(s) above — shown only
   // when non-zero, always with an explicit sign since they're deltas.
   const adjustmentRows = [];
-  if (b.setPieceBonus) adjustmentRows.push(['Set-piece duty (pens/FKs/corners)', b.setPieceBonus]);
-  if (b.xgAdjustment) adjustmentRows.push(['Underlying chances (xG/xA)', b.xgAdjustment]);
-  if (b.oddsAdjustment) adjustmentRows.push(['Bookmaker odds (this gameweek, every match)', b.oddsAdjustment]);
+  if (b.setPieceBonus) adjustmentRows.push([t('Set-piece duty (pens/FKs/corners)'), b.setPieceBonus]);
+  if (b.xgAdjustment) adjustmentRows.push([t('Underlying chances (xG/xA)'), b.xgAdjustment]);
+  if (b.oddsAdjustment) adjustmentRows.push([t('Bookmaker odds (this gameweek, every match)'), b.oddsAdjustment]);
 
   // Multipliers applied to the base above to reach the final predicted
   // figures — shown as ×values, not deltas, since that's what they are.
@@ -80,35 +86,35 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
   // these apply to the rest of the base.
   const multRows = [];
   if (b.isBlankThisEvent) {
-    multRows.push(['No fixture this gameweek', 'Blank — 0 pts']);
+    multRows.push([t('No fixture this gameweek'), t('Blank: 0 pts')]);
   } else {
-    if (b.isDoubleThisEvent) multRows.push(['Fixtures this gameweek', `Double (${b.fixtureCountThisEvent})`]);
-    multRows.push(['Fixture difficulty this gameweek (not on ep_next)', `×${b.nextFixtureMult.toFixed(2)}`]);
-    multRows.push(['Fixtures over 4 gameweeks, used for PTS/WK', `×${b.fixtureMult.toFixed(2)}`]);
+    if (b.isDoubleThisEvent) multRows.push([t('Fixtures this gameweek'), t('Double ({n})', { n: b.fixtureCountThisEvent })]);
+    multRows.push([t('Fixture difficulty this gameweek (not on ep_next)'), `×${b.nextFixtureMult.toFixed(2)}`]);
+    multRows.push([t('Fixtures over 4 gameweeks, used for PTS/WK'), `×${b.fixtureMult.toFixed(2)}`]);
   }
-  if (b.availMult < 1) multRows.push(['Availability (not on ep_next)', `×${b.availMult.toFixed(2)}`]);
-  if (b.congestionMult < 1) multRows.push(['Short rest', `×${b.congestionMult.toFixed(2)} (${b.restDays}d since last match)`]);
-  if (b.minutesMult < 1) multRows.push(['Fewer minutes lately', `×${b.minutesMult.toFixed(2)} (${Math.round((b.recentMinutesShare || 0) * 100)}% of the last 4 gameweeks' minutes)`]);
+  if (b.availMult < 1) multRows.push([t('Availability (not on ep_next)'), `×${b.availMult.toFixed(2)}`]);
+  if (b.congestionMult < 1) multRows.push([t('Short rest'), `×${b.congestionMult.toFixed(2)} (${t('{n}d since last match', { n: b.restDays })})`]);
+  if (b.minutesMult < 1) multRows.push([t('Fewer minutes lately'), `×${b.minutesMult.toFixed(2)} (${t("{pct}% of the last 4 gameweeks' minutes", { pct: Math.round((b.recentMinutesShare || 0) * 100) })})`]);
 
   return (
     <div className="fpl-block" style={{ padding: 12, marginTop: 2, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
       <InsightHeader prediction={prediction} player={player} />
-      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8, letterSpacing: '0.03em' }}>WHY THIS PREDICTION</div>
+      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8, letterSpacing: '0.03em' }}>{t('WHY THIS PREDICTION')}</div>
       {b.ml ? (
         <p style={{ fontSize: '0.78rem', lineHeight: 1.5, margin: '0 0 10px' }}>
           {b.formula && typeof b.blendWeight === 'number' ? (
             <>
-              A blend of two models. The formula below says <span className="fpl-mono">{fmtPts(b.formula.next)}</span> this gameweek and the <b>machine-learning model</b> <span className="fpl-mono">{fmtPts(b.ml.next)}</span>
-              {b.ml.range ? <> (likely <span className="fpl-mono">{fmtPts(b.ml.range.floor)}–{fmtPts(b.ml.range.ceiling)}</span>)</> : null}.
-              The model counts for <span className="fpl-mono">{Math.round(b.blendWeight * 100)}%</span> for this position, learned from which of the two has been nearer in recent gameweeks.
+              {tr('A blend of two models. The formula below says <m>{formula}</m> this gameweek and the <b>machine-learning model</b> <m>{ml}</m>.', { formula: fmtPts(b.formula.next), ml: fmtPts(b.ml.next) }, RICH)}
+              {b.ml.range ? <> {tr('Likely <m>{low}–{high}</m>.', { low: fmtPts(b.ml.range.floor), high: fmtPts(b.ml.range.ceiling) }, RICH)}</> : null}
+              {' '}{tr('The model counts for <m>{pct}%</m> for this position, learned from which of the two has been nearer in recent gameweeks.', { pct: Math.round(b.blendWeight * 100) }, RICH)}
             </>
           ) : (
             <>
-              Predicted by the formula below. For comparison, the <b>machine-learning model</b> says <span className="fpl-mono">{fmtPts(b.ml.next)}</span> this gameweek
-              {b.ml.range ? <> (likely <span className="fpl-mono">{fmtPts(b.ml.range.floor)}–{fmtPts(b.ml.range.ceiling)}</span>)</> : null}.
+              {tr('Predicted by the formula below. For comparison, the <b>machine-learning model</b> says <m>{ml}</m> this gameweek.', { ml: fmtPts(b.ml.next) }, RICH)}
+              {b.ml.range ? <> {tr('Likely <m>{low}–{high}</m>.', { low: fmtPts(b.ml.range.floor), high: fmtPts(b.ml.range.ceiling) }, RICH)}</> : null}
             </>
           )}
-          {' '}The model is retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings and injury history, and keeps learning from each finished week.
+          {' '}{t("The model is retrained every day on every player's gameweeks since 2020, with betting odds, club Elo ratings and injury history, and keeps learning from each finished week.")}
         </p>
       ) : null}
       {inputRows.map(([label, val], i) => (
@@ -124,7 +130,7 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
         </div>
       ))}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '5px 0', borderTop: '1px solid var(--line)', marginTop: 4, fontWeight: 600 }}>
-        <span>Base (before fixture/availability)</span>
+        <span>{t('Base (before fixture/availability)')}</span>
         <span className="fpl-mono">{fmtPts(b.base)}</span>
       </div>
       {multRows.map(([label, val], i) => (
@@ -152,7 +158,7 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
           role: 'button',
           tabIndex: 0,
           'aria-expanded': !!isOpen,
-          'aria-label': `${player.webName}: change player or captaincy`,
+          'aria-label': t('{name}: change player or captaincy', { name: player.webName }),
           // Only the row itself: Enter on the "Why?" button inside it should
           // open the explanation, not the edit panel.
           onKeyDown: e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggle(); } },
@@ -162,15 +168,15 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
         <div className="fpl-row-main">
           <div className="fpl-row-name">
             {player.webName}
-            {isCaptain && <span className="fpl-armband" title="Captain">C</span>}
-            {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title="Vice-captain">V</span>}
+            {isCaptain && <span className="fpl-armband" title={t('Captain')}>{t('C')}</span>}
+            {isViceCaptain && <span className="fpl-armband fpl-armband-vc" title={t('Vice-captain')}>{t('V')}</span>}
           </div>
           <div className="fpl-row-sub">
             {team ? team.short_name : '—'} · {fmtPrice(player.price)}
-            {setPieceTags(player).map(t => <span key={t} className="fpl-sp-tag">{t}</span>)}
+            {setPieceTags(player).map(tag => <span key={tag} className="fpl-sp-tag">{tag}</span>)}
           </div>
           <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
-            {fmtPts(player.displaySeasonPoints)} pts · {fmtPts(player.displaySeasonPPG)} pts/match{player.displayIsLastSeason ? ' (LS)' : ''}{typeof player.selectedBy === 'number' ? ` · ${fmtOwn(player.selectedBy)} owned` : ''}
+            {t('{n} pts', { n: fmtPts(player.displaySeasonPoints) })} · {t('{n} pts/match', { n: fmtPts(player.displaySeasonPPG) })}{player.displayIsLastSeason ? ` ${t('(LS)')}` : ''}{typeof player.selectedBy === 'number' ? ` · ${t('{pct} owned', { pct: fmtOwn(player.selectedBy) })}` : ''}
           </div>
           {availNote && <div className="fpl-availnote">{availNote}</div>}
           {slot.breakdown && (
@@ -181,7 +187,7 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
               onClick={(e) => { e.stopPropagation(); setShowWhy(v => !v); }}
               style={{ background: 'none', border: 'none', color: 'var(--ink-dim)', textDecoration: 'underline', fontSize: '0.62rem', padding: 0, marginTop: 3, cursor: 'pointer' }}
             >
-              {showWhy ? 'Hide why' : 'Why?'}
+              {showWhy ? t('Hide why') : t('Why?')}
             </button>
           )}
         </div>
@@ -193,15 +199,15 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
         {isPastGw ? (
           <div className="fpl-row-pred">
             <div className="fpl-row-pred-num" style={{ color: !slot.played ? 'var(--ink-dim)' : (slot.actualPoints >= 6 ? 'var(--lime)' : slot.actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
-              {!slot.played ? 'NP' : (slot.actualPoints ?? '—')}
+              {!slot.played ? t('NP') : (slot.actualPoints ?? '—')}
             </div>
-            <div className="fpl-row-pred-label">{!slot.played ? 'NOT PLAYED' : 'ACTUAL PTS'}</div>
+            <div className="fpl-row-pred-label">{!slot.played ? t('NOT PLAYED') : t('ACTUAL PTS')}</div>
             <div className="fpl-mono" style={{ fontSize: '0.58rem', color: 'var(--ink-dim)', marginTop: 2 }}>{fmtPts(predicted)} predicted</div>
           </div>
         ) : (
           <div className="fpl-row-pred">
             <div className="fpl-row-pred-num" style={{ color: predicted < 2 ? 'var(--red)' : predicted >= 5 ? 'var(--lime)' : 'var(--ink)' }}>{fmtPts(predicted)}</div>
-            <div className="fpl-row-pred-label">PTS/WK</div>
+            <div className="fpl-row-pred-label">{t('PTS/WK')}</div>
           </div>
         )}
         {editable && (
@@ -227,11 +233,11 @@ export function CaptaincyPicker({ slot, onSetCaptain, onSetVice }) {
     <div style={{ display: 'flex', gap: 16, padding: '10px 10px 0', borderBottom: 'none' }} onClick={e => e.stopPropagation()}>
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
         <input type="checkbox" checked={!!slot.isCaptain} onChange={() => onSetCaptain(slot.player.id)} />
-        Captain
+        {t('Captain')}
       </label>
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', cursor: 'pointer' }}>
         <input type="checkbox" checked={!!slot.isViceCaptain} onChange={() => onSetVice(slot.player.id)} />
-        Vice-captain
+        {t('Vice-captain')}
       </label>
     </div>
   );
@@ -248,10 +254,10 @@ export function BenchOrderTip({ squad, onApply }) {
     <div className="fpl-bench-tip" role="status">
       <ArrowUpDown size={16} aria-hidden="true" />
       <span>
-        <b>Better bench order: {tip.order.map(name).join(', ')}.</b>{' '}
-        <span className="fpl-mono">+{fmtPts(tip.gain)} pts expected</span> if a doubtful starter misses out.
+        <b>{t('Better bench order: {names}.', { names: tip.order.map(name).join(', ') })}</b>{' '}
+        {tr('<m>+{n} pts expected</m> if a doubtful starter misses out.', { n: fmtPts(tip.gain) }, RICH)}
       </span>
-      <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onApply(tip.order)}>Use it</button>
+      <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onApply(tip.order)}>{t('Use it')}</button>
     </div>
   );
 }
@@ -267,14 +273,13 @@ function ChipWeeks({ squad, predictionsById }) {
   if (!plan.weeks.length) return null;
   return (
     <div className="fpl-block fpl-chip-weeks" style={{ padding: 12, marginTop: 8 }}>
-      <div className="fpl-mono fpl-meta" style={{ marginBottom: 6 }}>NEXT {plan.weeks.length} GAMEWEEKS, FROM THE PREDICTIONS</div>
+      <div className="fpl-mono fpl-meta" style={{ marginBottom: 6 }}>{t('NEXT {n} GAMEWEEKS, FROM THE PREDICTIONS', { n: plan.weeks.length })}</div>
       <p style={{ fontSize: '0.8rem', lineHeight: 1.5, margin: '0 0 8px' }}>
-        Bench Boost adds most in <b>GW{plan.benchBoost.event}</b> (+{fmtPts(plan.benchBoost.gain)} pts),
-        {' '}Triple Captain in <b>GW{plan.tripleCaptain.event}</b> (+{fmtPts(plan.tripleCaptain.gain)} pts).
+        {tr('Bench Boost adds most in <b>GW{bb}</b> (+{bbGain} pts), Triple Captain in <b>GW{tc}</b> (+{tcGain} pts).', { bb: plan.benchBoost.event, bbGain: fmtPts(plan.benchBoost.gain), tc: plan.tripleCaptain.event, tcGain: fmtPts(plan.tripleCaptain.gain) }, RICH)}
       </p>
       <table className="fpl-mini-table">
-        <caption className="fpl-sr-only">Predicted points each chip would add, by gameweek</caption>
-        <thead><tr><th scope="col">GW</th><th scope="col">Bench Boost</th><th scope="col">Triple Captain</th></tr></thead>
+        <caption className="fpl-sr-only">{t('Predicted points each chip would add, by gameweek')}</caption>
+        <thead><tr><th scope="col">{t('GW')}</th><th scope="col">{t('Bench Boost')}</th><th scope="col">{t('Triple Captain')}</th></tr></thead>
         <tbody>
           {plan.weeks.map(w => (
             <tr key={w.event}>
@@ -326,19 +331,19 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
   const add = (setList, id) => setList(list => (list.includes(id) ? list : [...list, id]));
   const drop = (setList, id) => setList(list => list.filter(x => x !== id));
   const locks = [
-    ...keep.map(id => ({ id, kind: 'keep', text: `Keeping ${byId[id] ? byId[id].webName : id}`, remove: () => drop(setKeep, id) })),
-    ...avoid.map(id => ({ id, kind: 'avoid', text: `Not buying ${byId[id] ? byId[id].webName : id}`, remove: () => drop(setAvoid, id) })),
+    ...keep.map(id => ({ id, kind: 'keep', text: t('Keeping {name}', { name: byId[id] ? byId[id].webName : id }), remove: () => drop(setKeep, id) })),
+    ...avoid.map(id => ({ id, kind: 'avoid', text: t('Not buying {name}', { name: byId[id] ? byId[id].webName : id }), remove: () => drop(setAvoid, id) })),
   ];
   const fmtDelta = v => (v > 0 ? `+${fmtPts(v)}` : v < 0 ? `−${fmtPts(-v)}` : '±0');
   return (
     <section className="fpl-block fpl-plan" aria-labelledby="plan-h">
       <div className="fpl-plan-head">
-        <h3 id="plan-h" className="fpl-plan-h">Plan for the next {plan.weeks.length} gameweeks</h3>
+        <h3 id="plan-h" className="fpl-plan-h">{t('Plan for the next {n} gameweeks', { n: plan.weeks.length })}</h3>
         {maxWeeks > 2 && (
-          <div className="fpl-seg fpl-plan-horizon" role="group" aria-label="Gameweeks to plan">
+          <div className="fpl-seg fpl-plan-horizon" role="group" aria-label={t('Gameweeks to plan')}>
             {Array.from({ length: maxWeeks - 1 }, (_, i) => i + 2).map(n => {
               const on = (horizon || maxWeeks) === n;
-              return <button key={n} type="button" className={on ? 'is-on' : ''} aria-pressed={on} onClick={() => setHorizon(n === maxWeeks ? null : n)}>{n} GWs</button>;
+              return <button key={n} type="button" className={on ? 'is-on' : ''} aria-pressed={on} onClick={() => setHorizon(n === maxWeeks ? null : n)}>{t('{n} GWs', { n })}</button>;
             })}
           </div>
         )}
@@ -352,17 +357,17 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
               <span className="fpl-plan-moves">
                 {w.moves.length ? w.moves.map(m => (
                   <span key={m.out.id} className="fpl-plan-move">
-                    <span>{m.out.webName} <ArrowRight size={12} aria-label="for" /> <b>{m.in.webName}</b></span>
+                    <span>{m.out.webName} <ArrowRight size={12} aria-label={t('for')} /> <b>{m.in.webName}</b></span>
                     <span className="fpl-plan-lock-btns">
-                      <button type="button" className="fpl-link" onClick={() => add(setKeep, m.out.id)}><Lock size={12} aria-hidden="true" /> Keep {m.out.webName}</button>
-                      <button type="button" className="fpl-link" onClick={() => add(setAvoid, m.in.id)}><Ban size={12} aria-hidden="true" /> Not {m.in.webName}</button>
+                      <button type="button" className="fpl-link" onClick={() => add(setKeep, m.out.id)}><Lock size={12} aria-hidden="true" /> {t('Keep {name}', { name: m.out.webName })}</button>
+                      <button type="button" className="fpl-link" onClick={() => add(setAvoid, m.in.id)}><Ban size={12} aria-hidden="true" /> {t('Not {name}', { name: m.in.webName })}</button>
                     </span>
                   </span>
-                )) : <span className="fpl-meta">Roll the transfer</span>}
+                )) : <span className="fpl-meta">{t('Roll the transfer')}</span>}
               </span>
               <span className="fpl-mono fpl-meta fpl-plan-ft">
-                {w.freeBefore} free{w.hits ? <b className="fpl-plan-hit"> −{w.hits * 4}</b> : null}
-                <span className={`fpl-plan-pts${delta > 0 ? ' is-up' : ''}`} title="Predicted points this week, against keeping the squad as it is">
+                {t('{n} free', { n: w.freeBefore })}{w.hits ? <b className="fpl-plan-hit"> −{w.hits * 4}</b> : null}
+                <span className={`fpl-plan-pts${delta > 0 ? ' is-up' : ''}`} title={t('Predicted points this week, against keeping the squad as it is')}>
                   {fmtPts(w.points)} <small>{fmtDelta(delta)}</small>
                 </span>
               </span>
@@ -371,10 +376,10 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
         })}
       </ol>
       {locks.length > 0 && (
-        <ul className="fpl-plan-locks" aria-label="Your rules for this plan">
+        <ul className="fpl-plan-locks" aria-label={t('Your rules for this plan')}>
           {locks.map(l => (
             <li key={`${l.kind}-${l.id}`}>
-              <button type="button" className="fpl-chip-btn" onClick={l.remove} aria-label={`${l.text}: remove`}>
+              <button type="button" className="fpl-chip-btn" onClick={l.remove} aria-label={t('{rule}: remove', { rule: l.text })}>
                 {l.kind === 'keep' ? <Lock size={12} aria-hidden="true" /> : <Ban size={12} aria-hidden="true" />} {l.text} <X size={12} aria-hidden="true" />
               </button>
             </li>
@@ -383,13 +388,13 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
       )}
       <p className="fpl-meta" style={{ margin: 0 }}>
         {plan.gain > 0
-          ? <><b className="fpl-plan-gain">+{fmtPts(plan.gain)} pts</b> over these weeks against making no transfers, hits included.</>
-          : 'No transfers beat keeping this squad over these weeks.'}
-        {rolled ? <> Rolling this week&rsquo;s transfer instead: {rolled.gain > 0 ? `+${fmtPts(rolled.gain)}` : fmtPts(rolled.gain)} pts ({fmtPts(Math.max(0, plan.total - rolled.total))} fewer).</> : null}
+          ? tr('<g>+{n} pts</g> over these weeks against making no transfers, hits included.', { n: fmtPts(plan.gain) }, { g: s => <b className="fpl-plan-gain">{s}</b> })
+          : t('No transfers beat keeping this squad over these weeks.')}
+        {rolled ? <> {t("Rolling this week's transfer instead: {gain} pts ({fewer} fewer).", { gain: rolled.gain > 0 ? `+${fmtPts(rolled.gain)}` : fmtPts(rolled.gain), fewer: fmtPts(Math.max(0, plan.total - rolled.total)) })}</> : null}
       </p>
       {first.moves.length && onMakeMoves ? (
         <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onMakeMoves(first.moves)}>
-          Make the GW{first.event} {first.moves.length === 1 ? 'transfer' : 'transfers'}
+          {first.moves.length === 1 ? t('Make the GW{n} transfer', { n: first.event }) : t('Make the GW{n} transfers', { n: first.event })}
         </button>
       ) : null}
     </section>
@@ -408,43 +413,43 @@ export function TemplateCard({ squad, allPlayers, predictionsById }) {
   return (
     <section className="fpl-block fpl-template" aria-labelledby="template-h">
       <div>
-        <h3 id="template-h" className="fpl-plan-h">Template vs differential</h3>
+        <h3 id="template-h" className="fpl-plan-h">{t('Template vs differential')}</h3>
         <p className="fpl-meta" style={{ margin: '4px 0 0' }}>
-          You own <b>{r.templateOwned}</b> of the {r.template.length} players in at least 20% of teams.
-          {r.missingPoints > 0 || r.differentialPoints > 0 ? <> This gameweek: <b className="fpl-template-down">−{fmtPts(r.missingPoints)}</b> at stake on the ones you don&rsquo;t have, <b className="fpl-template-up">+{fmtPts(r.differentialPoints)}</b> to gain from your differentials.</> : null}
+          {tr('You own <b>{owned}</b> of the {total} players in at least 20% of teams.', { owned: r.templateOwned, total: r.template.length }, RICH)}
+          {r.missingPoints > 0 || r.differentialPoints > 0 ? <> {tr("This gameweek: <down>−{lost}</down> at stake on the ones you don't have, <up>+{gain}</up> to gain from your differentials.", { lost: fmtPts(r.missingPoints), gain: fmtPts(r.differentialPoints) }, { down: s => <b className="fpl-template-down">{s}</b>, up: s => <b className="fpl-template-up">{s}</b> })}</> : null}
         </p>
       </div>
       <div className="fpl-template-cols">
         <div>
-          <h4 className="fpl-mono fpl-template-h">MISSING FROM THE TEMPLATE</h4>
+          <h4 className="fpl-mono fpl-template-h">{t('MISSING FROM THE TEMPLATE')}</h4>
           {missing.length ? (
             <ul className="fpl-template-list">
               {missing.map(m => (
                 <li key={m.player.id}>
                   <span className="fpl-template-name">{m.player.webName}</span>
                   <span className="fpl-mono fpl-meta">{fmtOwn(m.selectedBy)}</span>
-                  <span className="fpl-mono fpl-template-down" title="Points the field gets from him and you don't, this gameweek">−{fmtPts(m.atStake)}</span>
+                  <span className="fpl-mono fpl-template-down" title={t("Points the field gets from him and you don't, this gameweek")}>−{fmtPts(m.atStake)}</span>
                 </li>
               ))}
             </ul>
-          ) : <p className="fpl-meta" style={{ margin: 0 }}>None: you have the whole template.</p>}
+          ) : <p className="fpl-meta" style={{ margin: 0 }}>{t('None: you have the whole template.')}</p>}
         </div>
         <div>
-          <h4 className="fpl-mono fpl-template-h">YOUR DIFFERENTIALS (UNDER 10%)</h4>
+          <h4 className="fpl-mono fpl-template-h">{t('YOUR DIFFERENTIALS (UNDER 10%)')}</h4>
           {diffs.length ? (
             <ul className="fpl-template-list">
               {diffs.map(d => (
                 <li key={d.player.id}>
                   <span className="fpl-template-name">{d.player.webName}</span>
                   <span className="fpl-mono fpl-meta">{fmtOwn(d.selectedBy)}</span>
-                  <span className="fpl-mono fpl-template-up" title="What he gains you on the field this gameweek">+{fmtPts(d.edge)}</span>
+                  <span className="fpl-mono fpl-template-up" title={t('What he gains you on the field this gameweek')}>+{fmtPts(d.edge)}</span>
                 </li>
               ))}
             </ul>
-          ) : <p className="fpl-meta" style={{ margin: 0 }}>None: everyone you own is in 10% of teams or more.</p>}
+          ) : <p className="fpl-meta" style={{ margin: 0 }}>{t('None: everyone you own is in 10% of teams or more.')}</p>}
         </div>
       </div>
-      <p className="fpl-mono fpl-meta" style={{ margin: 0, fontSize: '0.62rem' }}>Ownership is FPL&rsquo;s overall figure. Points are this gameweek&rsquo;s predictions, before the armband.</p>
+      <p className="fpl-mono fpl-meta" style={{ margin: 0, fontSize: '0.62rem' }}>{t("Ownership is FPL's overall figure. Points are this gameweek's predictions, before the armband.")}</p>
     </section>
   );
 }
@@ -455,12 +460,12 @@ export function TemplateCard({ squad, allPlayers, predictionsById }) {
 export function SubstitutePicker({ slot, squad, onSubstitute }) {
   const options = substitutionOptions(squad, slot);
   const groups = [
-    { key: 'xi', label: slot.isStarting ? 'Substitute: bring on' : 'Substitute: bring on for', list: options.filter(o => o.isStarting !== slot.isStarting) },
-    { key: 'bench', label: 'Bench order: swap with', list: options.filter(o => o.isStarting === slot.isStarting) },
+    { key: 'xi', label: slot.isStarting ? t('Substitute: bring on') : t('Substitute: bring on for'), list: options.filter(o => o.isStarting !== slot.isStarting) },
+    { key: 'bench', label: t('Bench order: swap with'), list: options.filter(o => o.isStarting === slot.isStarting) },
   ].filter(g => g.list.length);
   const ariaFor = other => {
-    if (other.isStarting === slot.isStarting) return `Swap ${slot.player.webName} with ${other.player.webName} on the bench`;
-    return slot.isStarting ? `Bring on ${other.player.webName} for ${slot.player.webName}` : `Bring on ${slot.player.webName} for ${other.player.webName}`;
+    if (other.isStarting === slot.isStarting) return t('Swap {a} with {b} on the bench', { a: slot.player.webName, b: other.player.webName });
+    return slot.isStarting ? t('Bring on {a} for {b}', { a: other.player.webName, b: slot.player.webName }) : t('Bring on {a} for {b}', { a: slot.player.webName, b: other.player.webName });
   };
   return (
     <div className="fpl-sub-picker" onClick={e => e.stopPropagation()}>
@@ -485,8 +490,8 @@ export function SubstitutePicker({ slot, squad, onSubstitute }) {
         </div>
       )) : (
         <>
-          <div className="fpl-mono fpl-meta">{slot.isStarting ? 'Substitute: bring on' : 'Substitute: bring on for'}</div>
-          <div className="fpl-meta">No one can swap in without breaking the formation.</div>
+          <div className="fpl-mono fpl-meta">{slot.isStarting ? t('Substitute: bring on') : t('Substitute: bring on for')}</div>
+          <div className="fpl-meta">{t('No one can swap in without breaking the formation.')}</div>
         </>
       )}
     </div>
@@ -533,18 +538,18 @@ export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, 
         <input
           className="fpl-input"
           style={{ paddingLeft: 30, fontSize: '0.85rem' }}
-          placeholder={`Search a replacement ${POSITION_LABELS[posId]}…`}
-          aria-label={`Search a replacement ${POSITION_LABELS[posId]}`}
+          placeholder={t('Search a replacement {pos}…', { pos: POSITION_LABELS[posId] })}
+          aria-label={t('Search a replacement {pos}', { pos: POSITION_LABELS[posId] })}
           value={query}
           onChange={e => setQuery(e.target.value)}
           autoFocus
         />
       </div>
       <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 8 }}>
-        Budget for this slot: {fmtPrice(remaining)}{query ? ' · matching your search' : ''}
+        {t('Budget for this slot: {price}', { price: fmtPrice(remaining) })}{query ? ` · ${t('matching your search')}` : ''}
       </div>
       {candidates.length === 0 && (
-        <div style={{ padding: '6px 2px', fontSize: '0.8rem', color: 'var(--ink-dim)' }}>No matching players.</div>
+        <div style={{ padding: '6px 2px', fontSize: '0.8rem', color: 'var(--ink-dim)' }}>{t('No matching players.')}</div>
       )}
       {candidates.map(p => {
         const team = teamsById[p.team];
@@ -565,7 +570,7 @@ export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, 
               {blocker && <span className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--amber)' }}>{blocker}</span>}
             </span>
             <span className="fpl-mono" style={{ flexShrink: 0, fontSize: '0.72rem', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ color: 'var(--green)' }}>{fmtPts(predictionsById[p.id].predicted)}pts</span>
+              <span style={{ color: 'var(--green)' }}>{t('{n}pts', { n: fmtPts(predictionsById[p.id].predicted) })}</span>
               <span style={{ color: priceDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{priceDelta >= 0 ? '+' : ''}{priceDelta.toFixed(1)}m</span>
             </span>
           </button>
@@ -581,33 +586,33 @@ export function TransferCard({ suggestion, onApply }) {
     <div className="fpl-block" style={{ padding: 12, marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 120 }}>
-          <div className="fpl-mono" style={{ fontSize: '0.6rem', color: 'var(--red)', fontWeight: 700, letterSpacing: '0.04em' }}>OUT</div>
+          <div className="fpl-mono" style={{ fontSize: '0.6rem', color: 'var(--red)', fontWeight: 700, letterSpacing: '0.04em' }}>{t('OUT')}</div>
           <div className="fpl-display" style={{ fontWeight: 600 }}>{out.player.webName}</div>
-          <div className="fpl-mono fpl-meta">{fmtPts(out.predicted)} pts/wk</div>
+          <div className="fpl-mono fpl-meta">{t('{n} pts/wk', { n: fmtPts(out.predicted) })}</div>
         </div>
         <ArrowRight size={16} style={{ color: 'var(--ink-dim)', flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 120 }}>
-          <div className="fpl-mono" style={{ fontSize: '0.6rem', color: 'var(--green)', fontWeight: 700, letterSpacing: '0.04em' }}>IN</div>
+          <div className="fpl-mono" style={{ fontSize: '0.6rem', color: 'var(--green)', fontWeight: 700, letterSpacing: '0.04em' }}>{t('IN')}</div>
           <div className="fpl-display" style={{ fontWeight: 600 }}>{inPlayer.webName}</div>
-          <div className="fpl-mono fpl-meta">{fmtPts(inPredicted)} pts/wk</div>
+          <div className="fpl-mono fpl-meta">{t('{n} pts/wk', { n: fmtPts(inPredicted) })}</div>
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: 6 }}>
         <span style={{ fontSize: '0.75rem', color: 'var(--ink-dim)' }}>{reason}</span>
         <span className="fpl-mono" style={{ fontSize: '0.75rem', display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span style={{ color: gain < 0 ? 'var(--amber)' : 'var(--mint)', fontWeight: 700 }}>{gain >= 0 ? '+' : ''}{fmtPts(gain)} pts/wk</span>
+          <span style={{ color: gain < 0 ? 'var(--amber)' : 'var(--mint)', fontWeight: 700 }}>{t('{n} pts/wk', { n: `${gain >= 0 ? '+' : ''}${fmtPts(gain)}` })}</span>
           <span style={{ color: costDelta > 0 ? 'var(--amber)' : 'var(--ink-dim)' }}>{costDelta >= 0 ? '+' : ''}{costDelta.toFixed(1)}m</span>
         </span>
       </div>
       <div style={{ display: 'flex', justifyContent: pairedWith ? 'space-between' : 'flex-end', alignItems: 'center', marginTop: 6, gap: 8, flexWrap: 'wrap' }}>
-        {pairedWith && <span style={{ fontSize: '0.72rem', color: 'var(--ink-dim)' }}>Make together with the {pairedWith} transfer</span>}
+        {pairedWith && <span style={{ fontSize: '0.72rem', color: 'var(--ink-dim)' }}>{t('Make together with the {name} transfer', { name: pairedWith })}</span>}
         {isFree ? (
           <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--green)', fontWeight: 700, letterSpacing: '0.03em' }}>
-            FREE TRANSFER · {horizonGain >= 0 ? '+' : ''}{fmtPts(horizonGain)} PTS OVER 4 GWS
+            {t('FREE TRANSFER · {n} PTS OVER 4 GWS', { n: `${horizonGain >= 0 ? '+' : ''}${fmtPts(horizonGain)}` })}
           </span>
         ) : (
           <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--amber)', fontWeight: 700, letterSpacing: '0.03em' }}>
-            -{hitCost} HIT · NET {netGain >= 0 ? '+' : ''}{fmtPts(netGain)} PTS OVER 4 GWS
+            {t('-{hit} HIT · NET {n} PTS OVER 4 GWS', { hit: hitCost, n: `${netGain >= 0 ? '+' : ''}${fmtPts(netGain)}` })}
           </span>
         )}
       </div>
@@ -617,7 +622,7 @@ export function TransferCard({ suggestion, onApply }) {
           style={{ width: '100%', marginTop: 10, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}
           onClick={() => onApply(out.player.id, inPlayer)}
         >
-          <RefreshCw size={12} /> Accept this swap
+          <RefreshCw size={12} /> {t('Accept this swap')}
         </button>
       )}
     </div>
@@ -676,7 +681,7 @@ export function ResultsActions({ squad, teamName, gwName, teamsById, deadline, s
   }
 
   async function share() {
-    setShareState('Preparing…');
+    setShareState(t('Preparing…'));
     try {
       const { drawShareCard, shareCard } = await import('../lib/shareCard.js');
       // The card's rows show this gameweek's prediction, so its total is
@@ -684,9 +689,9 @@ export function ResultsActions({ squad, teamName, gwName, teamsById, deadline, s
       const canvas = await drawShareCard({ teamName, gwName, total, slots: squad, teamsById, siteUrl: 'fplchecker.co.uk', score });
       const result = await shareCard(canvas, { title: `${teamName} · ${gwName}`, fileName: 'fpl-squad.png' });
       if (result !== 'cancelled') track('share');
-      setShareState(result === 'downloaded' ? 'Image downloaded' : '');
+      setShareState(result === 'downloaded' ? t('Image downloaded') : '');
     } catch {
-      setShareState("Couldn't create the image");
+      setShareState(t("Couldn't create the image"));
     }
   }
 
@@ -694,17 +699,17 @@ export function ResultsActions({ squad, teamName, gwName, teamsById, deadline, s
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
       {deadlineAhead && (
         <button type="button" className="fpl-chip-btn fpl-inline" onClick={addReminder}>
-          <Bell size={14} aria-hidden="true" /> Deadline reminder
+          <Bell size={14} aria-hidden="true" /> {t('Deadline reminder')}
         </button>
       )}
       <button type="button" className="fpl-chip-btn fpl-inline" onClick={share}>
-        <Share2 size={14} aria-hidden="true" /> Share image
+        <Share2 size={14} aria-hidden="true" /> {t('Share image')}
       </button>
       <a className="fpl-chip-btn fpl-inline fpl-chip-wa" href={links.whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
       <a className="fpl-chip-btn fpl-inline fpl-chip-wa" href={links.x} target="_blank" rel="noreferrer">X</a>
       <a className="fpl-chip-btn fpl-inline fpl-chip-wa" href={links.reddit} target="_blank" rel="noreferrer">Reddit</a>
       <button type="button" className="fpl-chip-btn fpl-inline" onClick={copyLink}>
-        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} {copied ? 'Copied' : 'Copy'}
+        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} {copied ? t('Copied') : t('Copy')}
       </button>
       {shareState && <span className="fpl-mono fpl-meta" role="status">{shareState}</span>}
     </div>
@@ -726,12 +731,12 @@ function GameweekUnavailable({ data, onStartOver }) {
     <div style={{ padding: '40px 16px', textAlign: 'center' }}>
       <Info size={28} style={{ color: 'var(--ink-dim)', margin: '0 auto 14px' }} />
       <p style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 6, color: 'var(--ink)' }}>
-        No saved optimal squad for {data.targetEvent && data.allEvents ? ((data.allEvents.find(e => e.id === data.gwId) || {}).name || `gameweek ${data.gwId}`) : `gameweek ${data.gwId}`}.
+        {t('No saved optimal squad for {gw}.', { gw: data.targetEvent && data.allEvents ? ((data.allEvents.find(e => e.id === data.gwId) || {}).name || t('Gameweek {n}', { n: data.gwId })) : t('Gameweek {n}', { n: data.gwId }) })}
       </p>
       <p style={{ fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--ink-dim)', marginBottom: 22 }}>
-        This gameweek closed before a build was ever saved for it, so there's nothing to show.
+        {t("This gameweek closed before a build was ever saved for it, so there's nothing to show.")}
       </p>
-      <button className="fpl-btn fpl-btn-solid" onClick={onStartOver}>Start over</button>
+      <button className="fpl-btn fpl-btn-solid" onClick={onStartOver}>{t('Start over')}</button>
     </div>
   );
 }
@@ -768,29 +773,29 @@ function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit,
       onClick={e => { if (e.target === dialogRef.current) onClose(); }}
     >
       <div className="fpl-dialog-card">
-        <button type="button" onClick={onClose} aria-label="Close" className="fpl-dialog-close"><X size={18} /></button>
+        <button type="button" onClick={onClose} aria-label={t('Close')} className="fpl-dialog-close"><X size={18} /></button>
         <div className="fpl-sheet-head">
           <span className="fpl-sheet-shirt"><Shirt team={team} isKeeper={player.positionId === 1} /></span>
           <div>
-            <h2 id="sheet-h" className="fpl-display">{player.webName}{slot.isCaptain ? <span className="fpl-armband">C</span> : null}{slot.isViceCaptain ? <span className="fpl-armband fpl-armband-vc">V</span> : null}</h2>
+            <h2 id="sheet-h" className="fpl-display">{player.webName}{slot.isCaptain ? <span className="fpl-armband">{t('C')}</span> : null}{slot.isViceCaptain ? <span className="fpl-armband fpl-armband-vc">{t('V')}</span> : null}</h2>
             <p className="fpl-mono fpl-meta">{POSITION_LABELS[player.positionId]} · {team ? team.name : '—'} · {fmtPrice(player.price)}</p>
           </div>
         </div>
         {slot.availNote ? <p className="fpl-availnote">{slot.availNote}</p> : null}
         <div className="fpl-sheet-stats">
           {isPastGw ? (
-            <div><b className="fpl-mono">{slot.played === false ? '–' : slot.actualPoints ?? '–'}</b><span>points this gameweek</span></div>
+            <div><b className="fpl-mono">{slot.played === false ? '–' : slot.actualPoints ?? '–'}</b><span>{t('points this gameweek')}</span></div>
           ) : (
-            <div><b className="fpl-mono">{fmtPts(slot.nextMatchPredicted ?? slot.predicted)}</b><span>predicted this gameweek</span></div>
+            <div><b className="fpl-mono">{fmtPts(slot.nextMatchPredicted ?? slot.predicted)}</b><span>{t('predicted this gameweek')}</span></div>
           )}
-          <div><b className="fpl-mono">{fmtPts(slot.predicted)}</b><span>predicted per week</span></div>
-          <div><b className="fpl-mono">{fmtPts(player.displaySeasonPoints)}</b><span>season points{player.displayIsLastSeason ? ' (LS)' : ''}</span></div>
-          <div><b className="fpl-mono">{typeof player.selectedBy === 'number' ? `${player.selectedBy}%` : '–'}</b><span>owned by</span></div>
+          <div><b className="fpl-mono">{fmtPts(slot.predicted)}</b><span>{t('predicted per week')}</span></div>
+          <div><b className="fpl-mono">{fmtPts(player.displaySeasonPoints)}</b><span>{t('season points')}{player.displayIsLastSeason ? ` ${t('(LS)')}` : ''}</span></div>
+          <div><b className="fpl-mono">{typeof player.selectedBy === 'number' ? `${player.selectedBy}%` : '–'}</b><span>{t('owned by')}</span></div>
         </div>
-        {!isPastGw ? <div className="fpl-sheet-fx"><span className="fpl-mono fpl-meta">Next fixtures</span><span><DifficultyChips fixtures={fixturesByTeam[player.team]} teamsById={teamsById} max={4} /></span></div> : null}
+        {!isPastGw ? <div className="fpl-sheet-fx"><span className="fpl-mono fpl-meta">{t('Next fixtures')}</span><span><DifficultyChips fixtures={fixturesByTeam[player.team]} teamsById={teamsById} max={4} /></span></div> : null}
         {slot.breakdown ? (
           <>
-            <button type="button" className="fpl-link" aria-expanded={showWhy} onClick={() => setShowWhy(v => !v)}>{showWhy ? 'Hide why' : 'Why this prediction?'}</button>
+            <button type="button" className="fpl-link" aria-expanded={showWhy} onClick={() => setShowWhy(v => !v)}>{showWhy ? t('Hide why') : t('Why this prediction?')}</button>
             {showWhy ? <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent, range: slot.range }} player={player} /> : null}
           </>
         ) : null}
@@ -798,12 +803,12 @@ function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit,
           <div className="fpl-sheet-actions">
             {slot.isStarting ? (
               <>
-                <button type="button" className={`fpl-btn${slot.isCaptain ? ' fpl-btn-solid' : ''}`} aria-pressed={!!slot.isCaptain} onClick={onCaptain}><Crown size={15} aria-hidden="true" /> Captain</button>
-                <button type="button" className={`fpl-btn${slot.isViceCaptain ? ' fpl-btn-solid' : ''}`} aria-pressed={!!slot.isViceCaptain} onClick={onVice}>Vice-captain</button>
+                <button type="button" className={`fpl-btn${slot.isCaptain ? ' fpl-btn-solid' : ''}`} aria-pressed={!!slot.isCaptain} onClick={onCaptain}><Crown size={15} aria-hidden="true" /> {t('Captain')}</button>
+                <button type="button" className={`fpl-btn${slot.isViceCaptain ? ' fpl-btn-solid' : ''}`} aria-pressed={!!slot.isViceCaptain} onClick={onVice}>{t('Vice-captain')}</button>
               </>
             ) : null}
-            <button type="button" className="fpl-btn" onClick={onSubstitute}><ArrowUpDown size={15} aria-hidden="true" /> Substitute</button>
-            <button type="button" className="fpl-btn" onClick={onTransfer}><ArrowLeftRight size={15} aria-hidden="true" /> Transfer out</button>
+            <button type="button" className="fpl-btn" onClick={onSubstitute}><ArrowUpDown size={15} aria-hidden="true" /> {t('Substitute')}</button>
+            <button type="button" className="fpl-btn" onClick={onTransfer}><ArrowLeftRight size={15} aria-hidden="true" /> {t('Transfer out')}</button>
           </div>
         ) : null}
       </div>
@@ -878,51 +883,51 @@ function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teams
     if (!(id in planned)) {
       return <PlayerCard key={id} slot={slot} team={teamsById[slot.player.team]} price={slot.player.price}
         info={nextFixtureLabel(slot.player, fixturesByTeam, teamsById)} onRemove={() => remove(id)} onClick={() => remove(id)}
-        label={`${slot.player.webName}, ${fmtPrice(slot.player.price)}: transfer out`} />;
+        label={t('{name}, {price}: transfer out', { name: slot.player.webName, price: fmtPrice(slot.player.price) })} />;
     }
     const inPlayer = planned[id];
     if (!inPlayer) return <EmptyCard key={id} positionId={slot.player.positionId} onClick={() => setPickFor(id)} />;
     const pred = predictionsById[inPlayer.id];
     return <PlayerCard key={id} slot={{ player: inPlayer, availNote: pred ? pred.availNote : null }} team={teamsById[inPlayer.team]} price={inPlayer.price}
-      info={nextFixtureLabel(inPlayer, fixturesByTeam, teamsById)} state="in" tag="IN" onRemove={() => remove(id)} onClick={() => remove(id)}
-      label={`${inPlayer.webName} coming in, ${fmtPrice(inPlayer.price)}: change`} />;
+      info={nextFixtureLabel(inPlayer, fixturesByTeam, teamsById)} state="in" tag={t('IN')} onRemove={() => remove(id)} onClick={() => remove(id)}
+      label={t('{name} coming in, {price}: change', { name: inPlayer.webName, price: fmtPrice(inPlayer.price) })} />;
   };
 
   return (
     <section className="fpl-planner" aria-labelledby="planner-h">
       <div className="fpl-planner-head">
-        <h2 id="planner-h" className="fpl-section-title fpl-inline"><ArrowLeftRight size={14} aria-hidden="true" /> Transfers</h2>
-        <button type="button" className="fpl-link" onClick={onCancel}>Cancel</button>
+        <h2 id="planner-h" className="fpl-section-title fpl-inline"><ArrowLeftRight size={14} aria-hidden="true" /> {t('Transfers')}</h2>
+        <button type="button" className="fpl-link" onClick={onCancel}>{t('Cancel')}</button>
       </div>
       <dl className="fpl-planner-facts">
-        <div><dt>Free transfers</dt><dd>
+        <div><dt>{t('Free transfers')}</dt><dd>
           <span className="fpl-stepper">
-            <button type="button" aria-label="One fewer free transfer" onClick={() => onFreeTransfers(Math.max(0, freeTransfers - 1))} disabled={freeTransfers <= 0}>−</button>
+            <button type="button" aria-label={t('One fewer free transfer')} onClick={() => onFreeTransfers(Math.max(0, freeTransfers - 1))} disabled={freeTransfers <= 0}>−</button>
             <b className="fpl-mono">{freeTransfers}</b>
-            <button type="button" aria-label="One more free transfer" onClick={() => onFreeTransfers(Math.min(5, freeTransfers + 1))} disabled={freeTransfers >= 5}>+</button>
+            <button type="button" aria-label={t('One more free transfer')} onClick={() => onFreeTransfers(Math.min(5, freeTransfers + 1))} disabled={freeTransfers >= 5}>+</button>
           </span>
         </dd></div>
-        <div><dt>Transfers</dt><dd className="fpl-mono">{made}</dd></div>
-        <div><dt>Cost</dt><dd className={`fpl-mono${hits ? ' is-down' : ''}`}>{hits ? `−${hits} pts` : '0 pts'}</dd></div>
-        <div><dt>Bank</dt><dd className={`fpl-mono${bank < 0 ? ' is-down' : ''}`}>{fmtPrice(bank / 10)}</dd></div>
-        <div><dt>Predicted change</dt><dd className={`fpl-mono ${change - hits / 4 > 0 ? 'is-up' : change < 0 ? 'is-down' : ''}`}>{change >= 0 ? '+' : ''}{fmtPts(change)} pts/wk</dd></div>
+        <div><dt>{t('Transfers')}</dt><dd className="fpl-mono">{made}</dd></div>
+        <div><dt>{t('Cost')}</dt><dd className={`fpl-mono${hits ? ' is-down' : ''}`}>{t('{n} pts', { n: hits ? `−${hits}` : 0 })}</dd></div>
+        <div><dt>{t('Bank')}</dt><dd className={`fpl-mono${bank < 0 ? ' is-down' : ''}`}>{fmtPrice(bank / 10)}</dd></div>
+        <div><dt>{t('Predicted change')}</dt><dd className={`fpl-mono ${change - hits / 4 > 0 ? 'is-up' : change < 0 ? 'is-down' : ''}`}>{t('{n} pts/wk', { n: `${change >= 0 ? '+' : ''}${fmtPts(change)}` })}</dd></div>
         {horizon ? (
-          <div><dt>Next {horizon.weeks} GWs{hits ? ', after the hit' : ''}</dt><dd className={`fpl-mono ${horizon.net > 0 ? 'is-up' : horizon.net < 0 ? 'is-down' : ''}`}>{horizon.net >= 0 ? '+' : ''}{fmtPts(horizon.net)} pts</dd></div>
+          <div><dt>{hits ? t('Next {n} GWs, after the hit', { n: horizon.weeks }) : t('Next {n} GWs', { n: horizon.weeks })}</dt><dd className={`fpl-mono ${horizon.net > 0 ? 'is-up' : horizon.net < 0 ? 'is-down' : ''}`}>{t('{n} pts', { n: `${horizon.net >= 0 ? '+' : ''}${fmtPts(horizon.net)}` })}</dd></div>
         ) : null}
       </dl>
       <Pitch rows={rows} card={card} className="is-squad" />
       {pickSlot ? (
         <div className="fpl-planner-pick">
-          <p className="fpl-mono fpl-meta">Replacing {pickSlot.player.webName} ({fmtPrice(pickSlot.player.price)})</p>
+          <p className="fpl-mono fpl-meta">{t('Replacing {name} ({price})', { name: pickSlot.player.webName, price: fmtPrice(pickSlot.player.price) })}</p>
           <InlineSwapSearch key={pickSlot.player.id} outSlot={pickSlot} squad={work} allPlayers={allPlayers} predictionsById={predictionsById} teamsById={teamsById} bankTenths={bank} onSwap={pick} />
         </div>
       ) : null}
       <div className="fpl-planner-actions">
-        <button type="button" className="fpl-btn" onClick={autoPick} disabled={!gaps}><Sparkles size={15} aria-hidden="true" /> Auto pick</button>
-        <button type="button" className="fpl-btn" onClick={() => { setPlanned({}); setPickFor(null); }} disabled={!Object.keys(planned).length}><RotateCcw size={15} aria-hidden="true" /> Reset</button>
-        <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onConfirm(planned)} disabled={!made || gaps > 0}>Make transfers</button>
+        <button type="button" className="fpl-btn" onClick={autoPick} disabled={!gaps}><Sparkles size={15} aria-hidden="true" /> {t('Auto pick')}</button>
+        <button type="button" className="fpl-btn" onClick={() => { setPlanned({}); setPickFor(null); }} disabled={!Object.keys(planned).length}><RotateCcw size={15} aria-hidden="true" /> {t('Reset')}</button>
+        <button type="button" className="fpl-btn fpl-btn-solid" onClick={() => onConfirm(planned)} disabled={!made || gaps > 0}>{t('Make transfers')}</button>
       </div>
-      {gaps > 0 ? <p className="fpl-mono fpl-meta">Pick a player for every empty place, or use Auto pick.</p> : null}
+      {gaps > 0 ? <p className="fpl-mono fpl-meta">{t('Pick a player for every empty place, or use Auto pick.')}</p> : null}
     </section>
   );
 }
@@ -1083,43 +1088,43 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
         <div>
           <h1 className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', letterSpacing: '0.04em', margin: 0, fontWeight: 400 }}>
-            {entryMeta && entryMeta.teamName ? entryMeta.teamName.toUpperCase() : 'YOUR SQUAD'} · {(viewedGwName || (targetEvent ? targetEvent.name : '')).toUpperCase()}
+            {entryMeta && entryMeta.teamName ? entryMeta.teamName.toUpperCase() : t('YOUR SQUAD')} · {(viewedGwName || (targetEvent ? targetEvent.name : '')).toUpperCase()}
           </h1>
           {bankTenths !== null && bankTenths !== undefined && (
-            <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>In the bank: {fmtPrice(bankTenths / 10)}</div>
+            <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', marginTop: 2 }}>{t('In the bank: {price}', { price: fmtPrice(bankTenths / 10) })}</div>
           )}
           {isPastGw && data.entryHistory && (
             <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--lime)', marginTop: 2, fontWeight: 600 }}>
-              Scored {officialGwPoints(data)} pts{data.entryHistory.event_transfers_cost ? ` (−${data.entryHistory.event_transfers_cost} hit)` : ''}
-              {data.entryHistory.rank ? ` · GW rank ${data.entryHistory.rank.toLocaleString('en-GB')}` : ''}
+              {t('Scored {n} pts', { n: officialGwPoints(data) })}{data.entryHistory.event_transfers_cost ? ` ${t('(−{n} hit)', { n: data.entryHistory.event_transfers_cost })}` : ''}
+              {data.entryHistory.rank ? ` · ${t('GW rank {n}', { n: fmtNumber(data.entryHistory.rank) })}` : ''}
             </div>
           )}
           {data.asOfGwId && (
             <div className="fpl-mono fpl-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
-              Predictions use only data from before this gameweek's deadline. Prices and set-piece takers are today's.
+              {t("Predictions use only data from before this gameweek's deadline. Prices and set-piece takers are today's.")}
             </div>
           )}
           {data.asOfFailedGwId && (
             <div className="fpl-mono" role="status" style={{ fontSize: '0.68rem', color: 'var(--amber)', marginTop: 4, fontWeight: 600, lineHeight: 1.5 }}>
-              Couldn't load player data from before this gameweek, so these predictions use today's data (they may reflect what happened since).
+              {t("Couldn't load player data from before this gameweek, so these predictions use today's data (they may reflect what happened since).")}
             </div>
           )}
           {entryMeta && entryMeta.picksFromGwId && (
             <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--amber)', marginTop: 4, fontWeight: 600 }}>
-              Your Gameweek {entryMeta.picksFromGwId} team — this gameweek's picks are hidden until the deadline, so transfers made since won't show.
+              {t("Your Gameweek {gw} team: this gameweek's picks are hidden until the deadline, so transfers made since won't show.", { gw: entryMeta.picksFromGwId })}
             </div>
           )}
           {isOptimalBuild && !isPastGw && nextRefreshAt && (
             <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
-              Next refresh: {formatCountdown(nextRefreshAt, { suffix: '', passedLabel: 'due any time' })}
+              {t('Next refresh: {time}', { time: formatCountdown(nextRefreshAt, { bare: true, passedLabel: t('due any time') }) })}
             </div>
           )}
           {isOptimalBuild && isPastGw && (
             <div className="fpl-mono" style={{ color: 'var(--ink-dim)', fontSize: '0.68rem', padding: 0, marginTop: 4, fontWeight: 600 }}>
-              Closed gameweek — squad locked in{backfilled ? ' · backfilled from later data' : ''}
+              {t('Closed gameweek: squad locked in')}{backfilled ? ` · ${t('backfilled from later data')}` : ''}
             </div>
           )}
-          <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6 }}>Squad Score</div>
+          <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginTop: 6 }}>{t('Squad Score')}</div>
         </div>
         <ScoreRing score={squadScore} />
       </div>
@@ -1131,7 +1136,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}
             onClick={handleDownloadSquadJson}
           >
-            <Download size={14} /> Download JSON
+            <Download size={14} /> {t('Download JSON')}
           </button>
           <button
             className="fpl-btn"
@@ -1139,30 +1144,30 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             onClick={handleCopySquadJson}
           >
             {copyState === 'copied' ? <Check size={14} /> : <Clipboard size={14} />}
-            {copyState === 'copied' ? 'Copied!' : copyState === 'failed' ? "Couldn't copy" : 'Copy to clipboard'}
+            {copyState === 'copied' ? t('Copied!') : copyState === 'failed' ? t("Couldn't copy") : t('Copy to clipboard')}
           </button>
         </div>
       )}
 
       {!isPastGw && (
         <>
-          <div className="fpl-section-title fpl-inline"><Zap size={14} /> How would a chip affect this squad?</div>
+          <div className="fpl-section-title fpl-inline"><Zap size={14} /> {t('How would a chip affect this squad?')}</div>
           <div className="fpl-block" style={{ padding: 12, marginBottom: 16 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-              <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>No chip</button>
+              <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>{t('No chip')}</button>
               {Object.entries(CHIP_INFO).map(([key, info]) => (
                 <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{info.label}</button>
               ))}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.5, marginBottom: 10 }}>
-              {chipPreview ? CHIP_INFO[chipPreview].desc : 'No chip active — normal scoring (starting XI only, captain at 2x).'}
+              {chipPreview ? CHIP_INFO[chipPreview].desc : t('No chip active: normal scoring (starting XI only, captain at 2x).')}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--lime)' }}>{fmtPts(chipPreviewTotal)}</span>
-              <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>PREDICTED PTS THIS GAMEWEEK{chipPreview ? ' WITH THIS CHIP' : ''}</span>
+              <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>{chipPreview ? t('PREDICTED PTS THIS GAMEWEEK WITH THIS CHIP') : t('PREDICTED PTS THIS GAMEWEEK')}</span>
             </div>
             {chipPreview && (
-              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>vs {fmtPts(normalTotal)}pts with no chip</div>
+              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>{t('vs {n}pts with no chip', { n: fmtPts(normalTotal) })}</div>
             )}
           </div>
         </>
@@ -1171,7 +1176,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       {!isPastGw && (
         <ResultsActions
           squad={squad}
-          teamName={entryMeta && entryMeta.teamName ? entryMeta.teamName : (isOptimalBuild ? 'Optimal squad' : 'My squad')}
+          teamName={entryMeta && entryMeta.teamName ? entryMeta.teamName : (isOptimalBuild ? t('Optimal squad') : t('My squad'))}
           gwName={targetEvent ? targetEvent.name : ''}
           teamsById={teamsById}
           deadline={targetEvent ? targetEvent.deadline_time : null}
@@ -1184,39 +1189,41 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           <Crown size={18} style={{ color: showCaptainSuggestion ? 'var(--sky)' : 'var(--green)', flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.85rem', lineHeight: 1.5, minWidth: 0, flex: 1 }}>
             {showCaptainSuggestion ? (
-              <>Consider captaining <strong>{captainSuggestion.player.webName}</strong> ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain ? <> instead of {captain.player.webName} ({fmtPts(captain.nextMatchPredicted)} pts)</> : null}.</>
+              <>{captain
+                ? tr('Consider captaining <b>{name}</b> ({pts} pts predicted this gameweek) instead of {current} ({currentPts} pts).', { name: captainSuggestion.player.webName, pts: fmtPts(captainSuggestion.nextMatchPredicted), current: captain.player.webName, currentPts: fmtPts(captain.nextMatchPredicted) }, { b: s => <strong>{s}</strong> })
+                : tr('Consider captaining <b>{name}</b> ({pts} pts predicted this gameweek).', { name: captainSuggestion.player.webName, pts: fmtPts(captainSuggestion.nextMatchPredicted) }, { b: s => <strong>{s}</strong> })}</>
             ) : (
-              <><strong>{captainSuggestion.player.webName}</strong> is our top pick for the armband this week ({fmtPts(captainSuggestion.nextMatchPredicted)} pts predicted this gameweek){captain && captain.player.id === captainSuggestion.player.id ? <> — nice, that's already who you've got captained.</> : null}.</>
+              <>{tr('<b>{name}</b> is our top pick for the armband this week ({pts} pts predicted this gameweek).', { name: captainSuggestion.player.webName, pts: fmtPts(captainSuggestion.nextMatchPredicted) }, { b: s => <strong>{s}</strong> })}{captain && captain.player.id === captainSuggestion.player.id ? <> {t("Nice, that's already who you've got captained.")}</> : null}</>
             )}
             {captainPicks ? (
               <div className="fpl-captain-picks">
-                {[['Safe', captainPicks.safe], ['Differential', captainPicks.diff]].filter(([, o]) => o).map(([label, o]) => (
+                {[[t('Safe'), captainPicks.safe], [t('Differential'), captainPicks.diff]].filter(([, o]) => o).map(([label, o]) => (
                   <div key={label} className="fpl-captain-pick">
                     <span className="fpl-mono fpl-captain-pick-label">{label}</span>
                     <span className="fpl-captain-pick-name">{o.slot.player.webName}</span>
-                    <span className="fpl-mono fpl-meta">{fmtPts(o.expected)} pts · {Math.round(o.haul * 100)}% chance of 10+ · {o.owned.toFixed(1)}% owned</span>
+                    <span className="fpl-mono fpl-meta">{t('{n} pts', { n: fmtPts(o.expected) })} · {t('{pct}% chance of 10+', { pct: Math.round(o.haul * 100) })} · {t('{n}% owned', { n: o.owned.toFixed(1) })}</span>
                     {canEdit && (!captain || captain.player.id !== o.slot.player.id) ? (
-                      <button type="button" className="fpl-link" onClick={() => applyCaptainChange(o.slot.player.id, 'captain')}>Captain him</button>
+                      <button type="button" className="fpl-link" onClick={() => applyCaptainChange(o.slot.player.id, 'captain')}>{t('Captain him')}</button>
                     ) : null}
                   </div>
                 ))}
                 {captainPicks.diff ? (
                   <p className="fpl-meta" style={{ margin: 0 }}>
-                    The differential is for climbing rank: fewer managers own {captainPicks.diff.slot.player.webName}, so if he hauls you gain on far more of them. The safe pick is the most points on average.
+                    {t('The differential is for climbing rank: fewer managers own {name}, so if he hauls you gain on far more of them. The safe pick is the most points on average.', { name: captainPicks.diff.slot.player.webName })}
                   </p>
                 ) : null}
                 <details className="fpl-captain-compare">
-                  <summary>Compare the top {captainPicks.top.length}</summary>
+                  <summary>{t('Compare the top {n}', { n: captainPicks.top.length })}</summary>
                   <table className="fpl-mini-table">
-                    <caption className="fpl-sr-only">Captain options this gameweek</caption>
-                    <thead><tr><th scope="col">Player</th><th scope="col">Pts</th><th scope="col">Likely range</th><th scope="col">10+</th><th scope="col">Owned</th></tr></thead>
+                    <caption className="fpl-sr-only">{t('Captain options this gameweek')}</caption>
+                    <thead><tr><th scope="col">{t('Player')}</th><th scope="col">{t('Pts')}</th><th scope="col">{t('Likely range')}</th><th scope="col">10+</th><th scope="col">{t('Owned')}</th></tr></thead>
                     <tbody>
                       {captainPicks.top.map(o => (
                         <tr key={o.slot.player.id}>
                           <th scope="row">
                             {canEdit && (!captain || captain.player.id !== o.slot.player.id) ? (
-                              <button type="button" className="fpl-link" onClick={() => applyCaptainChange(o.slot.player.id, 'captain')} aria-label={`Captain ${o.slot.player.webName}`}>{o.slot.player.webName}</button>
-                            ) : <>{o.slot.player.webName}{captain && captain.player.id === o.slot.player.id ? ' (C)' : ''}</>}
+                              <button type="button" className="fpl-link" onClick={() => applyCaptainChange(o.slot.player.id, 'captain')} aria-label={t('Captain {name}', { name: o.slot.player.webName })}>{o.slot.player.webName}</button>
+                            ) : <>{o.slot.player.webName}{captain && captain.player.id === o.slot.player.id ? ` (${t('C')})` : ''}</>}
                           </th>
                           <td className="fpl-mono">{fmtPts(o.expected)}</td>
                           <td className="fpl-mono">{(r => `${fmtPts(r.floor)}–${fmtPts(r.ceiling)}`)(predictionRange(o.slot, o.slot.player))}</td>
@@ -1226,7 +1233,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                       ))}
                     </tbody>
                   </table>
-                  <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Likely range: from a quiet game to a good one for him this week.{canEdit ? ' Tap a name to give him the armband.' : ''}</p>
+                  <p className="fpl-meta" style={{ margin: '6px 0 0' }}>{t('Likely range: from a quiet game to a good one for him this week.')}{canEdit ? ` ${t('Tap a name to give him the armband.')}` : ''}</p>
                 </details>
               </div>
             ) : null}
@@ -1235,12 +1242,12 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       )}
 
       <div className="fpl-team-toolbar">
-        <div className="fpl-seg" role="group" aria-label="Show the team as">
-          <button type="button" className={view === 'pitch' ? 'is-on' : ''} aria-pressed={view === 'pitch'} onClick={() => setView('pitch')}><LayoutGrid size={14} aria-hidden="true" /> Pitch</button>
-          <button type="button" className={view === 'list' ? 'is-on' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}><ListIcon size={14} aria-hidden="true" /> List</button>
+        <div className="fpl-seg" role="group" aria-label={t('Show the team as')}>
+          <button type="button" className={view === 'pitch' ? 'is-on' : ''} aria-pressed={view === 'pitch'} onClick={() => setView('pitch')}><LayoutGrid size={14} aria-hidden="true" /> {t('Pitch')}</button>
+          <button type="button" className={view === 'list' ? 'is-on' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}><ListIcon size={14} aria-hidden="true" /> {t('List')}</button>
         </div>
         {canEdit && view === 'pitch' && !planning ? (
-          <button type="button" className="fpl-btn" onClick={() => { setSubFrom(null); setPlanning(true); }}><ArrowLeftRight size={15} aria-hidden="true" /> Transfers</button>
+          <button type="button" className="fpl-btn" onClick={() => { setSubFrom(null); setPlanning(true); }}><ArrowLeftRight size={15} aria-hidden="true" /> {t('Transfers')}</button>
         ) : null}
       </div>
 
@@ -1287,7 +1294,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
               team={teamsById[slot.player.team]}
               points={points}
               pointsTone={tone}
-              info={isPastGw ? `pred ${fmtPts(slot.predicted)}` : nextFixtureLabel(slot.player, fixturesByTeam, teamsById)}
+              info={isPastGw ? t('pred {n}', { n: fmtPts(slot.predicted) }) : nextFixtureLabel(slot.player, fixturesByTeam, teamsById)}
               state={state}
               onClick={onClick}
             />
@@ -1297,13 +1304,13 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           <div className="fpl-team-pitch">
             {subSlot ? (
               <div className="fpl-sub-banner" role="status">
-                <span><b>Substituting {subSlot.player.webName}.</b> {!subOptions.size ? 'No one can swap in without breaking the formation.'
-                  : subSlot.isStarting || subSlot.player.positionId === 1 ? 'Pick a highlighted player to swap with.'
-                    : 'Pick a starter to bring them on, or a substitute to change who comes on first.'}</span>
-                <button type="button" className="fpl-link" onClick={() => setSubFrom(null)}>Cancel</button>
+                <span><b>{t('Substituting {name}.', { name: subSlot.player.webName })}</b> {!subOptions.size ? t('No one can swap in without breaking the formation.')
+                  : subSlot.isStarting || subSlot.player.positionId === 1 ? t('Pick a highlighted player to swap with.')
+                    : t('Pick a starter to bring them on, or a substitute to change who comes on first.')}</span>
+                <button type="button" className="fpl-link" onClick={() => setSubFrom(null)}>{t('Cancel')}</button>
               </div>
             ) : canEdit ? (
-              <p className="fpl-mono fpl-meta">Tap a player to see their details, change the armband, substitute or transfer them.</p>
+              <p className="fpl-mono fpl-meta">{t('Tap a player to see their details, change the armband, substitute or transfer them.')}</p>
             ) : null}
             <Pitch starters={starters} bench={bench} card={card} />
             {canEdit && !subSlot ? <BenchOrderTip squad={squad} onApply={order => onSquadUpdate(applyBenchOrder(squad, order), bankTenths)} /> : null}
@@ -1338,13 +1345,13 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           style={{ width: '100%', marginBottom: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
           onClick={() => { setEditMode(m => !m); setEditSlotId(null); }}
         >
-          <Edit3 size={16} /> {editMode ? 'Done editing' : 'Edit squad'}
+          <Edit3 size={16} /> {editMode ? t('Done editing') : t('Edit squad')}
         </button>
       )}
 
       {canEdit && editMode && (
         <div className="fpl-mono" style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', marginBottom: 10, lineHeight: 1.5 }}>
-          Tap any player below to substitute them, transfer them out, or set captain/vice-captain.
+          {t('Tap any player below to substitute them, transfer them out, or set captain/vice-captain.')}
         </div>
       )}
 
@@ -1372,7 +1379,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                         onSetVice={(id) => applyCaptainChange(id, 'vice')}
                       />
                     ) : (
-                      <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>Bench players can't wear the armband.</div>
+                      <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>{t("Bench players can't wear the armband.")}</div>
                     )}
                     <SubstitutePicker slot={slot} squad={squad} onSubstitute={applySubstitution} />
                     <InlineSwapSearch
@@ -1395,7 +1402,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
 
       {bench.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <div className="fpl-section-title">Bench</div>
+          <div className="fpl-section-title">{t('Bench')}</div>
           <div className="fpl-block" style={{ borderTop: 'none' }}>
             {bench.map(slot => (
               <Fragment key={slot.player.id}>
@@ -1417,7 +1424,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                         onSetVice={(id) => applyCaptainChange(id, 'vice')}
                       />
                     ) : (
-                      <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>Bench players can't wear the armband.</div>
+                      <div className="fpl-mono fpl-meta" style={{ padding: '10px 10px 0' }}>{t("Bench players can't wear the armband.")}</div>
                     )}
                     <SubstitutePicker slot={slot} squad={squad} onSubstitute={applySubstitution} />
                     <InlineSwapSearch
@@ -1443,15 +1450,15 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
 
       {chipTiming && (
         <div style={{ marginBottom: 16 }}>
-          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Chip timing</div>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>{t('Chip timing')}</div>
           {chipTiming.bestTripleCaptain && (
             <div className="fpl-block" style={{ padding: 12, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Trophy size={18} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                Best upcoming week for <strong>Triple Captain</strong>: <strong>{chipTiming.bestTripleCaptain.gwName}</strong> — captaining {chipTiming.bestTripleCaptain.bestCaptain.player.webName}{chipTiming.bestTripleCaptain.bestCaptain.fixtureCount > 1 ? ' (double gameweek)' : ''}.
+                {tr('Best upcoming week for <b>Triple Captain</b>: <b>{gw}</b>, captaining {name}.', { gw: chipTiming.bestTripleCaptain.gwName, name: chipTiming.bestTripleCaptain.bestCaptain.player.webName }, { b: s => <strong>{s}</strong> })}{chipTiming.bestTripleCaptain.bestCaptain.fixtureCount > 1 ? ` ${t('(double gameweek)')}` : ''}
                 <div className="fpl-mono" style={{ fontSize: '0.75rem', marginTop: 4 }}>
-                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>~{fmtPts(chipTiming.bestTripleCaptain.tripleXi)} pts</span>
-                  <span className="fpl-dim"> expected total with the chip — vs ~{fmtPts(chipTiming.bestTripleCaptain.normalXi)} pts that week with no chip.</span>
+                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>{t('~{n} pts', { n: fmtPts(chipTiming.bestTripleCaptain.tripleXi) })}</span>
+                  <span className="fpl-dim"> {t('expected total with the chip, vs ~{n} pts that week with no chip.', { n: fmtPts(chipTiming.bestTripleCaptain.normalXi) })}</span>
                 </div>
               </div>
             </div>
@@ -1460,17 +1467,17 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             <div className="fpl-block" style={{ padding: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <ShieldAlert size={18} style={{ color: 'var(--sky)', flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
-                Best upcoming week for <strong>Bench Boost</strong>: <strong>{chipTiming.bestBenchBoost.gwName}</strong> — full 15-man squad in action.
+                {tr('Best upcoming week for <b>Bench Boost</b>: <b>{gw}</b>, full 15-man squad in action.', { gw: chipTiming.bestBenchBoost.gwName }, { b: s => <strong>{s}</strong> })}
                 <div className="fpl-mono" style={{ fontSize: '0.75rem', marginTop: 4 }}>
-                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>~{fmtPts(chipTiming.bestBenchBoost.benchBoostXi)} pts</span>
-                  <span className="fpl-dim"> expected total with the chip — vs ~{fmtPts(chipTiming.bestBenchBoost.normalXi)} pts that week with no chip.</span>
+                  <span style={{ color: 'var(--lime)', fontWeight: 700 }}>{t('~{n} pts', { n: fmtPts(chipTiming.bestBenchBoost.benchBoostXi) })}</span>
+                  <span className="fpl-dim"> {t('expected total with the chip, vs ~{n} pts that week with no chip.', { n: fmtPts(chipTiming.bestBenchBoost.normalXi) })}</span>
                 </div>
               </div>
             </div>
           )}
           <ChipWeeks squad={squad} predictionsById={predictionsById} />
           <p className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginTop: 6, lineHeight: 1.5 }}>
-            Estimated from currently scheduled fixtures for your squad as it stands now — this will shift as gameweeks pass, your squad changes, and FPL confirms any blank/double gameweeks.
+            {t('Estimated from currently scheduled fixtures for your squad as it stands now. This will shift as gameweeks pass, your squad changes, and FPL confirms any blank/double gameweeks.')}
           </p>
         </div>
       )}
@@ -1481,10 +1488,10 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
 
       {canEdit && (
         <div style={{ marginBottom: 8 }}>
-          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>Transfer suggestions</div>
+          <div className="fpl-section-title" style={{ background: 'transparent', border: 'none', padding: '0 0 10px' }}>{t('Transfer suggestions')}</div>
           {suggestions.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-              <span className="fpl-mono fpl-meta">Free transfers available:</span>
+              <span className="fpl-mono fpl-meta">{t('Free transfers available:')}</span>
               {[0, 1, 2, 3, 4, 5].map(n => (
                 <button
                   key={n}
@@ -1501,10 +1508,10 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             <div className="fpl-block" style={{ padding: 14, fontSize: '0.85rem', color: 'var(--ink-dim)', display: 'flex', gap: 10, alignItems: 'center' }}>
               <CheckCircle2 size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
               {suggestions.length === 0
-                ? "Your squad's in good shape — no changes look necessary this week."
+                ? t("Your squad's in good shape: no changes look necessary this week.")
                 : freeTransfers > 0
-                  ? 'Nothing beats saving your free transfer this week — it rolls over to next week.'
-                  : "Nothing worth a -4 hit right now — check back once you've got a free transfer, or increase the count above if you already do."}
+                  ? t('Nothing beats saving your free transfer this week: it rolls over to next week.')
+                  : t("Nothing worth a -4 hit right now. Check back once you've got a free transfer, or increase the count above if you already do.")}
             </div>
           )}
           {visibleSuggestions.map((s, i) => (
@@ -1538,14 +1545,14 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       {session && session.admin && !isOptimalBuild && !isPastGw ? <RedditReply data={data} /> : null}
 
       <details className="fpl-details">
-        <summary className="fpl-inline"><Info size={14} /> How these predictions work</summary>
+        <summary className="fpl-inline"><Info size={14} /> {t('How these predictions work')}</summary>
         <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.6, paddingBottom: 10 }}>
-          Predicted points blend FPL's own expected-points model, season scoring averages, recent form, and upcoming fixture difficulty. Transfer suggestions assume your sell price is close to the player's current price — FPL's 50% profit rule means your real sell value could be slightly lower if that player has risen in price since you bought them. These are estimates to guide your thinking, not guarantees — always check the latest injury news before your deadline.
+          {t("Predicted points blend FPL's own expected-points model, season scoring averages, recent form, and upcoming fixture difficulty. Transfer suggestions assume your sell price is close to the player's current price: FPL's 50% profit rule means your real sell value could be slightly lower if that player has risen in price since you bought them. These are estimates to guide your thinking, not guarantees. Always check the latest injury news before your deadline.")}
         </div>
       </details>
 
       <button className="fpl-btn" style={{ width: '100%', marginTop: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={onStartOver}>
-        <RotateCcw size={16} /> Check another squad
+        <RotateCcw size={16} /> {t('Check another squad')}
       </button>
     </div>
   );
@@ -1566,9 +1573,9 @@ function DeadlineEmail({ session, teamId }) {
       });
       const body = await r.json().catch(() => null);
       if (r.ok) setOn(next);
-      else setError((body && body.error) || 'Couldn’t save that. Try again.');
+      else setError((body && body.error && serverMessage(body.error)) || t('Couldn’t save that. Try again.'));
     } catch {
-      setError('Couldn’t save that. Try again.');
+      setError(t('Couldn’t save that. Try again.'));
     }
     setBusy(false);
   };
@@ -1576,9 +1583,9 @@ function DeadlineEmail({ session, teamId }) {
     <div className="fpl-block fpl-digest">
       <label className="fpl-digest-row">
         <input type="checkbox" checked={on} disabled={busy || (!on && !session.email)} onChange={e => toggle(e.target.checked)} />
-        <span><b>Deadline email</b>: your best captain and transfer for this team, a day before each deadline.</span>
+        <span>{tr('<b>Deadline email</b>: your best captain and transfer for this team, a day before each deadline.', undefined, RICH)}</span>
       </label>
-      {!session.email && !on ? <p className="fpl-meta" style={{ margin: '6px 0 0' }}>Add an email address to your account to turn this on.</p> : null}
+      {!session.email && !on ? <p className="fpl-meta" style={{ margin: '6px 0 0' }}>{t('Add an email address to your account to turn this on.')}</p> : null}
       {error ? <p role="alert" className="fpl-meta" style={{ margin: '6px 0 0', color: 'var(--red)' }}>{error}</p> : null}
     </div>
   );
@@ -1622,7 +1629,7 @@ function RedditReply({ data }) {
       <p className="fpl-meta" style={{ margin: 0 }}>Wording {variant + 1} of {REDDIT_VARIANTS}: the next one shows after you copy.</p>
       <div className="fpl-admin-actions">
         <button type="button" className="fpl-btn fpl-btn-solid" onClick={copy}>
-          {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy'}
+          {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? t('Copied') : t('Copy')}
         </button>
         <a className="fpl-btn" href="https://www.reddit.com/r/FantasyPL/new/" target="_blank" rel="noreferrer"><ExternalLink size={15} aria-hidden="true" /> r/FantasyPL</a>
       </div>
@@ -1641,13 +1648,13 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
   // (entryMeta.gwId); fall back to whatever gameweek is currently showing
   // in the header if that's somehow missing.
   const gwId = (data.entryMeta && data.entryMeta.gwId) || (data.targetEvent && data.targetEvent.id) || null;
-  const defaultLabel = (data.entryMeta && data.entryMeta.teamName) || (teamId ? `Team ${teamId}` : 'My squad');
+  const defaultLabel = (data.entryMeta && data.entryMeta.teamName) || (teamId ? t('Team {id}', { id: teamId }) : t('My squad'));
   const [label, setLabel] = useState(defaultLabel);
 
   async function handleSaveTeamId() {
     setStatus({ kind: 'saving' });
     const result = await onSaveTeamId(teamId, label.trim() || defaultLabel, gwId);
-    setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
+    setStatus(result.ok ? { kind: 'ok', message: t('Saved.') } : { kind: 'error', message: result.error || t('Could not save.') });
   }
 
   // A Team ID's changes (transfers, armbands, the XI) saved to the account
@@ -1655,19 +1662,19 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
   async function handleSaveChanges() {
     setStatus({ kind: 'saving' });
     const result = await onSaveTeamChanges(data, label.trim() || defaultLabel);
-    setStatus(result.ok ? { kind: 'ok', message: 'Changes saved. Loading this Team ID now shows them.' } : { kind: 'error', message: result.error || 'Could not save.' });
+    setStatus(result.ok ? { kind: 'ok', message: t('Changes saved. Loading this Team ID now shows them.') } : { kind: 'error', message: result.error || t('Could not save.') });
   }
 
   async function handleResetChanges() {
     setStatus({ kind: 'saving' });
     const result = await onResetTeamChanges(data);
-    if (!result.ok) setStatus({ kind: 'error', message: result.error || 'Could not reset.' });
+    if (!result.ok) setStatus({ kind: 'error', message: result.error || t('Could not reset.') });
   }
 
   async function handleSaveSquad() {
     setStatus({ kind: 'saving' });
     const result = await onSaveCustomSquad(data.squad, label.trim() || defaultLabel, gwId, data.bankTenths);
-    setStatus(result.ok ? { kind: 'ok', message: 'Saved.' } : { kind: 'error', message: result.error || 'Could not save.' });
+    setStatus(result.ok ? { kind: 'ok', message: t('Saved.') } : { kind: 'error', message: result.error || t('Could not save.') });
   }
 
   const canSaveChanges = !!teamId && !data.isPastGw;
@@ -1683,18 +1690,18 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
       <div className="fpl-mono" style={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
         {data.edited
           ? (session
-            ? 'Your changes are kept on this device, and show on Home and in Mini-league. Save them to your account to see them on any device.'
-            : 'Your changes are kept on this device, and show on Home and in Mini-league. Log in to keep them on any device.')
-          : (onDevice ? 'Showing your changes from this device, not the team on FPL.' : 'Showing the changes saved to your account, not the team on FPL.')}
+            ? t('Your changes are kept on this device, and show on Home and in Mini-league. Save them to your account to see them on any device.')
+            : t('Your changes are kept on this device, and show on Home and in Mini-league. Log in to keep them on any device.'))
+          : (onDevice ? t('Showing your changes from this device, not the team on FPL.') : t('Showing the changes saved to your account, not the team on FPL.'))}
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {session && (data.edited || onDevice) && (
           <button onClick={handleSaveChanges} disabled={busy} className="fpl-btn fpl-btn-solid" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-            <Bookmark size={14} /> Save to account
+            <Bookmark size={14} /> {t('Save to account')}
           </button>
         )}
         <button onClick={handleResetChanges} disabled={busy} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-          <RotateCcw size={14} /> Use the team on FPL
+          <RotateCcw size={14} /> {t('Use the team on FPL')}
         </button>
       </div>
       {status && status.kind === 'error' && !session && <div role="alert" style={{ color: 'var(--red)', fontSize: '0.78rem' }}>{status.message}</div>}
@@ -1710,7 +1717,7 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
           className="fpl-btn"
           style={{ width: '100%', marginBottom: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
         >
-          <Bookmark size={16} /> {canSaveChanges && (data.edited || onDevice) ? 'Log in to save your changes' : 'Log in to save this team'}
+          <Bookmark size={16} /> {canSaveChanges && (data.edited || onDevice) ? t('Log in to save your changes') : t('Log in to save this team')}
         </button>
       </>
     );
@@ -1722,20 +1729,20 @@ export function SaveTeamSection({ data, session, onSaveTeamId, onSaveCustomSquad
       <input
         value={label}
         onChange={e => setLabel(e.target.value)}
-        placeholder="Name this squad"
+        placeholder={t('Name this squad')}
         maxLength={40}
         className="fpl-mono"
-        style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '9px 10px', fontSize: '0.85rem', marginBottom: 8 }}
+        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '9px 10px', fontSize: '0.85rem', marginBottom: 8 }}
       />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {teamId && (
           <button onClick={handleSaveTeamId} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-            <Bookmark size={14} /> Save this Team ID
+            <Bookmark size={14} /> {t('Save this Team ID')}
           </button>
         )}
         {!data.isPastGw && (
           <button onClick={handleSaveSquad} disabled={status && status.kind === 'saving'} className="fpl-btn" style={{ flex: 1, minWidth: 140, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-            <Bookmark size={14} /> Save this squad
+            <Bookmark size={14} /> {t('Save this squad')}
           </button>
         )}
       </div>

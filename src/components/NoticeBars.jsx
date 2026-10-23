@@ -5,6 +5,8 @@ import { X } from 'lucide-react';
 import { onFplStale } from '../lib/fplClient.js';
 import { showIosInstallTip } from '../lib/iosInstall.js';
 import { TESTER_GROUP_URL, TESTER_OPT_IN_URL, isAppLaunch, showTesterBar } from '../lib/androidTesters.js';
+import { fmtTime, t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
 
 // The Android tester bar: hidden for good once closed, or once this
 // browser has been opened by the app (the app shares its storage).
@@ -46,29 +48,29 @@ export function NoticeBars({ stage, session, onEnterCode }) {
     <>
       {verifyBarShown && stage !== 'welcome' && (
         <div className="fpl-verify-bar" role="status">
-          <span>Confirm your email to get password reset codes and deadline emails.</span>
-          <button type="button" className="fpl-btn fpl-btn-solid" onClick={onEnterCode}>Enter code</button>
-          <button type="button" className="fpl-verify-bar-x" aria-label="Hide for now" onClick={() => setVerifyBarHidden(true)}><X size={16} aria-hidden="true" /></button>
+          <span>{t('Confirm your email to get password reset codes and deadline emails.')}</span>
+          <button type="button" className="fpl-btn fpl-btn-solid" onClick={onEnterCode}>{t('Enter code')}</button>
+          <button type="button" className="fpl-verify-bar-x" aria-label={t('Hide for now')} onClick={() => setVerifyBarHidden(true)}><X size={16} aria-hidden="true" /></button>
         </div>
       )}
       {fplStaleAt && inApp && (
         <div className="fpl-verify-bar" role="status">
-          <span>FPL is updating right now, so this shows its data from {new Date(fplStaleAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. It refreshes once FPL is back.</span>
-          <button type="button" className="fpl-verify-bar-x" aria-label="Hide" onClick={() => setFplStaleAt(null)}><X size={16} aria-hidden="true" /></button>
+          <span>{t('FPL is updating right now, so this shows its data from {time}. It refreshes once FPL is back.', { time: fmtTime(fplStaleAt, { hour: '2-digit', minute: '2-digit' }) })}</span>
+          <button type="button" className="fpl-verify-bar-x" aria-label={t('Hide')} onClick={() => setFplStaleAt(null)}><X size={16} aria-hidden="true" /></button>
         </div>
       )}
       {iosTipShown && inApp && (
         <div className="fpl-verify-bar" role="status">
-          <span>Get FPL Checker on your iPhone: tap <b>Share</b> <span aria-hidden="true">⬆︎</span>, then <b>Add to Home Screen</b>.</span>
-          <button type="button" className="fpl-verify-bar-x" aria-label="Don’t show again" onClick={() => { try { localStorage.setItem(IOS_TIP_KEY, 'hidden'); } catch { /* storage unavailable */ } setIosTipShown(false); }}><X size={16} aria-hidden="true" /></button>
+          <span>{tr('Get FPL Checker on your iPhone: tap <b>Share</b> ⬆︎, then <b>Add to Home Screen</b>.', undefined, { b: s => <b>{s}</b> })}</span>
+          <button type="button" className="fpl-verify-bar-x" aria-label={t('Don’t show again')} onClick={() => { try { localStorage.setItem(IOS_TIP_KEY, 'hidden'); } catch { /* storage unavailable */ } setIosTipShown(false); }}><X size={16} aria-hidden="true" /></button>
         </div>
       )}
       {testerBarShown && !verifyBarShown && inApp && (
         <div className="fpl-verify-bar fpl-tester-bar" role="status">
-          <span>Help test the FPL Checker Android app on Google Play for 2 weeks. Join the group, then tap Become a tester.</span>
-          <a className="fpl-btn" href={TESTER_GROUP_URL} target="_blank" rel="noopener noreferrer">1. Join group</a>
-          <a className="fpl-btn fpl-btn-solid" href={TESTER_OPT_IN_URL} target="_blank" rel="noopener noreferrer">2. Become a tester</a>
-          <button type="button" className="fpl-verify-bar-x" aria-label="Don’t show again" onClick={() => { writeTesterBarHidden(); setTesterBarShown(false); }}><X size={16} aria-hidden="true" /></button>
+          <span>{t('Help test the FPL Checker Android app on Google Play for 2 weeks. Join the group, then tap Become a tester.')}</span>
+          <a className="fpl-btn" href={TESTER_GROUP_URL} target="_blank" rel="noopener noreferrer">{t('1. Join group')}</a>
+          <a className="fpl-btn fpl-btn-solid" href={TESTER_OPT_IN_URL} target="_blank" rel="noopener noreferrer">{t('2. Become a tester')}</a>
+          <button type="button" className="fpl-verify-bar-x" aria-label={t('Don’t show again')} onClick={() => { writeTesterBarHidden(); setTesterBarShown(false); }}><X size={16} aria-hidden="true" /></button>
         </div>
       )}
     </>

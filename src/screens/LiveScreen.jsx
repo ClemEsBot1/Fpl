@@ -7,13 +7,16 @@ import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { SkeletonRows } from '../components/common.jsx';
 import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, liveBonusRace } from '../lib/live.js';
 import './liveBonus.css';
+import { fmtDateTime, fmtTime, t } from '../lib/i18n.js';
+import { chipName } from '../lib/career.js';
+import { tr } from '../lib/i18nRich.jsx';
 
 const REFRESH_MS = 60 * 1000;
 
-const kickoffLabel = iso => (iso ? new Date(iso).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : 'TBC');
+const kickoffLabel = iso => (iso ? fmtDateTime(iso, { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : t('TBC'));
 
 function fixtureStatus(f) {
-  if (f.finished || f.finished_provisional) return 'FT';
+  if (f.finished || f.finished_provisional) return t('FT');
   if (f.started) return `${f.minutes || 0}'`;
   return kickoffLabel(f.kickoff_time);
 }
@@ -40,13 +43,13 @@ function MatchCard({ f, teamsById, playersById }) {
     <li className={`fpl-live-match${live ? ' is-live' : ''}`}>
       <div className="fpl-live-score">
         <span className="fpl-live-team">{home ? home.short_name : '?'}</span>
-        <span className="fpl-mono fpl-live-goals">{f.started ? `${f.team_h_score ?? 0}–${f.team_a_score ?? 0}` : 'v'}</span>
+        <span className="fpl-mono fpl-live-goals">{f.started ? `${f.team_h_score ?? 0}–${f.team_a_score ?? 0}` : t('v')}</span>
         <span className="fpl-live-team">{away ? away.short_name : '?'}</span>
       </div>
       <span className={`fpl-mono fpl-live-status${live ? ' is-live' : ''}`}>{fixtureStatus(f)}</span>
       {bonus && bonus.rows.length ? (
         <p className="fpl-live-bonus">
-          <span className="fpl-meta">{!bonus.projected ? 'Bonus:' : f.started && !(f.finished || f.finished_provisional) ? 'Bonus if it ended now:' : 'Bonus (not yet confirmed):'}</span>{' '}
+          <span className="fpl-meta">{!bonus.projected ? t('Bonus:') : f.started && !(f.finished || f.finished_provisional) ? t('Bonus if it ended now:') : t('Bonus (not yet confirmed):')}</span>{' '}
           {bonus.rows.sort((a, b) => b.bonus - a.bonus).map(r => `${(playersById[r.element] || {}).webName || '?'} ${r.bonus}`).join(', ')}
         </p>
       ) : null}
@@ -85,17 +88,17 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
   const event = staticData.allEvents.find(e => e.id === gwId);
   const head = (
     <header className="fpl-tool-head">
-      <h1 className="fpl-tool-h"><Radio size={22} aria-hidden="true" /> Live{event ? ` · ${event.name}` : ''}</h1>
-      <p className="fpl-tool-sub">Points as FPL will settle them: bonus from the bonus points system until it's confirmed, automatic substitutions and the vice-captain's armband. Updates every minute while matches are on.</p>
+      <h1 className="fpl-tool-h"><Radio size={22} aria-hidden="true" /> {t('Live')}{event ? ` · ${event.name}` : ''}</h1>
+      <p className="fpl-tool-sub">{t('Points as FPL will settle them: bonus from the bonus points system until it’s confirmed, automatic substitutions and the vice-captain’s armband. Updates every minute while matches are on.')}</p>
     </header>
   );
-  if (state.status === 'loading') return <div className="fpl-tool">{head}<div className="fpl-glass fpl-tool-card"><SkeletonRows rows={6} label="Loading live scores…" /></div></div>;
+  if (state.status === 'loading') return <div className="fpl-tool">{head}<div className="fpl-glass fpl-tool-card"><SkeletonRows rows={6} label={t('Loading live scores…')} /></div></div>;
   if (state.status === 'error') {
     return (
       <div className="fpl-tool">{head}
         <div className="fpl-glass fpl-tool-card" role="alert">
-          <p style={{ margin: 0 }}>Couldn't load live scores from FPL.</p>
-          <button type="button" className="fpl-btn" onClick={() => { setState({ status: 'loading' }); load(); }}><RefreshCw size={15} aria-hidden="true" /> Try again</button>
+          <p style={{ margin: 0 }}>{t('Couldn’t load live scores from FPL.')}</p>
+          <button type="button" className="fpl-btn" onClick={() => { setState({ status: 'loading' }); load(); }}><RefreshCw size={15} aria-hidden="true" /> {t('Try again')}</button>
         </div>
       </div>
     );
@@ -111,12 +114,12 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
     return rank(a) - rank(b) || new Date(a.kickoff_time) - new Date(b.kickoff_time);
   });
   const fixturesByTeam = {};
-  fixtures.forEach(f => { [f.team_h, f.team_a].forEach(t => { (fixturesByTeam[t] || (fixturesByTeam[t] = [])).push(f); }); });
+  fixtures.forEach(f => { [f.team_h, f.team_a].forEach(team => { (fixturesByTeam[team] || (fixturesByTeam[team] = [])).push(f); }); });
 
   const card = row => {
     const info = row.state === 'waiting'
       ? kickoffLabel((fixturesByTeam[row.player?.team] || []).find(f => !f.started)?.kickoff_time)
-      : row.state === 'playing' ? (row.minutes > 0 ? `${row.minutes}'` : 'Not on yet') : `FT · ${row.minutes}'`;
+      : row.state === 'playing' ? (row.minutes > 0 ? `${row.minutes}'` : t('Not on yet')) : `${t('FT')} · ${row.minutes}'`;
     const slot = {
       player: row.player, availNote: null,
       isCaptain: row.multiplier >= 2 && (row.isCaptain || row.armband),
@@ -130,9 +133,9 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
         points={row.subOut ? row.livePoints : row.points}
         pointsTone={row.state === 'playing' ? 'high' : null}
         info={info}
-        tag={row.subIn ? 'IN' : row.subOut ? 'OUT' : row.bonus ? `+${row.bonus}` : null}
+        tag={row.subIn ? t('IN') : row.subOut ? t('OUT') : row.bonus ? `+${row.bonus}` : null}
         state={row.subOut ? 'dim' : row.subIn ? 'in' : null}
-        label={`${row.player.webName}, ${row.points} points${row.bonus ? ` with ${row.bonus} projected bonus` : ''}, ${info}`}
+        label={row.bonus ? t('{name}, {n} points with {bonus} projected bonus, {info}', { name: row.player.webName, n: row.points, bonus: row.bonus, info }) : t('{name}, {n} points, {info}', { name: row.player.webName, n: row.points, info })}
       />
     );
   };
@@ -144,52 +147,52 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
     <div className="fpl-tool">
       {head}
       <div className="fpl-tool-bar">
-        <span className="fpl-mono fpl-meta">{playing ? 'Matches on' : sortedFixtures.every(f => f.finished || f.finished_provisional) ? 'All matches over' : 'Between matches'} · updated {at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}{state.stale ? ' (couldn\'t refresh)' : ''}</span>
-        <button type="button" className="fpl-btn" onClick={load}><RefreshCw size={15} aria-hidden="true" /> Refresh</button>
-        <button type="button" className="fpl-btn" onClick={onOpenLeague}><Users size={15} aria-hidden="true" /> Mini-league live</button>
+        <span className="fpl-mono fpl-meta">{playing ? t('Matches on') : sortedFixtures.every(f => f.finished || f.finished_provisional) ? t('All matches over') : t('Between matches')} · {t('updated {time}', { time: fmtTime(at, { hour: '2-digit', minute: '2-digit' }) })}{state.stale ? ` (${t('couldn’t refresh')})` : ''}</span>
+        <button type="button" className="fpl-btn" onClick={load}><RefreshCw size={15} aria-hidden="true" /> {t('Refresh')}</button>
+        <button type="button" className="fpl-btn" onClick={onOpenLeague}><Users size={15} aria-hidden="true" /> {t('Mini-league live')}</button>
       </div>
       <div className="fpl-live-grid">
         <section className="fpl-glass fpl-tool-card" aria-labelledby="live-you">
-          <h2 id="live-you" className="fpl-home-h">Your points</h2>
+          <h2 id="live-you" className="fpl-home-h">{t('Your points')}</h2>
           {score ? (
             <>
               <div className="fpl-live-total">
                 <b className="fpl-mono">{score.total}</b>
                 <span className="fpl-meta">
-                  {projectedTotal ? <>includes <b>+{projectedTotal}</b> projected bonus. </> : null}
-                  {score.hit ? <>Transfer hit −{score.hit}, taken off your season total. </> : null}
-                  {average ? <>Average {average}.</> : null}
-                  {picks.active_chip ? <> Chip: {picks.active_chip === 'bboost' ? 'Bench Boost' : picks.active_chip === '3xc' ? 'Triple Captain' : picks.active_chip === 'freehit' ? 'Free Hit' : 'Wildcard'}.</> : null}
+                  {projectedTotal ? <>{tr('Includes <b>+{n}</b> projected bonus.', { n: projectedTotal }, { b: s => <b>{s}</b> })} </> : null}
+                  {score.hit ? <>{t('Transfer hit −{n}, taken off your season total.', { n: score.hit })} </> : null}
+                  {average ? <>{t('Average {n}.', { n: average })}</> : null}
+                  {picks.active_chip ? <> {t('Chip: {chip}.', { chip: chipName(picks.active_chip) })}</> : null}
                 </span>
               </div>
-              <Pitch starters={rows.filter(r => r.slot <= 11)} bench={rows.filter(r => r.slot > 11)} card={card} compact benchTitle="Substitutes" />
+              <Pitch starters={rows.filter(r => r.slot <= 11)} bench={rows.filter(r => r.slot > 11)} card={card} compact benchTitle={t('Substitutes')} />
             </>
           ) : teamId ? (
-            <p className="fpl-meta" style={{ margin: 0 }}>Couldn't load your team for this gameweek.</p>
+            <p className="fpl-meta" style={{ margin: 0 }}>{t('Couldn’t load your team for this gameweek.')}</p>
           ) : (
             <>
-              <p className="fpl-meta" style={{ margin: 0 }}>Add your FPL Team ID on Home to follow your points live.</p>
-              <button type="button" className="fpl-btn fpl-btn-solid" onClick={onAddTeam}>Add my team</button>
+              <p className="fpl-meta" style={{ margin: 0 }}>{t('Add your FPL Team ID on Home to follow your points live.')}</p>
+              <button type="button" className="fpl-btn fpl-btn-solid" onClick={onAddTeam}>{t('Add my team')}</button>
             </>
           )}
         </section>
         {bonusRace.length ? (
           <section className="fpl-glass fpl-tool-card" aria-labelledby="live-bonus">
-            <h2 id="live-bonus" className="fpl-home-h">Bonus race</h2>
-            <p className="fpl-meta" style={{ margin: 0 }}>If live matches ended now. Your players highlighted.</p>
+            <h2 id="live-bonus" className="fpl-home-h">{t('Bonus race')}</h2>
+            <p className="fpl-meta" style={{ margin: 0 }}>{t('If live matches ended now. Your players highlighted.')}</p>
             <ul className="fpl-bonusrace">
               {bonusRace.map(r => (
                 <li key={r.element} className={r.owned ? 'is-owned' : ''}>
                   <span className="fpl-bonusrace-b">{r.bonus ? `+${r.bonus}` : '–'}</span>
                   <span className="fpl-bonusrace-name">{(staticData.playersById[r.element] || {}).webName || '?'}</span>
-                  <span className="fpl-mono fpl-meta">{r.bps} BPS</span>
+                  <span className="fpl-mono fpl-meta">{t('{n} BPS', { n: r.bps })}</span>
                 </li>
               ))}
             </ul>
           </section>
         ) : null}
         <section className="fpl-glass fpl-tool-card" aria-labelledby="live-matches">
-          <h2 id="live-matches" className="fpl-home-h">Matches</h2>
+          <h2 id="live-matches" className="fpl-home-h">{t('Matches')}</h2>
           <ul className="fpl-live-matches">
             {sortedFixtures.map(f => <MatchCard key={f.id} f={f} teamsById={staticData.teamsById} playersById={staticData.playersById} />)}
           </ul>

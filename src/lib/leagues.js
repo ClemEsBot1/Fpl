@@ -5,6 +5,8 @@
 // The private classic leagues on an FPL entry (entry/{id}/), the ones
 // people mean by "mini-league". FPL's own leagues (overall, country, club,
 // gameweek joined) have league_type 's'.
+import { t } from './i18n.js';
+
 export function privateLeagues(entry) {
   const classic = entry && entry.leagues && Array.isArray(entry.leagues.classic) ? entry.leagues.classic : [];
   return classic
@@ -167,20 +169,20 @@ export function leagueHighlights(members, teams) {
   const gwPoints = r => (typeof r.t.livePoints === 'number' ? r.t.livePoints : r.m.eventTotal);
   const rankMove = r => (r.m.lastRank > 0 ? r.m.lastRank - r.m.rank : null);
   const managers = [
-    pick('motw', 'Manager of the Week', gwPoints, 'max'),
-    pick('worst', 'Worst Manager of the Week', gwPoints, 'min'),
-    pick('rise', 'Biggest Rise', r => { const v = rankMove(r); return v > 0 ? v : null; }, 'max'),
-    pick('fall', 'Biggest Fall', r => { const v = rankMove(r); return v < 0 ? -v : null; }, 'max'),
-    pick('bestTransfers', 'Best Transfers this Week', r => r.s.transferGain, 'max'),
-    pick('worstTransfers', 'Worst Transfers this Week', r => r.s.transferGain, 'min'),
-    pick('bench', 'Most Points on Bench this Week', r => r.s.benchPoints, 'max'),
-    pick('mostTransfers', 'Most Transfers this Season', r => r.s.seasonTransfers, 'max'),
-    pick('leastTransfers', 'Least Transfers this Season', r => r.s.seasonTransfers, 'min'),
-    pick('bestValue', 'Best Team Value', r => r.s.teamValue, 'max'),
-    pick('lowestValue', 'Lowest Team Value', r => r.s.teamValue, 'min'),
-    pick('bestRank', 'Best All-time Rank', r => r.s.bestRank, 'min'),
-    pick('bestCaptain', 'Best Captain Pick this Week', r => r.s.captainPoints, 'max'),
-    pick('worstCaptain', 'Worst Captain Pick this Week', r => r.s.captainPoints, 'min'),
+    pick('motw', t('Manager of the Week'), gwPoints, 'max'),
+    pick('worst', t('Worst Manager of the Week'), gwPoints, 'min'),
+    pick('rise', t('Biggest Rise'), r => { const v = rankMove(r); return v > 0 ? v : null; }, 'max'),
+    pick('fall', t('Biggest Fall'), r => { const v = rankMove(r); return v < 0 ? -v : null; }, 'max'),
+    pick('bestTransfers', t('Best Transfers this Week'), r => r.s.transferGain, 'max'),
+    pick('worstTransfers', t('Worst Transfers this Week'), r => r.s.transferGain, 'min'),
+    pick('bench', t('Most Points on Bench this Week'), r => r.s.benchPoints, 'max'),
+    pick('mostTransfers', t('Most Transfers this Season'), r => r.s.seasonTransfers, 'max'),
+    pick('leastTransfers', t('Least Transfers this Season'), r => r.s.seasonTransfers, 'min'),
+    pick('bestValue', t('Best Team Value'), r => r.s.teamValue, 'max'),
+    pick('lowestValue', t('Lowest Team Value'), r => r.s.teamValue, 'min'),
+    pick('bestRank', t('Best All-time Rank'), r => r.s.bestRank, 'min'),
+    pick('bestCaptain', t('Best Captain Pick this Week'), r => r.s.captainPoints, 'max'),
+    pick('worstCaptain', t('Worst Captain Pick this Week'), r => r.s.captainPoints, 'min'),
   ];
   // Players: how many members captained, own, bought and sold each one.
   const most = (key, label, idsOf) => {
@@ -191,10 +193,10 @@ export function leagueHighlights(members, teams) {
     return { key, label, count: top, players: [...counts].filter(([, c]) => c === top).map(([id]) => id) };
   };
   const players = [
-    most('captained', 'Most Captained', s => (s.captainId ? [s.captainId] : [])),
-    most('owned', 'Most Owned', s => s.playerIds),
-    most('in', 'Most Transferred In', s => s.transfersIn),
-    most('out', 'Most Transferred Out', s => s.transfersOut),
+    most('captained', t('Most Captained'), s => (s.captainId ? [s.captainId] : [])),
+    most('owned', t('Most Owned'), s => s.playerIds),
+    most('in', t('Most Transferred In'), s => s.transfersIn),
+    most('out', t('Most Transferred Out'), s => s.transfersOut),
   ];
   return { managers, players, counted: rows.length };
 }

@@ -3,6 +3,7 @@
 // screenshot's read names to real players for the review screen.
 import { POSITION_LABELS, findTopMatches, similarity } from './format.js';
 import { MAX_PER_REAL_TEAM, POSITION_ORDER, SQUAD_BUDGET, SQUAD_SLOTS, buildOptimalTeam, isLegalStartingXi } from './predictions.js';
+import { t } from './i18n.js';
 
 export function suggestCaptain(starters) {
   if (!starters.length) return null;
@@ -68,9 +69,9 @@ export function swapPlayerInSquad(squad, outPlayerId, inPlayer, predictionsById)
 // tenths, as FPL stores them.
 export function swapBlocker(outSlot, inPlayer, squad, bankTenths) {
   const tenths = price => Math.round(price * 10);
-  if (tenths(inPlayer.price) > tenths(outSlot.player.price) + (bankTenths || 0)) return 'Over budget';
+  if (tenths(inPlayer.price) > tenths(outSlot.player.price) + (bankTenths || 0)) return t('Over budget');
   const fromClub = squad.filter(s => s.player.team === inPlayer.team && s.player.id !== outSlot.player.id).length;
-  if (fromClub >= MAX_PER_REAL_TEAM) return `${MAX_PER_REAL_TEAM} from club already`;
+  if (fromClub >= MAX_PER_REAL_TEAM) return t('{n} from club already', { n: MAX_PER_REAL_TEAM });
   return null;
 }
 
@@ -140,28 +141,28 @@ export function squadProblems(players, starters) {
   const seen = new Set();
   const dupes = new Set();
   players.forEach(p => { if (seen.has(p.id)) dupes.add(p.webName); seen.add(p.id); });
-  if (dupes.size) problems.push(`${[...dupes].join(', ')} ${dupes.size === 1 ? 'is' : 'are'} in the squad twice.`);
+  if (dupes.size) problems.push(dupes.size === 1 ? t('{name} is in the squad twice.', { name: [...dupes][0] }) : t('{names} are in the squad twice.', { names: [...dupes].join(', ') }));
 
   const posCount = { 1: 0, 2: 0, 3: 0, 4: 0 };
   players.forEach(p => { posCount[p.positionId]++; });
   POSITION_ORDER.forEach(pos => {
-    if (posCount[pos] > SQUAD_SLOTS[pos]) problems.push(`${posCount[pos]} ${POSITION_LABELS[pos]}s — a squad has ${SQUAD_SLOTS[pos]}.`);
+    if (posCount[pos] > SQUAD_SLOTS[pos]) problems.push(t('{count} {pos}s — a squad has {max}.', { count: posCount[pos], pos: POSITION_LABELS[pos], max: SQUAD_SLOTS[pos] }));
   });
 
   const clubCount = {};
   players.forEach(p => { clubCount[p.team] = (clubCount[p.team] || 0) + 1; });
-  if (Object.values(clubCount).some(n => n > MAX_PER_REAL_TEAM)) problems.push(`More than ${MAX_PER_REAL_TEAM} players from one club.`);
+  if (Object.values(clubCount).some(n => n > MAX_PER_REAL_TEAM)) problems.push(t('More than {n} players from one club.', { n: MAX_PER_REAL_TEAM }));
 
   const xi = { 1: 0, 2: 0, 3: 0, 4: 0 };
   starters.forEach(p => { xi[p.positionId]++; });
   const startCount = starters.length;
-  if (startCount > 11) problems.push(`${startCount} players in the starting XI — move ${startCount - 11} to the bench.`);
+  if (startCount > 11) problems.push(t('{count} players in the starting XI — move {n} to the bench.', { count: startCount, n: startCount - 11 }));
   // With 11 or more players read, there's always enough to fill the XI.
-  if (startCount < 11 && players.length >= 11) problems.push(`Only ${startCount} players in the starting XI — move ${11 - startCount} from the bench.`);
-  if (xi[1] > 1) problems.push('Only one goalkeeper can start.');
-  if (xi[2] > 5 || xi[3] > 5 || xi[4] > 3) problems.push('The starting XI needs 3-5 DEF, 2-5 MID and 1-3 FWD.');
+  if (startCount < 11 && players.length >= 11) problems.push(t('Only {count} players in the starting XI — move {n} from the bench.', { count: startCount, n: 11 - startCount }));
+  if (xi[1] > 1) problems.push(t('Only one goalkeeper can start.'));
+  if (xi[2] > 5 || xi[3] > 5 || xi[4] > 3) problems.push(t('The starting XI needs 3-5 DEF, 2-5 MID and 1-3 FWD.'));
   if (startCount === 11 && (xi[1] !== 1 || xi[2] < 3 || xi[3] < 2 || xi[4] < 1)) {
-    problems.push('The starting XI needs 1 GKP, at least 3 DEF, 2 MID and 1 FWD.');
+    problems.push(t('The starting XI needs 1 GKP, at least 3 DEF, 2 MID and 1 FWD.'));
   }
   return problems;
 }
@@ -231,7 +232,7 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
     costDelta: (tenths(inP.price) - tenths(out.price)) / 10,
     reason,
   });
-  const reasonFor = out => slotById.get(out.id).availNote || 'Below-average returns for the position';
+  const reasonFor = out => slotById.get(out.id).availNote || t('Below-average returns for the position');
 
   // The single best move for the squad as it stands: for each player, the
   // best affordable replacement, scored by how much the best XI improves —
@@ -384,8 +385,8 @@ export function matchExtractedSquad(extracted, playersByPosition, allPlayers, te
 // Only chips that actually change a gameweek's score are previewable here —
 // Wildcard and Free Hit affect your transfers, not how this squad scores.
 export const CHIP_INFO = {
-  bboost: { label: 'Bench Boost', desc: 'All 15 squad players score this gameweek, not just your starting XI.' },
-  '3xc': { label: 'Triple Captain', desc: "Your captain's points count 3x instead of 2x this gameweek." },
+  bboost: { label: t('Bench Boost'), desc: t('All 15 squad players score this gameweek, not just your starting XI.') },
+  '3xc': { label: t('Triple Captain'), desc: t("Your captain's points count 3x instead of 2x this gameweek.") },
 };
 
 // suggestTransfers ranks moves by predicted points per gameweek — it has no

@@ -9,6 +9,7 @@ import { buildRecap, lastFinishedGw, markRecapSeen, recapSeenFor } from '../lib/
 import { recapChunk } from '../lib/chunks.js';
 import { isGwFinished, liveGwIdFor } from '../lib/gameweeks.js';
 import { teamErrorMessage } from './useFplData.js';
+import { t } from '../lib/i18n.js';
 
 // `fpl` is what useFplData returns.
 export function useRecap({ stage, homeTeamId, fpl }) {
@@ -100,13 +101,13 @@ export function useRecap({ stage, homeTeamId, fpl }) {
       const modelScore = frozen ? frozen.squad.filter(s => s.isStarting).reduce((sum, s) => sum + (s.actualPoints || 0) * (s.multiplier || 1), 0) : null;
       const best = buildHindsightSquad(staticData.allPlayers, liveById, SQUAD_BUDGET);
       const data = buildRecap({
-        gwId, gwName: event ? event.name : `Gameweek ${gwId}`, teamId: Number(teamId),
-        teamName: (team.entryMeta && team.entryMeta.teamName) || `Team ${teamId}`,
+        gwId, gwName: event ? event.name : t('Gameweek {n}', { n: gwId }), teamId: Number(teamId),
+        teamName: (team.entryMeta && team.entryMeta.teamName) || t('Team {id}', { id: teamId }),
         squad: team.squad, entryHistory: team.entryHistory, activeChip: team.activeChip, entry: team.entry,
         event, events: staticData.allEvents, totalPlayers: staticData.totalPlayers, history, transfers, liveById,
         playersById: staticData.playersById, allPlayers: staticData.allPlayers, teamsById: staticData.teamsById,
         fixturesByTeam: staticData.fixturesByTeam, predictionsById: staticData.predictionsById,
-        top: topPicks && !topPicks.detail ? { name: (topMeta && topMeta.name) || 'Top team', picks: topPicks } : null,
+        top: topPicks && !topPicks.detail ? { name: (topMeta && topMeta.name) || t('Top team'), picks: topPicks } : null,
         league, leagues, modelScore, bestScore: best.totalScore, modelSquad: frozen ? frozen.squad : null, bestSquad: best.squad,
         accuracy,
       });

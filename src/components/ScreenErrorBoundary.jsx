@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { ErrorScreen } from './common.jsx';
+import { t } from '../lib/i18n.js';
 
 // Shown instead of a blank page when a screen fails to render — most
 // likely its code couldn't be downloaded (offline, or the app was updated
@@ -12,8 +13,8 @@ export class ScreenErrorBoundary extends Component {
     if (!this.state.failed) return this.props.children;
     const screen = (
       <ErrorScreen
-        message="Something went wrong showing this. Reloading usually fixes it — the app may have just been updated."
-        retryLabel="Reload"
+        message={t('Something went wrong showing this. Reloading usually fixes it: the app may have just been updated.')}
+        retryLabel={t('Reload')}
         onRetry={() => window.location.reload()}
       />
     );

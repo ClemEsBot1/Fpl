@@ -7,6 +7,7 @@ import { squadSnapshot } from '../lib/savedSquads.js';
 import { currentGwId, isGwFinished } from '../lib/gameweeks.js';
 import { postJson } from './useAccount.js';
 import { scoreSlots } from './useFplData.js';
+import { t } from '../lib/i18n.js';
 
 // `screens` is what useStage returns, `fpl` what useFplData returns, and
 // `handleTeamsResult` comes from useAccount.
@@ -42,7 +43,7 @@ export function useResults({ screens, fpl, handleTeamsResult }) {
     const prev = resultsData;
     if (!prev) return;
     const ticket = newTicket();
-    showLoading(ticket, 'Re-scoring your squad for that gameweek…');
+    showLoading(ticket, t('Re-scoring your squad for that gameweek…'));
     try {
       const base = await ensureStaticData();
       const isPastGw = gwId < currentGwId(base);
@@ -58,7 +59,7 @@ export function useResults({ screens, fpl, handleTeamsResult }) {
       const squad = scoreSlots(slots, gwStatic, liveById, isPastGw);
       finalizeResults(ticket, squad, gwStatic, prev.bankTenths, { ...prev.entryMeta, gwId }, null, false, { isPastGw, gwId });
     } catch {
-      showError(ticket, "Couldn't load that gameweek right now. Try again in a moment.");
+      showError(ticket, t("Couldn't load that gameweek right now. Try again in a moment."));
     }
   }
 

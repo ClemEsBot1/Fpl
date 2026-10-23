@@ -11,6 +11,7 @@
 // in the UI.
 
 import { haulChance } from './captaincy.js';
+import { t } from './i18n.js';
 
 // Points in a genuinely good ("haul") game, by position — a rough ceiling
 // a returning player reaches, not an average.
@@ -70,29 +71,29 @@ export function pickReasons(prediction, player, { max = 3 } = {}) {
   const b = prediction.breakdown || {};
   const reasons = [];
 
-  if (prediction.isDoubleThisEvent) reasons.push({ w: 100, text: 'Double gameweek' });
+  if (prediction.isDoubleThisEvent) reasons.push({ w: 100, text: t('Double gameweek') });
 
   const fixtureMult = typeof b.fixtureMult === 'number' ? b.fixtureMult : 1;
-  if (fixtureMult >= 1.08) reasons.push({ w: 90, text: 'Great fixtures' });
-  else if (fixtureMult >= 1.03) reasons.push({ w: 70, text: 'Good fixtures' });
+  if (fixtureMult >= 1.08) reasons.push({ w: 90, text: t('Great fixtures') });
+  else if (fixtureMult >= 1.03) reasons.push({ w: 70, text: t('Good fixtures') });
 
-  if (b.formEligible && b.form >= 6) reasons.push({ w: 85, text: 'In hot form' });
-  else if (b.formEligible && b.form >= 4.5) reasons.push({ w: 60, text: 'In form' });
+  if (b.formEligible && b.form >= 6) reasons.push({ w: 85, text: t('In hot form') });
+  else if (b.formEligible && b.form >= 4.5) reasons.push({ w: 60, text: t('In form') });
 
   const oddsAdj = typeof b.oddsAdjustment === 'number' ? b.oddsAdjustment : 0;
-  if (oddsAdj >= 0.4) reasons.push({ w: 80, text: 'Bookmakers back a return' });
+  if (oddsAdj >= 0.4) reasons.push({ w: 80, text: t('Bookmakers back a return') });
 
-  if (player.penaltiesOrder === 1) reasons.push({ w: 75, text: 'On penalties' });
-  else if (player.directFreekicksOrder === 1 || player.cornersOrder === 1) reasons.push({ w: 45, text: 'Takes set pieces' });
+  if (player.penaltiesOrder === 1) reasons.push({ w: 75, text: t('On penalties') });
+  else if (player.directFreekicksOrder === 1 || player.cornersOrder === 1) reasons.push({ w: 45, text: t('Takes set pieces') });
 
   const appear = typeof player.appearanceShare === 'number' ? player.appearanceShare : null;
-  if (appear !== null && appear >= 0.9 && (!player.status || player.status === 'a')) reasons.push({ w: 55, text: 'Nailed starter' });
+  if (appear !== null && appear >= 0.9 && (!player.status || player.status === 'a')) reasons.push({ w: 55, text: t('Nailed starter') });
 
   if (player.selectedBy > 0 && player.selectedBy < 5 && prediction.nextMatchPredicted >= 3.5) {
-    reasons.push({ w: 50, text: 'Low-owned differential' });
+    reasons.push({ w: 50, text: t('Low-owned differential') });
   }
 
-  if (b.xgAdjustment >= 0.4) reasons.push({ w: 48, text: 'Underlying numbers strong' });
+  if (b.xgAdjustment >= 0.4) reasons.push({ w: 48, text: t('Underlying numbers strong') });
 
   return reasons.sort((a, c) => c.w - a.w).slice(0, max).map(r => r.text);
 }

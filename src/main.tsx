@@ -2,13 +2,19 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './fonts.css'
 import './index.css'
-import App from './App.jsx'
 import { registerServiceWorker } from './lib/pwa.js'
+import { initLanguage } from './lib/i18nLoad.js'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// The language's dictionary loads first, and the app's code only after it,
+// so text built when a module loads (menus, lists of labels) is already
+// translated.
+initLanguage().finally(async () => {
+  const { default: App } = await import('./App.jsx')
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+})
 
 registerServiceWorker()

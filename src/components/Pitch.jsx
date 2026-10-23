@@ -7,6 +7,7 @@ import { Plus, TriangleAlert, X } from 'lucide-react';
 import { POSITION_LABELS, fmtPrice } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { benchLabels, shirtUrl } from '../lib/pitch.js';
+import { t } from '../lib/i18n.js';
 
 // A plain shirt when the club's can't be loaded (offline, or no club).
 function ShirtFallback({ isKeeper, empty }) {
@@ -44,16 +45,16 @@ export function PlayerCard({ slot, team, info, points, pointsTone, state, onClic
   const flag = flagFor(player, slot.availNote);
   // What the card shows only as badges and colours, read out too.
   const extras = [
-    slot.isCaptain ? 'captain' : slot.isViceCaptain ? 'vice-captain' : null,
+    slot.isCaptain ? t('captain') : slot.isViceCaptain ? t('vice-captain') : null,
     flag && slot.availNote ? slot.availNote : null,
-    state === 'eligible' ? 'can swap with the selected player' : state === 'dim' ? "can't swap with the selected player" : null,
+    state === 'eligible' ? t('can swap with the selected player') : state === 'dim' ? t("can't swap with the selected player") : null,
   ].filter(Boolean).join(', ');
-  const baseLabel = label || `${player.webName}${info ? `, ${info}` : ''}${points !== undefined && points !== null ? `, ${points} points` : ''}`;
+  const baseLabel = label || `${player.webName}${info ? `, ${info}` : ''}${points !== undefined && points !== null ? `, ${t('{n} points', { n: points })}` : ''}`;
   return (
     <div className={`fpl-pc${state ? ` is-${state}` : ''}`}>
       {price !== undefined ? <span className="fpl-pc-price fpl-mono">{fmtPrice(price)}</span> : null}
       {onRemove ? (
-        <button type="button" className="fpl-pc-x" aria-label={`Remove ${player.webName}`} onClick={onRemove}><X size={12} aria-hidden="true" /></button>
+        <button type="button" className="fpl-pc-x" aria-label={t('Remove {name}', { name: player.webName })} onClick={onRemove}><X size={12} aria-hidden="true" /></button>
       ) : null}
       <button
         type="button"
@@ -65,7 +66,7 @@ export function PlayerCard({ slot, team, info, points, pointsTone, state, onClic
       >
         <span className="fpl-pc-shirt">
           <Shirt team={team} isKeeper={player.positionId === 1} />
-          {slot.isCaptain || slot.isViceCaptain ? <span className={`fpl-pc-arm${slot.isViceCaptain ? ' is-vc' : ''}`} aria-hidden="true">{slot.isCaptain ? 'C' : 'V'}</span> : null}
+          {slot.isCaptain || slot.isViceCaptain ? <span className={`fpl-pc-arm${slot.isViceCaptain ? ' is-vc' : ''}`} aria-hidden="true">{slot.isCaptain ? t('C') : t('V')}</span> : null}
           {flag ? <span className={`fpl-pc-flag is-${flag}`} aria-hidden="true"><TriangleAlert size={11} /></span> : null}
           {tag ? <span className="fpl-pc-tag fpl-mono" aria-hidden="true">{tag}</span> : null}
           {points !== undefined && points !== null ? <span className={`fpl-pc-pts fpl-mono${pointsTone ? ` is-${pointsTone}` : ''}`} aria-hidden="true">{points}</span> : null}
@@ -82,9 +83,9 @@ export function EmptyCard({ positionId, onClick, price }) {
   return (
     <div className="fpl-pc is-empty">
       {price !== undefined ? <span className="fpl-pc-price fpl-mono">{fmtPrice(price)}</span> : null}
-      <button type="button" className="fpl-pc-body" onClick={onClick} aria-label={`Pick a ${POSITION_LABELS[positionId]}`}>
+      <button type="button" className="fpl-pc-body" onClick={onClick} aria-label={t('Pick a {pos}', { pos: POSITION_LABELS[positionId] })}>
         <span className="fpl-pc-shirt"><ShirtFallback empty /><span className="fpl-pc-plus" aria-hidden="true"><Plus size={16} /></span></span>
-        <span className="fpl-pc-name">Pick {POSITION_LABELS[positionId]}</span>
+        <span className="fpl-pc-name">{t('Pick {pos}', { pos: POSITION_LABELS[positionId] })}</span>
       </button>
     </div>
   );
@@ -93,7 +94,7 @@ export function EmptyCard({ positionId, onClick, price }) {
 // The pitch. `rows` are the XI by position (or any rows of slots, as in
 // the transfer planner); `bench` the substitutes in order. `card(slot, i)`
 // draws each one.
-export function Pitch({ starters, bench, rows, card, compact, benchTitle = 'Substitutes', className = '' }) {
+export function Pitch({ starters, bench, rows, card, compact, benchTitle = t('Substitutes'), className = '' }) {
   const lines = rows || POSITION_ORDER.map(pos => (starters || []).filter(s => s.player.positionId === pos)).filter(r => r.length);
   const labels = benchLabels(bench || []);
   return (

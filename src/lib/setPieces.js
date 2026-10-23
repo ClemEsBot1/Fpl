@@ -1,15 +1,16 @@
 // Who takes penalties, direct free kicks and corners, from FPL's own
 // per-player order (1 = first choice): tags for a player's row and each
 // club's takers for the set-piece table.
+import { t } from './i18n.js';
 
 // A player's duties: first choice for each, and second on penalties (a
 // second taker still gets them often enough to matter).
 export function setPieceTags(p) {
   const tags = [];
-  if (p.penaltiesOrder === 1) tags.push('Pens');
-  else if (p.penaltiesOrder === 2) tags.push('Pens (2nd)');
-  if (p.directFreekicksOrder === 1) tags.push('FKs');
-  if (p.cornersOrder === 1) tags.push('Corners');
+  if (p.penaltiesOrder === 1) tags.push(t('Pens'));
+  else if (p.penaltiesOrder === 2) tags.push(t('Pens (2nd)'));
+  if (p.directFreekicksOrder === 1) tags.push(t('FKs'));
+  if (p.cornersOrder === 1) tags.push(t('Corners'));
   return tags;
 }
 

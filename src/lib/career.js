@@ -1,8 +1,9 @@
 // A manager's FPL career from FPL's entry/<id>/ and entry/<id>/history/
 // answers, for the profile page: every past season, this season so far and
 // the chips played.
+import { t } from './i18n.js';
 
-const CHIP_NAMES = { wildcard: 'Wildcard', freehit: 'Free Hit', bboost: 'Bench Boost', '3xc': 'Triple Captain', manager: 'Assistant Manager' };
+const CHIP_NAMES = { wildcard: t('Wildcard'), freehit: t('Free Hit'), bboost: t('Bench Boost'), '3xc': t('Triple Captain'), manager: t('Assistant Manager') };
 export const chipName = chip => CHIP_NAMES[chip] || chip;
 
 const num = v => (v === null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));

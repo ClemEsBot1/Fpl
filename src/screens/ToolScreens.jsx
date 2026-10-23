@@ -9,6 +9,11 @@ import { haulChance } from '../lib/captaincy.js';
 import { priceForecast } from '../lib/priceForecast.js';
 import { planChips } from '../lib/chipPlanner.js';
 import { clubSetPieces } from '../lib/setPieces.js';
+import { fmtNumber, t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
+
+const BOLD = { b: s => <b>{s}</b> };
+const gwList = gws => gws.map(g => `GW${g}`).join(', ');
 
 export const MAX_COMPARE = 3;
 
@@ -16,7 +21,7 @@ function FixtureChip({ f, small }) {
   const c = DIFF_COLORS[f.difficulty] || DIFF_COLORS[3];
   const name = f.opponent ? f.opponent.short_name : '?';
   return (
-    <span className={`fpl-ticker-fx${small ? ' is-small' : ''}`} style={{ background: c.bg, color: c.text }} title={`${f.opponent ? f.opponent.name : name} (${f.isHome ? 'home' : 'away'}), difficulty ${f.difficulty}`}>
+    <span className={`fpl-ticker-fx${small ? ' is-small' : ''}`} style={{ background: c.bg, color: c.text }} title={f.isHome ? t('{team} (home), difficulty {n}', { team: f.opponent ? f.opponent.name : name, n: f.difficulty }) : t('{team} (away), difficulty {n}', { team: f.opponent ? f.opponent.name : name, n: f.difficulty })}>
       {f.isHome ? name.toUpperCase() : name.toLowerCase()}
     </span>
   );
@@ -31,10 +36,10 @@ function CompareToggle({ player, compareIds, onToggleCompare }) {
       className={`fpl-chip-btn fpl-compare-toggle${on ? ' active' : ''}`}
       aria-pressed={on}
       disabled={full}
-      title={full ? `Up to ${MAX_COMPARE} players` : undefined}
+      title={full ? t('Up to {n} players', { n: MAX_COMPARE }) : undefined}
       onClick={() => onToggleCompare(player.id)}
     >
-      {on ? <X size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />} Compare
+      {on ? <X size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />} {t('Compare')}
     </button>
   );
 }
@@ -49,7 +54,7 @@ function ClubPlayers({ team, staticData, compareIds, onToggleCompare }) {
     <div className="fpl-club-players">
       <table className="fpl-club-table">
         <thead>
-          <tr><th scope="col">Player</th><th scope="col">Pos</th><th scope="col">Price</th><th scope="col">Pts/wk</th><th scope="col">Owned</th><th scope="col"><span className="fpl-sr-only">Compare</span></th></tr>
+          <tr><th scope="col">{t('Player')}</th><th scope="col">{t('Pos')}</th><th scope="col">{t('Price')}</th><th scope="col">{t('Pts/wk')}</th><th scope="col">{t('Owned')}</th><th scope="col"><span className="fpl-sr-only">{t('Compare')}</span></th></tr>
         </thead>
         <tbody>
           {players.map(p => {
@@ -90,27 +95,27 @@ export function FixturesScreen({ staticData, compareIds, onToggleCompare, onOpen
   return (
     <div className="fpl-tool">
       <header className="fpl-tool-head">
-        <h1 className="fpl-tool-h"><CalendarRange size={22} aria-hidden="true" /> Fixtures</h1>
-        <p className="fpl-tool-sub">Every club's next {weeks} gameweeks, coloured by FPL's difficulty. Tap a club to see its best players.</p>
+        <h1 className="fpl-tool-h"><CalendarRange size={22} aria-hidden="true" /> {t('Fixtures')}</h1>
+        <p className="fpl-tool-sub">{t("Every club's next {n} gameweeks, coloured by FPL's difficulty. Tap a club to see its best players.", { n: weeks })}</p>
       </header>
       <div className="fpl-tool-bar">
-        <div className="fpl-seg" role="group" aria-label="Gameweeks shown">
+        <div className="fpl-seg" role="group" aria-label={t('Gameweeks shown')}>
           {WEEK_CHOICES.map(n => (
-            <button key={n} type="button" className={weeks === n ? 'is-on' : ''} aria-pressed={weeks === n} onClick={() => setWeeks(n)}>{n} GWs</button>
+            <button key={n} type="button" className={weeks === n ? 'is-on' : ''} aria-pressed={weeks === n} onClick={() => setWeeks(n)}>{t('{n} GWs', { n })}</button>
           ))}
         </div>
-        <div className="fpl-seg" role="group" aria-label="Sort clubs">
-          <button type="button" className={sort === 'ease' ? 'is-on' : ''} aria-pressed={sort === 'ease'} onClick={() => setSort('ease')}><Signal size={14} aria-hidden="true" /> Easiest</button>
+        <div className="fpl-seg" role="group" aria-label={t('Sort clubs')}>
+          <button type="button" className={sort === 'ease' ? 'is-on' : ''} aria-pressed={sort === 'ease'} onClick={() => setSort('ease')}><Signal size={14} aria-hidden="true" /> {t('Easiest')}</button>
           <button type="button" className={sort === 'name' ? 'is-on' : ''} aria-pressed={sort === 'name'} onClick={() => setSort('name')}><ArrowDownAZ size={14} aria-hidden="true" /> A–Z</button>
         </div>
         {compareIds.length ? (
-          <button type="button" className="fpl-btn fpl-btn-solid" onClick={onOpenCompare}><GitCompareArrows size={15} aria-hidden="true" /> Compare {compareIds.length}</button>
+          <button type="button" className="fpl-btn fpl-btn-solid" onClick={onOpenCompare}><GitCompareArrows size={15} aria-hidden="true" /> {t('Compare {n}', { n: compareIds.length })}</button>
         ) : null}
       </div>
       {doubles.length || blanks.length ? (
         <p className="fpl-tool-note">
-          {doubles.length ? <>Double gameweek{doubles.length > 1 ? 's' : ''}: <b>{doubles.map(g => `GW${g}`).join(', ')}</b>. </> : null}
-          {blanks.length ? <>Blank gameweek{blanks.length > 1 ? 's' : ''}: <b>{blanks.map(g => `GW${g}`).join(', ')}</b>.</> : null}
+          {doubles.length ? <>{doubles.length > 1 ? tr('Double gameweeks: <b>{list}</b>.', { list: gwList(doubles) }, BOLD) : tr('Double gameweek: <b>{list}</b>.', { list: gwList(doubles) }, BOLD)} </> : null}
+          {blanks.length ? (blanks.length > 1 ? tr('Blank gameweeks: <b>{list}</b>.', { list: gwList(blanks) }, BOLD) : tr('Blank gameweek: <b>{list}</b>.', { list: gwList(blanks) }, BOLD)) : null}
         </p>
       ) : null}
       <div className="fpl-glass fpl-tool-card">
@@ -118,7 +123,7 @@ export function FixturesScreen({ staticData, compareIds, onToggleCompare, onOpen
           <table className="fpl-ticker fpl-ticker-full">
             <thead>
               <tr>
-                <th scope="col">Club</th>
+                <th scope="col">{t('Club')}</th>
                 {ticker.gws.map(gw => <th key={gw} scope="col" className={doubles.includes(gw) ? 'is-double' : blanks.includes(gw) ? 'is-blank' : ''}>GW{gw}</th>)}
               </tr>
             </thead>
@@ -139,7 +144,7 @@ export function FixturesScreen({ staticData, compareIds, onToggleCompare, onOpen
                         <td key={w.gw}>
                           {w.fixtures.length ? (
                             <span className="fpl-ticker-cell">{w.fixtures.map((f, k) => <FixtureChip key={k} f={f} small={w.fixtures.length > 1} />)}</span>
-                          ) : <span className="fpl-ticker-blank" title="No match this gameweek">–</span>}
+                          ) : <span className="fpl-ticker-blank" title={t('No match this gameweek')}>–</span>}
                         </td>
                       ))}
                     </tr>
@@ -157,10 +162,10 @@ export function FixturesScreen({ staticData, compareIds, onToggleCompare, onOpen
           </table>
         </div>
         <div className="fpl-ticker-legend" aria-hidden="true">
-          <span>Easier</span>
+          <span>{t('Easier')}</span>
           {[1, 2, 3, 4, 5].map(d => <i key={d} style={{ background: DIFF_COLORS[d].bg }} />)}
-          <span>Harder</span>
-          <span className="fpl-ticker-legend-note">CAPITALS home, lower case away</span>
+          <span>{t('Harder')}</span>
+          <span className="fpl-ticker-legend-note">{t('CAPITALS home, lower case away')}</span>
         </div>
       </div>
     </div>
@@ -180,8 +185,8 @@ function compareRows(players, staticData) {
   };
   const gws = (pred(players[0]).byGw || []).map(w => w.event);
   return [
-    { label: 'This gameweek', best: 'max', values: players.map(p => pred(p).nextMatchPredicted), fmt: fmtPts },
-    { label: 'Points a week (next 4)', best: 'max', values: players.map(p => pred(p).predicted), fmt: fmtPts },
+    { label: t('This gameweek'), best: 'max', values: players.map(p => pred(p).nextMatchPredicted), fmt: fmtPts },
+    { label: t('Points a week (next 4)'), best: 'max', values: players.map(p => pred(p).predicted), fmt: fmtPts },
     ...gws.map((gw, k) => ({
       label: `GW${gw}`,
       best: 'max',
@@ -189,15 +194,15 @@ function compareRows(players, staticData) {
       fmt: fmtPts,
       extra: players.map(p => fixturesFor(p)[k]?.fixtures || []),
     })),
-    { label: 'Chance of 10+ this week', best: 'max', values: players.map(p => haulChance(p.positionId, pred(p).nextMatchPredicted)), fmt: v => `${Math.round(v * 100)}%` },
-    { label: 'Price', best: 'min', values: players.map(p => p.price), fmt: fmtPrice },
-    { label: 'Points a week per £m', best: 'max', values: players.map(p => pred(p).predicted / p.price), fmt: v => v.toFixed(2) },
-    { label: 'Season points', best: 'max', values: players.map(p => p.totalPoints), fmt: v => String(v) },
-    { label: 'Points per match', best: 'max', values: players.map(p => p.pointsPerGame), fmt: v => v.toFixed(1) },
-    { label: 'Minutes', best: 'max', values: players.map(p => p.minutes), fmt: v => v.toLocaleString('en-GB') },
-    { label: 'Goals + assists', best: 'max', values: players.map(p => p.goalsScored + p.assists), fmt: v => String(v) },
-    { label: 'xG + xA', best: 'max', values: players.map(p => p.expectedGoals + p.expectedAssists), fmt: v => v.toFixed(1) },
-    { label: 'Owned by', best: null, values: players.map(p => p.selectedBy), fmt: v => `${v.toFixed(1)}%` },
+    { label: t('Chance of 10+ this week'), best: 'max', values: players.map(p => haulChance(p.positionId, pred(p).nextMatchPredicted)), fmt: v => `${Math.round(v * 100)}%` },
+    { label: t('Price'), best: 'min', values: players.map(p => p.price), fmt: fmtPrice },
+    { label: t('Points a week per £m'), best: 'max', values: players.map(p => pred(p).predicted / p.price), fmt: v => v.toFixed(2) },
+    { label: t('Season points'), best: 'max', values: players.map(p => p.totalPoints), fmt: v => String(v) },
+    { label: t('Points per match'), best: 'max', values: players.map(p => p.pointsPerGame), fmt: v => v.toFixed(1) },
+    { label: t('Minutes'), best: 'max', values: players.map(p => p.minutes), fmt: v => fmtNumber(v) },
+    { label: t('Goals + assists'), best: 'max', values: players.map(p => p.goalsScored + p.assists), fmt: v => String(v) },
+    { label: t('xG + xA'), best: 'max', values: players.map(p => p.expectedGoals + p.expectedAssists), fmt: v => v.toFixed(1) },
+    { label: t('Owned by'), best: null, values: players.map(p => p.selectedBy), fmt: v => `${v.toFixed(1)}%` },
   ];
 }
 
@@ -208,8 +213,8 @@ export function CompareScreen({ staticData, compareIds, onToggleCompare, onClear
   return (
     <div className="fpl-tool">
       <header className="fpl-tool-head">
-        <h1 className="fpl-tool-h"><GitCompareArrows size={22} aria-hidden="true" /> Compare players</h1>
-        <p className="fpl-tool-sub">Up to {MAX_COMPARE} players side by side: predictions for each of the next gameweeks, price and the season so far. The best in each row is highlighted.</p>
+        <h1 className="fpl-tool-h"><GitCompareArrows size={22} aria-hidden="true" /> {t('Compare players')}</h1>
+        <p className="fpl-tool-sub">{t('Up to {n} players side by side: predictions for each of the next gameweeks, price and the season so far. The best in each row is highlighted.', { n: MAX_COMPARE })}</p>
       </header>
       {staticData && players.length < MAX_COMPARE ? (
         <div className="fpl-compare-add">
@@ -231,7 +236,7 @@ export function CompareScreen({ staticData, compareIds, onToggleCompare, onClear
                         <span className="fpl-compare-name">{p.webName}</span>
                         <span className="fpl-mono fpl-meta">{staticData.teamsById[p.team]?.short_name} · {POSITION_LABELS[p.positionId]}</span>
                         {pred.availNote ? <span className="fpl-compare-flag">{pred.availNote}</span> : null}
-                        <button type="button" className="fpl-link fpl-compare-remove" onClick={() => onToggleCompare(p.id)}>Remove</button>
+                        <button type="button" className="fpl-link fpl-compare-remove" onClick={() => onToggleCompare(p.id)}>{t('Remove')}</button>
                       </th>
                     );
                   })}
@@ -249,7 +254,7 @@ export function CompareScreen({ staticData, compareIds, onToggleCompare, onClear
                           <span className="fpl-mono">{row.fmt(v)}</span>
                           {row.extra ? (
                             <span className="fpl-compare-fx">
-                              {row.extra[i].length ? row.extra[i].map((f, k) => <FixtureChip key={k} f={f} small />) : <span className="fpl-meta">blank</span>}
+                              {row.extra[i].length ? row.extra[i].map((f, k) => <FixtureChip key={k} f={f} small />) : <span className="fpl-meta">{t('blank')}</span>}
                             </span>
                           ) : null}
                         </td>
@@ -260,10 +265,10 @@ export function CompareScreen({ staticData, compareIds, onToggleCompare, onClear
               </tbody>
             </table>
           </div>
-          <button type="button" className="fpl-link" onClick={onClear}>Clear all</button>
+          <button type="button" className="fpl-link" onClick={onClear}>{t('Clear all')}</button>
         </div>
       ) : (
-        <p className="fpl-tool-note">Search for a player above, or add them from Fixtures (tap a club).</p>
+        <p className="fpl-tool-note">{t('Search for a player above, or add them from Fixtures (tap a club).')}</p>
       )}
     </div>
   );
@@ -275,13 +280,13 @@ export function CompareScreen({ staticData, compareIds, onToggleCompare, onClear
 /* ------------------------------------------------------------------ */
 
 const EXPLORE_SORTS = {
-  predicted: { label: 'Pts/wk', get: (p, pred) => pred.predicted, fmt: fmtPts },
-  next: { label: 'This GW', get: (p, pred) => pred.nextMatchPredicted, fmt: fmtPts },
-  form: { label: 'Form', get: p => p.form, fmt: n => n.toFixed(1) },
-  price: { label: 'Price', get: p => p.price, fmt: fmtPrice },
-  owned: { label: 'Owned', get: p => p.selectedBy, fmt: n => `${n.toFixed(1)}%` },
+  predicted: { label: t('Pts/wk'), get: (p, pred) => pred.predicted, fmt: fmtPts },
+  next: { label: t('This GW'), get: (p, pred) => pred.nextMatchPredicted, fmt: fmtPts },
+  form: { label: t('Form'), get: p => p.form, fmt: n => n.toFixed(1) },
+  price: { label: t('Price'), get: p => p.price, fmt: fmtPrice },
+  owned: { label: t('Owned'), get: p => p.selectedBy, fmt: n => `${n.toFixed(1)}%` },
 };
-const POS_FILTERS = [{ id: 0, label: 'All' }, { id: 1, label: 'GKP' }, { id: 2, label: 'DEF' }, { id: 3, label: 'MID' }, { id: 4, label: 'FWD' }];
+const POS_FILTERS = [{ id: 0, label: t('All') }, { id: 1, label: t('GKP') }, { id: 2, label: t('DEF') }, { id: 3, label: t('MID') }, { id: 4, label: t('FWD') }];
 
 function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
   const [pos, setPos] = useState(0);
@@ -311,33 +316,33 @@ function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
   return (
     <div className="fpl-glass fpl-tool-card">
       <div className="fpl-explore-filters">
-        <div className="fpl-seg" role="group" aria-label="Position">
+        <div className="fpl-seg" role="group" aria-label={t('Position')}>
           {POS_FILTERS.map(f => (
             <button key={f.id} type="button" className={pos === f.id ? 'is-on' : ''} aria-pressed={pos === f.id} onClick={() => setPos(f.id)}>{f.label}</button>
           ))}
         </div>
         <label className="fpl-explore-field">
-          <span className="fpl-meta">Club</span>
+          <span className="fpl-meta">{t('Club')}</span>
           <select className="fpl-input" value={team} onChange={e => setTeam(Number(e.target.value))}>
-            <option value={0}>All clubs</option>
-            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            <option value={0}>{t('All clubs')}</option>
+            {teams.map(club => <option key={club.id} value={club.id}>{club.name}</option>)}
           </select>
         </label>
         <label className="fpl-explore-field">
-          <span className="fpl-meta">Max price {fmtPrice(maxPrice)}</span>
+          <span className="fpl-meta">{t('Max price {price}', { price: fmtPrice(maxPrice) })}</span>
           <input type="range" min="4" max="15" step="0.5" value={maxPrice} onChange={e => setMaxPrice(Number(e.target.value))} />
         </label>
         <label className="fpl-explore-field fpl-explore-search">
-          <span className="fpl-meta">Name</span>
-          <input className="fpl-input" placeholder="Search…" value={q} onChange={e => setQ(e.target.value)} />
+          <span className="fpl-meta">{t('Name')}</span>
+          <input className="fpl-input" placeholder={t('Search…')} value={q} onChange={e => setQ(e.target.value)} />
         </label>
       </div>
       <div className="fpl-compare-wrap">
         <table className="fpl-explore-table">
           <thead>
             <tr>
-              <th scope="col">Player</th>
-              <th scope="col">Pos</th>
+              <th scope="col">{t('Player')}</th>
+              <th scope="col">{t('Pos')}</th>
               {Object.entries(EXPLORE_SORTS).map(([key, spec]) => (
                 <th key={key} scope="col">
                   <button type="button" className={`fpl-sortbtn${sort === key ? ' is-active' : ''}`} aria-pressed={sort === key} onClick={() => setSort(key)}>
@@ -345,7 +350,7 @@ function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
                   </button>
                 </th>
               ))}
-              <th scope="col"><span className="fpl-sr-only">Compare</span></th>
+              <th scope="col"><span className="fpl-sr-only">{t('Compare')}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -367,7 +372,7 @@ function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
           </tbody>
         </table>
       </div>
-      {rows.length === 0 ? <p className="fpl-tool-note">No players match those filters.</p> : <p className="fpl-meta fpl-explore-count">Showing {rows.length} players.</p>}
+      {rows.length === 0 ? <p className="fpl-tool-note">{t('No players match those filters.')}</p> : <p className="fpl-meta fpl-explore-count">{t('Showing {n} players.', { n: rows.length })}</p>}
     </div>
   );
 }
@@ -383,12 +388,12 @@ function PriceMoveList({ title, rows, teamsById, Icon, tone }) {
               <span className="fpl-price-name">{r.webName}<span className="fpl-meta"> · {teamsById[r.team]?.short_name} · {POSITION_LABELS[r.positionId]}</span></span>
               <span className="fpl-price-meta">
                 <span className="fpl-mono">{Math.round(r.percent)}%</span>
-                {r.alreadyMoved ? <span className="fpl-price-moved" title="Price already changed this gameweek">moved</span> : null}
+                {r.alreadyMoved ? <span className="fpl-price-moved" title={t('Price already changed this gameweek')}>{t('moved')}</span> : null}
               </span>
             </li>
           ))}
         </ul>
-      ) : <p className="fpl-tool-note">Nothing close right now.</p>}
+      ) : <p className="fpl-tool-note">{t('Nothing close right now.')}</p>}
     </div>
   );
 }
@@ -409,11 +414,11 @@ function SetPieceTable({ staticData }) {
   const names = list => (list.length ? list.slice(0, 2).map((p, k) => <span key={p.id} className={k ? 'fpl-meta' : undefined}>{p.webName}</span>) : <span className="fpl-meta">–</span>);
   return (
     <section className="fpl-glass fpl-tool-card">
-      <h2 className="fpl-tool-h2"><CircleDot size={18} aria-hidden="true" /> Set pieces</h2>
-      <p className="fpl-tool-sub">Who takes each club&rsquo;s penalties, direct free kicks and corners, first choice first, from FPL&rsquo;s own list.</p>
+      <h2 className="fpl-tool-h2"><CircleDot size={18} aria-hidden="true" /> {t('Set pieces')}</h2>
+      <p className="fpl-tool-sub">{t('Who takes each club’s penalties, direct free kicks and corners, first choice first, from FPL’s own list.')}</p>
       <div className="fpl-compare-wrap">
         <table className="fpl-sp-table">
-          <thead><tr><th scope="col">Club</th><th scope="col">Penalties</th><th scope="col">Free kicks</th><th scope="col">Corners</th></tr></thead>
+          <thead><tr><th scope="col">{t('Club')}</th><th scope="col">{t('Penalties')}</th><th scope="col">{t('Free kicks')}</th><th scope="col">{t('Corners')}</th></tr></thead>
           <tbody>
             {clubs.map(c => (
               <tr key={c.team.id}>
@@ -438,26 +443,26 @@ export function ExploreScreen({ staticData, compareIds, onToggleCompare }) {
   return (
     <div className="fpl-tool">
       <header className="fpl-tool-head">
-        <h1 className="fpl-tool-h"><Compass size={22} aria-hidden="true" /> Explore</h1>
-        <p className="fpl-tool-sub">Every player, filterable and sortable; who is close to a price change tonight; every club&rsquo;s set-piece takers; and the best gameweeks for your chips.</p>
+        <h1 className="fpl-tool-h"><Compass size={22} aria-hidden="true" /> {t('Explore')}</h1>
+        <p className="fpl-tool-sub">{t('Every player, filterable and sortable; who is close to a price change tonight; every club’s set-piece takers; and the best gameweeks for your chips.')}</p>
       </header>
 
       <PlayerExploreTable staticData={staticData} compareIds={compareIds} onToggleCompare={onToggleCompare} />
 
       <section className="fpl-glass fpl-tool-card">
-        <h2 className="fpl-tool-h2"><TrendingUp size={18} aria-hidden="true" /> Price changes tonight</h2>
-        <p className="fpl-tool-sub">From FPL's own progress-to-change signal — a forecast, not a certainty.</p>
+        <h2 className="fpl-tool-h2"><TrendingUp size={18} aria-hidden="true" /> {t('Price changes tonight')}</h2>
+        <p className="fpl-tool-sub">{t('From FPL’s own progress-to-change signal — a forecast, not a certainty.')}</p>
         <div className="fpl-price-grid">
-          <PriceMoveList title="Likely risers" rows={prices.risers} teamsById={staticData.teamsById} Icon={TrendingUp} tone="up" />
-          <PriceMoveList title="Likely fallers" rows={prices.fallers} teamsById={staticData.teamsById} Icon={TrendingDown} tone="down" />
+          <PriceMoveList title={t('Likely risers')} rows={prices.risers} teamsById={staticData.teamsById} Icon={TrendingUp} tone="up" />
+          <PriceMoveList title={t('Likely fallers')} rows={prices.fallers} teamsById={staticData.teamsById} Icon={TrendingDown} tone="down" />
         </div>
       </section>
 
       <SetPieceTable staticData={staticData} />
 
       <section className="fpl-glass fpl-tool-card">
-        <h2 className="fpl-tool-h2"><Ticket size={18} aria-hidden="true" /> Chip timing</h2>
-        <p className="fpl-tool-sub">The strongest upcoming gameweek for each chip, from the fixture schedule (double and blank gameweeks).</p>
+        <h2 className="fpl-tool-h2"><Ticket size={18} aria-hidden="true" /> {t('Chip timing')}</h2>
+        <p className="fpl-tool-sub">{t('The strongest upcoming gameweek for each chip, from the fixture schedule (double and blank gameweeks).')}</p>
         {anyChip ? (
           <div className="fpl-chip-grid">
             <ChipCard suggestion={chips.benchBoost} />
@@ -465,7 +470,7 @@ export function ExploreScreen({ staticData, compareIds, onToggleCompare }) {
             <ChipCard suggestion={chips.freeHit} />
             <ChipCard suggestion={chips.wildcard} />
           </div>
-        ) : <p className="fpl-tool-note">No clear double or blank gameweeks in the schedule yet — the fixture list this far out can still change.</p>}
+        ) : <p className="fpl-tool-note">{t('No clear double or blank gameweeks in the schedule yet — the fixture list this far out can still change.')}</p>}
       </section>
     </div>
   );

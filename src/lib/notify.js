@@ -4,6 +4,8 @@
 // set up: switching notifications on subscribes this browser, with your
 // squad's player ids so the server knows whose news to send.
 
+import { currentLanguage } from './i18n.js';
+
 const PREF_KEY = 'fpl_notify';
 const SENT_KEY = 'fpl_alerts_sent';
 const MAX_SENT = 200;
@@ -73,7 +75,8 @@ async function pushRegistration() {
 // or on the server.
 export async function syncPush(playerIds, teamId = null) {
   if (notificationState() !== 'on') return;
-  const ids = [...playerIds].sort((a, b) => a - b).join(',') + (teamId ? `|${teamId}` : '');
+  const lang = currentLanguage();
+  const ids = [...playerIds].sort((a, b) => a - b).join(',') + (teamId ? `|${teamId}` : '') + (lang !== 'en' ? `|${lang}` : '');
   let last = null;
   try { last = localStorage.getItem(PUSH_KEY); } catch { /* storage unavailable */ }
   const reg = await pushRegistration();
@@ -89,7 +92,7 @@ export async function syncPush(playerIds, teamId = null) {
   }
   const saved = await fetch('/api/auth?push=subscribe', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: sub.toJSON(), playerIds, ...(teamId ? { teamId: Number(teamId) } : {}) }),
+    body: JSON.stringify({ subscription: sub.toJSON(), playerIds, ...(teamId ? { teamId: Number(teamId) } : {}), lang }),
   }).catch(() => null);
   if (saved && saved.ok) {
     try { localStorage.setItem(PUSH_KEY, ids); } catch { /* storage unavailable */ }

@@ -1,5 +1,6 @@
 // Small helpers for drawing a squad on a pitch (src/components/Pitch.jsx).
 import { POSITION_LABELS } from './format.js';
+import { t } from './i18n.js';
 
 // FPL's own shirt images, by the club's code (goalkeepers wear _1).
 export function shirtUrl(team, isKeeper) {
@@ -11,7 +12,7 @@ export function nextFixtureLabel(player, fixturesByTeam, teamsById) {
   const next = fixturesByTeam && fixturesByTeam[player.team] ? fixturesByTeam[player.team][0] : null;
   if (!next) return '';
   const opp = teamsById[next.opponent];
-  return `${opp ? opp.short_name : '?'} (${next.isHome ? 'H' : 'A'})`;
+  return `${opp ? opp.short_name : '?'} (${next.isHome ? t('H') : t('A')})`;
 }
 
 // The bench as FPL labels it: the goalkeeper, then the outfield
@@ -19,7 +20,7 @@ export function nextFixtureLabel(player, fixturesByTeam, teamsById) {
 export function benchLabels(bench) {
   let outfield = 0;
   return bench.map(slot => {
-    if (slot.player.positionId === 1) return 'GKP';
+    if (slot.player.positionId === 1) return POSITION_LABELS[1];
     outfield += 1;
     return `${outfield}. ${POSITION_LABELS[slot.player.positionId]}`;
   });

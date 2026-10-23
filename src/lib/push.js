@@ -3,7 +3,7 @@
 // (see api/auth.js), so it doesn't need a function of its own:
 //
 //   GET  ?push=key          the server's public key, for subscribing
-//   POST ?push=subscribe    { subscription, playerIds, teamId? }: save or update one
+//   POST ?push=subscribe    { subscription, playerIds, teamId?, lang? }: save or update one
 //   POST ?push=unsubscribe  { endpoint }
 //   POST ?push=send         sends each subscriber the alerts not sent to
 //                           them before. Needs CRON_SECRET, like
@@ -22,6 +22,7 @@ import { buildAlerts, predictionBaseline } from './alerts.js';
 import { cleanTeamId } from './digest.js';
 import { buildStaticDataFromRaw } from './predictions.js';
 import { isJsonRequest } from './auth.js';
+import { LANGUAGES, makeT, t } from './i18n.js';
 
 const PREFIX = 'push:sub:';
 const MAX_SENT = 100;
@@ -30,6 +31,21 @@ export const SUBSCRIBE_WINDOW_SECONDS = 60 * 60;
 export const MAX_SUBSCRIBES_PER_IP = 30;
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 const APP_URL = (process.env.APP_URL || 'https://fplchecker.co.uk').replace(/\/+$/, '');
+
+// The app's language code, if it's one of ours other than English.
+export function cleanLang(code) {
+  return typeof code === 'string' && code !== 'en' && LANGUAGES.some(l => l.code === code) ? code : null;
+}
+
+// The translations, loaded only when alerts go out; without them every
+// subscriber gets English.
+async function dictionaries() {
+  try {
+    return (await import('./serverLocales.js')).DICTIONARIES;
+  } catch {
+    return {};
+  }
+}
 
 export function pushConfigured(env = process.env) {
   return !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);
@@ -102,6 +118,7 @@ async function noTransferYet(fetchTransfers, teamId, event) {
 export async function sendPushAlerts({ redis, sender, staticData, now = Date.now(), fetchTransfers = id => fetchFpl(`entry/${id}/transfers/`) }) {
   let sent = 0;
   let removed = 0;
+  const dicts = await dictionaries();
   for (const key of await allKeys(redis)) {
     let record = await getJSON(redis, key);
     if (!record || !record.subscription) continue;
@@ -114,11 +131,12 @@ export async function sendPushAlerts({ redis, sender, staticData, now = Date.now
     }
     const seen = previous && baseline && previous.gwId === baseline.gwId ? previous : null;
     const isNew = a => !(record.sent || []).includes(a.id);
-    let fresh = buildAlerts(staticData, playerIds, now, { baseline: seen }).filter(isNew);
+    const tr = record.lang && dicts[record.lang] ? makeT(dicts[record.lang]) : t;
+    let fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, tr }).filter(isNew);
     const target = staticData.targetEvent;
     if (record.teamId && target && fresh.some(a => a.id === `deadline-${target.id}-2h`)
       && await noTransferYet(fetchTransfers, record.teamId, target.id)) {
-      fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, noTransferYet: true }).filter(isNew);
+      fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, noTransferYet: true, tr }).filter(isNew);
     }
     if (!fresh.length) continue;
     let gone = false;
@@ -176,9 +194,11 @@ export async function pushHandler(req, res, deps = {}) {
     const key = subscriptionKey(subscription.endpoint);
     const existing = await getJSON(redis, key);
     const teamId = cleanTeamId(body.teamId);
+    const lang = cleanLang(body.lang);
     await setJSON(redis, key, {
       subscription, playerIds: cleanPlayerIds(body.playerIds), sent: (existing && existing.sent) || [], at: Date.now(),
       ...(teamId ? { teamId } : {}),
+      ...(lang ? { lang } : {}),
       ...(existing && existing.baseline ? { baseline: existing.baseline } : {}),
     });
     res.status(200).json({ ok: true });

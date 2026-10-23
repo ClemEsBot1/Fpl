@@ -3,6 +3,8 @@
 // hands it to the phone's share sheet, or downloads it where sharing
 // files isn't supported.
 
+import { fmtNumber, ordinal, t } from './i18n.js';
+
 const W = 1080;
 const H = 1350;
 const POS_LABEL = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
@@ -57,12 +59,12 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   ctx.fillText('FPL CHECKER', 128, 124);
 
   ctx.font = `700 54px ${display}`;
-  ctx.fillText(fitText(ctx, teamName || 'My squad', W - 192), 96, 206);
+  ctx.fillText(fitText(ctx, teamName || t('My squad'), W - 192), 96, 206);
   ctx.fillStyle = 'rgba(251,250,255,0.72)';
   ctx.font = `500 30px ${mono}`;
   ctx.fillText((gwName || '').toUpperCase(), 96, 252);
   if (typeof score === 'number') {
-    const label = `RATED ${Math.round(score)}/100`;
+    const label = t('Rated {n}/100', { n: Math.round(score) }).toUpperCase();
     ctx.font = `700 24px ${mono}`;
     const gwW = ctx.measureText(`${(gwName || '').toUpperCase()}  `).width + 30;
     const w = ctx.measureText(label).width + 28;
@@ -79,7 +81,7 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   ctx.fillText(fmt(total), W - 96, 230);
   ctx.fillStyle = 'rgba(251,250,255,0.72)';
   ctx.font = `600 22px ${mono}`;
-  ctx.fillText('PREDICTED PTS', W - 96, 266);
+  ctx.fillText(t('Predicted pts').toUpperCase(), W - 96, 266);
   ctx.textAlign = 'left';
 
   const starters = slots.filter(s => s.isStarting).sort((a, b) => a.player.positionId - b.player.positionId);
@@ -106,7 +108,7 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
       ctx.fillStyle = '#03132B';
       ctx.font = `700 22px ${mono}`;
       ctx.textAlign = 'center';
-      ctx.fillText(s.isCaptain ? 'C' : 'V', x + 17, y - 9);
+      ctx.fillText(s.isCaptain ? t('C') : t('V'), x + 17, y - 9);
       ctx.textAlign = 'left';
       x += 46;
     }
@@ -127,7 +129,7 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   starters.forEach(s => drawRow(s, false));
   ctx.fillStyle = 'rgba(251,250,255,0.72)';
   ctx.font = `600 22px ${mono}`;
-  ctx.fillText('BENCH', 96, y - 10);
+  ctx.fillText(t('Bench').toUpperCase(), 96, y - 10);
   y += 36;
   bench.forEach(s => drawRow(s, true));
 
@@ -135,7 +137,7 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
   ctx.textAlign = 'center';
   ctx.fillStyle = '#FBFAFF';
   ctx.font = `600 28px ${display}`;
-  ctx.fillText('Rate your team free at', W / 2, H - 102);
+  ctx.fillText(t('Rate your team free at'), W / 2, H - 102);
   ctx.fillStyle = '#CEFF10';
   ctx.font = `700 30px ${mono}`;
   ctx.fillText(siteUrl || 'fplchecker.co.uk', W / 2, H - 64);
@@ -179,11 +181,6 @@ export async function shareCard(canvas, { title, fileName = 'fpl-squad.png' }) {
   return 'downloaded';
 }
 
-const ordinal = v => {
-  const t = v % 100;
-  return `${v}${t >= 11 && t <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][v % 10] || 'th'}`;
-};
-
 // The recap's last slide as a PNG: the team, its points against the
 // average, and four facts from the week (see src/lib/recap.js).
 export async function drawRecapCard({ recap, siteUrl }) {
@@ -210,7 +207,7 @@ export async function drawRecapCard({ recap, siteUrl }) {
   ctx.fillRect(112, 124, 18, 18);
   ctx.fillStyle = '#FBFAFF';
   ctx.font = `700 34px ${display}`;
-  ctx.fillText('GAMEWEEK RECAP', 144, 144);
+  ctx.fillText(t('Gameweek recap').toUpperCase(), 144, 144);
   ctx.textAlign = 'right';
   ctx.fillStyle = dim;
   ctx.font = `600 30px ${mono}`;
@@ -219,7 +216,7 @@ export async function drawRecapCard({ recap, siteUrl }) {
 
   ctx.fillStyle = '#FBFAFF';
   ctx.font = `700 64px ${display}`;
-  ctx.fillText(fitText(ctx, recap.teamName || 'My team', W - 224), 112, 260);
+  ctx.fillText(fitText(ctx, recap.teamName || t('My team'), W - 224), 112, 260);
 
   const h = recap.headline;
   ctx.fillStyle = '#CEFF10';
@@ -228,9 +225,9 @@ export async function drawRecapCard({ recap, siteUrl }) {
   const ptsW = ctx.measureText(String(h.points)).width;
   ctx.fillStyle = '#FBFAFF';
   ctx.font = `600 52px ${display}`;
-  ctx.fillText('pts', 104 + ptsW + 18, 496);
+  ctx.fillText(t('pts'), 104 + ptsW + 18, 496);
   if (h.vsAverage !== null) {
-    const label = `${h.vsAverage > 0 ? '+' : h.vsAverage < 0 ? '−' : ''}${Math.abs(h.vsAverage)} vs average`;
+    const label = t('{n} vs average', { n: `${h.vsAverage > 0 ? '+' : h.vsAverage < 0 ? '−' : ''}${Math.abs(h.vsAverage)}` });
     ctx.font = `700 34px ${mono}`;
     const w = ctx.measureText(label).width + 48;
     ctx.fillStyle = h.vsAverage >= 0 ? '#CEFF10' : '#FF8A8A';
@@ -241,10 +238,10 @@ export async function drawRecapCard({ recap, siteUrl }) {
   }
 
   const facts = [
-    recap.rank && ['OVERALL RANK', `${recap.rank.now.toLocaleString('en-GB')}${recap.rank.move > 0 ? ' ▲' : recap.rank.move < 0 ? ' ▼' : ''}`],
-    recap.captain && ['CAPTAIN', `${recap.captain.name} ${recap.captain.points}`],
-    recap.starFlop && ['STAR', `${recap.starFlop.star.name} ${recap.starFlop.star.points}`],
-    recap.league && ['MINI-LEAGUE', `${recap.league.was ? `${ordinal(recap.league.was)} → ` : ''}${ordinal(recap.league.now)}`],
+    recap.rank && [t('Overall rank').toUpperCase(), `${fmtNumber(recap.rank.now)}${recap.rank.move > 0 ? ' ▲' : recap.rank.move < 0 ? ' ▼' : ''}`],
+    recap.captain && [t('Captain').toUpperCase(), `${recap.captain.name} ${recap.captain.points}`],
+    recap.starFlop && [t('Star').toUpperCase(), `${recap.starFlop.star.name} ${recap.starFlop.star.points}`],
+    recap.league && [t('Mini-league').toUpperCase(), `${recap.league.was ? `${ordinal(recap.league.was)} → ` : ''}${ordinal(recap.league.now)}`],
   ].filter(Boolean);
   facts.forEach(([label, value], i) => {
     const x = 112 + (i % 2) * 440;
@@ -262,7 +259,7 @@ export async function drawRecapCard({ recap, siteUrl }) {
 
   ctx.fillStyle = dim;
   ctx.font = `500 26px ${mono}`;
-  if (recap.rank && recap.rank.topPercent) ctx.fillText(`Top ${recap.rank.topPercent}% this week`, 112, H - 120);
+  if (recap.rank && recap.rank.topPercent) ctx.fillText(t('Top {n}% this week', { n: recap.rank.topPercent }), 112, H - 120);
   ctx.textAlign = 'right';
   ctx.fillText(siteUrl || '', W - 112, H - 120);
   ctx.textAlign = 'left';
