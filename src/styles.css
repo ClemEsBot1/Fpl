@@ -26,6 +26,13 @@
   padding:12px 14px; width:100%; box-sizing:border-box; }
 .fpl-input:focus { outline:none; border-color:var(--blue); }
 .fpl-input::placeholder { color:var(--ink-dim); }
+/* iOS Safari zooms the page in when an input under 16px gets focus, and
+   doesn't zoom back out: the layout drifts and the fixed footer menu ends
+   up below the visible area. On touch screens every text field and select
+   is at least 16px, overriding the smaller inline sizes some use. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea { font-size: 16px !important; }
+}
 
 .fpl-tag { display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:0.68rem;
   font-weight:600; padding:2px 6px; letter-spacing:0.03em; border-radius:3px; }
