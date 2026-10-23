@@ -1,3 +1,4 @@
+import { fmtNumber, ordinal, plural, t } from './i18n.js';
 // The gameweek recap: the slides that pop up once a gameweek is over,
 // summing up how your team did. Pure functions; App.jsx fetches what they
 // need and src/components/GwRecap.jsx draws the slides.
@@ -29,8 +30,7 @@ export function markRecapSeen(teamId, gwId) {
 
 
 const round1 = n => Math.round(n * 10) / 10;
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const POS = { 1: 'GKP', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+const POS = { 1: t('GKP'), 2: t('DEF'), 3: t('MID'), 4: t('FWD') };
 const counts = s => (s.multiplier || 0) > 0;
 
 // What a player did, as short chips: "2 goals", "1 assist", "3 bonus".
@@ -39,18 +39,18 @@ function chipsFor(player, live, flop) {
   if (!live) return [];
   const defends = player.positionId === 1 || player.positionId === 2;
   if (flop) {
-    if (!live.minutes) return ["Didn't play"];
+    if (!live.minutes) return [t("Didn't play")];
     return [
-      plural(live.minutes, 'minute'),
-      defends && live.conceded ? `${live.conceded} conceded` : null,
-      live.goals ? plural(live.goals, 'goal') : null,
+      plural(live.minutes, t('1 minute'), t('{n} minutes')),
+      defends && live.conceded ? t('{n} conceded', { n: live.conceded }) : null,
+      live.goals ? plural(live.goals, t('1 goal'), t('{n} goals')) : null,
     ].filter(Boolean);
   }
   return [
-    live.goals ? plural(live.goals, 'goal') : null,
-    live.assists ? plural(live.assists, 'assist') : null,
-    live.cleanSheets && player.positionId !== 4 ? 'Clean sheet' : null,
-    live.bonus ? `${live.bonus} bonus` : null,
+    live.goals ? plural(live.goals, t('1 goal'), t('{n} goals')) : null,
+    live.assists ? plural(live.assists, t('1 assist'), t('{n} assists')) : null,
+    live.cleanSheets && player.positionId !== 4 ? t('Clean sheet') : null,
+    live.bonus ? t('{n} bonus', { n: live.bonus }) : null,
   ].filter(Boolean);
 }
 
@@ -208,8 +208,8 @@ function starFlopSlide({ squad, liveById, playersById, teamsById, fixturesByTeam
       ownership: typeof (playersById[s.player.id] || s.player).selectedBy === 'number' ? (playersById[s.player.id] || s.player).selectedBy : null,
       chips: chipsFor(s.player, liveById[s.player.id], isFlop),
       stats: isFlop
-        ? [['Minutes', live.minutes || 0], defends ? ['Conceded', live.conceded || 0] : ['Goals', live.goals || 0], ['Bonus', live.bonus || 0], ['Yellow', live.yellow || 0]]
-        : [['Minutes', live.minutes || 0], ['Goals', live.goals || 0], ['Assists', live.assists || 0], ['Bonus', live.bonus || 0]],
+        ? [[t('Minutes'), live.minutes || 0], defends ? [t('Conceded'), live.conceded || 0] : [t('Goals'), live.goals || 0], [t('Bonus'), live.bonus || 0], [t('Yellow'), live.yellow || 0]]
+        : [[t('Minutes'), live.minutes || 0], [t('Goals'), live.goals || 0], [t('Assists'), live.assists || 0], [t('Bonus'), live.bonus || 0]],
       next: nextFixtures(s.player.team, fixturesByTeam, teamsById),
     };
   };
@@ -281,7 +281,7 @@ export function leagueSlide(league, teamId) {
     gapToFirst: leader === me ? 0 : leader.total - me.total,
     leaderName: leader.teamName,
     rival: { teamName: rival.teamName, margin: (me.eventTotal || 0) - (rival.eventTotal || 0), totalGap: me.total - rival.total },
-    riser: riser && riser.move > 0 ? { teamName: riser.m === me ? 'You' : riser.m.teamName, move: riser.move } : null,
+    riser: riser && riser.move > 0 ? { teamName: riser.m === me ? t('You') : riser.m.teamName, move: riser.move } : null,
     topCaptain: captains ? captains.top[0] : null, captainsCounted: captains ? captains.counted : null,
   };
 }
@@ -378,12 +378,12 @@ export function buildRecap(input) {
 // The recap as a few lines of text, for pasting into a chat.
 export function recapText(recap) {
   const h = recap.headline;
-  const n = v => v.toLocaleString('en-GB');
-  const ord = v => `${v}${(v % 100 >= 11 && v % 100 <= 13) ? 'th' : ['th', 'st', 'nd', 'rd'][v % 10] || 'th'}`;
+  const n = v => fmtNumber(v);
+  const ord = v => ordinal(v);
   return [
-    `${recap.teamName}, ${recap.gwName}: ${h.points} pts${h.vsAverage !== null ? ` (${h.vsAverage >= 0 ? '+' : '−'}${Math.abs(h.vsAverage)} vs avg)` : ''}`,
-    recap.rank ? `Rank ${n(recap.rank.now)}${recap.rank.move ? ` ${recap.rank.move > 0 ? '▲' : '▼'}${n(Math.abs(recap.rank.move))}` : ''}` : null,
-    [recap.captain ? `C ${recap.captain.name} ${recap.captain.points}` : null, recap.starFlop ? `Star ${recap.starFlop.star.name} ${recap.starFlop.star.points}` : null].filter(Boolean).join(' · ') || null,
+    `${recap.teamName}, ${recap.gwName}: ${t('{n} pts', { n: h.points })}${h.vsAverage !== null ? ` (${t('{diff} vs avg', { diff: `${h.vsAverage >= 0 ? '+' : '−'}${Math.abs(h.vsAverage)}` })})` : ''}`,
+    recap.rank ? `${t('Rank {n}', { n: n(recap.rank.now) })}${recap.rank.move ? ` ${recap.rank.move > 0 ? '▲' : '▼'}${n(Math.abs(recap.rank.move))}` : ''}` : null,
+    [recap.captain ? `${t('C')} ${recap.captain.name} ${recap.captain.points}` : null, recap.starFlop ? `${t('Star')} ${recap.starFlop.star.name} ${recap.starFlop.star.points}` : null].filter(Boolean).join(' · ') || null,
     recap.league ? `${recap.league.name} ${recap.league.was ? `${ord(recap.league.was)} → ` : ''}${ord(recap.league.now)}` : null,
   ].filter(Boolean).join('\n');
 }

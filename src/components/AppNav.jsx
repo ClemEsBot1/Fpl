@@ -3,6 +3,7 @@
 // Which one shows is decided in CSS (see .fpl-sidenav / .fpl-footnav).
 import { useEffect, useRef, useState } from 'react';
 import { Ellipsis } from 'lucide-react';
+import { t } from '../lib/i18n.js';
 
 // items: [{ id, label, desc, group, Icon, run, footer }] — the sidebar
 // shows them under their group with the description; `footer` items get
@@ -16,7 +17,7 @@ export function SideNav({ items, active }) {
   });
   const idFor = name => `nav-${name.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <nav className="fpl-sidenav" aria-label="Menu">
+    <nav className="fpl-sidenav" aria-label={t('Menu')}>
       {groups.map(({ name, items: list }) => (
         <section key={name} aria-labelledby={idFor(name)}>
           <h2 id={idFor(name)} className="fpl-sidenav-group">{name}</h2>
@@ -67,7 +68,7 @@ export function FooterNav({ items, active }) {
           ))}
         </div>
       )}
-      <nav className="fpl-footnav" aria-label="Menu">
+      <nav className="fpl-footnav" aria-label={t('Menu')}>
         {main.map(({ id, label, Icon, run }) => (
           <button key={id} type="button" onClick={pick(run)} aria-current={active === id ? 'page' : undefined}>
             <Icon size={22} aria-hidden="true" /><span>{label}</span>
@@ -80,7 +81,7 @@ export function FooterNav({ items, active }) {
           aria-controls="fpl-more-menu"
           className={moreActive ? 'is-active' : undefined}
         >
-          <Ellipsis size={22} aria-hidden="true" /><span>More</span>
+          <Ellipsis size={22} aria-hidden="true" /><span>{t('More')}</span>
         </button>
       </nav>
     </div>

@@ -10,6 +10,8 @@
 // falls trigger more easily than rises, so this gameweek's net transfers are
 // compared with how many managers own the player.
 
+import { t } from './i18n.js';
+
 // Progress (FPL's percentage) where each of FPL's statuses starts. 100% is
 // its own "expected tonight" line.
 export const VERY_LIKELY_PCT = 100;
@@ -64,8 +66,8 @@ export function buildTransferTrends(allPlayers, totalPlayers, limit = 6) {
   const rows = allPlayers.map(p => rowFor(p, totalPlayers));
   const top = (list, key) => [...list].sort(key).slice(0, limit);
   return [
-    { id: 'in', title: 'Most transferred in', rows: top(rows.filter(r => r.player.transfersInEvent > 0), (a, b) => b.player.transfersInEvent - a.player.transfersInEvent), stat: 'in' },
-    { id: 'out', title: 'Most transferred out', rows: top(rows.filter(r => r.player.transfersOutEvent > 0), (a, b) => b.player.transfersOutEvent - a.player.transfersOutEvent), stat: 'out' },
+    { id: 'in', title: t('Most transferred in'), rows: top(rows.filter(r => r.player.transfersInEvent > 0), (a, b) => b.player.transfersInEvent - a.player.transfersInEvent), stat: 'in' },
+    { id: 'out', title: t('Most transferred out'), rows: top(rows.filter(r => r.player.transfersOutEvent > 0), (a, b) => b.player.transfersOutEvent - a.player.transfersOutEvent), stat: 'out' },
   ];
 }
 
@@ -75,8 +77,8 @@ export function buildPriceWatch(allPlayers, totalPlayers, limit = 6) {
   if (!hasOfficialPriceData(allPlayers)) return [];
   const rows = allPlayers.filter(p => typeof p.priceChangePercent === 'number').map(p => rowFor(p, totalPlayers));
   return [
-    { id: 'rises', title: 'Closest to a price rise', rows: rows.filter(r => r.player.priceChangePercent > 0).sort((a, b) => b.player.priceChangePercent - a.player.priceChangePercent).slice(0, limit), stat: 'pct' },
-    { id: 'drops', title: 'Closest to a price drop', rows: rows.filter(r => r.player.priceChangePercent < 0).sort((a, b) => a.player.priceChangePercent - b.player.priceChangePercent).slice(0, limit), stat: 'pct' },
+    { id: 'rises', title: t('Closest to a price rise'), rows: rows.filter(r => r.player.priceChangePercent > 0).sort((a, b) => b.player.priceChangePercent - a.player.priceChangePercent).slice(0, limit), stat: 'pct' },
+    { id: 'drops', title: t('Closest to a price drop'), rows: rows.filter(r => r.player.priceChangePercent < 0).sort((a, b) => a.player.priceChangePercent - b.player.priceChangePercent).slice(0, limit), stat: 'pct' },
   ];
 }
 

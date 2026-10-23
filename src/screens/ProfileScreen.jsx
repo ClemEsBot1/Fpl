@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, FileText, KeyRound, Link2, LogOut, Mail, MessageSquare, ShieldCheck, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, FileText, KeyRound, Languages, Link2, LogOut, Mail, MessageSquare, ShieldCheck, Trash2, X } from 'lucide-react';
 import { TERMS_PATH } from '../lib/terms.js';
 import { fetchFplJson } from '../lib/fplClient.js';
 import { careerStats, rankChartPoints } from '../lib/career.js';
 import { parseTeamId } from '../lib/teamIdInput.js';
 import { useGoogleEnabled } from '../lib/googleEnabled.js';
 import { GoogleMark } from '../components/GoogleMark.jsx';
+import { LANGUAGES, currentLanguage, fmtDate, fmtNumber, t } from '../lib/i18n.js';
+import { chooseLanguage } from '../lib/i18nLoad.js';
 
 /* ----------------------------------------------------------------------------
    PROFILE: the account's page. FPL career stats for a Team ID (theirs, or
    any saved one) and every account setting in one place.
 ---------------------------------------------------------------------------- */
-const fmtInt = n => (n === null || n === undefined ? '–' : Number(n).toLocaleString('en-GB'));
+const fmtInt = n => (n === null || n === undefined ? '–' : fmtNumber(Number(n)));
 const fmtMoney = n => (n === null || n === undefined ? '–' : `£${n.toFixed(1)}m`);
 const memberSince = iso => {
   const d = iso ? new Date(iso) : null;
-  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : null;
+  return d && !Number.isNaN(d.getTime()) ? fmtDate(d, { month: 'long', year: 'numeric' }) : null;
 };
 
 function StatTile({ label, value, sub }) {
@@ -45,6 +47,21 @@ function SettingRow({ icon: Icon, title, detail, action, onAction, danger = fals
   return href
     ? <a className={className} href={href}>{body}</a>
     : <button type="button" className={className} onClick={onAction}>{body}</button>;
+}
+
+// The app's language: picking one saves it and reloads the page in it.
+function LanguageRow() {
+  return (
+    <label className="fpl-profile-row is-static">
+      <Languages size={18} aria-hidden="true" className="fpl-profile-row-icon" />
+      <span className="fpl-profile-row-text">
+        <span className="fpl-profile-row-title">{t('Language')}</span>
+      </span>
+      <select className="fpl-input fpl-profile-team-select" value={currentLanguage()} onChange={e => chooseLanguage(e.target.value)}>
+        {LANGUAGES.map(l => <option key={l.code} value={l.code} lang={l.code}>{l.name}</option>)}
+      </select>
+    </label>
+  );
 }
 
 const CHART_W = 600;
@@ -87,20 +104,20 @@ function RankChart({ rows }) {
     <div className="fpl-block fpl-rank-chart">
       <div className="fpl-rank-chart-head">
         <div>
-          <div className="fpl-mono fpl-profile-stat-label">OVERALL RANK · GW{cur.gw}</div>
+          <div className="fpl-mono fpl-profile-stat-label">{t('Overall rank')} · GW{cur.gw}</div>
           <div className="fpl-rank-chart-value">
             {fmtInt(cur.overallRank)}
             {cur.rankChange ? (
               <span className={`fpl-rank-move ${cur.rankChange > 0 ? 'is-up' : 'is-down'}`}>
                 {cur.rankChange > 0 ? <ArrowUp size={14} aria-hidden="true" /> : <ArrowDown size={14} aria-hidden="true" />}
-                <span className="fpl-sr-only">{cur.rankChange > 0 ? 'up' : 'down'} </span>{fmtInt(Math.abs(cur.rankChange))}
+                <span className="fpl-sr-only">{cur.rankChange > 0 ? t('up') : t('down')} </span>{fmtInt(Math.abs(cur.rankChange))}
               </span>
             ) : null}
           </div>
         </div>
         <div className="fpl-rank-chart-side fpl-mono" aria-live="polite">
-          <span><b>{cur.points}</b> pts{cur.hit ? ` (−${cur.hit})` : ''}</span>
-          {cur.gwRank ? <span>GW rank {fmtInt(cur.gwRank)}</span> : null}
+          <span><b>{cur.points}</b> {t('pts')}{cur.hit ? ` (−${cur.hit})` : ''}</span>
+          {cur.gwRank ? <span>{t('GW rank {n}', { n: fmtInt(cur.gwRank) })}</span> : null}
           {cur.chip ? <span className="fpl-rank-chip">{cur.chip}</span> : null}
         </div>
       </div>
@@ -109,11 +126,11 @@ function RankChart({ rows }) {
         className="fpl-rank-chart-plot"
         role="slider"
         tabIndex={0}
-        aria-label="Gameweek on the rank chart"
+        aria-label={t('Gameweek on the rank chart')}
         aria-valuemin={pts[0].gw}
         aria-valuemax={pts[pts.length - 1].gw}
         aria-valuenow={cur.gw}
-        aria-valuetext={`Gameweek ${cur.gw}: overall rank ${fmtInt(cur.overallRank)}, ${cur.points} points`}
+        aria-valuetext={t('Gameweek {gw}: overall rank {rank}, {n} points', { gw: cur.gw, rank: fmtInt(cur.overallRank), n: cur.points })}
         onKeyDown={onKey}
         onPointerMove={e => pickAt(e.clientX)}
         onPointerDown={e => pickAt(e.clientX)}
@@ -131,7 +148,7 @@ function RankChart({ rows }) {
           <line x1={cur.x} x2={cur.x} y1="0" y2={CHART_H} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
         </svg>
         <span className="fpl-rank-dot" style={{ left: pct(cur.x), top: `${(cur.y / CHART_H) * 100}%` }} aria-hidden="true" />
-        <span className={`fpl-mono fpl-rank-best${best.x < CHART_W * 0.12 ? ' is-start' : best.x > CHART_W * 0.88 ? ' is-end' : ''}`} style={{ left: pct(best.x), top: `${(best.y / CHART_H) * 100}%` }} aria-hidden="true">Best {fmtInt(best.overallRank)}</span>
+        <span className={`fpl-mono fpl-rank-best${best.x < CHART_W * 0.12 ? ' is-start' : best.x > CHART_W * 0.88 ? ' is-end' : ''}`} style={{ left: pct(best.x), top: `${(best.y / CHART_H) * 100}%` }} aria-hidden="true">{t('Best {n}', { n: fmtInt(best.overallRank) })}</span>
         </div>
         <svg viewBox={`0 0 ${CHART_W} ${BARS_H}`} preserveAspectRatio="none" className="fpl-rank-bars" aria-hidden="true">
           {pts.map((p, k) => {
@@ -180,41 +197,41 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
       {notice && (
         <div role="status" className="fpl-verify-bar" style={{ margin: 0 }}>
           <span>{notice}</span>
-          <button type="button" className="fpl-verify-bar-x" aria-label="Dismiss" onClick={onDismissNotice}><X size={16} aria-hidden="true" /></button>
+          <button type="button" className="fpl-verify-bar-x" aria-label={t('Dismiss')} onClick={onDismissNotice}><X size={16} aria-hidden="true" /></button>
         </div>
       )}
-      <section className="fpl-profile-hero" aria-label="Your account">
+      <section className="fpl-profile-hero" aria-label={t('Your account')}>
         <div className="fpl-profile-avatar" aria-hidden="true">{initial}</div>
         <div style={{ minWidth: 0 }}>
           <h1 className="fpl-display fpl-profile-name">{session.username}</h1>
           <div className="fpl-mono fpl-profile-meta">
-            {since ? `Member since ${since}` : 'FPL Checker member'}
+            {since ? t('Member since {date}', { date: since }) : t('FPL Checker member')}
             {c && c.managerName ? ` · ${c.managerName}` : ''}
           </div>
           <div className="fpl-profile-badges">
             {session.google && <span className="fpl-profile-badge"><GoogleMark /> Google</span>}
-            {session.email && session.emailVerified && <span className="fpl-profile-badge"><Check size={12} aria-hidden="true" /> Email confirmed</span>}
-            {session.admin && <span className="fpl-profile-badge">Admin</span>}
+            {session.email && session.emailVerified && <span className="fpl-profile-badge"><Check size={12} aria-hidden="true" /> {t('Email confirmed')}</span>}
+            {session.admin && <span className="fpl-profile-badge">{t('Admin')}</span>}
           </div>
         </div>
       </section>
 
       <section aria-labelledby="career-title" className="fpl-profile-section fpl-profile-career">
         <div className="fpl-profile-section-head">
-          <h2 id="career-title" className="fpl-display fpl-profile-h2">FPL career</h2>
+          <h2 id="career-title" className="fpl-display fpl-profile-h2">{t('FPL career')}</h2>
           {teamIds.length > 1 && (
-            <select className="fpl-input fpl-profile-team-select" aria-label="Team" value={teamId} onChange={e => { setTeamId(e.target.value); onPickTeam(e.target.value); }}>
-              {teamIds.map(id => <option key={id} value={id}>Team {id}</option>)}
+            <select className="fpl-input fpl-profile-team-select" aria-label={t('Team')} value={teamId} onChange={e => { setTeamId(e.target.value); onPickTeam(e.target.value); }}>
+              {teamIds.map(id => <option key={id} value={id}>{t('Team {id}', { id })}</option>)}
             </select>
           )}
         </div>
 
         {!teamId && (
           <form onSubmit={showTyped} className="fpl-block" style={{ padding: 14 }}>
-            <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--ink-dim)', lineHeight: 1.5 }}>Add your FPL Team ID to see every season you’ve played, your best rank and this season so far.</p>
+            <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--ink-dim)', lineHeight: 1.5 }}>{t('Add your FPL Team ID to see every season you’ve played, your best rank and this season so far.')}</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="fpl-input" style={{ flex: 1, minWidth: 0 }} inputMode="numeric" placeholder="e.g. 1234567" aria-label="FPL Team ID" value={typed} onChange={e => setTyped(parseTeamId(e.target.value))} />
-              <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!typed}>Show</button>
+              <input className="fpl-input" style={{ flex: 1, minWidth: 0 }} inputMode="numeric" placeholder={t('e.g. 1234567')} aria-label={t('FPL Team ID')} value={typed} onChange={e => setTyped(parseTeamId(e.target.value))} />
+              <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!typed}>{t('Show')}</button>
             </div>
           </form>
         )}
@@ -225,25 +242,25 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
           </div>
         )}
         {career.status === 'error' && (
-          <div className="fpl-block" role="alert" style={{ padding: 14, fontSize: '0.85rem' }}>Couldn’t load that team from FPL just now. Check the Team ID, or try again in a minute.</div>
+          <div className="fpl-block" role="alert" style={{ padding: 14, fontSize: '0.85rem' }}>{t('Couldn’t load that team from FPL just now. Check the Team ID, or try again in a minute.')}</div>
         )}
 
         {c && (
           <>
             {c.teamName && <div className="fpl-mono fpl-profile-team-name">{c.teamName}</div>}
             <div className="fpl-profile-stats">
-              <StatTile label="SEASONS" value={fmtInt(c.seasons)} sub={c.top10kFinishes ? `${c.top10kFinishes} top-10k finish${c.top10kFinishes > 1 ? 'es' : ''}` : null} />
-              <StatTile label="BEST FINISH" value={c.bestRank ? fmtInt(c.bestRank) : '–'} sub={c.bestRank ? 'overall rank' : 'no finished season yet'} />
-              <StatTile label="BEST SEASON" value={c.bestSeason ? `${fmtInt(c.bestSeason.points)} pts` : '–'} sub={c.bestSeason ? c.bestSeason.season : null} />
-              <StatTile label="AVG SEASON" value={c.averageSeasonPoints ? `${fmtInt(c.averageSeasonPoints)} pts` : '–'} />
+              <StatTile label={t('Seasons')} value={fmtInt(c.seasons)} sub={c.top10kFinishes ? (c.top10kFinishes > 1 ? t('{n} top-10k finishes', { n: c.top10kFinishes }) : t('1 top-10k finish')) : null} />
+              <StatTile label={t('Best finish')} value={c.bestRank ? fmtInt(c.bestRank) : '–'} sub={c.bestRank ? t('overall rank') : t('no finished season yet')} />
+              <StatTile label={t('Best season')} value={c.bestSeason ? t('{n} pts', { n: fmtInt(c.bestSeason.points) }) : '–'} sub={c.bestSeason ? c.bestSeason.season : null} />
+              <StatTile label={t('Avg season')} value={c.averageSeasonPoints ? t('{n} pts', { n: fmtInt(c.averageSeasonPoints) }) : '–'} />
               {c.thisSeason && (
                 <>
-                  <StatTile label="THIS SEASON" value={`${fmtInt(c.thisSeason.points)} pts`} sub={`${c.thisSeason.gameweeks} GWs · avg ${c.thisSeason.averageGw}`} />
-                  <StatTile label="OVERALL RANK" value={fmtInt(c.thisSeason.overallRank)} />
-                  <StatTile label="BEST GAMEWEEK" value={`${c.thisSeason.bestGw.points} pts`} sub={`GW${c.thisSeason.bestGw.gw}`} />
-                  <StatTile label="TRANSFERS" value={fmtInt(c.thisSeason.transfers)} sub={c.thisSeason.hitPoints ? `−${c.thisSeason.hitPoints} pts in hits` : 'no hits taken'} />
-                  <StatTile label="BENCH POINTS" value={fmtInt(c.thisSeason.benchPoints)} sub="left on the bench" />
-                  <StatTile label="TEAM VALUE" value={fmtMoney(c.thisSeason.value)} sub={c.thisSeason.bank !== null ? `${fmtMoney(c.thisSeason.bank)} in the bank` : null} />
+                  <StatTile label={t('This season')} value={t('{n} pts', { n: fmtInt(c.thisSeason.points) })} sub={t('{n} GWs · avg {avg}', { n: c.thisSeason.gameweeks, avg: c.thisSeason.averageGw })} />
+                  <StatTile label={t('Overall rank')} value={fmtInt(c.thisSeason.overallRank)} />
+                  <StatTile label={t('Best gameweek')} value={t('{n} pts', { n: c.thisSeason.bestGw.points })} sub={`GW${c.thisSeason.bestGw.gw}`} />
+                  <StatTile label={t('Transfers')} value={fmtInt(c.thisSeason.transfers)} sub={c.thisSeason.hitPoints ? t('−{n} pts in hits', { n: c.thisSeason.hitPoints }) : t('no hits taken')} />
+                  <StatTile label={t('Bench points')} value={fmtInt(c.thisSeason.benchPoints)} sub={t('left on the bench')} />
+                  <StatTile label={t('Team value')} value={fmtMoney(c.thisSeason.value)} sub={c.thisSeason.bank !== null ? t('{money} in the bank', { money: fmtMoney(c.thisSeason.bank) }) : null} />
                 </>
               )}
             </div>
@@ -251,14 +268,14 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
             <RankChart rows={c.gwHistory || []} />
 
             {c.chips.length > 0 && (
-              <div className="fpl-profile-chips" aria-label="Chips played this season">
+              <div className="fpl-profile-chips" aria-label={t('Chips played this season')}>
                 {c.chips.map(chip => <span key={`${chip.name}-${chip.gw}`} className="fpl-profile-chip">{chip.name} <span className="fpl-mono">GW{chip.gw}</span></span>)}
               </div>
             )}
 
             {c.past.length > 0 && (
               <div className="fpl-block fpl-profile-seasons">
-                <div className="fpl-mono fpl-profile-seasons-head"><span>SEASON</span><span>POINTS</span><span>RANK</span></div>
+                <div className="fpl-mono fpl-profile-seasons-head"><span>{t('Season')}</span><span>{t('Points')}</span><span>{t('Rank')}</span></div>
                 {c.past.map(s => (
                   <div key={s.season} className="fpl-profile-season">
                     <span>{s.season}</span>
@@ -273,35 +290,36 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
       </section>
 
       <section aria-labelledby="settings-title" className="fpl-profile-section fpl-profile-settings">
-        <h2 id="settings-title" className="fpl-display fpl-profile-h2">Settings</h2>
+        <h2 id="settings-title" className="fpl-display fpl-profile-h2">{t('Settings')}</h2>
         <div className="fpl-block fpl-profile-rows">
-          <SettingRow icon={Bookmark} title="Saved teams" detail={`${savedTeams.length} saved`} onAction={onMyTeams} />
+          <SettingRow icon={Bookmark} title={t('Saved teams')} detail={t('{n} saved', { n: savedTeams.length })} onAction={onMyTeams} />
           <SettingRow
             icon={Mail}
-            title="Email"
-            detail={session.email ? `${session.email}${session.emailVerified ? '' : ' · not confirmed'}` : 'None: needed for password resets and deadline emails'}
-            action={session.email ? 'Change' : 'Add'}
+            title={t('Email')}
+            detail={session.email ? `${session.email}${session.emailVerified ? '' : ` · ${t('not confirmed')}`}` : t('None: needed for password resets and deadline emails')}
+            action={session.email ? t('Change') : t('Add')}
             onAction={() => onOpenDialog('email')}
           />
           {session.email && !session.emailVerified && (
-            <SettingRow icon={ShieldCheck} title="Confirm your email" detail="Enter the 6-digit code we emailed you" action="Enter code" onAction={() => onOpenDialog('verify')} />
+            <SettingRow icon={ShieldCheck} title={t('Confirm your email')} detail={t('Enter the 6-digit code we emailed you')} action={t('Enter code')} onAction={() => onOpenDialog('verify')} />
           )}
           {session.hasPassword
-            ? <SettingRow icon={KeyRound} title="Password" detail="Change it; other devices are signed out" action="Change" onAction={() => onOpenDialog('password')} />
-            : <SettingRow icon={KeyRound} title="Backup login" detail="Add a username and password, in case you can’t use Google" action="Add" onAction={() => onOpenDialog('backup')} />}
+            ? <SettingRow icon={KeyRound} title={t('Password')} detail={t('Change it; other devices are signed out')} action={t('Change')} onAction={() => onOpenDialog('password')} />
+            : <SettingRow icon={KeyRound} title={t('Backup login')} detail={t('Add a username and password, in case you can’t use Google')} action={t('Add')} onAction={() => onOpenDialog('backup')} />}
           {googleEnabled && (
             session.google
-              ? <SettingRow icon={Link2} title="Google" detail="Connected: you can sign in with Google" />
-              : <SettingRow icon={Link2} title="Google" detail="Connect to sign in with one tap" action="Connect" href="/auth/google?link=1" />
+              ? <SettingRow icon={Link2} title="Google" detail={t('Connected: you can sign in with Google')} />
+              : <SettingRow icon={Link2} title="Google" detail={t('Connect to sign in with one tap')} action={t('Connect')} href="/auth/google?link=1" />
           )}
-          <SettingRow icon={Bell} title="Deadline emails" detail={session.digestTeamId ? `On for team ${session.digestTeamId}` : 'Off: turn on from your team’s page'} onAction={onMyTeams} />
-          <SettingRow icon={MessageSquare} title="Send feedback" detail="Report a problem or suggest something" onAction={() => onOpenDialog('feedback')} />
-          <SettingRow icon={FileText} title="Terms and privacy" href={TERMS_PATH} />
-          <SettingRow icon={LogOut} title="Log out" onAction={onLogout} />
+          <SettingRow icon={Bell} title={t('Deadline emails')} detail={session.digestTeamId ? t('On for team {id}', { id: session.digestTeamId }) : t('Off: turn on from your team’s page')} onAction={onMyTeams} />
+          <SettingRow icon={MessageSquare} title={t('Send feedback')} detail={t('Report a problem or suggest something')} onAction={() => onOpenDialog('feedback')} />
+          <LanguageRow />
+          <SettingRow icon={FileText} title={t('Terms and privacy')} href={TERMS_PATH} />
+          <SettingRow icon={LogOut} title={t('Log out')} onAction={onLogout} />
         </div>
 
         <div className="fpl-block fpl-profile-rows" style={{ marginTop: 14 }}>
-          <SettingRow icon={Trash2} title="Delete account" detail="Removes your account and saved teams for good" danger onAction={() => onOpenDialog('delete')} />
+          <SettingRow icon={Trash2} title={t('Delete account')} detail={t('Removes your account and saved teams for good')} danger onAction={() => onOpenDialog('delete')} />
         </div>
       </section>
     </div>

@@ -25,6 +25,7 @@ import { TeamIdForm } from './screens/IntroScreen.jsx';
 import { AdminScreen, AuthDialog, CompareScreen, CustomSquadBuilder, ExploreScreen, FixturesScreen, GwRecap, HindsightScreen, LiveScreen, MiniLeagueScreen, MyTeamsScreen, ProfileScreen, ResultsScreen, ReviewScreen, ScreenshotForm, WelcomeScreen } from './screens/lazyScreens.js';
 import { TermsDialog } from './components/TermsDialog.jsx';
 import { track } from './lib/track.js';
+import { t } from './lib/i18n.js';
 import { parseTeamId } from './lib/teamIdInput.js';
 import { ALL_CHUNKS, loadCustomSquadBuilder, loadHindsightScreen, loadResultsScreen, preload } from './lib/chunks.js';
 import { MAX_COMPARE, RESTORABLE_VIEWS, readCompareIds, readInApp, readTeamParam, readTermsAccepted, readViewParam, writeCompareIds, writeInApp, writeParams, writeTermsAccepted } from './lib/appStorage.js';
@@ -131,7 +132,7 @@ export default function FPLSquadChecker() {
       return;
     }
     const ticket = newTicket();
-    showLoading(ticket, 'Loading your saved squad…');
+    showLoading(ticket, t('Loading your saved squad…'));
     loadResultsScreen();
     try {
       const staticData = await ensureStaticData();
@@ -142,7 +143,7 @@ export default function FPLSquadChecker() {
       // it if an earlier one is selected.
       finalizeResults(ticket, hydrated.squad, staticData, hydrated.bankTenths, { teamName: entry.label, gwId: currentGwId(staticData) }, null, false, { gwId: currentGwId(staticData) });
     } catch {
-      showError(ticket, "Couldn't load that saved squad — try again in a moment.");
+      showError(ticket, t("Couldn't load that saved squad. Try again in a moment."));
     }
   }
 
@@ -189,7 +190,7 @@ export default function FPLSquadChecker() {
 
   async function handleStartCustomBuild() {
     const ticket = newTicket();
-    showLoading(ticket, 'Loading live player data…');
+    showLoading(ticket, t('Loading live player data…'));
     loadCustomSquadBuilder();
     try {
       const staticData = await ensureStaticData();
@@ -198,21 +199,21 @@ export default function FPLSquadChecker() {
       showStage(ticket, 'customBuild');
       loadResultsScreen(); // next, once the squad is picked
     } catch {
-      showError(ticket, "Couldn't load live FPL player data right now. Please try again in a moment.");
+      showError(ticket, t("Couldn't load live FPL player data right now. Please try again in a moment."));
     }
   }
 
   function handleCustomSquadSubmit(squad, bankTenths) {
     const ticket = newTicket();
-    if (!customStaticData) { showError(ticket, 'Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
+    if (!customStaticData) { showError(ticket, `${t('Something went wrong. Please start over.')} [ERR_NO_STATIC_DATA]`); return; }
     const gwId = currentGwId(customStaticData);
-    finalizeResults(ticket, squad, customStaticData, bankTenths, { teamName: 'My Squad', gwId }, null, false, { gwId });
+    finalizeResults(ticket, squad, customStaticData, bankTenths, { teamName: t('My Squad'), gwId }, null, false, { gwId });
   }
 
   async function loadOptimalSquadForGw(gwId) {
     track('best_squad');
     const ticket = newTicket();
-    showLoading(ticket, `Testing lineups within £${SQUAD_BUDGET.toFixed(1)}m…`);
+    showLoading(ticket, t('Testing lineups within £{budget}m…', { budget: SQUAD_BUDGET.toFixed(1) }));
     loadResultsScreen();
     try {
       const staticData = await ensureStaticData();
@@ -245,7 +246,7 @@ export default function FPLSquadChecker() {
 
         const hydrated = hydrateFrozenSquadSnapshot(snap, staticData, liveById);
         if (!hydrated) throw new Error('could not hydrate frozen snapshot');
-        finalizeResults(ticket, hydrated.squad, staticData, hydrated.bankTenths, { teamName: 'Optimal Squad' }, null, true, {
+        finalizeResults(ticket, hydrated.squad, staticData, hydrated.bankTenths, { teamName: t('Optimal Squad') }, null, true, {
           isPastGw: true, builtAt: snap.builtAt, gwId: resolvedGwId, backfilled: !!snap.backfilled,
         });
         return;
@@ -313,17 +314,17 @@ export default function FPLSquadChecker() {
       // which looks like a broken countdown even though nothing's wrong.
       const nextRefreshAt = getNextDailyRefreshUTC(DAILY_REFRESH_HOUR_UTC);
 
-      finalizeResults(ticket, squad, staticData, bankTenths, { teamName: 'Optimal Squad' }, null, true, {
+      finalizeResults(ticket, squad, staticData, bankTenths, { teamName: t('Optimal Squad') }, null, true, {
         isPastGw: false, builtAt, nextRefreshAt, gwId: resolvedGwId,
       });
     } catch {
-      showError(ticket, "Couldn't build a squad right now — FPL's data might be temporarily unavailable. Please try again.");
+      showError(ticket, t("Couldn't build a squad right now. FPL's data might be temporarily unavailable. Please try again."));
     }
   }
 
   async function handleViewHindsight() {
     const ticket = newTicket();
-    showLoading(ticket, 'Working out what would have scored best…');
+    showLoading(ticket, t('Working out what would have scored best…'));
     loadHindsightScreen();
     setHindsightCompare(null);
     try {
@@ -373,7 +374,7 @@ export default function FPLSquadChecker() {
       });
       showStage(ticket, 'hindsight');
     } catch {
-      showError(ticket, "Couldn't work out the best XI right now — FPL's data might be temporarily unavailable. Please try again.");
+      showError(ticket, t("Couldn't work out the best XI right now. FPL's data might be temporarily unavailable. Please try again."));
     }
   }
 
@@ -400,12 +401,12 @@ export default function FPLSquadChecker() {
           const notReady = e && e.message === 'status 404';
           show({
             loading: false, entry, label: entry.label,
-            error: notReady ? `This team didn't exist yet in ${hindsightData.gwName} — nothing to compare.` : "Couldn't fetch that team's picks for this gameweek right now.",
+            error: notReady ? t("This team didn't exist yet in {gw}, so there's nothing to compare.", { gw: hindsightData.gwName }) : t("Couldn't fetch that team's picks for this gameweek right now."),
           });
           return;
         }
         if (!picks || picks.detail === 'Not found.' || !Array.isArray(picks.picks) || picks.picks.length === 0) {
-          show({ loading: false, entry, label: entry.label, error: "Couldn't find picks for that team in this gameweek." });
+          show({ loading: false, entry, label: entry.label, error: t("Couldn't find picks for that team in this gameweek.") });
           return;
         }
         const rawSquad = picks.picks.map(pk => {
@@ -438,12 +439,12 @@ export default function FPLSquadChecker() {
         entry.squad.playerIds, entry.squad.captainId, entry.squad.viceCaptainId, liveById, staticData.playersById
       );
       if (!result) {
-        show({ loading: false, entry, label: entry.label, error: "Couldn't match this saved squad's players to current data." });
+        show({ loading: false, entry, label: entry.label, error: t("Couldn't match this saved squad's players to current data.") });
         return;
       }
       show({ loading: false, entry, label: entry.label, squad: result.squad, score: result.totalScore });
     } catch {
-      show({ loading: false, entry, label: entry.label, error: 'Something went wrong loading that comparison.' });
+      show({ loading: false, entry, label: entry.label, error: t('Something went wrong loading that comparison.') });
     }
   }
 
@@ -454,10 +455,10 @@ export default function FPLSquadChecker() {
     const teamId = parseTeamId(rawId);
     if (!gwOverride && teamId) track('team_check');
     if (!/^\d+$/.test(teamId)) {
-      showError(ticket, 'Enter a numeric Team ID — just the number from your FPL URL.');
+      showError(ticket, t('Enter a numeric Team ID: just the number from your FPL URL.'));
       return;
     }
-    showLoading(ticket, 'Pulling live player data…');
+    showLoading(ticket, t('Pulling live player data…'));
     loadResultsScreen();
     try {
       let staticData;
@@ -467,7 +468,7 @@ export default function FPLSquadChecker() {
         throw { code: 'ERR_STATIC_DATA' };
       }
       if (!isCurrent(ticket)) return;
-      showLoading(ticket, 'Fetching your team…');
+      showLoading(ticket, t('Fetching your team…'));
       const gwId = gwOverride || selectedGw || currentGwId(staticData);
       const team = await loadTeamForGw(teamId, gwId, staticData, {
         isStale: () => !isCurrent(ticket),
@@ -481,7 +482,7 @@ export default function FPLSquadChecker() {
     } catch (e) {
       const code = (e && e.code) || 'ERR_UNKNOWN';
       const action = code === 'ERR_TEAM_NOT_STARTED' ? {
-        label: `Show Gameweek ${e.startedEvent}`,
+        label: t('Show Gameweek {gw}', { gw: e.startedEvent }),
         run: () => { setSelectedGw(e.startedEvent); handleTeamIdSubmit(teamId, e.startedEvent); },
       } : null;
       showError(ticket, `${teamErrorMessage(e)} [${code}]`, action);
@@ -530,32 +531,32 @@ export default function FPLSquadChecker() {
     const ticket = newTicket();
     track('screenshot_check');
     setReviewShotImg(shot.img);
-    showLoading(ticket, 'Loading player data…');
+    showLoading(ticket, t('Loading player data…'));
     let staticData;
     try {
       staticData = await ensureStaticData();
     } catch {
-      showError(ticket, "Couldn't load live FPL player data right now. Try again in a moment. [ERR_STATIC_DATA]");
+      showError(ticket, `${t("Couldn't load live FPL player data right now. Try again in a moment.")} [ERR_STATIC_DATA]`);
       return;
     }
     if (!isCurrent(ticket)) return;
     let extracted;
     try {
-      showLoading(ticket, 'Reading your screenshot…');
+      showLoading(ticket, t('Reading your screenshot…'));
       const { readSquadFromScreenshot } = await import('./lib/screenshotOcr.js');
       extracted = await readSquadFromScreenshot(shot.img, staticData.allPlayers, p => {
-        showLoading(ticket, `Reading your screenshot… ${Math.round(p * 100)}%`);
+        showLoading(ticket, t('Reading your screenshot… {pct}%', { pct: Math.round(p * 100) }));
       }, { teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam });
     } catch (e) {
-      showError(ticket, `Couldn't read that screenshot (${(e && e.message) || 'OCR failed'}). Try again, or enter your Team ID instead. [ERR_OCR]`);
+      showError(ticket, `${t("Couldn't read that screenshot ({reason}). Try again, or enter your Team ID instead.", { reason: (e && e.message) || 'OCR failed' })} [ERR_OCR]`);
       return;
     }
     if (!isCurrent(ticket)) return;
     if (extracted.not_fpl_screenshot) {
-      showError(ticket, "We couldn't find any FPL players in that image. Use a clear, uncropped screenshot of your Pick Team or Points page and try again. [ERR_NOT_FPL_SCREENSHOT]");
+      showError(ticket, `${t("We couldn't find any FPL players in that image. Use a clear, uncropped screenshot of your Pick Team or Points page and try again.")} [ERR_NOT_FPL_SCREENSHOT]`);
       return;
     }
-    showLoading(ticket, 'Matching players…');
+    showLoading(ticket, t('Matching players…'));
     setReviewSlots(matchExtractedSquad(extracted, staticData.playersByPosition, staticData.allPlayers, staticData.teamsById));
     setReviewBank(typeof extracted.bank_millions === 'number' ? extracted.bank_millions : null);
     setPendingStaticData(staticData);
@@ -565,16 +566,16 @@ export default function FPLSquadChecker() {
 
   async function handleConfirmReview() {
     const ticket = newTicket();
-    if (!pendingStaticData) { showError(ticket, 'Something went wrong. Please start over. [ERR_NO_STATIC_DATA]'); return; }
+    if (!pendingStaticData) { showError(ticket, `${t('Something went wrong. Please start over.')} [ERR_NO_STATIC_DATA]`); return; }
 
     const matched = reviewSlots.filter(slot => slot.matched);
     if (matched.length < 11 || matched.length !== reviewSlots.length) {
-      showError(ticket, 'A few players are still unmatched. Go back and fix them. [ERR_UNMATCHED_PLAYERS]');
+      showError(ticket, `${t('A few players are still unmatched. Go back and fix them.')} [ERR_UNMATCHED_PLAYERS]`);
       return;
     }
     // The review screen won't let a broken squad through, but double-check.
     if (squadProblems(matched.map(s => s.matched), matched.filter(s => s.isStarting).map(s => s.matched)).length) {
-      showError(ticket, "That squad isn't a valid FPL squad yet. Go back and fix the highlighted problems. [ERR_INVALID_SQUAD]");
+      showError(ticket, `${t("That squad isn't a valid FPL squad yet. Go back and fix the highlighted problems.")} [ERR_INVALID_SQUAD]`);
       return;
     }
 
@@ -587,7 +588,7 @@ export default function FPLSquadChecker() {
       const isPastGwView = gwId < targetId;
 
       // A past gameweek is predicted from what was known before its deadline.
-      if (isPastGwView) showLoading(ticket, 'Rebuilding player data from before that deadline…');
+      if (isPastGwView) showLoading(ticket, t('Rebuilding player data from before that deadline…'));
       const [gwStatic, liveById] = await Promise.all([
         isPastGwView ? staticDataForGw(gwId) : Promise.resolve(staticData),
         isPastGwView ? liveForGw(gwId, isGwFinished(staticData, gwId)) : Promise.resolve({}),
@@ -602,7 +603,7 @@ export default function FPLSquadChecker() {
       const bankTenths = reviewBank != null && !Number.isNaN(reviewBank) ? Math.max(0, Math.round(reviewBank * 10)) : 0;
       finalizeResults(ticket, ensureCaptaincy(squad), gwStatic, bankTenths, { gwId }, null, false, { isPastGw: isPastGwView, gwId });
     } catch {
-      showError(ticket, "Couldn't load live FPL player data right now. Try again in a moment. [ERR_STATIC_DATA]");
+      showError(ticket, `${t("Couldn't load live FPL player data right now. Try again in a moment.")} [ERR_STATIC_DATA]`);
     }
   }
 
@@ -678,25 +679,25 @@ export default function FPLSquadChecker() {
   const { recap, openRecap, closeRecap, loadRecapLeague } = useRecap({ stage, homeTeamId: homeTeam.teamId, fpl });
 
   const navItems = [
-    { id: 'home', label: 'Home', desc: 'Your gameweek and the fixture ticker', group: 'Your team', Icon: House, footer: true, run: () => setStage('home') },
+    { id: 'home', label: t('Home'), desc: t('Your gameweek and the fixture ticker'), group: t('Your team'), Icon: House, footer: true, run: () => setStage('home') },
     {
-      id: 'team', label: 'My team', desc: 'Every player in your squad, predicted', group: 'Your team', Icon: Shirt, footer: true,
+      id: 'team', label: t('My team'), desc: t('Every player in your squad, predicted'), group: t('Your team'), Icon: Shirt, footer: true,
       run: () => (homeTeam.teamId ? handleTeamIdSubmit(homeTeam.teamId) : setStage('teamIdForm')),
     },
-    { id: 'league', label: 'Mini-league', desc: 'Your leagues, every team predicted', group: 'Your team', Icon: Users, run: () => setStage('league') },
-    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'live', label: 'Live', desc: 'Your points and every match, as it happens', group: 'Your team', Icon: Radio, run: () => setStage('live') }] : []),
-    { id: 'screenshot', label: 'Screenshot', desc: 'Read a squad from a screenshot', group: 'Your team', Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
-    { id: 'best', label: 'Best squad', desc: 'The top-predicted 15 for £100m', group: 'Tools', Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
-    { id: 'build', label: 'Build a squad', desc: 'Pick your own and preview chips', group: 'Tools', Icon: Wand2, run: handleStartCustomBuild },
-    { id: 'fixtures', label: 'Fixtures', desc: 'Every club\'s next 8 gameweeks', group: 'Tools', Icon: CalendarRange, run: () => setStage('fixtures') },
-    { id: 'compare', label: 'Compare players', desc: 'Up to 3 players side by side', group: 'Tools', Icon: GitCompareArrows, run: () => setStage('compare') },
-    { id: 'explore', label: 'Explore', desc: 'Search players, price moves and chip timing', group: 'Tools', Icon: Compass, run: () => setStage('explore') },
-    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: 'Look back', desc: 'Past gameweeks against the best XI', group: 'Tools', Icon: History, run: handleViewHindsight }] : []),
-    { id: 'saved', label: 'Saved teams', desc: 'Team IDs and squads on your account', group: 'Tools', Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
-    { id: 'about', label: 'About this app', desc: 'What it does and how it predicts', group: 'App', Icon: Info, run: () => setStage('welcome') },
-    { id: 'feedback', label: 'Send feedback', desc: 'Report a problem or suggest something', group: 'App', Icon: MessageSquare, run: () => openAuthDialog('feedback') },
-    ...(session && session.admin ? [{ id: 'admin', label: 'Admin', desc: 'Model, data, reports and users', group: 'App', Icon: ShieldCheck, run: () => setStage('admin') }] : []),
-    ...(install ? [{ id: 'install', label: 'Install the app', desc: 'Open it full screen, like an app', group: 'App', Icon: Download, run: install }] : []),
+    { id: 'league', label: t('Mini-league'), desc: t('Your leagues, every team predicted'), group: t('Your team'), Icon: Users, run: () => setStage('league') },
+    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'live', label: t('Live'), desc: t('Your points and every match, as it happens'), group: t('Your team'), Icon: Radio, run: () => setStage('live') }] : []),
+    { id: 'screenshot', label: t('Screenshot'), desc: t('Read a squad from a screenshot'), group: t('Your team'), Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
+    { id: 'best', label: t('Best squad'), desc: t('The top-predicted 15 for £100m'), group: t('Tools'), Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
+    { id: 'build', label: t('Build a squad'), desc: t('Pick your own and preview chips'), group: t('Tools'), Icon: Wand2, run: handleStartCustomBuild },
+    { id: 'fixtures', label: t('Fixtures'), desc: t("Every club's next 8 gameweeks"), group: t('Tools'), Icon: CalendarRange, run: () => setStage('fixtures') },
+    { id: 'compare', label: t('Compare players'), desc: t('Up to 3 players side by side'), group: t('Tools'), Icon: GitCompareArrows, run: () => setStage('compare') },
+    { id: 'explore', label: t('Explore'), desc: t('Search players, price moves and chip timing'), group: t('Tools'), Icon: Compass, run: () => setStage('explore') },
+    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'lookback', label: t('Look back'), desc: t('Past gameweeks against the best XI'), group: t('Tools'), Icon: History, run: handleViewHindsight }] : []),
+    { id: 'saved', label: t('Saved teams'), desc: t('Team IDs and squads on your account'), group: t('Tools'), Icon: Bookmark, run: () => (session ? setStage('myTeams') : openAuthDialog('login')) },
+    { id: 'about', label: t('About this app'), desc: t('What it does and how it predicts'), group: t('App'), Icon: Info, run: () => setStage('welcome') },
+    { id: 'feedback', label: t('Send feedback'), desc: t('Report a problem or suggest something'), group: t('App'), Icon: MessageSquare, run: () => openAuthDialog('feedback') },
+    ...(session && session.admin ? [{ id: 'admin', label: t('Admin'), desc: t('Model, data, reports and users'), group: t('App'), Icon: ShieldCheck, run: () => setStage('admin') }] : []),
+    ...(install ? [{ id: 'install', label: t('Install the app'), desc: t('Open it full screen, like an app'), group: t('App'), Icon: Download, run: install }] : []),
   ];
   // After a reload, reopen the screen that was open (see readViewParam).
   useEffect(() => {
@@ -870,7 +871,7 @@ export default function FPLSquadChecker() {
                 onAddTeamId={() => setStage('home')}
               />
             )}
-            {(stage === 'fixtures' || stage === 'compare' || stage === 'explore' || stage === 'live') && !liveStatic && <LoadingScreen message="Loading fixtures and players…" />}
+            {(stage === 'fixtures' || stage === 'compare' || stage === 'explore' || stage === 'live') && !liveStatic && <LoadingScreen message={t('Loading fixtures and players…')} />}
             {stage === 'live' && liveStatic && liveGwIdFor(liveStatic) && (
               <LiveScreen
                 key={leagueWeekGw}
@@ -893,7 +894,7 @@ export default function FPLSquadChecker() {
             )}
             {stage === 'admin' && (session && session.admin
               ? <AdminScreen session={session} />
-              : <ErrorScreen message="This page is for admins only." retryLabel="Home" onRetry={() => setStage('home')} />)}
+              : <ErrorScreen message={t('This page is for admins only.')} retryLabel={t('Home')} onRetry={() => setStage('home')} />)}
             {stage === 'profile' && session && (
               <ProfileScreen
                 session={session}

@@ -8,6 +8,7 @@ import { liveTeamScore, projectedBonus, teamStates } from '../lib/live.js';
 import { computeOptimalXiTotal } from '../lib/squadLogic.js';
 import { readGwParam, readModelChoice, writeGwParam, writeModelChoice } from '../lib/appStorage.js';
 import { currentGwId, defaultGwId, isGwFinished } from '../lib/gameweeks.js';
+import { t } from '../lib/i18n.js';
 
 // How long live points for a gameweek that's still being played stay fresh.
 const LIVE_IN_PROGRESS_TTL_MS = 60_000;
@@ -15,12 +16,12 @@ const LIVE_IN_PROGRESS_TTL_MS = 60_000;
 // What went wrong loading a team, in words (codes thrown by loadTeamForGw).
 export function teamErrorMessage(e) {
   const messages = {
-    ERR_STATIC_DATA: "Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead.",
-    ERR_PICKS_FETCH: "FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead.",
-    ERR_GW_LOCKED: "FPL hasn't published any picks for this team yet (a new team's picks are hidden until its first deadline passes). Try again after the deadline, or upload a screenshot for now.",
-    ERR_TEAM_NOT_FOUND: "We couldn't find a team with that ID. Double-check the number in your FPL URL and try again.",
-    ERR_TEAM_NOT_STARTED: `This team started in Gameweek ${e && e.startedEvent}, so it has no squad for Gameweek ${e && e.gwId}.`,
-    ERR_UNKNOWN: 'Something went wrong pulling your team. Try again, or upload a screenshot instead.',
+    ERR_STATIC_DATA: t("Couldn't load live FPL player data right now. Try again in a moment, or upload a screenshot instead."),
+    ERR_PICKS_FETCH: t("FPL's servers aren't responding right now. Try again in a moment, or upload a screenshot instead."),
+    ERR_GW_LOCKED: t("FPL hasn't published any picks for this team yet (a new team's picks are hidden until its first deadline passes). Try again after the deadline, or upload a screenshot for now."),
+    ERR_TEAM_NOT_FOUND: t("We couldn't find a team with that ID. Double-check the number in your FPL URL and try again."),
+    ERR_TEAM_NOT_STARTED: t('This team started in Gameweek {start}, so it has no squad for Gameweek {gw}.', { start: e && e.startedEvent, gw: e && e.gwId }),
+    ERR_UNKNOWN: t('Something went wrong pulling your team. Try again, or upload a screenshot instead.'),
   };
   return messages[(e && e.code) || 'ERR_UNKNOWN'] || messages.ERR_UNKNOWN;
 }
@@ -284,7 +285,7 @@ export function useFplData({ admin = false } = {}) {
     }
 
     const entryMeta = { teamId: Number(teamId), gwId };
-    if (entry) entryMeta.teamName = entry.name || 'Your Squad';
+    if (entry) entryMeta.teamName = entry.name || t('Your Squad');
 
     // FPL hides a team's picks for a gameweek until its deadline passes.
     // Rather than give up, load the most recent gameweek we *can* see —
@@ -294,7 +295,7 @@ export function useFplData({ admin = false } = {}) {
     // exist yet, and borrowing a later squad there would be wrong.
     let picksGwId = gwId;
     if (!hasPicks(picks) && !isPastGwView && entry) {
-      onProgress("This gameweek's picks are hidden until the deadline — loading your latest team…");
+      onProgress(t("This gameweek's picks are hidden until the deadline. Loading your latest team…"));
       const earliest = entry.started_event || 1;
       let candidate = Math.min(gwId - 1, entry.current_event || gwId - 1);
       // A few steps is plenty: one for the hidden gameweek, one more to
@@ -318,7 +319,7 @@ export function useFplData({ admin = false } = {}) {
     const borrowed = picksGwId !== gwId;
     if (borrowed) entryMeta.picksFromGwId = picksGwId;
 
-    onProgress(isPastGwView ? 'Rebuilding player data from before that deadline…' : 'Checking fixtures and working out predictions…');
+    onProgress(isPastGwView ? t('Rebuilding player data from before that deadline…') : t('Checking fixtures and working out predictions…'));
     const [gwStatic, liveById, weekFixtures] = await Promise.all([gwStaticPromise, livePromise, fixturesPromise]);
     if (isStale()) return null;
 

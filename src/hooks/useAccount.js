@@ -5,6 +5,8 @@ import { preload, welcomeChunk } from '../lib/chunks.js';
 import { writeTermsAccepted } from '../lib/appStorage.js';
 import { squadSnapshot } from '../lib/savedSquads.js';
 import { track } from '../lib/track.js';
+import { t } from '../lib/i18n.js';
+import { serverMessage } from '../lib/serverMessages.js';
 
 // Wraps fetch + JSON parsing consistently for every /api/auth and
 // /api/teams call: distinguishes a genuine network failure (fetch itself
@@ -17,15 +19,15 @@ async function fetchJson(url, options) {
   try {
     res = await fetch(url, options);
   } catch {
-    return { ok: false, status: null, data: null, error: 'Network error — please try again.' };
+    return { ok: false, status: null, data: null, error: t('Network error. Please try again.') };
   }
   let data;
   try {
     data = await res.json();
   } catch {
-    return { ok: false, status: res.status, data: null, error: `Server error (status ${res.status}) — please try again in a moment.` };
+    return { ok: false, status: res.status, data: null, error: t('Server error (status {status}). Please try again in a moment.', { status: res.status }) };
   }
-  return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data.error || 'Something went wrong.') };
+  return { ok: res.ok, status: res.status, data, error: res.ok ? null : (data.error ? serverMessage(data.error) : t('Something went wrong.')) };
 }
 
 export const postJson = (url, body, method = 'POST') => fetchJson(url, {
@@ -131,7 +133,7 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
     if (result.status === 401) {
       setSession(null);
       setSavedTeams([]);
-      return { ok: false, error: 'Your session has ended. Log in again to save.' };
+      return { ok: false, error: t('Your session has ended. Log in again to save.') };
     }
     return { ok: false, error: result.error };
   }
@@ -169,16 +171,16 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
   // username and password as a backup; anything that didn't work says why.
   function afterGoogle(outcome, loggedIn) {
     const problems = {
-      terms: ['register', 'Tick the box to agree to the Terms, then sign up with Google again.'],
-      cancelled: ['login', 'Google sign-in was cancelled.'],
-      error: ['login', 'Google sign-in didn’t work. Please try again.'],
-      unavailable: ['login', 'Google sign-in isn’t available right now. Use a username and password instead.'],
-      limit: ['login', 'Too many new accounts from this network. Please try again later.'],
+      terms: ['register', t('Tick the box to agree to the Terms, then sign up with Google again.')],
+      cancelled: ['login', t('Google sign-in was cancelled.')],
+      error: ['login', t('Google sign-in didn’t work. Please try again.')],
+      unavailable: ['login', t('Google sign-in isn’t available right now. Use a username and password instead.')],
+      limit: ['login', t('Too many new accounts from this network. Please try again later.')],
     };
     if (outcome === 'new' && loggedIn) { writeTermsAccepted(); setStageRaw('home'); openAuthDialog('backup'); return; }
     if (outcome === 'signed_in' && loggedIn) { setStageRaw(s => (s === 'welcome' || s === 'boot' ? 'home' : s)); return; }
-    if (outcome === 'linked' && loggedIn) { setProfileNotice('Google connected: you can now sign in with Google.'); setStageRaw('profile'); return; }
-    if (outcome === 'in_use' && loggedIn) { setProfileNotice('That Google account is already linked to a different FPL Checker account.'); setStageRaw('profile'); return; }
+    if (outcome === 'linked' && loggedIn) { setProfileNotice(t('Google connected: you can now sign in with Google.')); setStageRaw('profile'); return; }
+    if (outcome === 'in_use' && loggedIn) { setProfileNotice(t('That Google account is already linked to a different FPL Checker account.')); setStageRaw('profile'); return; }
     const problem = problems[outcome];
     if (problem && !loggedIn) openAuthDialog(problem[0], problem[1]);
   }

@@ -6,6 +6,7 @@ import { PlayerSearchPicker } from '../components/common.jsx';
 import { POSITION_LABELS, fmtPrice } from '../lib/format.js';
 import { squadProblems } from '../lib/squadLogic.js';
 import { mightBeImage } from '../lib/imageFile.js';
+import { t } from '../lib/i18n.js';
 
 const isHeic = file => /heic|heif/i.test(`${file.type} ${file.name || ''}`);
 
@@ -43,8 +44,8 @@ export async function loadImageFromFile(file) {
     return { img: await imageFromUrl(pngUrl), url: pngUrl };
   } catch {
     throw new Error(isHeic(file)
-      ? 'This browser can\'t open HEIC photos. Take a screenshot instead (screenshots are PNG), or share the picture as a JPEG.'
-      : 'Couldn\'t open that image. Try a screenshot (PNG or JPEG) of your team.');
+      ? t('This browser can’t open HEIC photos. Take a screenshot instead (screenshots are PNG), or share the picture as a JPEG.')
+      : t('Couldn’t open that image. Try a screenshot (PNG or JPEG) of your team.'));
   }
 }
 
@@ -64,12 +65,12 @@ export function ScreenshotForm({ onSubmit, onBack }) {
 
   async function acceptFile(file) {
     if (!file) return;
-    if (!mightBeImage(file)) { setError('That isn\'t an image. Pick a screenshot (PNG or JPEG).'); return; }
+    if (!mightBeImage(file)) { setError(t('That isn’t an image. Pick a screenshot (PNG or JPEG).')); return; }
     setError('');
     try {
       setShot(await prepareScreenshot(file));
     } catch (e) {
-      setError(e.message || "Couldn't load that image.");
+      setError(e.message || t('Couldn’t load that image.'));
     }
   }
 
@@ -106,11 +107,11 @@ export function ScreenshotForm({ onSubmit, onBack }) {
   return (
     <div className="fpl-screen">
       <button onClick={onBack} className="fpl-mono fpl-back-btn">
-        <ChevronLeft size={14} /> BACK
+        <ChevronLeft size={14} /> {t('BACK')}
       </button>
-      <h1 className="fpl-display fpl-screen-title">Upload a screenshot</h1>
+      <h1 className="fpl-display fpl-screen-title">{t('Upload a screenshot')}</h1>
       <p style={{ color: 'var(--ink-dim)', fontSize: '0.85rem', marginBottom: 14, lineHeight: 1.5 }}>
-        Screenshot your Pick Team or Points page in the FPL app (Pitch View or List View). Your screenshot is read on this device — it's never uploaded — then every player is matched to live FPL data and priced.
+        {t('Screenshot your Pick Team or Points page in the FPL app (Pitch View or List View). Your screenshot is read on this device — it’s never uploaded — then every player is matched to live FPL data and priced.')}
       </p>
 
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { acceptFile(e.target.files && e.target.files[0]); e.target.value = ''; }} />
@@ -125,21 +126,21 @@ export function ScreenshotForm({ onSubmit, onBack }) {
           const file = e.dataTransfer.files && e.dataTransfer.files[0];
           // An image dragged straight from another web page arrives as a
           // link, which the site it's on won't let us download.
-          if (!file) { setError('Save the image first, then choose it here (or copy it and paste with Ctrl/Cmd+V).'); return; }
+          if (!file) { setError(t('Save the image first, then choose it here (or copy it and paste with Ctrl/Cmd+V).')); return; }
           acceptFile(file);
         }}
         style={{ width: '100%', padding: shot ? 8 : 28, marginBottom: 14, cursor: 'pointer', color: 'var(--ink)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, borderStyle: 'dashed', borderWidth: 2, borderColor: dragging ? 'var(--blue)' : 'var(--line)' }}
       >
         {shot ? (
           <>
-            <img src={shot.previewUrl} alt="Your squad screenshot" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
-            <span className="fpl-mono fpl-meta">Tap to choose a different screenshot</span>
+            <img src={shot.previewUrl} alt={t('Your squad screenshot')} style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4 }} />
+            <span className="fpl-mono fpl-meta">{t('Tap to choose a different screenshot')}</span>
           </>
         ) : (
           <>
             <Camera size={28} />
-            <span className="fpl-display" style={{ fontWeight: 600 }}>Choose a screenshot</span>
-            <span className="fpl-mono fpl-meta">or drag it here, or paste it with Ctrl/Cmd+V</span>
+            <span className="fpl-display" style={{ fontWeight: 600 }}>{t('Choose a screenshot')}</span>
+            <span className="fpl-mono fpl-meta">{t('or drag it here, or paste it with Ctrl/Cmd+V')}</span>
           </>
         )}
       </button>
@@ -152,7 +153,7 @@ export function ScreenshotForm({ onSubmit, onBack }) {
         disabled={!shot}
         onClick={() => onSubmit(shot)}
       >
-        Read my squad <ArrowRight size={16} />
+        {t('Read my squad')} <ArrowRight size={16} />
       </button>
     </div>
   );
@@ -172,15 +173,15 @@ export function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCap
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: '0.68rem', color: 'var(--ink-dim)', fontFamily: "'IBM Plex Mono',monospace" }}>
-            READ AS "{slot.extractedName}"
+            {t('Read as “{name}”', { name: slot.extractedName }).toUpperCase()}
           </div>
           <div className="fpl-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-            {slot.matched ? slot.matched.webName : <span style={{ color: 'var(--amber)' }}>Not matched</span>}
+            {slot.matched ? slot.matched.webName : <span style={{ color: 'var(--amber)' }}>{t('Not matched')}</span>}
           </div>
           {slot.matched && (
             <div className="fpl-row-sub">
               {POSITION_LABELS[slot.matched.positionId]} · {teamsById[slot.matched.team] ? teamsById[slot.matched.team].short_name : '—'} · {fmtPrice(slot.matched.price)}
-              {slot.extractedPrice != null && Math.abs(slot.extractedPrice - slot.matched.price) >= 0.05 && ` (screenshot ${fmtPrice(slot.extractedPrice)})`}
+              {slot.extractedPrice != null && Math.abs(slot.extractedPrice - slot.matched.price) >= 0.05 && ` (${t('screenshot {price}', { price: fmtPrice(slot.extractedPrice) })})`}
             </div>
           )}
         </div>
@@ -204,7 +205,7 @@ export function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCap
             disabled={!canArmband}
             onChange={() => onSetCaptain(index)}
           />
-          Captain
+          {t('Captain')}
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: canArmband ? 'var(--ink)' : 'var(--ink-dim)', cursor: canArmband ? 'pointer' : 'not-allowed' }}>
           <input
@@ -213,25 +214,25 @@ export function ReviewSlot({ slot, index, onFix, allPlayers, teamsById, onSetCap
             disabled={!canArmband}
             onChange={() => onSetViceCaptain(index)}
           />
-          Vice-captain
+          {t('Vice-captain')}
         </label>
-        <button type="button" className="fpl-chip-btn" style={{ marginLeft: 'auto' }} onClick={() => onToggleStarting(index)}>
-          {slot.isStarting ? 'Starting XI · move to bench' : 'Bench · move to XI'}
+        <button type="button" className="fpl-chip-btn" style={{ marginInlineStart: 'auto' }} onClick={() => onToggleStarting(index)}>
+          {slot.isStarting ? t('Starting XI · move to bench') : t('Bench · move to XI')}
         </button>
       </div>
 
       {slot.top && slot.top.length > 0 && needsReview && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-          {slot.top.filter(t => t.score > 0.15).map((t, i) => (
-            <button key={i} className={`fpl-chip-btn ${slot.matched && slot.matched.id === t.player.id ? 'active' : ''}`} onClick={() => onFix(index, t.player)}>
-              {t.player.webName}
+          {slot.top.filter(c => c.score > 0.15).map((c, i) => (
+            <button key={i} className={`fpl-chip-btn ${slot.matched && slot.matched.id === c.player.id ? 'active' : ''}`} onClick={() => onFix(index, c.player)}>
+              {c.player.webName}
             </button>
           ))}
-          <button className="fpl-chip-btn" onClick={() => setShowSearch(s => !s)}>Search…</button>
+          <button className="fpl-chip-btn" onClick={() => setShowSearch(s => !s)}>{t('Search…')}</button>
         </div>
       )}
       {!needsReview && (
-        <button className="fpl-chip-btn" style={{ marginTop: 8 }} onClick={() => setShowSearch(s => !s)}>Not right? Fix it</button>
+        <button className="fpl-chip-btn" style={{ marginTop: 8 }} onClick={() => setShowSearch(s => !s)}>{t('Not right? Fix it')}</button>
       )}
       {showSearch && <PlayerSearchPicker allPlayers={allPlayers} excludeIds={excludeIds} onPick={p => { onFix(index, p); setShowSearch(false); }} />}
     </div>
@@ -251,19 +252,19 @@ export function SquadPriceSummary({ slots, bank, onBankChange }) {
   const row = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '4px 0' };
   return (
     <div className="fpl-block" style={{ padding: 12, marginBottom: 14 }}>
-      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.03em' }}>SQUAD PRICES</div>
+      <div className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.03em', textTransform: 'uppercase' }}>{t('Squad prices')}</div>
       <div style={row}>
-        <span className="fpl-dim">{matched.length} matched players at current prices</span>
+        <span className="fpl-dim">{t('{n} matched players at current prices', { n: matched.length })}</span>
         <span className="fpl-mono">{fmtPrice(squadCost)}</span>
       </div>
       {sellingValue != null && Math.abs(sellingValue - squadCost) >= 0.05 && (
         <div style={row}>
-          <span className="fpl-dim">Selling value shown in screenshot</span>
+          <span className="fpl-dim">{t('Selling value shown in screenshot')}</span>
           <span className="fpl-mono">{fmtPrice(sellingValue)}</span>
         </div>
       )}
       <div style={row}>
-        <label htmlFor="review-bank" className="fpl-dim">In the bank (£m)</label>
+        <label htmlFor="review-bank" className="fpl-dim">{t('In the bank (£m)')}</label>
         <input
           id="review-bank"
           className="fpl-input"
@@ -274,11 +275,11 @@ export function SquadPriceSummary({ slots, bank, onBankChange }) {
           value={bank == null ? '' : bank}
           placeholder="0.0"
           onChange={e => onBankChange(e.target.value === '' ? null : parseFloat(e.target.value))}
-          style={{ width: 90, padding: '4px 8px', fontSize: '0.82rem', textAlign: 'right' }}
+          style={{ width: 90, padding: '4px 8px', fontSize: '0.82rem', textAlign: 'end' }}
         />
       </div>
       <div style={{ ...row, borderTop: '1px solid var(--line)', marginTop: 4, paddingTop: 8, fontWeight: 600 }}>
-        <span>Team value</span>
+        <span>{t('Team value')}</span>
         <span className="fpl-mono">{fmtPrice((sellingValue != null ? sellingValue : squadCost) + bankNum)}</span>
       </div>
     </div>
@@ -333,7 +334,7 @@ export function ReportScreenshotPanel({ slots, shotImg }) {
   }
 
   if (state === 'sent') {
-    return <div className="fpl-mono" role="status" style={{ fontSize: '0.72rem', color: 'var(--green)', margin: '14px 0' }}>Thanks — screenshot sent. It'll be used to improve the reader.</div>;
+    return <div className="fpl-mono" role="status" style={{ fontSize: '0.72rem', color: 'var(--green)', margin: '14px 0' }}>{t('Thanks — screenshot sent. It’ll be used to improve the reader.')}</div>;
   }
   return (
     <div className="fpl-block" style={{ padding: 12, margin: '14px 0' }}>
@@ -341,17 +342,17 @@ export function ReportScreenshotPanel({ slots, shotImg }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(o => !o)}
-        style={{ background: 'none', border: 'none', color: 'var(--ink)', padding: 0, cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left' }}
+        style={{ background: 'none', border: 'none', color: 'var(--ink)', padding: 0, cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'start' }}
       >
-        <Info size={14} aria-hidden="true" /> Did we misread something? Help improve the reader
-        <ChevronDown size={14} aria-hidden="true" style={{ marginLeft: 'auto', transform: open ? 'rotate(180deg)' : 'none' }} />
+        <Info size={14} aria-hidden="true" /> {t('Did we misread something? Help improve the reader')}
+        <ChevronDown size={14} aria-hidden="true" style={{ marginInlineStart: 'auto', transform: open ? 'rotate(180deg)' : 'none' }} />
       </button>
       {open && (
         <div style={{ marginTop: 10 }}>
           <p style={{ color: 'var(--ink-dim)', fontSize: '0.78rem', lineHeight: 1.5, margin: '0 0 10px' }}>
-            This sends your screenshot, the names we read, and any you corrected to the site's owner, so the reader can be fixed and tested against it. Nothing else is sent. Only send it if you're happy to share the screenshot.
+            {t('This sends your screenshot, the names we read, and any you corrected to the site’s owner, so the reader can be fixed and tested against it. Nothing else is sent. Only send it if you’re happy to share the screenshot.')}
           </p>
-          <label htmlFor="report-note" className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 4 }}>WHAT WENT WRONG? (OPTIONAL)</label>
+          <label htmlFor="report-note" className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 4, textTransform: 'uppercase' }}>{t('What went wrong? (optional)')}</label>
           <textarea
             id="report-note"
             className="fpl-input"
@@ -361,9 +362,9 @@ export function ReportScreenshotPanel({ slots, shotImg }) {
             style={{ minHeight: 60, fontSize: '0.8rem', marginBottom: 10 }}
           />
           <button type="button" className="fpl-chip-btn" disabled={state === 'sending'} onClick={send}>
-            {state === 'sending' ? 'Sending…' : 'Send screenshot'}
+            {state === 'sending' ? t('Sending…') : t('Send screenshot')}
           </button>
-          {state === 'error' && <span className="fpl-mono" role="alert" style={{ fontSize: '0.7rem', color: 'var(--red)', marginLeft: 10 }}>Couldn't send it. Try again later.</span>}
+          {state === 'error' && <span className="fpl-mono" role="alert" style={{ fontSize: '0.7rem', color: 'var(--red)', marginInlineStart: 10 }}>{t('Couldn’t send it. Try again later.')}</span>}
         </div>
       )}
     </div>
@@ -380,11 +381,11 @@ export function ReviewScreen({ slots, allPlayers, teamsById, bank, onBankChange,
   return (
     <div style={{ padding: '20px 16px 100px' }}>
       <button onClick={onBack} className="fpl-mono fpl-back-btn">
-        <ChevronLeft size={14} /> BACK
+        <ChevronLeft size={14} /> {t('BACK')}
       </button>
-      <h1 className="fpl-display fpl-screen-title">Confirm your squad</h1>
+      <h1 className="fpl-display fpl-screen-title">{t('Confirm your squad')}</h1>
       <p style={{ color: 'var(--ink-dim)', fontSize: '0.85rem', marginBottom: 18, lineHeight: 1.5 }}>
-        We read these names from your screenshot. Fix anything that's wrong before we crunch the numbers.
+        {t('We read these names from your screenshot. Fix anything that’s wrong before we crunch the numbers.')}
       </p>
 
       <SquadPriceSummary slots={slots} bank={bank} onBankChange={onBankChange} />
@@ -405,10 +406,10 @@ export function ReviewScreen({ slots, allPlayers, teamsById, bank, onBankChange,
         disabled={unresolved > 0 || problems.length > 0 || matched.length < 11}
         onClick={onConfirm}
       >
-        {unresolved > 0 ? `Fix ${unresolved} more to continue`
-          : problems.length > 0 ? 'Fix the squad to continue'
-          : matched.length < 11 ? 'Fewer than 11 players read'
-          : 'Looks good — show my results'} <ArrowRight size={16} />
+        {unresolved > 0 ? t('Fix {n} more to continue', { n: unresolved })
+          : problems.length > 0 ? t('Fix the squad to continue')
+          : matched.length < 11 ? t('Fewer than 11 players read')
+          : t('Looks good — show my results')} <ArrowRight size={16} />
       </button>
 
       <ReportScreenshotPanel slots={slots} shotImg={shotImg} />

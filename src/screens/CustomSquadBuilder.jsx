@@ -5,6 +5,7 @@ import { EmptyCard, Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { MAX_PER_REAL_TEAM, POSITION_ORDER, SQUAD_BUDGET } from '../lib/predictions.js';
 import { CHIP_INFO, getValidFormations, pickFormationStarters } from '../lib/squadLogic.js';
+import { t } from '../lib/i18n.js';
 
 // Starters' ids, best captain pick first.
 function suggestCaptainOrder(starters, predictionsById) {
@@ -87,9 +88,9 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
   // player in it now sold) or a fourth player from one club.
   function blockerFor(p) {
     const freed = current ? Math.round(current.price * 10) : 0;
-    if (Math.round(p.price * 10) > remainingTenths + freed) return 'Over budget';
+    if (Math.round(p.price * 10) > remainingTenths + freed) return t('Over budget');
     const fromClub = squad15.filter(x => x.team === p.team && (!current || x.id !== current.id)).length;
-    if (fromClub >= MAX_PER_REAL_TEAM) return `${MAX_PER_REAL_TEAM} from club already`;
+    if (fromClub >= MAX_PER_REAL_TEAM) return t('{n} from club already', { n: MAX_PER_REAL_TEAM });
     return null;
   }
 
@@ -145,7 +146,7 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
         state={isOpen ? 'selected' : null}
         onClick={() => openPlace(slot.posId, slot.idx)}
         onRemove={() => { removePlayer(slot.posId, slot.idx); if (isOpen) setActiveSlot(null); }}
-        label={`${p.webName}, ${fmtPrice(p.price)}: change`}
+        label={t('{name}, {price}: change', { name: p.webName, price: fmtPrice(p.price) })}
       />
     );
   };
@@ -169,22 +170,22 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
   return (
     <div className="fpl-builder-page">
       <button onClick={onBack} className="fpl-mono fpl-back-btn">
-        <ChevronLeft size={14} /> BACK
+        <ChevronLeft size={14} /> {t('BACK')}
       </button>
-      <h1 className="fpl-display fpl-screen-title">Pick your own squad</h1>
+      <h1 className="fpl-display fpl-screen-title">{t('Pick your own squad')}</h1>
       <p style={{ color: 'var(--ink-dim)', fontSize: '0.85rem', marginBottom: 14, lineHeight: 1.5 }}>
-        Choose all 15 players, set your formation and captain, then preview what each chip would do.
+        {t('Choose all 15 players, set your formation and captain, then preview what each chip would do.')}
       </p>
 
       <div className="fpl-block" style={{ padding: 10, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <span className="fpl-mono" style={{ fontSize: '0.78rem' }}>{filledCount}/15 selected</span>
+        <span className="fpl-mono" style={{ fontSize: '0.78rem' }}>{t('{n}/15 selected', { n: filledCount })}</span>
         <span className="fpl-mono" style={{ fontSize: '0.78rem', color: remainingTenths < 0 ? 'var(--red)' : 'var(--ink-dim)' }}>
-          {remainingTenths < 0 ? `Over budget by ${fmtPrice(-remaining)}` : `${fmtPrice(remaining)} left of £${SQUAD_BUDGET.toFixed(1)}m`}
+          {remainingTenths < 0 ? t('Over budget by {money}', { money: fmtPrice(-remaining) }) : t('{money} left of {budget}', { money: fmtPrice(remaining), budget: `£${SQUAD_BUDGET.toFixed(1)}m` })}
         </span>
       </div>
       {overCapTeam && (
         <div className="fpl-block" style={{ padding: 10, marginBottom: 16, borderLeft: '3px solid var(--red)', fontSize: '0.8rem', color: 'var(--red)' }}>
-          Max {MAX_PER_REAL_TEAM} players per real club — you have {overCapTeam[1]} from {teamsById[overCapTeam[0]] ? teamsById[overCapTeam[0]].short_name : 'one club'}.
+          {t('Max {max} players per real club — you have {n} from {club}.', { max: MAX_PER_REAL_TEAM, n: overCapTeam[1], club: teamsById[overCapTeam[0]] ? teamsById[overCapTeam[0]].short_name : t('one club') })}
         </div>
       )}
 
@@ -197,30 +198,30 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
             card={slotCard}
             className={allSelected ? '' : 'is-squad'}
           />
-          <p className="fpl-mono fpl-meta">{allSelected ? 'Tap a player to change them. The XI is picked by predicted points for the formation.' : 'Tap an empty shirt to pick a player.'}</p>
+          <p className="fpl-mono fpl-meta">{allSelected ? t('Tap a player to change them. The XI is picked by predicted points for the formation.') : t('Tap an empty shirt to pick a player.')}</p>
         </div>
 
         <div className="fpl-builder-side">
           {activeSlot ? (
             <div className="fpl-block fpl-builder-pick">
               <div className="fpl-builder-pick-head">
-                <b className="fpl-display">{current ? `Replace ${current.webName}` : `Pick a ${POSITION_LABELS[activeSlot.posId]}`}</b>
-                <button type="button" className="fpl-link" onClick={() => { setActiveSlot(null); setQuery(''); }}>Close</button>
+                <b className="fpl-display">{current ? t('Replace {name}', { name: current.webName }) : t('Pick a {position}', { position: POSITION_LABELS[activeSlot.posId] })}</b>
+                <button type="button" className="fpl-link" onClick={() => { setActiveSlot(null); setQuery(''); }}>{t('Close')}</button>
               </div>
               <div style={{ position: 'relative' }}>
                 <Search size={14} aria-hidden="true" style={{ position: 'absolute', left: 9, top: 11, color: 'var(--ink-dim)' }} />
                 <input
                   className="fpl-input"
                   style={{ paddingLeft: 30, fontSize: '0.85rem' }}
-                  placeholder={`Search ${POSITION_LABELS[activeSlot.posId]}…`}
-                  aria-label={`Search ${POSITION_LABELS[activeSlot.posId]}`}
+                  placeholder={t('Search {position}…', { position: POSITION_LABELS[activeSlot.posId] })}
+                  aria-label={t('Search {position}', { position: POSITION_LABELS[activeSlot.posId] })}
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   autoFocus
                 />
               </div>
-              <div className="fpl-mono fpl-meta">Budget for this place: {fmtPrice((remainingTenths + (current ? Math.round(current.price * 10) : 0)) / 10)}</div>
-              {candidates.length === 0 && <div style={{ fontSize: '0.78rem', color: 'var(--ink-dim)' }}>No matching players.</div>}
+              <div className="fpl-mono fpl-meta">{t('Budget for this place: {money}', { money: fmtPrice((remainingTenths + (current ? Math.round(current.price * 10) : 0)) / 10) })}</div>
+              {candidates.length === 0 && <div style={{ fontSize: '0.78rem', color: 'var(--ink-dim)' }}>{t('No matching players.')}</div>}
               {candidates.map(p => {
                 const team = teamsById[p.team];
                 const blocker = blockerFor(p);
@@ -228,12 +229,12 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
                   <button type="button" key={p.id} className="fpl-search-item" disabled={!!blocker}
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, opacity: blocker ? 0.55 : 1, cursor: blocker ? 'not-allowed' : 'pointer' }}
                     onClick={() => { if (!blocker) pickPlayer(p); }}>
-                    <span style={{ minWidth: 0, textAlign: 'left' }}>
+                    <span style={{ minWidth: 0, textAlign: 'start' }}>
                       <strong>{p.webName}</strong> <span className="fpl-dim">· {team ? team.short_name : '—'}</span>
                       {blocker ? <span className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--amber)' }}>{blocker}</span> : null}
                     </span>
                     <span className="fpl-mono" style={{ fontSize: '0.72rem', display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <span style={{ color: 'var(--green)' }}>{fmtPts(predictionsById[p.id].predicted)}pts</span>
+                      <span style={{ color: 'var(--green)' }}>{fmtPts(predictionsById[p.id].predicted)}{t('pts')}</span>
                       <span className="fpl-dim">{fmtPrice(p.price)}</span>
                     </span>
                   </button>
@@ -244,48 +245,48 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
 
       {allSelected && (
         <>
-          <div className="fpl-section-title fpl-inline"><Layers size={14} /> Formation</div>
+          <div className="fpl-section-title fpl-inline"><Layers size={14} /> {t('Formation')}</div>
           <div className="fpl-block" style={{ padding: 12, marginBottom: 14 }}>
-            <select className="fpl-input" style={{ fontSize: '0.85rem' }} aria-label="Formation" value={formationKey} onChange={e => setFormationKey(e.target.value)}>
+            <select className="fpl-input" style={{ fontSize: '0.85rem' }} aria-label={t('Formation')} value={formationKey} onChange={e => setFormationKey(e.target.value)}>
               {formations.map(f => <option key={f.key} value={f.key}>{f.key}</option>)}
             </select>
           </div>
 
-          <div className="fpl-section-title fpl-inline"><Crown size={14} /> Captaincy</div>
+          <div className="fpl-section-title fpl-inline"><Crown size={14} /> {t('Captaincy')}</div>
           <div className="fpl-block" style={{ padding: 12, marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <label style={{ flex: 1, minWidth: 140 }}>
-              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginBottom: 4 }}>CAPTAIN</div>
+              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginBottom: 4, textTransform: 'uppercase' }}>{t('Captain')}</div>
               <select className="fpl-input" style={{ fontSize: '0.82rem' }} value={captainId || ''} onChange={e => setCaptainId(Number(e.target.value) || null)}>
-                <option value="">— none —</option>
+                <option value="">{t('— none —')}</option>
                 {starters.map(p => <option key={p.id} value={p.id} disabled={p.id === viceCaptainId}>{p.webName}</option>)}
               </select>
             </label>
             <label style={{ flex: 1, minWidth: 140 }}>
-              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginBottom: 4 }}>VICE-CAPTAIN</div>
+              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginBottom: 4, textTransform: 'uppercase' }}>{t('Vice-captain')}</div>
               <select className="fpl-input" style={{ fontSize: '0.82rem' }} value={viceCaptainId || ''} onChange={e => setViceCaptainId(Number(e.target.value) || null)}>
-                <option value="">— none —</option>
+                <option value="">{t('— none —')}</option>
                 {starters.map(p => <option key={p.id} value={p.id} disabled={p.id === captainId}>{p.webName}</option>)}
               </select>
             </label>
           </div>
 
-          <div className="fpl-section-title fpl-inline"><Zap size={14} /> Preview a chip</div>
+          <div className="fpl-section-title fpl-inline"><Zap size={14} /> {t('Preview a chip')}</div>
           <div className="fpl-block" style={{ padding: 12, marginBottom: 16 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-              <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>No chip</button>
+              <button className={`fpl-chip-btn ${chipPreview === null ? 'active' : ''}`} onClick={() => setChipPreview(null)}>{t('No chip')}</button>
               {Object.entries(CHIP_INFO).map(([key, info]) => (
                 <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{info.label}</button>
               ))}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.5, marginBottom: 10 }}>
-              {chipPreview ? CHIP_INFO[chipPreview].desc : 'No chip active — normal scoring (starting XI only, captain at 2x).'}
+              {chipPreview ? CHIP_INFO[chipPreview].desc : t('No chip active — normal scoring (starting XI only, captain at 2x).')}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span className="fpl-mono" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(previewTotal)}</span>
-              <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)' }}>PREDICTED PTS WITH THIS CHIP</span>
+              <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', textTransform: 'uppercase' }}>{t('Predicted pts with this chip')}</span>
             </div>
             {(chipPreview === 'bboost' || chipPreview === '3xc') && (
-              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>vs {fmtPts(xiTotal)}pts with no chip</div>
+              <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>{t('vs {n}pts with no chip', { n: fmtPts(xiTotal) })}</div>
             )}
           </div>
         </>
@@ -297,11 +298,11 @@ export function CustomSquadBuilder({ staticData, onSubmit, onBack }) {
         disabled={!canContinue}
         onClick={handleContinue}
       >
-        {!allSelected ? `Pick ${15 - filledCount} more player${15 - filledCount === 1 ? '' : 's'}`
-          : overCapTeam ? 'Fix club limit to continue'
-          : remainingTenths < 0 ? 'Over budget — swap a player'
-          : !captainStarts ? 'Pick a captain to continue'
-          : 'See full results'} <ArrowRight size={16} />
+        {!allSelected ? (15 - filledCount === 1 ? t('Pick 1 more player') : t('Pick {n} more players', { n: 15 - filledCount }))
+          : overCapTeam ? t('Fix club limit to continue')
+          : remainingTenths < 0 ? t('Over budget — swap a player')
+          : !captainStarts ? t('Pick a captain to continue')
+          : t('See full results')} <ArrowRight size={16} />
       </button>
         </div>
       </div>

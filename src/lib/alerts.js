@@ -5,6 +5,8 @@
 // desktop notifications when they're switched on (see notifyNewAlerts).
 
 import { nextPriceChangeAt } from './transferTrends.js';
+import { availabilityNote } from './predictions.js';
+import { t } from './i18n.js';
 
 const HOUR = 3600 * 1000;
 // FPL's progress towards a price change: 100 means expected at the next
@@ -24,21 +26,21 @@ function hash(text) {
 }
 
 // The deadline alert's line: your best captain when we know your squad.
-function deadlineBody(staticData, playerIds) {
+function deadlineBody(staticData, playerIds, tr) {
   const best = (playerIds || [])
     .map(id => ({ p: staticData.playersById[id], pred: staticData.predictionsById[id] }))
     .filter(x => x.p && x.pred && (!x.p.status || x.p.status === 'a') && typeof x.pred.nextMatchPredicted === 'number')
     .sort((a, b) => b.pred.nextMatchPredicted - a.pred.nextMatchPredicted)[0];
   return best
-    ? `Captain pick: ${best.p.webName} (${best.pred.nextMatchPredicted.toFixed(1)} pts). Make your transfers before it passes.`
-    : 'Make your transfers and pick your captain before it passes.';
+    ? tr('Captain pick: {name} ({pts} pts). Make your transfers before it passes.', { name: best.p.webName, pts: best.pred.nextMatchPredicted.toFixed(1) })
+    : tr('Make your transfers and pick your captain before it passes.');
 }
 
 // A replacement for a player you'd want out: the best-predicted fit,
 // available, not already yours, the same position, no dearer than him (we
 // don't know your bank) and without a fourth player from one club. The
 // sentence for the alert's body, or ''.
-function swapIdea(staticData, out, playerIds) {
+function swapIdea(staticData, out, playerIds, tr) {
   const owned = new Set(playerIds);
   const clubs = {};
   playerIds.forEach(id => {
@@ -55,7 +57,7 @@ function swapIdea(staticData, out, playerIds) {
     if ((clubs[p.team] || 0) >= 3) return;
     if (pred.predicted > bestPts) { best = p; bestPts = pred.predicted; }
   });
-  return best ? ` Swap idea: ${best.webName} (£${best.price.toFixed(1)}m, ${bestPts.toFixed(1)} pts a week).` : '';
+  return best ? ` ${tr('Swap idea: {name} (£{price}m, {pts} pts a week).', { name: best.webName, price: best.price.toFixed(1), pts: bestPts.toFixed(1) })}` : '';
 }
 
 // staticData: today's data. playerIds: your squad. Returns
@@ -65,10 +67,12 @@ function swapIdea(staticData, out, playerIds) {
 // deadline comes first, then warnings. baseline: each player's prediction
 // when first seen this gameweek (see predictionBaseline). noTransferYet:
 // the team has made no transfer this gameweek, said in the last two hours.
-export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null, noTransferYet = false } = {}) {
+// tr: the translator (the push sender passes each subscriber's language).
+export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null, noTransferYet = false, tr = t } = {}) {
   if (!staticData) return [];
   const alerts = [];
   const target = staticData.targetEvent;
+  const gwName = target ? tr('Gameweek {n}', { n: target.id }) : '';
   if (target && target.deadline_time) {
     const left = new Date(target.deadline_time).getTime() - now;
     if (left > 0 && left < 24 * HOUR) {
@@ -78,27 +82,31 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
         id: `deadline-${target.id}-${soon ? '2h' : '24h'}`,
         kind: 'deadline',
         level: soon ? 'warn' : 'info',
-        title: `${target.name} deadline in ${hours ? `${hours}h ${Math.floor((left % HOUR) / 60000)}m` : `${Math.max(1, Math.round(left / 60000))} minutes`}`,
-        body: `${soon && noTransferYet ? `You haven't made a transfer for ${target.name} yet. ` : ''}${deadlineBody(staticData, playerIds)}`,
+        title: hours
+          ? tr('{gw} deadline in {h}h {m}m', { gw: gwName, h: hours, m: Math.floor((left % HOUR) / 60000) })
+          : tr('{gw} deadline in {m} minutes', { gw: gwName, m: Math.max(1, Math.round(left / 60000)) }),
+        body: `${soon && noTransferYet ? `${tr("You haven't made a transfer for {gw} yet.", { gw: gwName })} ` : ''}${deadlineBody(staticData, playerIds, tr)}`,
       });
     }
   }
   const day = new Date(now).toISOString().slice(0, 10);
   // Prices change at midnight UK time.
   const untilChange = nextPriceChangeAt(new Date(now)).getTime() - now;
-  const changeIn = `${Math.floor(untilChange / HOUR)}h ${Math.floor((untilChange % HOUR) / 60000)}m`;
+  const changeIn = tr('{h}h {m}m', { h: Math.floor(untilChange / HOUR), m: Math.floor((untilChange % HOUR) / 60000) });
   (playerIds || []).forEach(id => {
     const p = staticData.playersById[id];
     if (!p) return;
     const pred = staticData.predictionsById[id] || {};
-    if (p.status && p.status !== 'a' && pred.availNote) {
+    // The note in this alert's language (the prediction's own is in the app's).
+    const note = pred.availNote && (tr === t ? pred.availNote : availabilityNote(p, tr) || pred.availNote);
+    if (p.status && p.status !== 'a' && note) {
       const out = ['i', 's', 'u', 'n'].includes(p.status);
       alerts.push({
         id: `news-${id}-${hash(`${p.status}|${p.news || ''}`)}`,
         kind: 'news',
         level: out ? 'warn' : 'info',
-        title: `${p.webName}: ${pred.availNote}`,
-        body: (p.news || 'Check the latest team news.') + (out ? swapIdea(staticData, p, playerIds) : ''),
+        title: `${p.webName}: ${note}`,
+        body: (p.news || tr('Check the latest team news.')) + (out ? swapIdea(staticData, p, playerIds, tr) : ''),
       });
     }
     const seen = baseline && target && baseline.gwId === target.id ? baseline.byId[id] : undefined;
@@ -108,8 +116,8 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
         id: `drop-${id}-${target.id}-${Math.round(nowPred)}`,
         kind: 'drop',
         level: 'warn',
-        title: `${p.webName}'s prediction is down to ${nowPred.toFixed(1)} pts`,
-        body: `He was predicted ${seen.toFixed(1)} pts for ${target.name} when you first looked.${pred.availNote ? ` ${pred.availNote}.` : ''} Worth checking before the deadline.${swapIdea(staticData, p, playerIds)}`,
+        title: tr("{name}'s prediction is down to {pts} pts", { name: p.webName, pts: nowPred.toFixed(1) }),
+        body: `${tr('He was predicted {pts} pts for {gw} when you first looked.', { pts: seen.toFixed(1), gw: gwName })}${note ? ` ${note}.` : ''} ${tr('Worth checking before the deadline.')}${swapIdea(staticData, p, playerIds, tr)}`,
       });
     }
     if (typeof p.priceChangePercent === 'number' && Math.abs(p.priceChangePercent) >= PRICE_ALERT_AT) {
@@ -118,10 +126,10 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
         id: `${rise ? 'rise' : 'fall'}-${id}-${day}`,
         kind: rise ? 'rise' : 'fall',
         level: rise ? 'info' : 'warn',
-        title: `${p.webName} may ${rise ? 'rise' : 'fall'} in price tonight`,
+        title: rise ? tr('{name} may rise in price tonight', { name: p.webName }) : tr('{name} may fall in price tonight', { name: p.webName }),
         body: rise
-          ? `Prices change at midnight UK time, in ${changeIn}. Good for your team value: you keep half of any rise when you sell.`
-          : `Prices change at midnight UK time, in ${changeIn}.${typeof pred.predicted === 'number' ? ` He's predicted ${pred.predicted.toFixed(1)} pts a week over the next few gameweeks.` : ''} If you plan to sell him, doing it before the change keeps today's price.`,
+          ? `${tr('Prices change at midnight UK time, in {time}.', { time: changeIn })} ${tr('Good for your team value: you keep half of any rise when you sell.')}`
+          : `${tr('Prices change at midnight UK time, in {time}.', { time: changeIn })}${typeof pred.predicted === 'number' ? ` ${tr("He's predicted {pts} pts a week over the next few gameweeks.", { pts: pred.predicted.toFixed(1) })}` : ''} ${tr("If you plan to sell him, doing it before the change keeps today's price.")}`,
       });
     }
   });

@@ -126,3 +126,18 @@ test('a send run never undoes a subscribe or unsubscribe that lands while it sen
   await call({ push: 'send' }, { redis: redis2, sender: unsubscribe, staticData, now: NOW, headers: auth });
   assert.equal(await redis2.get(key), null);
 });
+
+test('pushes go out in the language the subscriber chose', async () => {
+  const redis = fakeRedis();
+  await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [], lang: 'fr' } });
+  assert.equal(JSON.parse(await redis.get(subscriptionKey(SUB.endpoint))).lang, 'fr');
+  const staticData = { targetEvent: { id: 8, name: 'Gameweek 8', deadline_time: new Date(NOW + 3600e3).toISOString() }, playersById: {}, predictionsById: {} };
+  const titles = [];
+  const sender = { sendNotification: async (sub, payload) => { titles.push(JSON.parse(payload).title); } };
+  const auth = { 'content-type': 'application/json', authorization: 'Bearer cron' };
+  await call({ push: 'send' }, { redis, sender, staticData, now: NOW, headers: auth });
+  assert.ok(titles.length && titles.every(x => x.includes('Journée 8')), titles.join(' | '));
+  const redis2 = fakeRedis();
+  await call({ push: 'subscribe' }, { redis: redis2, body: { subscription: SUB, playerIds: [], lang: 'xx' } });
+  assert.equal(JSON.parse(await redis2.get(subscriptionKey(SUB.endpoint))).lang, undefined);
+});

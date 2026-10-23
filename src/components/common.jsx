@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, RotateCcw, Search, User } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
+import { t } from '../lib/i18n.js';
 
 export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   const list = (fixtures || []).slice(0, max);
-  if (!list.length) return <span className="fpl-mono fpl-meta">TBC</span>;
+  if (!list.length) return <span className="fpl-mono fpl-meta">{t('TBC')}</span>;
   return (
     <>
       {list.map((f, i) => {
@@ -15,7 +16,7 @@ export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
         const c = DIFF_COLORS[f.difficulty] || DIFF_COLORS[3];
         return (
           <span key={i} className="fpl-fixchip" style={{ background: c.bg, color: c.text }}>
-            {team ? team.short_name : '?'} {f.isHome ? 'H' : 'A'}
+            {team ? team.short_name : '?'} {f.isHome ? t('H') : t('A')}
           </span>
         );
       })}
@@ -67,18 +68,18 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
           <button
             onClick={() => { setOpenPanel(null); if (session) onProfileClick(); else onLoginClick(); }}
-            aria-label={session ? `Your profile (${session.username})` : 'Log in'}
+            aria-label={session ? t('Your profile ({name})', { name: session.username }) : t('Log in')}
             aria-current={profileOpen ? 'page' : undefined}
             className="fpl-mono"
             style={{ background: profileOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', maxWidth: 140 }}
           >
             <User size={14} style={{ flexShrink: 0 }} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session ? session.username : 'Log in'}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session ? session.username : t('Log in')}</span>
           </button>
           {gwOptions && gwOptions.length > 0 && (
             <button
               onClick={() => toggle('gameweek')}
-              aria-label={`Gameweek ${selectedGw || ''}, change`}
+              aria-label={t('Gameweek {n}, change', { n: selectedGw || '' })}
               aria-expanded={menuOpen}
               className="fpl-mono"
               style={{ background: menuOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', fontWeight: 600 }}
@@ -91,17 +92,17 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
       {menuOpen && gwOptions && gwOptions.length > 0 && (
         <div className="fpl-block" style={{ position: 'absolute', top: '100%', right: 16, zIndex: 20, padding: 12, minWidth: 210 }}>
           <label className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' }}>
-            GAMEWEEK
+            {t('GAMEWEEK')}
           </label>
           <select
-            aria-label="Gameweek"
+            aria-label={t('Gameweek')}
             className="fpl-mono"
             value={selectedGw || ''}
             onChange={e => { onSelectGw(Number(e.target.value)); setOpenPanel(null); }}
             style={{ width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '8px 8px', fontSize: '0.8rem' }}
           >
             {gwOptions.map(e => (
-              <option key={e.id} value={e.id}>{e.name}{!isEventLocked(e) ? ' (current)' : ''}</option>
+              <option key={e.id} value={e.id}>{e.name}{!isEventLocked(e) ? ` ${t('(current)')}` : ''}</option>
             ))}
           </select>
         </div>
@@ -113,12 +114,12 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
             <span className="fpl-mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--blue)' }}>{fmtPts(summary.xiTotal)}</span>
-            <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>PREDICTED XI PTS</span>
+            <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>{t('PREDICTED XI PTS')}</span>
             {summary.actualXiTotal != null && (
               <>
                 <span className="fpl-mono fpl-meta-lg">·</span>
                 <span className="fpl-mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--lime)' }}>{fmtPts(summary.actualXiTotal)}</span>
-                <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>ACTUAL XI PTS</span>
+                <span className="fpl-mono" style={{ fontSize: '0.62rem', color: 'var(--ink-dim)', letterSpacing: '0.04em' }}>{t('ACTUAL XI PTS')}</span>
               </>
             )}
           </div>
@@ -131,7 +132,7 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
 // Grey placeholder bars in the shape of what's loading, so the page keeps
 // its layout instead of jumping when the data lands. `label` is read out
 // to screen readers in place of the bars.
-export function SkeletonRows({ rows = 4, label = 'Loading…' }) {
+export function SkeletonRows({ rows = 4, label = t('Loading…') }) {
   return (
     <div className="fpl-skel-rows" role="status">
       {Array.from({ length: rows }, (_, i) => <span key={i} className="fpl-skel" aria-hidden="true" />)}
@@ -149,13 +150,13 @@ export function LoadingScreen({ message }) {
         <div className="fpl-pulse" style={{ animationDelay: '0.3s' }} />
         <div className="fpl-pulse" style={{ animationDelay: '0.45s' }} />
       </div>
-      <div className="fpl-mono" style={{ fontSize: '0.85rem', color: 'var(--ink-dim)' }}>{message || 'Loading…'}</div>
+      <div className="fpl-mono" style={{ fontSize: '0.85rem', color: 'var(--ink-dim)' }}>{message || t('Loading…')}</div>
     </div>
   );
 }
 
 // `action` ({ label, run }) offers a way forward besides starting over.
-export function ErrorScreen({ message, onRetry, retryLabel = 'Start over', action }) {
+export function ErrorScreen({ message, onRetry, retryLabel = t('Start over'), action }) {
   return (
     <div role="alert" style={{ padding: '40px 16px', textAlign: 'center' }}>
       <AlertTriangle size={32} aria-hidden="true" style={{ color: 'var(--red)', margin: '0 auto 14px' }} />
@@ -187,7 +188,7 @@ export function PlayerSearchPicker({ allPlayers, onPick, excludeIds }) {
         <input
           className="fpl-input"
           style={{ paddingLeft: 30, fontSize: '0.85rem' }}
-          placeholder="Search player name…"
+          placeholder={t('Search player name…')}
           value={q}
           onChange={e => setQ(e.target.value)}
         />

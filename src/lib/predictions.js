@@ -12,6 +12,7 @@
 import { buildCareerBaselineByCode, buildLastSeasonStatsByCode } from './playerHistory.js';
 import { buildOddsByTeam, oddsAdjustmentForMatches } from './oddsAdjustment.js';
 import { blendValue, blendWeightsFrom } from './blend.js';
+import { t } from './i18n.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
@@ -83,6 +84,19 @@ export const DEFAULT_PREDICTION_WEIGHTS = {
 /* ----------------------------------------------------------------------------
    PREDICTION ENGINE
 ---------------------------------------------------------------------------- */
+
+// The short note on a player who may not play ("Injured", "75% chance of
+// playing"), or null. `tr` translates it (the push sender passes each
+// subscriber's language).
+export function availabilityNote(p, tr = t) {
+  const hasChance = typeof p.chanceNext === 'number' && p.chanceNext !== null;
+  if (p.status === 'i') return tr('Injured');
+  if (p.status === 's') return tr('Suspended');
+  if (p.status === 'u' || p.status === 'n') return tr('Unavailable');
+  if (hasChance) return p.chanceNext <= 75 ? tr('{pct}% chance of playing', { pct: p.chanceNext }) : null;
+  if (p.status === 'd') return tr('Doubtful');
+  return null;
+}
 
 export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink = null, options = {}) {
   const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
@@ -235,17 +249,12 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
   // score counts. This scales the machine-learning figure too (see mlOut
   // below), which otherwise doesn't know about injuries at all.
   let availMult = 1;
-  let availNote = null;
+  const availNote = availabilityNote(p);
   const hasChance = typeof p.chanceNext === 'number' && p.chanceNext !== null;
-  if (p.status === 'i') { availMult = hasChance ? p.chanceNext / 100 : 0; availNote = 'Injured'; }
-  else if (p.status === 's') { availMult = hasChance ? p.chanceNext / 100 : 0; availNote = 'Suspended'; }
-  else if (p.status === 'u' || p.status === 'n') { availMult = 0; availNote = 'Unavailable'; }
-  else if (hasChance) {
-    availMult = p.chanceNext / 100;
-    if (p.chanceNext <= 75) availNote = `${p.chanceNext}% chance of playing`;
-  } else if (p.status === 'd') {
-    availMult = 0.7; availNote = 'Doubtful';
-  }
+  if (p.status === 'i' || p.status === 's') availMult = hasChance ? p.chanceNext / 100 : 0;
+  else if (p.status === 'u' || p.status === 'n') availMult = 0;
+  else if (hasChance) availMult = p.chanceNext / 100;
+  else if (p.status === 'd') availMult = 0.7;
 
   // Short-rest rotation risk: a team playing again within a handful of days
   // is more likely to rotate its squad. This can only see Premier League

@@ -9,6 +9,8 @@ import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { fmtPrice, fmtPts } from '../lib/format.js';
 import { expectedPositions, forEachLimited, headToHead, latestTransfers, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
 import { parseLeagueId } from '../lib/teamIdInput.js';
+import { fmtNumber, ordinal as ordinalFor, t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
 
 const LEAGUE_KEY = 'fpl_league_id';
 // Members' teams are fetched a few at a time, so a 50-team league doesn't
@@ -40,17 +42,17 @@ function MemberTeam({ team, teamsById, onOpen }) {
         slot={slot}
         team={club}
         points={scored ? (slot.played === false ? '–' : slot.actualPoints * mult) : fmtPts(slot.predicted * mult)}
-        info={scored ? `pred ${fmtPts(slot.predicted * mult)}` : (club ? club.short_name : '')}
+        info={scored ? t('pred {n}', { n: fmtPts(slot.predicted * mult) }) : (club ? club.short_name : '')}
       />
     );
   };
   return (
     <div className="fpl-league-team">
       {team.edited
-        ? <p className="fpl-home-hint">Showing your edits to this team. Open it to change it more, or go back to the team on FPL.</p>
-        : team.picksFromGwId && <p className="fpl-home-hint">This gameweek's picks are hidden until the deadline, so this is their Gameweek {team.picksFromGwId} team.</p>}
+        ? <p className="fpl-home-hint">{t('Showing your edits to this team. Open it to change it more, or go back to the team on FPL.')}</p>
+        : team.picksFromGwId && <p className="fpl-home-hint">{t("This gameweek's picks are hidden until the deadline, so this is their Gameweek {n} team.", { n: team.picksFromGwId })}</p>}
       <Pitch starters={starters} bench={bench} card={card} compact />
-      <button type="button" className="fpl-link" onClick={onOpen}>Open and edit this team <ArrowRight size={14} /></button>
+      <button type="button" className="fpl-link" onClick={onOpen}>{t('Open and edit this team')} <ArrowRight size={14} /></button>
     </div>
   );
 }
@@ -58,14 +60,14 @@ function MemberTeam({ team, teamsById, onOpen }) {
 // Expected position after the next gameweek, with how far that is from
 // the current rank.
 function ExpectedCell({ rank, expected, loading }) {
-  if (loading) return <span className="fpl-league-exp"><span className="fpl-skel fpl-league-skel" aria-label="Loading" /></span>;
+  if (loading) return <span className="fpl-league-exp"><span className="fpl-skel fpl-league-skel" aria-label={t('Loading')} /></span>;
   if (!expected) return <span className="fpl-league-exp fpl-mono">–</span>;
   const move = rank - expected.position;
   return (
-    <span className="fpl-league-exp fpl-mono" title={`${expected.projected} pts expected`}>
+    <span className="fpl-league-exp fpl-mono" title={t('{n} pts expected', { n: expected.projected })}>
       {expected.position}
       {move !== 0 && (
-        <small className={move > 0 ? 'is-up' : 'is-down'} aria-label={move > 0 ? `up ${move}` : `down ${-move}`}>
+        <small className={move > 0 ? 'is-up' : 'is-down'} aria-label={move > 0 ? t('up {n}', { n: move }) : t('down {n}', { n: -move })}>
           {move > 0 ? <ArrowUp size={11} aria-hidden="true" /> : <ArrowDown size={11} aria-hidden="true" />}{Math.abs(move)}
         </small>
       )}
@@ -85,12 +87,12 @@ const PLAYER_ICONS = { captained: Crown, owned: Heart, in: LogIn, out: LogOut };
 function managerValue(h) {
   if (h.value === null) return '';
   switch (h.key) {
-    case 'rise': case 'fall': return `${h.value} place${h.value === 1 ? '' : 's'}`;
-    case 'bestTransfers': case 'worstTransfers': return `${h.value > 0 ? '+' : ''}${h.value} pts`;
-    case 'mostTransfers': case 'leastTransfers': return `${h.value} transfer${h.value === 1 ? '' : 's'}`;
+    case 'rise': case 'fall': return h.value === 1 ? t('1 place') : t('{n} places', { n: h.value });
+    case 'bestTransfers': case 'worstTransfers': return t('{n} pts', { n: `${h.value > 0 ? '+' : ''}${h.value}` });
+    case 'mostTransfers': case 'leastTransfers': return h.value === 1 ? t('1 transfer') : t('{n} transfers', { n: h.value });
     case 'bestValue': case 'lowestValue': return fmtPrice(h.value);
-    case 'bestRank': return h.value.toLocaleString('en-GB');
-    default: return `${h.value} pts`;
+    case 'bestRank': return fmtNumber(h.value);
+    default: return t('{n} pts', { n: h.value });
   }
 }
 
@@ -113,28 +115,28 @@ function LeagueAnalysis({ members, teams, playersById, liveGwId, total }) {
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="analysis-h" aria-busy={loading}>
       <div className="fpl-home-team-head">
-        <h2 id="analysis-h" className="fpl-home-h"><ChartBar size={18} aria-hidden="true" /> League analysis</h2>
-        <span className="fpl-mono fpl-home-meta">{loading ? `${counted} of ${total} teams` : liveGwId ? `GW${liveGwId}` : ''}</span>
+        <h2 id="analysis-h" className="fpl-home-h"><ChartBar size={18} aria-hidden="true" /> {t('League analysis')}</h2>
+        <span className="fpl-mono fpl-home-meta">{loading ? t('{n} of {total} teams', { n: counted, total }) : liveGwId ? `GW${liveGwId}` : ''}</span>
       </div>
       <div className="fpl-analysis-grid">
         <div>
-          <h3 className="fpl-home-sub"><Trophy size={15} aria-hidden="true" /> Manager highlights</h3>
+          <h3 className="fpl-home-sub"><Trophy size={15} aria-hidden="true" /> {t('Manager highlights')}</h3>
           <ul className="fpl-analysis-list">
             {managers.map(h => item(h.key, MANAGER_ICONS[h.key] || Trophy, h.label, names(h.winners.map(w => w.name)), managerValue(h)))}
           </ul>
         </div>
         <div>
-          <h3 className="fpl-home-sub"><Users size={15} aria-hidden="true" /> Player highlights</h3>
+          <h3 className="fpl-home-sub"><Users size={15} aria-hidden="true" /> {t('Player highlights')}</h3>
           <ul className="fpl-analysis-list">
             {players.map(h => item(
               h.key, PLAYER_ICONS[h.key] || Users, h.label,
               names(h.players.map(id => (playersById[id] ? playersById[id].webName : `#${id}`))),
-              h.count ? `${h.count} of ${counted} team${counted === 1 ? '' : 's'}` : '',
+              h.count ? (counted === 1 ? t('{n} of 1 team', { n: h.count }) : t('{n} of {total} teams', { n: h.count, total: counted })) : '',
             ))}
           </ul>
         </div>
       </div>
-      <p className="fpl-home-hint">"This week" is Gameweek {liveGwId || '–'}. Transfers are scored by the points the players brought in made against the ones sold, less any hit.</p>
+      <p className="fpl-home-hint">{t('"This week" is Gameweek {n}. Transfers are scored by the points the players brought in made against the ones sold, less any hit.', { n: liveGwId || '–' })}</p>
     </section>
   );
 }
@@ -150,39 +152,41 @@ function LeagueDifferentials({ members, teams, youEntry, liveGwId }) {
       {rows.map(r => (
         <li key={r.player.id}>
           <span className="fpl-diff-name">{r.player.webName}</span>
-          <span className="fpl-mono fpl-meta">you ×{r.yours} · league ×{r.eo.toFixed(1)}</span>
+          <span className="fpl-mono fpl-meta">{t('you ×{a} · league ×{b}', { a: r.yours, b: r.eo.toFixed(1) })}</span>
           <span className={`fpl-mono fpl-diff-swing${sign > 0 ? ' is-up' : ' is-down'}`}>{sign > 0 ? '+' : '−'}{fmtPts(Math.abs(r.swing))}</span>
         </li>
       ))}
-      {!rows.length ? <li className="fpl-meta">None</li> : null}
+      {!rows.length ? <li className="fpl-meta">{t('None')}</li> : null}
     </ul>
   );
   const r = d.rival;
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="diff-h">
       <div className="fpl-home-team-head">
-        <h2 id="diff-h" className="fpl-home-h"><Scale size={18} aria-hidden="true" /> Your differentials</h2>
-        <span className="fpl-mono fpl-home-meta">{d.counted} teams</span>
+        <h2 id="diff-h" className="fpl-home-h"><Scale size={18} aria-hidden="true" /> {t('Your differentials')}</h2>
+        <span className="fpl-mono fpl-home-meta">{t('{n} teams', { n: d.counted })}</span>
       </div>
       {r ? (
         <p className="fpl-home-text fpl-diff-rival">
-          {r.ahead ? <><b>{r.teamName}</b> is {r.gap} pts ahead. </> : <>You lead <b>{r.teamName}</b> by {r.gap} pts. </>}
-          Your differing players are predicted to {r.swing >= 0 ? 'gain' : 'lose'} you <b className={r.swing >= 0 ? 'fpl-diff-up' : 'fpl-diff-down'}>{fmtPts(Math.abs(r.swing))} pts</b> on them this week
-          {r.yourEdge.length ? <> (yours: {r.yourEdge.map(x => x.player.webName).join(', ')}</> : <> (</>}
-          {r.theirEdge.length ? <>{r.yourEdge.length ? '; ' : ''}theirs: {r.theirEdge.map(x => x.player.webName).join(', ')})</> : ')'}.
+          {r.ahead ? tr('<b>{team}</b> is {n} pts ahead.', { team: r.teamName, n: r.gap }, { b: s => <b>{s}</b> }) : tr('You lead <b>{team}</b> by {n} pts.', { team: r.teamName, n: r.gap }, { b: s => <b>{s}</b> })}{' '}
+          {r.swing >= 0
+            ? tr('Your differing players are predicted to gain you <s>{n} pts</s> on them this week.', { n: fmtPts(Math.abs(r.swing)) }, { s: x => <b className="fpl-diff-up">{x}</b> })
+            : tr('Your differing players are predicted to lose you <s>{n} pts</s> on them this week.', { n: fmtPts(Math.abs(r.swing)) }, { s: x => <b className="fpl-diff-down">{x}</b> })}
+          {r.yourEdge.length ? <> {t('Yours: {names}.', { names: r.yourEdge.map(x => x.player.webName).join(', ') })}</> : null}
+          {r.theirEdge.length ? <> {t('Theirs: {names}.', { names: r.theirEdge.map(x => x.player.webName).join(', ') })}</> : null}
         </p>
       ) : null}
       <div className="fpl-diff-grid">
         <div>
-          <h3 className="fpl-home-sub">Your edge</h3>
+          <h3 className="fpl-home-sub">{t('Your edge')}</h3>
           {list(d.edges, 1)}
         </div>
         <div>
-          <h3 className="fpl-home-sub">The threat</h3>
+          <h3 className="fpl-home-sub">{t('The threat')}</h3>
           {list(d.threats, -1)}
         </div>
       </div>
-      <p className="fpl-home-hint">×1.4 means the league scores that player's points 1.4 times on average (a captain counts twice, the bench not at all). The number is the points he's predicted to swing for you against the league in Gameweek {liveGwId || '–'}.</p>
+      <p className="fpl-home-hint">{t("×1.4 means the league scores that player's points 1.4 times on average (a captain counts twice, the bench not at all). The number is the points he's predicted to swing for you against the league in Gameweek {n}.", { n: liveGwId || '–' })}</p>
     </section>
   );
 }
@@ -195,10 +199,10 @@ function H2hColumn({ title, rows, teamsById }) {
       <ul className="fpl-h2h-list">
         {rows.length ? rows.map(r => (
           <li key={r.player.id} className={r.starting ? '' : 'is-bench'}>
-            <span className="fpl-h2h-name">{r.player.webName}<span className="fpl-meta"> · {teamsById[r.player.team]?.short_name}</span>{!r.starting ? <span className="fpl-meta"> · bench</span> : null}</span>
+            <span className="fpl-h2h-name">{r.player.webName}<span className="fpl-meta"> · {teamsById[r.player.team]?.short_name}</span>{!r.starting ? <span className="fpl-meta"> · {t('bench')}</span> : null}</span>
             <span className="fpl-mono fpl-h2h-pts">{fmtPts(r.predicted)}</span>
           </li>
-        )) : <li className="fpl-meta">Same as you</li>}
+        )) : <li className="fpl-meta">{t('Same as you')}</li>}
       </ul>
     </div>
   );
@@ -216,15 +220,15 @@ function RivalTransfers({ entry, rivalName, playersById, fetchJson }) {
       .catch(() => { if (live) setState({ entry, data: 'none' }); });
     return () => { live = false; };
   }, [entry, fetchJson]);
-  if (state.entry !== entry || !state.data) return <p className="fpl-home-hint">Loading {rivalName}'s transfers…</p>;
-  if (state.data === 'none') return <p className="fpl-home-hint">{rivalName} hasn't made a transfer yet this season.</p>;
+  if (state.entry !== entry || !state.data) return <p className="fpl-home-hint">{t("Loading {name}'s transfers…", { name: rivalName })}</p>;
+  if (state.data === 'none') return <p className="fpl-home-hint">{t("{name} hasn't made a transfer yet this season.", { name: rivalName })}</p>;
   const name = id => (playersById[id] ? playersById[id].webName : `#${id}`);
   return (
     <div className="fpl-h2h-transfers">
-      <h3 className="fpl-mono fpl-meta" style={{ margin: '0 0 6px' }}>{rivalName.toUpperCase()}'S GW{state.data.gw} TRANSFERS</h3>
+      <h3 className="fpl-mono fpl-meta" style={{ margin: '0 0 6px' }}>{t("{name}'S GW{n} TRANSFERS", { name: rivalName.toUpperCase(), n: state.data.gw })}</h3>
       <ul>
         {state.data.moves.map((m, i) => (
-          <li key={i}><span className="fpl-diff-down">{name(m.outId)}</span> <span aria-label="out, in">→</span> <span className="fpl-diff-up">{name(m.inId)}</span></li>
+          <li key={i}><span className="fpl-diff-down">{name(m.outId)}</span> <span aria-label={t('out, in')}>→</span> <span className="fpl-diff-up">{name(m.inId)}</span></li>
         ))}
       </ul>
     </div>
@@ -242,13 +246,13 @@ function HeadToHead({ members, teams, youEntry, teamsById, playersById, fetchJso
     [youTeam, rivalTeam],
   );
   if (!others.length || !youTeam || youTeam.status !== 'ready') return null;
-  const rivalName = (others.find(m => String(m.entry) === String(chosen)) || {}).teamName || 'Rival';
+  const rivalName = (others.find(m => String(m.entry) === String(chosen)) || {}).teamName || t('Rival');
   return (
     <section className="fpl-glass fpl-home-card" aria-labelledby="h2h-h">
       <div className="fpl-home-team-head">
-        <h2 id="h2h-h" className="fpl-home-h"><Swords size={18} aria-hidden="true" /> Head-to-head</h2>
+        <h2 id="h2h-h" className="fpl-home-h"><Swords size={18} aria-hidden="true" /> {t('Head-to-head')}</h2>
         <label className="fpl-h2h-pick">
-          <span className="fpl-sr-only">Rival</span>
+          <span className="fpl-sr-only">{t('Rival')}</span>
           <select className="fpl-input" value={chosen ?? ''} onChange={e => setRivalEntry(Number(e.target.value))}>
             {others.map(m => <option key={m.entry} value={m.entry}>{m.teamName}</option>)}
           </select>
@@ -257,18 +261,19 @@ function HeadToHead({ members, teams, youEntry, teamsById, playersById, fetchJso
       {h ? (
         <>
           <p className="fpl-home-text" style={{ margin: 0 }}>
-            Your XI is predicted <b>{fmtPts(h.yourXiTotal)}</b> to {rivalName}'s <b>{fmtPts(h.theirXiTotal)}</b>.
-            {' '}From the players only one of you owns, you're predicted to {h.edge >= 0 ? 'gain' : 'lose'}
-            {' '}<b className={h.edge >= 0 ? 'fpl-diff-up' : 'fpl-diff-down'}>{fmtPts(Math.abs(h.edge))} pts</b> this week.
+            {tr("Your XI is predicted <b>{you}</b> to {name}'s <b>{them}</b>.", { you: fmtPts(h.yourXiTotal), name: rivalName, them: fmtPts(h.theirXiTotal) }, { b: s => <b>{s}</b> })}{' '}
+            {h.edge >= 0
+              ? tr("From the players only one of you owns, you're predicted to gain <s>{n} pts</s> this week.", { n: fmtPts(Math.abs(h.edge)) }, { s: x => <b className="fpl-diff-up">{x}</b> })
+              : tr("From the players only one of you owns, you're predicted to lose <s>{n} pts</s> this week.", { n: fmtPts(Math.abs(h.edge)) }, { s: x => <b className="fpl-diff-down">{x}</b> })}
           </p>
           <div className="fpl-h2h-grid">
-            <H2hColumn title="Only you" rows={h.yourOnly} teamsById={teamsById} />
-            <H2hColumn title={`Only ${rivalName}`} rows={h.theirOnly} teamsById={teamsById} />
+            <H2hColumn title={t('Only you')} rows={h.yourOnly} teamsById={teamsById} />
+            <H2hColumn title={t('Only {name}', { name: rivalName })} rows={h.theirOnly} teamsById={teamsById} />
           </div>
-          <p className="fpl-home-hint">{h.shared.length} players shared. Captains: you {h.yourCaptain ? h.yourCaptain.webName : '–'}, {rivalName} {h.theirCaptain ? h.theirCaptain.webName : '–'}.</p>
+          <p className="fpl-home-hint">{t('{n} players shared. Captains: you {mine}, {name} {theirs}.', { n: h.shared.length, mine: h.yourCaptain ? h.yourCaptain.webName : '–', name: rivalName, theirs: h.theirCaptain ? h.theirCaptain.webName : '–' })}</p>
           {fetchJson && <RivalTransfers entry={chosen} rivalName={rivalName} playersById={playersById || {}} fetchJson={fetchJson} />}
         </>
-      ) : <p className="fpl-home-text" style={{ margin: 0 }}>Loading {rivalName}'s team…</p>}
+      ) : <p className="fpl-home-text" style={{ margin: 0 }}>{t("Loading {name}'s team…", { name: rivalName })}</p>}
     </section>
   );
 }
@@ -282,10 +287,11 @@ function HeadToHead({ members, teams, youEntry, teamsById, playersById, fetchJso
 function ShareLeague({ leagueId, name, gwName }) {
   const [copied, setCopied] = useState(false);
   const url = `https://fplchecker.co.uk/league/${leagueId}`;
-  const message = `${name || 'Our league'}: ${gwName ? `${gwName.replace('Gameweek ', 'GW')} ` : ''}predicted points, captains and standings for everyone 👀 ${url}`;
+  const gwNo = gwName ? (String(gwName).match(/\d+/) || [''])[0] : '';
+  const message = `${name || t('Our league')}: ${gwNo ? `GW${gwNo} ` : ''}${t('predicted points, captains and standings for everyone')} 👀 ${url}`;
   const share = async () => {
     try {
-      if (navigator.share) { await navigator.share({ title: name || 'FPL mini-league', text: `${name || 'Our league'}: standings, captains and predicted points`, url }); return; }
+      if (navigator.share) { await navigator.share({ title: name || t('FPL mini-league'), text: `${name || t('Our league')}: ${t('standings, captains and predicted points')}`, url }); return; }
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -293,11 +299,11 @@ function ShareLeague({ leagueId, name, gwName }) {
   };
   return (
     <>
-      <a className="fpl-chip-btn fpl-chip-wa" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" aria-label="Send this league's page to WhatsApp">
-        <MessageCircle size={14} aria-hidden="true" /> Send to league
+      <a className="fpl-chip-btn fpl-chip-wa" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" aria-label={t("Send this league's page to WhatsApp")}>
+        <MessageCircle size={14} aria-hidden="true" /> {t('Send to league')}
       </a>
-      <button type="button" className="fpl-chip-btn" onClick={share} aria-label="Share a link to this league's page">
-        {copied ? <Check size={14} aria-hidden="true" /> : <Share2 size={14} aria-hidden="true" />} {copied ? 'Link copied' : 'Share'}
+      <button type="button" className="fpl-chip-btn" onClick={share} aria-label={t("Share a link to this league's page")}>
+        {copied ? <Check size={14} aria-hidden="true" /> : <Share2 size={14} aria-hidden="true" />} {copied ? t('Link copied') : t('Share')}
       </button>
     </>
   );
@@ -372,8 +378,7 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
       .catch(() => setTeams(prev => ({ ...prev, [entry]: { status: 'error' } })));
   }
 
-  const gwShort = name => (name ? name.replace('Gameweek ', 'GW') : '');
-  const SORTS = [['rank', 'Rank'], ['live', 'Live'], ['predicted', 'Predicted'], ['expected', 'Expected']];
+  const SORTS = [['rank', t('Rank')], ['live', t('Live')], ['predicted', t('Predicted')], ['expected', t('Expected')]];
 
   return (
     // Side by side on a wide screen: the table, the analysis, then your
@@ -381,23 +386,23 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
     <div className="fpl-league-pair">
     <section className="fpl-glass fpl-home-card" aria-labelledby="league-h" aria-busy={standings.status === 'loading'}>
       <div className="fpl-home-team-head">
-        <h2 id="league-h" className="fpl-home-h"><Trophy size={18} aria-hidden="true" /> {standings.data ? standings.data.league.name : 'League'}</h2>
+        <h2 id="league-h" className="fpl-home-h"><Trophy size={18} aria-hidden="true" /> {standings.data ? standings.data.league.name : t('League')}</h2>
         <ShareLeague leagueId={leagueId} name={standings.data ? standings.data.league.name : null} gwName={gwName} />
-        <div className="fpl-league-sort" role="group" aria-label="Sort by">
+        <div className="fpl-league-sort" role="group" aria-label={t('Sort by')}>
           {SORTS.map(([key, label]) => (
             <button key={key} type="button" className={`fpl-chip-btn${sortBy === key ? ' active' : ''}`} aria-pressed={sortBy === key} onClick={() => setSortBy(key)}>{label}</button>
           ))}
         </div>
       </div>
-      {standings.status === 'loading' && <SkeletonRows rows={8} label="Loading the league…" />}
-      {standings.status === 'error' && <p className="fpl-home-text" role="alert">Couldn't load league {leagueId}. Check the ID, or try again in a minute.</p>}
+      {standings.status === 'loading' && <SkeletonRows rows={8} label={t('Loading the league…')} />}
+      {standings.status === 'error' && <p className="fpl-home-text" role="alert">{t("Couldn't load league {id}. Check the ID, or try again in a minute.", { id: leagueId })}</p>}
       {standings.status === 'ready' && (
         <>
           <div className="fpl-league-cols fpl-mono" aria-hidden="true">
-            <span>#</span><span>Team</span>
-            <span>{liveGwId ? `GW${liveGwId} ${liveGwFinished ? 'pts' : 'live'}` : 'Live'}</span>
-            <span>{gwName ? `${gwShort(gwName)} pred` : 'Pred'}</span>
-            <span>Exp</span>
+            <span>#</span><span>{t('Team')}</span>
+            <span>{liveGwId ? (liveGwFinished ? t('GW{n} pts', { n: liveGwId }) : t('GW{n} live', { n: liveGwId })) : t('Live')}</span>
+            <span>{gwId ? t('GW{n} pred', { n: gwId }) : t('Pred')}</span>
+            <span>{t('Exp')}</span>
           </div>
           <ol className="fpl-league-list">
             {members.map(m => {
@@ -412,16 +417,16 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
                     <span className="fpl-league-rank fpl-mono">{m.rank ?? '–'}</span>
                     <button type="button" className={`fpl-league-who${failed ? ' is-failed' : ''}`} aria-expanded={failed ? undefined : isOpen}
                       onClick={() => (failed ? retryTeam(m.entry) : setOpen(isOpen ? null : m.entry))} disabled={pending || notStarted}>
-                      <b>{m.teamName}{team && team.edited && <span className="fpl-league-edited">Edited</span>}</b>
-                      <small>{m.total ?? '–'} pts · {failed ? "Couldn't load, tap to try again" : notStarted ? `Joined after Gameweek ${gwId}` : m.managerName}</small>
+                      <b>{m.teamName}{team && team.edited && <span className="fpl-league-edited">{t('Edited')}</span>}</b>
+                      <small>{t('{n} pts', { n: m.total ?? '–' })} · {failed ? t("Couldn't load, tap to try again") : notStarted ? t('Joined after Gameweek {n}', { n: gwId }) : m.managerName}</small>
                       {failed ? <RotateCcw size={14} aria-hidden="true" className="fpl-league-chev" /> : <ChevronDown size={14} aria-hidden="true" className="fpl-league-chev" />}
                     </button>
                     <span className="fpl-league-live fpl-mono">
-                      {pending ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
+                      {pending ? <span className="fpl-skel fpl-league-skel" aria-label={t('Loading')} />
                         : team.status === 'ready' && typeof team.livePoints === 'number' ? team.livePoints : '–'}
                     </span>
                     <span className="fpl-league-pred fpl-mono">
-                      {pending ? <span className="fpl-skel fpl-league-skel" aria-label="Loading" />
+                      {pending ? <span className="fpl-skel fpl-league-skel" aria-label={t('Loading')} />
                         : team.status === 'ready' && !notStarted ? fmtPts(team.xiTotal) : '–'}
                     </span>
                     <ExpectedCell rank={m.rank} expected={team && team.status === 'ready' && !notStarted ? expected[m.entry] : null} loading={pending} />
@@ -436,18 +441,18 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
           <p className="fpl-home-hint">
             {started ? (
               <>
-                Positions and totals are as they stood after Gameweek {gwId}{liveGwFinished ? '' : ', with live points so far'}.
-                Predicted is what each starting XI was predicted before that deadline, captain doubled.
-                Expected is the position had every team scored its prediction.
+                {liveGwFinished ? t('Positions and totals are as they stood after Gameweek {n}.', { n: gwId }) : t('Positions and totals are as they stood after Gameweek {n}, with live points so far.', { n: gwId })}
+                {' '}{t('Predicted is what each starting XI was predicted before that deadline, captain doubled.')}
+                {' '}{t('Expected is the position had every team scored its prediction.')}
               </>
             ) : (
               <>
-                {liveGwId ? `Live is each team's points so far in Gameweek ${liveGwId}, with bonus from the bonus points system until it's confirmed and automatic subs. ` : ''}
-                Predicted is each team's starting XI for {gwName || 'the next gameweek'}, captain doubled.
-                Expected is the position if every team scores its prediction.
+                {liveGwId ? `${t("Live is each team's points so far in Gameweek {n}, with bonus from the bonus points system until it's confirmed and automatic subs.", { n: liveGwId })} ` : ''}
+                {t("Predicted is each team's starting XI for {gw}, captain doubled.", { gw: gwName || t('the next gameweek') })}
+                {' '}{t('Expected is the position if every team scores its prediction.')}
               </>
             )}
-            {standings.data.hasMore ? ' Showing the top 50.' : ''}
+            {standings.data.hasMore ? ` ${t('Showing the top 50.')}` : ''}
           </p>
         </>
       )}
@@ -498,24 +503,24 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
 
   return (
     <div className="fpl-league">
-      <h1 className="fpl-display fpl-league-title">Mini-league</h1>
+      <h1 className="fpl-display fpl-league-title">{t('Mini-league')}</h1>
 
       <section className="fpl-glass fpl-home-card" aria-labelledby="league-pick-h">
-        <h2 id="league-pick-h" className="fpl-home-h"><Users size={18} aria-hidden="true" /> Your leagues</h2>
-        {leagues.status === 'loading' && <SkeletonRows rows={2} label="Loading your leagues…" />}
+        <h2 id="league-pick-h" className="fpl-home-h"><Users size={18} aria-hidden="true" /> {t('Your leagues')}</h2>
+        {leagues.status === 'loading' && <SkeletonRows rows={2} label={t('Loading your leagues…')} />}
         {leagues.status === 'none' && (
           <p className="fpl-home-text">
-            Add your Team ID to see your leagues here, or enter a league ID below.{' '}
-            <button type="button" className="fpl-link" onClick={onAddTeamId}>Add your Team ID</button>
+            {t('Add your Team ID to see your leagues here, or enter a league ID below.')}{' '}
+            <button type="button" className="fpl-link" onClick={onAddTeamId}>{t('Add your Team ID')}</button>
           </p>
         )}
-        {leagues.status === 'error' && <p className="fpl-home-text" role="alert">Couldn't load your leagues from FPL. You can still enter a league ID below.</p>}
-        {leagues.status === 'ready' && !leagues.list.length && <p className="fpl-home-text">You're not in any private leagues yet.</p>}
+        {leagues.status === 'error' && <p className="fpl-home-text" role="alert">{t("Couldn't load your leagues from FPL. You can still enter a league ID below.")}</p>}
+        {leagues.status === 'ready' && !leagues.list.length && <p className="fpl-home-text">{t("You're not in any private leagues yet.")}</p>}
         {leagues.list.length > 0 && (
           <div className="fpl-league-chips">
             {leagues.list.map(l => (
               <button key={l.id} type="button" className={`fpl-chip-btn${l.id === leagueId ? ' active' : ''}`} aria-pressed={l.id === leagueId} onClick={() => setLeagueId(l.id)}>
-                {l.name}{l.rank ? <span className="fpl-mono"> · {l.rank}{ordinal(l.rank)}</span> : null}
+                {l.name}{l.rank ? <span className="fpl-mono"> · {ordinalFor(l.rank)}</span> : null}
               </button>
             ))}
           </div>
@@ -524,14 +529,14 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
           <input
             className="fpl-input"
             inputMode="numeric"
-            placeholder="Another league ID"
-            aria-label="League ID"
+            placeholder={t('Another league ID')}
+            aria-label={t('League ID')}
             value={idInput}
             onChange={e => setIdInput(parseLeagueId(e.target.value))}
           />
-          <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!idInput}>Show</button>
+          <button type="submit" className="fpl-btn fpl-btn-solid" disabled={!idInput}>{t('Show')}</button>
         </form>
-        <p className="fpl-home-hint">A league's ID is the number after <span className="fpl-mono">/leagues/</span> in its address on the FPL site.</p>
+        <p className="fpl-home-hint">{tr("A league's ID is the number after <m>/leagues/</m> in its address on the FPL site.", undefined, { m: s => <span className="fpl-mono">{s}</span> })}</p>
       </section>
 
       {leagueId && (
@@ -542,8 +547,3 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
   );
 }
 
-function ordinal(n) {
-  const t = n % 100;
-  if (t >= 11 && t <= 13) return 'th';
-  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
-}

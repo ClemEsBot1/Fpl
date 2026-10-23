@@ -5,6 +5,8 @@ import { AlertTriangle, Loader2, X } from 'lucide-react';
 import { TERMS_PATH } from '../lib/terms.js';
 import { useGoogleEnabled } from '../lib/googleEnabled.js';
 import { GoogleMark } from '../components/GoogleMark.jsx';
+import { t } from '../lib/i18n.js';
+import { tr } from '../lib/i18nRich.jsx';
 
 /* ----------------------------------------------------------------------------
    ACCOUNTS: LOGIN / REGISTER
@@ -13,13 +15,13 @@ import { GoogleMark } from '../components/GoogleMark.jsx';
    username). Matches this app's low-stakes, convenience-only use
    case (saving a team ID / squad, nothing sensitive).
 ---------------------------------------------------------------------------- */
-const labelStyle = { display: 'block', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' };
+const labelStyle = { display: 'block', textTransform: 'uppercase', fontSize: '0.62rem', color: 'var(--ink-dim)', marginBottom: 6, letterSpacing: '0.04em' };
 const inputStyle = { width: '100%', background: 'var(--panel-alt)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '10px 10px', fontSize: '0.9rem', marginBottom: 14 };
 const hintStyle = { fontSize: '0.66rem', color: 'var(--ink-dim)', margin: '-10px 0 14px' };
 const linkStyle = { width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--blue)', padding: '14px 0 0', cursor: 'pointer', fontSize: '0.78rem' };
 
-const TITLES = { login: 'Log in', register: 'Create an account', email: 'Your email', forgot: 'Reset your password', reset: 'Choose a new password', verify: 'Confirm your email', delete: 'Delete your account', backup: 'Add a backup login', password: 'Change your password', feedback: 'Send feedback' };
-const SUBMIT_LABELS = { login: 'Log in', register: 'Create account', email: 'Save email', forgot: 'Email me a code', reset: 'Save new password', verify: 'Confirm email', delete: 'Delete my account', backup: 'Save username and password', password: 'Save new password', feedback: 'Send' };
+const TITLES = { login: t('Log in'), register: t('Create an account'), email: t('Your email'), forgot: t('Reset your password'), reset: t('Choose a new password'), verify: t('Confirm your email'), delete: t('Delete your account'), backup: t('Add a backup login'), password: t('Change your password'), feedback: t('Send feedback') };
+const SUBMIT_LABELS = { login: t('Log in'), register: t('Create account'), email: t('Save email'), forgot: t('Email me a code'), reset: t('Save new password'), verify: t('Confirm email'), delete: t('Delete my account'), backup: t('Save username and password'), password: t('Save new password'), feedback: t('Send') };
 
 const codeInputStyle = { ...inputStyle, fontSize: '1.4rem', letterSpacing: '0.4em', textAlign: 'center', padding: '12px 10px' };
 
@@ -109,7 +111,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
 
   const codeField = (
     <>
-      <label htmlFor="auth-code" className="fpl-mono" style={labelStyle}>6-DIGIT CODE</label>
+      <label htmlFor="auth-code" className="fpl-mono" style={labelStyle}>{t('6-digit code')}</label>
       <input
         id="auth-code"
         className="fpl-mono"
@@ -140,21 +142,21 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
       }}
     >
       <div className="fpl-dialog-card">
-        <button type="button" onClick={onClose} aria-label="Close" className="fpl-dialog-close"><X size={18} /></button>
+        <button type="button" onClick={onClose} aria-label={t('Close')} className="fpl-dialog-close"><X size={18} /></button>
         <h2 id="auth-title" className="fpl-display" style={{ fontSize: '1.3rem', fontWeight: 700, margin: '0 0 4px', textAlign: 'center' }}>
           {TITLES[mode]}
         </h2>
         <div className="fpl-mono" style={{ fontSize: '0.72rem', color: 'var(--ink-dim)', textAlign: 'center', marginBottom: 22 }}>
           {{
-            email: currentEmail ? 'Change the email on your account. We’ll send a code to confirm it.' : 'Add an email address to your account. We’ll send a code to confirm it.',
-            forgot: "Enter your username or email and we'll email you a 6-digit code.",
-            reset: 'Enter the code from the email and pick a new password.',
-            verify: currentEmail ? `Enter the 6-digit code we emailed to ${currentEmail}.` : 'Enter the 6-digit code we emailed you.',
-            delete: 'This deletes your account, saved teams, email and settings straight away. It can’t be undone.',
-            backup: 'You’re signed in with Google. Pick a username and password too, so you can still log in without it. You can skip this.',
-            password: 'Enter your current password, then a new one. Other devices will be signed out.',
-            feedback: 'Something broken, confusing or missing? Tell us. Every message is read.',
-          }[mode] || "Save your Team ID(s) or squads so you don't have to re-enter them."}
+            email: currentEmail ? t('Change the email on your account. We’ll send a code to confirm it.') : t('Add an email address to your account. We’ll send a code to confirm it.'),
+            forgot: t('Enter your username or email and we’ll email you a 6-digit code.'),
+            reset: t('Enter the code from the email and pick a new password.'),
+            verify: currentEmail ? t('Enter the 6-digit code we emailed to {email}.', { email: currentEmail }) : t('Enter the 6-digit code we emailed you.'),
+            delete: t('This deletes your account, saved teams, email and settings straight away. It can’t be undone.'),
+            backup: t('You’re signed in with Google. Pick a username and password too, so you can still log in without it. You can skip this.'),
+            password: t('Enter your current password, then a new one. Other devices will be signed out.'),
+            feedback: t('Something broken, confusing or missing? Tell us. Every message is read.'),
+          }[mode] || t('Save your Team ID(s) or squads so you don’t have to re-enter them.')}
         </div>
 
         {notice && (
@@ -164,7 +166,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
         <form onSubmit={handleSubmit}>
           {mode === 'forgot' && (
             <>
-              <label htmlFor="auth-identifier" className="fpl-mono" style={labelStyle}>USERNAME OR EMAIL</label>
+              <label htmlFor="auth-identifier" className="fpl-mono" style={labelStyle}>{t('Username or email')}</label>
               <input
                 id="auth-identifier"
                 className="fpl-mono"
@@ -181,11 +183,11 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
           {(mode === 'reset' || mode === 'verify') && codeField}
 
           {mode === 'feedback' && sent && (
-            <div role="status" className="fpl-block" style={{ padding: 12, fontSize: '0.9rem', lineHeight: 1.5, marginBottom: 16 }}>Thanks! Your message has been sent.</div>
+            <div role="status" className="fpl-block" style={{ padding: 12, fontSize: '0.9rem', lineHeight: 1.5, marginBottom: 16 }}>{t('Thanks! Your message has been sent.')}</div>
           )}
           {mode === 'feedback' && !sent && (
             <>
-              <label htmlFor="auth-feedback" className="fpl-mono" style={labelStyle}>YOUR MESSAGE</label>
+              <label htmlFor="auth-feedback" className="fpl-mono" style={labelStyle}>{t('Your message')}</label>
               <textarea
                 id="auth-feedback"
                 rows={5}
@@ -194,7 +196,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
                 onChange={e => setMessage(e.target.value)}
                 style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical', minHeight: 110 }}
               />
-              <label htmlFor="auth-feedback-email" className="fpl-mono" style={labelStyle}>EMAIL <span style={{ textTransform: 'none' }}>(optional, if you’d like a reply)</span></label>
+              <label htmlFor="auth-feedback-email" className="fpl-mono" style={labelStyle}>{t('Email')} <span style={{ textTransform: 'none' }}>{t('(optional, if you’d like a reply)')}</span></label>
               <input id="auth-feedback-email" type="email" className="fpl-mono" autoComplete="email" inputMode="email" autoCapitalize="none" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
             </>
           )}
@@ -203,7 +205,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
             <>
               {hasPassword && (
                 <>
-                  <label htmlFor="auth-delete-password" className="fpl-mono" style={labelStyle}>PASSWORD</label>
+                  <label htmlFor="auth-delete-password" className="fpl-mono" style={labelStyle}>{t('Password')}</label>
                   <input
                     id="auth-delete-password"
                     type="password"
@@ -215,7 +217,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
                   />
                 </>
               )}
-              <label htmlFor="auth-delete-confirm" className="fpl-mono" style={labelStyle}>TYPE DELETE TO CONFIRM</label>
+              <label htmlFor="auth-delete-confirm" className="fpl-mono" style={labelStyle}>{t('Type {word} to confirm', { word: 'DELETE' })}</label>
               <input
                 id="auth-delete-confirm"
                 className="fpl-mono"
@@ -233,7 +235,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
 
           {mode === 'backup' && (
             <>
-              <label htmlFor="auth-backup-username" className="fpl-mono" style={labelStyle}>USERNAME</label>
+              <label htmlFor="auth-backup-username" className="fpl-mono" style={labelStyle}>{t('Username')}</label>
               <input
                 id="auth-backup-username"
                 className="fpl-mono"
@@ -245,8 +247,8 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
                 onChange={e => setUsername(e.target.value)}
                 style={inputStyle}
               />
-              <div id="auth-backup-username-hint" className="fpl-mono" style={hintStyle}>Keep this one or pick your own: 6-20 letters, numbers, underscores.</div>
-              <label htmlFor="auth-backup-password" className="fpl-mono" style={labelStyle}>PASSWORD</label>
+              <div id="auth-backup-username-hint" className="fpl-mono" style={hintStyle}>{t('Keep this one or pick your own: 6-20 letters, numbers, underscores.')}</div>
+              <label htmlFor="auth-backup-password" className="fpl-mono" style={labelStyle}>{t('Password')}</label>
               <input
                 id="auth-backup-password"
                 type="password"
@@ -257,23 +259,23 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
                 onChange={e => setPassword(e.target.value)}
                 style={inputStyle}
               />
-              <div id="auth-backup-password-hint" className="fpl-mono" style={hintStyle}>At least 6 characters, including a number.</div>
+              <div id="auth-backup-password-hint" className="fpl-mono" style={hintStyle}>{t('At least 6 characters, including a number.')}</div>
             </>
           )}
 
           {mode === 'password' && (
             <>
-              <label htmlFor="auth-current-password" className="fpl-mono" style={labelStyle}>CURRENT PASSWORD</label>
+              <label htmlFor="auth-current-password" className="fpl-mono" style={labelStyle}>{t('Current password')}</label>
               <input id="auth-current-password" type="password" className="fpl-mono" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} />
-              <label htmlFor="auth-change-password" className="fpl-mono" style={labelStyle}>NEW PASSWORD</label>
+              <label htmlFor="auth-change-password" className="fpl-mono" style={labelStyle}>{t('New password')}</label>
               <input id="auth-change-password" type="password" className="fpl-mono" autoComplete="new-password" aria-describedby="auth-change-password-hint" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={inputStyle} />
-              <div id="auth-change-password-hint" className="fpl-mono" style={hintStyle}>At least 6 characters, including a number.</div>
+              <div id="auth-change-password-hint" className="fpl-mono" style={hintStyle}>{t('At least 6 characters, including a number.')}</div>
             </>
           )}
 
           {mode === 'reset' && (
             <>
-              <label htmlFor="auth-new-password" className="fpl-mono" style={labelStyle}>NEW PASSWORD</label>
+              <label htmlFor="auth-new-password" className="fpl-mono" style={labelStyle}>{t('New password')}</label>
               <input
                 id="auth-new-password"
                 type="password"
@@ -284,13 +286,13 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
                 onChange={e => setPassword(e.target.value)}
                 style={inputStyle}
               />
-              <div id="auth-new-password-hint" className="fpl-mono" style={hintStyle}>At least 6 characters, including a number.</div>
+              <div id="auth-new-password-hint" className="fpl-mono" style={hintStyle}>{t('At least 6 characters, including a number.')}</div>
             </>
           )}
 
           {(mode === 'login' || mode === 'register') && (
             <>
-              <label htmlFor="auth-username" className="fpl-mono" style={labelStyle}>{mode === 'login' ? 'USERNAME OR EMAIL' : 'USERNAME'}</label>
+              <label htmlFor="auth-username" className="fpl-mono" style={labelStyle}>{mode === 'login' ? t('Username or email') : t('Username')}</label>
               <input
                 id="auth-username"
                 className="fpl-mono"
@@ -303,9 +305,9 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
                 style={inputStyle}
               />
               {mode === 'register' && (
-                <div id="auth-username-hint" className="fpl-mono" style={hintStyle}>6-20 characters: letters, numbers, underscores.</div>
+                <div id="auth-username-hint" className="fpl-mono" style={hintStyle}>{t('6-20 characters: letters, numbers, underscores.')}</div>
               )}
-              <label htmlFor="auth-password" className="fpl-mono" style={labelStyle}>PASSWORD</label>
+              <label htmlFor="auth-password" className="fpl-mono" style={labelStyle}>{t('Password')}</label>
               <input
                 id="auth-password"
                 type="password"
@@ -317,11 +319,11 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
                 style={inputStyle}
               />
               {mode === 'register' && (
-                <div id="auth-password-hint" className="fpl-mono" style={hintStyle}>At least 6 characters, including a number.</div>
+                <div id="auth-password-hint" className="fpl-mono" style={hintStyle}>{t('At least 6 characters, including a number.')}</div>
               )}
               {mode === 'login' && (
                 <button type="button" onClick={() => setMode('forgot')} className="fpl-mono" style={{ ...linkStyle, width: 'auto', display: 'block', margin: '-6px 0 14px auto', padding: 0, fontSize: '0.7rem' }}>
-                  Forgot password?
+                  {t('Forgot password?')}
                 </button>
               )}
             </>
@@ -330,7 +332,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
           {(mode === 'register' || mode === 'email') && (
             <>
               <label htmlFor="auth-email" className="fpl-mono" style={labelStyle}>
-                EMAIL{mode === 'register' && <span style={{ textTransform: 'none' }}> (optional, for password resets)</span>}
+                {t('Email')}{mode === 'register' && <span style={{ textTransform: 'none' }}> {t('(optional, for password resets)')}</span>}
               </label>
               <input
                 id="auth-email"
@@ -351,7 +353,7 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
           {mode === 'register' && (
             <label className="fpl-terms-check">
               <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)} />
-              <span>I agree to the <a href={TERMS_PATH} target="_blank" rel="noopener">Terms and privacy notice</a>.</span>
+              <span>{tr('I agree to the <a>Terms and privacy notice</a>.', {}, { a: s => <a href={TERMS_PATH} target="_blank" rel="noopener">{s}</a> })}</span>
             </label>
           )}
 
@@ -365,60 +367,60 @@ export function AuthDialog({ initialMode = 'login', initialNotice = '', currentE
             {loading ? <Loader2 size={16} className="fpl-spin" /> : SUBMIT_LABELS[mode]}
           </button>}
           {mode === 'feedback' && sent && (
-            <button type="button" onClick={onClose} className="fpl-btn fpl-btn-solid" style={{ width: '100%' }}>Close</button>
+            <button type="button" onClick={onClose} className="fpl-btn fpl-btn-solid" style={{ width: '100%' }}>{t('Close')}</button>
           )}
         </form>
 
         {(mode === 'login' || mode === 'register') && googleEnabled && (
           <>
-            <div className="fpl-auth-or fpl-mono" aria-hidden="true"><span>or</span></div>
+            <div className="fpl-auth-or fpl-mono" aria-hidden="true"><span>{t('or')}</span></div>
             <a
               className={`fpl-btn fpl-google-btn${mode === 'register' && !acceptTerms ? ' is-disabled' : ''}`}
               href={`/auth/google${mode === 'register' ? '?terms=1' : ''}`}
               aria-disabled={mode === 'register' && !acceptTerms ? 'true' : undefined}
-              onClick={e => { if (mode === 'register' && !acceptTerms) { e.preventDefault(); setNotice('Tick the box to agree to the Terms first.'); } }}
+              onClick={e => { if (mode === 'register' && !acceptTerms) { e.preventDefault(); setNotice(t('Tick the box to agree to the Terms first.')); } }}
             >
-              <GoogleMark /> {mode === 'register' ? 'Sign up with Google' : 'Continue with Google'}
+              <GoogleMark /> {mode === 'register' ? t('Sign up with Google') : t('Continue with Google')}
             </a>
           </>
         )}
         {mode === 'backup' && (
           <button type="button" onClick={onClose} className="fpl-mono" style={{ ...linkStyle, color: 'var(--ink-dim)' }}>
-            Skip for now
+            {t('Skip for now')}
           </button>
         )}
         {mode === 'email' && currentEmail && (
           <button type="button" onClick={() => onSetEmail('')} disabled={loading} className="fpl-mono" style={{ ...linkStyle, color: 'var(--ink-dim)' }}>
-            Remove email
+            {t('Remove email')}
           </button>
         )}
         {(mode === 'login' || mode === 'register') && (
           <button type="button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="fpl-mono" style={linkStyle}>
-            {mode === 'login' ? "Don't have an account? Create one" : 'Already have an account? Log in'}
+            {mode === 'login' ? t('Don’t have an account? Create one') : t('Already have an account? Log in')}
           </button>
         )}
         {mode === 'forgot' && (
           <button type="button" onClick={() => setMode('login')} className="fpl-mono" style={linkStyle}>
-            Back to log in
+            {t('Back to log in')}
           </button>
         )}
         {mode === 'reset' && (
           <button type="button" onClick={() => setMode('forgot')} className="fpl-mono" style={linkStyle}>
-            No code, or it expired? Send a new one
+            {t('No code, or it expired? Send a new one')}
           </button>
         )}
         {mode === 'delete' && (
           <button type="button" onClick={onClose} className="fpl-mono" style={{ ...linkStyle, color: 'var(--ink-dim)' }}>
-            Keep my account
+            {t('Keep my account')}
           </button>
         )}
         {mode === 'verify' && (
           <>
             <button type="button" onClick={resendVerify} disabled={loading} className="fpl-mono" style={linkStyle}>
-              Didn’t get it? Send a new code
+              {t('Didn’t get it? Send a new code')}
             </button>
             <button type="button" onClick={onClose} className="fpl-mono" style={{ ...linkStyle, color: 'var(--ink-dim)', paddingTop: 8 }}>
-              Do it later
+              {t('Do it later')}
             </button>
           </>
         )}

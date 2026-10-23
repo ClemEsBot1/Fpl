@@ -14,6 +14,7 @@
 // it for your own squad.
 
 import { xiPointsForWeek } from './transferPlan.js';
+import { t } from './i18n.js';
 
 // How many teams playing twice makes a gameweek worth a Bench Boost or
 // Triple Captain, and how many teams missing makes a Free Hit worth it.
@@ -67,23 +68,23 @@ export function planChips(staticData, { horizon = 12 } = {}) {
   const bestBlank = blanks[0] || null;
 
   const benchBoost = bestDouble ? {
-    chip: 'Bench Boost',
+    chip: t('Bench Boost'),
     event: bestDouble.event,
-    reason: `${bestDouble.doubleTeams} teams play twice in GW${bestDouble.event}, so all 15 of your players get two matches.`,
+    reason: t('{n} teams play twice in GW{gw}, so all 15 of your players get two matches.', { n: bestDouble.doubleTeams, gw: bestDouble.event }),
     strength: bestDouble.doubleTeams >= BIG_DOUBLE ? 'strong' : 'ok',
   } : null;
 
   const tripleCaptain = bestDouble ? {
-    chip: 'Triple Captain',
+    chip: t('Triple Captain'),
     event: bestDouble.event,
-    reason: `Captain a player from one of the ${bestDouble.doubleTeams} teams with two games in GW${bestDouble.event}.`,
+    reason: t('Captain a player from one of the {n} teams with two games in GW{gw}.', { n: bestDouble.doubleTeams, gw: bestDouble.event }),
     strength: bestDouble.doubleTeams >= BIG_DOUBLE ? 'strong' : 'ok',
   } : null;
 
   const freeHit = bestBlank ? {
-    chip: 'Free Hit',
+    chip: t('Free Hit'),
     event: bestBlank.event,
-    reason: `${bestBlank.blankTeams} teams blank in GW${bestBlank.event}; a Free Hit fields a full XI without wrecking your squad.`,
+    reason: t('{n} teams blank in GW{gw}; a Free Hit fields a full XI without wrecking your squad.', { n: bestBlank.blankTeams, gw: bestBlank.event }),
     strength: bestBlank.blankTeams >= BIG_BLANK ? 'strong' : 'ok',
   } : null;
 
@@ -93,9 +94,9 @@ export function planChips(staticData, { horizon = 12 } = {}) {
   let wildcard = null;
   if (bestDouble && bestDouble.doubleTeams >= BIG_DOUBLE && bestDouble.event > (staticData.targetEvent ? staticData.targetEvent.id : 1)) {
     wildcard = {
-      chip: 'Wildcard',
+      chip: t('Wildcard'),
       event: bestDouble.event - 1,
-      reason: `Reshape before the GW${bestDouble.event} double (${bestDouble.doubleTeams} teams play twice) so your squad is loaded with two-game players.`,
+      reason: t('Reshape before the GW{gw} double ({n} teams play twice) so your squad is loaded with two-game players.', { gw: bestDouble.event, n: bestDouble.doubleTeams }),
       strength: 'ok',
     };
   }
