@@ -21,6 +21,18 @@ Rules:
 - Before suggesting any feature or improvement, check the code for it first: run a targeted `graphify query "<feature>" --budget 5000` (or `graphify explain`) for each idea, and open the files it points to. Don't build the list from file names, the welcome page or memory.
 - Only suggest what isn't there. If something exists in part, say so and name the file, and suggest the missing piece instead (e.g. "price forecast exists in src/lib/priceForecast.js; missing: X").
 
+## Always
+
+- Always use the /caveman skill, on every message, whatever the task and whether or not it is coding. Reply in the caveman skill's voice until told "stop caveman" or "normal mode".
+
+## Claude settings instructions
+
+- Always use the /graphify and /using-agent-skills skills.
+- Start with using-agent-skills, but never show its output. Silently apply the skills it picks.
+- Use graphify for questions about the codebase.
+- If making or editing a website: also use the skills from the emilkowalski/skills repo (Skills For Designers and Engineers) and /ui-ux-pro-max.
+- For cybersecurity requests, use skills from the Masriyan/Claude-Code-CyberSecurity-Skill repo.
+
 <!-- graphify-rules-start (managed by `graphify init`) -->
 ## Use Graphify before grep
 
