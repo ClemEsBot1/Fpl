@@ -28,3 +28,18 @@ test('warnings cover the captain and flagged starters only', () => {
   ]);
   assert.deepEqual(notes, ['Your captain Haaland is flagged: 75% chance of playing.', 'Saka (starting): Injured.']);
 });
+
+test('event text follows the app language', async () => {
+  const { setDictionary } = await import('../src/lib/i18n.js');
+  setDictionary('fr', {
+    'FPL {gw} deadline': 'Date limite FPL {gw}',
+    'Your captain {name} is flagged: {note}.': 'Ton capitaine {name} est signalé : {note}.',
+  });
+  try {
+    const ics = buildDeadlineIcs({ gwName: 'Journée 8', deadline: '2026-10-17T10:00:00Z', notes: squadWarnings([{ player: { webName: 'Haaland' }, isStarting: true, isCaptain: true, availNote: 'Blessé' }]) }).replace(/\r\n /g, '');
+    assert.match(ics, /SUMMARY:Date limite FPL Journée 8/);
+    assert.match(ics, /Ton capitaine Haaland est signalé : Blessé\./);
+  } finally {
+    setDictionary('en', null);
+  }
+});

@@ -88,7 +88,7 @@ export function useResults({ screens, fpl, handleTeamsResult }) {
       isPastGw, nextRefreshAt, builtAt, gwUnavailable, gwId, backfilled, entryHistory, liveTotal,
       squadScore: isOptimalBuild ? 100 : computeSquadScore(xiTotal, getOptimalXiTotal(staticData, isPastGw ? gwId : null)),
       targetEvent: staticData.targetEvent, teamsById: staticData.teamsById, fixturesByTeam: staticData.fixturesByTeam, allEvents: staticData.allEvents,
-      allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById,
+      allPlayers: staticData.allPlayers, predictionsById: staticData.predictionsById, totalPlayers: staticData.totalPlayers || 0,
       asOfGwId: staticData.asOfGwId || null, asOfFailedGwId: staticData.asOfFailedGwId || null,
     };
   }

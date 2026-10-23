@@ -3,7 +3,7 @@
 // (see api/auth.js), so it doesn't need a function of its own:
 //
 //   GET  ?push=key          the server's public key, for subscribing
-//   POST ?push=subscribe    { subscription, playerIds, teamId?, lang? }: save or update one
+//   POST ?push=subscribe    { subscription, playerIds, watchIds?, teamId?, lang? }: save or update one
 //   POST ?push=unsubscribe  { endpoint }
 //   POST ?push=send         sends each subscriber the alerts not sent to
 //                           them before. Needs CRON_SECRET, like
@@ -123,6 +123,7 @@ export async function sendPushAlerts({ redis, sender, staticData, now = Date.now
     let record = await getJSON(redis, key);
     if (!record || !record.subscription) continue;
     const playerIds = record.playerIds || [];
+    const watchIds = record.watchIds || [];
     const previous = record.baseline || null;
     const baseline = predictionBaseline(previous, staticData, playerIds);
     if (baseline && JSON.stringify(baseline) !== JSON.stringify(previous)) {
@@ -132,11 +133,11 @@ export async function sendPushAlerts({ redis, sender, staticData, now = Date.now
     const seen = previous && baseline && previous.gwId === baseline.gwId ? previous : null;
     const isNew = a => !(record.sent || []).includes(a.id);
     const tr = record.lang && dicts[record.lang] ? makeT(dicts[record.lang]) : t;
-    let fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, tr }).filter(isNew);
+    let fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, tr, watchIds }).filter(isNew);
     const target = staticData.targetEvent;
     if (record.teamId && target && fresh.some(a => a.id === `deadline-${target.id}-2h`)
       && await noTransferYet(fetchTransfers, record.teamId, target.id)) {
-      fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, noTransferYet: true, tr }).filter(isNew);
+      fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, noTransferYet: true, tr, watchIds }).filter(isNew);
     }
     if (!fresh.length) continue;
     let gone = false;
@@ -197,6 +198,7 @@ export async function pushHandler(req, res, deps = {}) {
     const lang = cleanLang(body.lang);
     await setJSON(redis, key, {
       subscription, playerIds: cleanPlayerIds(body.playerIds), sent: (existing && existing.sent) || [], at: Date.now(),
+      ...(cleanPlayerIds(body.watchIds).length ? { watchIds: cleanPlayerIds(body.watchIds) } : {}),
       ...(teamId ? { teamId } : {}),
       ...(lang ? { lang } : {}),
       ...(existing && existing.baseline ? { baseline: existing.baseline } : {}),

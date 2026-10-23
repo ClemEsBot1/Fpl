@@ -389,6 +389,22 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-home-ring { --v: 0; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--blue) calc(var(--v) * 1%), rgba(255,255,255,0.14) 0); }
 .fpl-home-ring span { width: 50px; height: 50px; border-radius: 50%; background: #17123F; display: grid; place-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 1.05rem; }
 .fpl-home-players { display: grid; }
+.fpl-watch { list-style: none; margin: 0; padding: 0; display: grid; container-type: inline-size; }
+.fpl-watch-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 44px; grid-template-areas: 'who pts x' 'fix fix x'; align-items: center; column-gap: 10px; row-gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.fpl-watch-row:last-child { border-bottom: 0; }
+.fpl-watch-who { grid-area: who; min-width: 0; display: grid; gap: 2px; }
+.fpl-watch-who b { font-family: 'Space Grotesk', sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpl-watch-who .fpl-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.fpl-watch-fix { grid-area: fix; display: flex; gap: 4px; flex-wrap: wrap; }
+.fpl-watch-pts { grid-area: pts; display: grid; justify-items: end; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fpl-watch-pts small { font-size: 0.58rem; font-weight: 500; color: var(--ink-dim); }
+.fpl-watch-x { grid-area: x; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--ink-dim); cursor: pointer; transition: background-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+.fpl-watch-x:active { transform: scale(0.95); }
+.fpl-watch-x:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) { .fpl-watch-x:hover { background: rgba(255,255,255,0.08); color: var(--ink); } }
+@container (min-width: 520px) {
+  .fpl-watch-row { grid-template-columns: minmax(0, 1fr) auto auto 44px; grid-template-areas: 'who fix pts x'; }
+}
 .fpl-home-player { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .fpl-home-player-name { flex: 1; min-width: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fpl-home-player-pts { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -893,6 +909,12 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-pitch.is-squad .fpl-pitch-mid, .fpl-pitch.is-squad .fpl-pitch-circle { top: 64%; }
 .fpl-pc-price + .fpl-pc-x { top: 18px; left: -2px; }
 .fpl-pitch.is-squad .fpl-pc-arm { display: none; }
+.fpl-pc-price.is-rise, .fpl-pc-price.is-fall { display: flex; align-items: center; justify-content: center; gap: 1px; }
+.fpl-pc-price.is-rise svg { color: var(--green); }
+.fpl-pc-price.is-fall svg { color: var(--red); }
+.fpl-pc-move { position: absolute; left: -6px; bottom: 0; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; color: #05041A; box-shadow: 0 0 0 1.5px #05041A; }
+.fpl-pc-move.is-rise { background: var(--green); }
+.fpl-pc-move.is-fall { background: var(--red); }
 /* Build a squad: the pitch, then the picker and the rest; side by side on a computer. */
 .fpl-builder { display: grid; gap: 16px; align-items: start; }
 .fpl-builder-main { display: grid; gap: 8px; min-width: 0; }
@@ -972,6 +994,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-club-pts { color: var(--lime); font-weight: 700; }
 .fpl-club-flag { color: var(--amber); font-weight: 700; }
 .fpl-compare-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 0.72rem; }
+.fpl-watch-toggle { display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; padding: 0; }
+.fpl-watch-toggle.active { color: var(--yellow); border-color: var(--yellow); }
 .fpl-compare-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .fpl-compare-add { max-width: 420px; }
@@ -1269,6 +1293,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-rank-move.is-down { color: #FF8A8A; }
 .fpl-rank-chart-side { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.72rem; color: var(--ink-dim); }
 .fpl-rank-chart-side b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.fpl-rank-mode { order: -1; }
+.fpl-rank-mode button { min-height: 32px; padding: 0 12px; font-size: 0.76rem; }
 .fpl-rank-chip { padding: 1px 7px; border-radius: 999px; color: var(--ink); background: rgba(206,255,16,0.12); border: 1px solid rgba(206,255,16,0.4); }
 .fpl-rank-chart-plot { direction: ltr; position: relative; display: grid; gap: 6px; cursor: crosshair; touch-action: pan-y; border-radius: 8px; outline: none; }
 .fpl-rank-chart-plot:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }

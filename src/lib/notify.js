@@ -68,15 +68,15 @@ async function pushRegistration() {
   return navigator.serviceWorker.getRegistration().catch(() => null);
 }
 
-// Subscribes this browser to pushed alerts for `playerIds` (your squad), or
-// updates the squad on its subscription. `teamId` lets the server check
+// Subscribes this browser to pushed alerts for `playerIds` (your squad) and
+// `watchIds` (your watchlist), or updates them on its subscription. `teamId` lets the server check
 // whether you've made a transfer before the deadline. Only re-sent when
 // either has changed. Quietly does nothing when push isn't available here
 // or on the server.
-export async function syncPush(playerIds, teamId = null) {
+export async function syncPush(playerIds, teamId = null, watchIds = []) {
   if (notificationState() !== 'on') return;
   const lang = currentLanguage();
-  const ids = [...playerIds].sort((a, b) => a - b).join(',') + (teamId ? `|${teamId}` : '') + (lang !== 'en' ? `|${lang}` : '');
+  const ids = [...playerIds].sort((a, b) => a - b).join(',') + (teamId ? `|${teamId}` : '') + (lang !== 'en' ? `|${lang}` : '') + (watchIds.length ? `|w${[...watchIds].sort((a, b) => a - b).join(',')}` : '');
   let last = null;
   try { last = localStorage.getItem(PUSH_KEY); } catch { /* storage unavailable */ }
   const reg = await pushRegistration();
@@ -92,7 +92,7 @@ export async function syncPush(playerIds, teamId = null) {
   }
   const saved = await fetch('/api/auth?push=subscribe', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: sub.toJSON(), playerIds, ...(teamId ? { teamId: Number(teamId) } : {}), lang }),
+    body: JSON.stringify({ subscription: sub.toJSON(), playerIds, ...(watchIds.length ? { watchIds } : {}), ...(teamId ? { teamId: Number(teamId) } : {}), lang }),
   }).catch(() => null);
   if (saved && saved.ok) {
     try { localStorage.setItem(PUSH_KEY, ids); } catch { /* storage unavailable */ }

@@ -47,6 +47,14 @@ export function predictPriceChange(player, totalPlayers) {
   return null;
 }
 
+// "likely to rise in price", for a card's spoken label; '' when no change.
+export function priceMoveText(change) {
+  if (!change) return '';
+  const strong = typeof change.percent === 'number' ? change.confidence === 'very likely' : change.confidence === 'likely';
+  if (change.dir === 'rise') return strong ? t('likely to rise in price') : t('could rise in price');
+  return strong ? t('likely to drop in price') : t('could drop in price');
+}
+
 // Whether FPL published its own price progress for these players.
 export function hasOfficialPriceData(allPlayers) {
   return allPlayers.some(p => typeof p.priceChangePercent === 'number' && p.priceChangePercent !== 0);

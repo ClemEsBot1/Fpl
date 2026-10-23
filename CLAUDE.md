@@ -21,6 +21,7 @@ Rules:
 
 - Before suggesting any feature or improvement, check the code for it first: run a targeted Graphify MCP `query_graph` (or `graphify_find`) for each idea, or the CLI `graphify query "<feature>" --budget 5000` if MCP isn't connected, and open the files it points to. Don't build the list from file names, the welcome page or memory.
 - Only suggest what isn't there. If something exists in part, say so and name the file, and suggest the missing piece instead (e.g. "price forecast exists in src/lib/priceForecast.js; missing: X").
+- Don't suggest having native speakers review the translations.
 
 ## Always
 

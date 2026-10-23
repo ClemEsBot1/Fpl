@@ -68,7 +68,9 @@ function swapIdea(staticData, out, playerIds, tr) {
 // when first seen this gameweek (see predictionBaseline). noTransferYet:
 // the team has made no transfer this gameweek, said in the last two hours.
 // tr: the translator (the push sender passes each subscriber's language).
-export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null, noTransferYet = false, tr = t } = {}) {
+// watchIds: players on your watchlist (src/lib/watchlist.js), whose news and
+// price moves come too, as info (they aren't yours yet), marked watched.
+export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null, noTransferYet = false, tr = t, watchIds = [] } = {}) {
   if (!staticData) return [];
   const alerts = [];
   const target = staticData.targetEvent;
@@ -130,6 +132,36 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
         body: rise
           ? `${tr('Prices change at midnight UK time, in {time}.', { time: changeIn })} ${tr('Good for your team value: you keep half of any rise when you sell.')}`
           : `${tr('Prices change at midnight UK time, in {time}.', { time: changeIn })}${typeof pred.predicted === 'number' ? ` ${tr("He's predicted {pts} pts a week over the next few gameweeks.", { pts: pred.predicted.toFixed(1) })}` : ''} ${tr("If you plan to sell him, doing it before the change keeps today's price.")}`,
+      });
+    }
+  });
+  const owned = new Set(playerIds || []);
+  (watchIds || []).filter(id => !owned.has(id)).forEach(id => {
+    const p = staticData.playersById[id];
+    if (!p) return;
+    const pred = staticData.predictionsById[id] || {};
+    const note = pred.availNote && (tr === t ? pred.availNote : availabilityNote(p, tr) || pred.availNote);
+    if (p.status && p.status !== 'a' && note) {
+      alerts.push({
+        id: `watch-news-${id}-${hash(`${p.status}|${p.news || ''}`)}`,
+        kind: 'news',
+        level: 'info',
+        watched: true,
+        title: `${p.webName}: ${note}`,
+        body: `${p.news || tr('Check the latest team news.')} ${tr("He's on your watchlist.")}`,
+      });
+    }
+    if (typeof p.priceChangePercent === 'number' && Math.abs(p.priceChangePercent) >= PRICE_ALERT_AT) {
+      const rise = p.priceChangePercent > 0;
+      alerts.push({
+        id: `watch-${rise ? 'rise' : 'fall'}-${id}-${day}`,
+        kind: rise ? 'rise' : 'fall',
+        level: 'info',
+        watched: true,
+        title: rise ? tr('{name} may rise in price tonight', { name: p.webName }) : tr('{name} may fall in price tonight', { name: p.webName }),
+        body: `${tr('Prices change at midnight UK time, in {time}.', { time: changeIn })} ${rise
+          ? tr("He's on your watchlist: buying before the change gets today's price.")
+          : tr("He's on your watchlist: waiting until after the change gets him cheaper.")}`,
       });
     }
   });

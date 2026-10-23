@@ -33,7 +33,8 @@ export function careerStats(history, entry = {}) {
     bank: num(latest.bank) !== null ? latest.bank / 10 : null,
   } : null;
 
-  // Each played gameweek, for the rank chart. rankChange: places gained
+  // Each played gameweek, for the rank and value charts. value and bank are
+  // in £m (value is FPL's team value, which includes the bank). rankChange: places gained
   // (+) or lost (−) overall since the gameweek before.
   const chipByGw = {};
   (Array.isArray(history && history.chips) ? history.chips : []).forEach(c => { if (num(c.event)) chipByGw[c.event] = chipName(c.name); });
@@ -49,6 +50,8 @@ export function careerStats(history, entry = {}) {
       hit: num(gw.event_transfers_cost) || 0,
       chip: chipByGw[gw.event] || null,
       rankChange: before && overallRank ? before - overallRank : null,
+      value: num(gw.value) !== null ? gw.value / 10 : null,
+      bank: num(gw.bank) !== null ? gw.bank / 10 : null,
     };
   });
 
@@ -90,5 +93,21 @@ export function rankChartPoints(list, { width, height, pad = 8 }) {
     ...r,
     x: pad + (rows.length === 1 ? innerW / 2 : (innerW * i) / (rows.length - 1)),
     y: pad + (hi === lo ? innerH / 2 : (innerH * (Math.log10(r.overallRank) - lo)) / span),
+  }));
+}
+
+// Where each gameweek sits on the team value chart: { ...gw, x, y }, on a
+// linear scale with the season's highest value at the top.
+export function valueChartPoints(list, { width, height, pad = 8 }) {
+  const rows = (list || []).filter(r => r.value > 0);
+  if (!rows.length) return [];
+  const lo = Math.min(...rows.map(r => r.value));
+  const hi = Math.max(...rows.map(r => r.value));
+  const innerW = width - pad * 2;
+  const innerH = height - pad * 2;
+  return rows.map((r, i) => ({
+    ...r,
+    x: pad + (rows.length === 1 ? innerW / 2 : (innerW * i) / (rows.length - 1)),
+    y: pad + (hi === lo ? innerH / 2 : (innerH * (hi - r.value)) / (hi - lo)),
   }));
 }

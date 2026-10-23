@@ -1,6 +1,7 @@
 // Two planning tools: the full fixture ticker, and players side by side.
 import { Fragment, useMemo, useState } from 'react';
-import { ArrowDownAZ, CalendarRange, ChevronDown, CircleDot, Compass, GitCompareArrows, Plus, Signal, TrendingDown, TrendingUp, Ticket, X } from 'lucide-react';
+import { ArrowDownAZ, CalendarRange, ChevronDown, CircleDot, Compass, GitCompareArrows, Plus, Signal, Star, TrendingDown, TrendingUp, Ticket, X } from 'lucide-react';
+import { useWatchlist } from '../hooks/useWatchlist.js';
 import { PlayerSearchPicker } from '../components/common.jsx';
 import { Shirt } from '../components/Pitch.jsx';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
@@ -44,8 +45,20 @@ function CompareToggle({ player, compareIds, onToggleCompare }) {
   );
 }
 
+// Puts a player on (or takes him off) the watchlist shown on Home.
+function WatchToggle({ player, watchIds, onToggle }) {
+  const on = watchIds.includes(player.id);
+  return (
+    <button type="button" className={`fpl-chip-btn fpl-watch-toggle${on ? ' active' : ''}`} aria-pressed={on}
+      aria-label={t('Watch {name}', { name: player.webName })} title={on ? t('On your watchlist') : t('Add to your watchlist')} onClick={() => onToggle(player.id)}>
+      <Star size={13} aria-hidden="true" fill={on ? 'currentColor' : 'none'} />
+    </button>
+  );
+}
+
 // A club's players, best predicted first, under its row in the ticker.
 function ClubPlayers({ team, staticData, compareIds, onToggleCompare }) {
+  const [watchIds, toggleWatch] = useWatchlist();
   const players = staticData.allPlayers
     .filter(p => p.team === team.id && p.status !== 'u' && p.status !== 'n')
     .sort((a, b) => staticData.predictionsById[b.id].predicted - staticData.predictionsById[a.id].predicted)
@@ -54,7 +67,7 @@ function ClubPlayers({ team, staticData, compareIds, onToggleCompare }) {
     <div className="fpl-club-players">
       <table className="fpl-club-table">
         <thead>
-          <tr><th scope="col">{t('Player')}</th><th scope="col">{t('Pos')}</th><th scope="col">{t('Price')}</th><th scope="col">{t('Pts/wk')}</th><th scope="col">{t('Owned')}</th><th scope="col"><span className="fpl-sr-only">{t('Compare')}</span></th></tr>
+          <tr><th scope="col">{t('Player')}</th><th scope="col">{t('Pos')}</th><th scope="col">{t('Price')}</th><th scope="col">{t('Pts/wk')}</th><th scope="col">{t('Owned')}</th><th scope="col"><span className="fpl-sr-only">{t('Compare')}</span></th><th scope="col"><span className="fpl-sr-only">{t('Watchlist')}</span></th></tr>
         </thead>
         <tbody>
           {players.map(p => {
@@ -67,6 +80,7 @@ function ClubPlayers({ team, staticData, compareIds, onToggleCompare }) {
                 <td className="fpl-club-pts">{fmtPts(pred.predicted)}</td>
                 <td>{p.selectedBy.toFixed(1)}%</td>
                 <td><CompareToggle player={p} compareIds={compareIds} onToggleCompare={onToggleCompare} /></td>
+                <td><WatchToggle player={p} watchIds={watchIds} onToggle={toggleWatch} /></td>
               </tr>
             );
           })}
@@ -289,6 +303,7 @@ const EXPLORE_SORTS = {
 const POS_FILTERS = [{ id: 0, label: t('All') }, { id: 1, label: t('GKP') }, { id: 2, label: t('DEF') }, { id: 3, label: t('MID') }, { id: 4, label: t('FWD') }];
 
 function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
+  const [watchIds, toggleWatch] = useWatchlist();
   const [pos, setPos] = useState(0);
   const [maxPrice, setMaxPrice] = useState(15);
   const [team, setTeam] = useState(0);
@@ -351,6 +366,7 @@ function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
                 </th>
               ))}
               <th scope="col"><span className="fpl-sr-only">{t('Compare')}</span></th>
+              <th scope="col"><span className="fpl-sr-only">{t('Watchlist')}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -367,6 +383,7 @@ function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
                 <td>{fmtPrice(p.price)}</td>
                 <td>{p.selectedBy.toFixed(1)}%</td>
                 <td><CompareToggle player={p} compareIds={compareIds} onToggleCompare={onToggleCompare} /></td>
+                <td><WatchToggle player={p} watchIds={watchIds} onToggle={toggleWatch} /></td>
               </tr>
             ))}
           </tbody>
