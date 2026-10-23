@@ -3,7 +3,8 @@
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
 Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Always pass `--budget 5000` to `query` (graphify's own default of 2000 tokens cuts most answers short). Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- For codebase questions, use the Graphify MCP tools first (`list_repositories`, `query_graph`, `graphify_find`, `graphify_callers` / `graphify_callees`, `graphify_impact`, `graphify_tests_for`, `graphify_file_neighbors`; load them with ToolSearch if they are deferred). Fall back to the CLI only when the MCP server isn't connected or the question needs uncommitted changes (the MCP index is the pushed snapshot of main).
+- CLI fallback: run `graphify query "<question>"` when graphify-out/graph.json exists. Always pass `--budget 5000` to `query` (graphify's own default of 2000 tokens cuts most answers short). Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Answered report questions are saved in graphify-out/memory/ (committed). Before working on one of GRAPH_REPORT.md's "Suggested Questions", check there for a saved answer; after answering a new one, save it with `graphify save-result --question "..." --answer "..." --outcome useful --nodes <labels>`. The list always shows 7 questions, so a new one appearing doesn't mean the old ones came back.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
@@ -18,7 +19,7 @@ Rules:
 
 ## Suggesting features
 
-- Before suggesting any feature or improvement, check the code for it first: run a targeted `graphify query "<feature>" --budget 5000` (or `graphify explain`) for each idea, and open the files it points to. Don't build the list from file names, the welcome page or memory.
+- Before suggesting any feature or improvement, check the code for it first: run a targeted Graphify MCP `query_graph` (or `graphify_find`) for each idea, or the CLI `graphify query "<feature>" --budget 5000` if MCP isn't connected, and open the files it points to. Don't build the list from file names, the welcome page or memory.
 - Only suggest what isn't there. If something exists in part, say so and name the file, and suggest the missing piece instead (e.g. "price forecast exists in src/lib/priceForecast.js; missing: X").
 
 ## Always
@@ -29,7 +30,7 @@ Rules:
 
 - Always use the /graphify and /using-agent-skills skills.
 - Start with using-agent-skills, but never show its output. Silently apply the skills it picks.
-- Use graphify for questions about the codebase.
+- Use graphify for questions about the codebase (Graphify MCP first, CLI as fallback).
 - If making or editing a website: also use the skills from the emilkowalski/skills repo (Skills For Designers and Engineers) and /ui-ux-pro-max.
 - For cybersecurity requests, use skills from the Masriyan/Claude-Code-CyberSecurity-Skill repo.
 
