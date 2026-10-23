@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaticDataFromRaw, buildOptimalTeam, buildOptimalSquad, hydrateSquadSnapshot, isLegalStartingXi, applyAutomaticSubs,
-  seasonIdFor, snapshotIsForSeason, withPredictionSource, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
+  seasonIdFor, snapshotIsForSeason, snapshotXiTotal, withPredictionSource, pickBestFormation, getDefaultEvent, SQUAD_BUDGET, MAX_PER_REAL_TEAM, computePlayerPrediction, recentMinutesFromLive, DEFAULT_PREDICTION_WEIGHTS,
 } from '../src/lib/predictions.js';
 import { league } from './helpers/league.js';
 
@@ -421,4 +421,11 @@ test('fixture difficulty moves a prediction by 0.15 a step, from 0.65 to 1.38', 
   assert.equal(mult(2), 1.15);
   assert.equal(mult(1), 1.3);
   assert.equal(mult(5), 0.7);
+});
+
+test('a frozen best squad XI total counts the starters, the captain twice', () => {
+  const snap = { startingIds: [1, 2, 3], captainId: 2, predictedById: { 1: 5, 2: 8.5, '3': 4 }, playerIds: [1, 2, 3, 4] };
+  assert.equal(snapshotXiTotal(snap), 5 + 17 + 4);
+  assert.equal(snapshotXiTotal({ playerIds: [1] }), null);
+  assert.equal(snapshotXiTotal(null), null);
 });

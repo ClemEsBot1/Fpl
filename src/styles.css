@@ -5,6 +5,8 @@
   --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.72); --blue:#04F9FC; --green:#36FE48;
   --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; --yellow:#FFD60A; }
 .fpl-root { font-family:'Inter',sans-serif; background:var(--bg) fixed; color:var(--ink); min-height:100vh; min-height:100dvh; }
+/* No grey/blue box flashing over whatever is tapped on a phone: each control shows its own press state instead. */
+.fpl-root, .fpl-root * { -webkit-tap-highlight-color: transparent; }
 
 .fpl-display { font-family:'Space Grotesk',sans-serif; }
 .fpl-mono { font-family:'IBM Plex Mono',monospace; }
@@ -237,6 +239,14 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-footnav-more svg { color: var(--blue); }
 .fpl-has-nav .fpl-main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 .fpl-has-nav .fpl-error-overlay { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+/* Menu buttons: a quick press-in, so a tap is felt without a highlight box. */
+.fpl-sidenav button, .fpl-footnav button, .fpl-footnav-more button { transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms ease, color 160ms ease; }
+.fpl-sidenav button:active, .fpl-footnav-more button:active { transform: scale(0.97); }
+.fpl-footnav button svg { transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+.fpl-footnav button:active svg { transform: scale(0.82); }
+@media (prefers-reduced-motion: reduce) {
+  .fpl-sidenav button:active, .fpl-footnav-more button:active, .fpl-footnav button:active svg { transform: none; }
+}
 .fpl-sidenav button:focus-visible, .fpl-footnav button:focus-visible, .fpl-footnav-more button:focus-visible,
 .fpl-link:focus-visible, .fpl-carousel button:focus-visible, .fpl-welcome-login button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 @media (min-width: 900px) {

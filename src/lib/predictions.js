@@ -1243,6 +1243,19 @@ export function hydrateFrozenSquadSnapshot(snapshot, staticData, liveEventPoints
   return { squad, bankTenths };
 }
 
+// A frozen snapshot's predicted XI points (the captain's counted twice):
+// what the best squad screen showed for that gameweek, so a past
+// gameweek's Squad Score is measured against the same number. null when
+// the snapshot has no starting XI.
+export function snapshotXiTotal(snapshot) {
+  if (!snapshot || !Array.isArray(snapshot.startingIds) || !snapshot.startingIds.length) return null;
+  const predictedById = snapshot.predictedById || {};
+  return snapshot.startingIds.reduce((sum, id) => {
+    const pts = Number(predictedById[id] ?? predictedById[String(id)]) || 0;
+    return sum + pts * (id === snapshot.captainId ? 2 : 1);
+  }, 0);
+}
+
 // Whether `ids` is a legal starting XI for these 15 players: 11 of them,
 // one goalkeeper, and a 3-5 / 2-5 / 1-3 outfield split.
 export function isLegalStartingXi(ids, players) {

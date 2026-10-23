@@ -3,7 +3,7 @@
 // any team's squad for a gameweek. Also the gameweek picked in the header.
 import { useEffect, useRef, useState } from 'react';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from '../lib/fplClient.js';
-import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, withPredictionSource } from '../lib/predictions.js';
+import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, snapshotIsForSeason, snapshotXiTotal, withPredictionSource } from '../lib/predictions.js';
 import { liveTeamScore, projectedBonus, teamStates } from '../lib/live.js';
 import { computeOptimalXiTotal } from '../lib/squadLogic.js';
 import { readGwParam, readModelChoice, writeGwParam, writeModelChoice } from '../lib/appStorage.js';
@@ -67,6 +67,10 @@ export function useFplData({ admin = false } = {}) {
   // The optimal XI's predicted total, per static-data set (the current one,
   // or a past gameweek rebuilt "as of" its deadline).
   const optimalXiTotalRef = useRef(new WeakMap());
+  // A closed gameweek's best-squad XI total, as its best squad screen shows
+  // it (frozenOptimalXi): { [gwId]: Promise<number|null> }.
+  const frozenOptimalRef = useRef(new Map());
+  const frozenTotalsRef = useRef(new Map());
   // Past gameweeks' "as of" static data, by gameweek id (promises).
   const asOfCacheRef = useRef(new Map());
   // Live points per gameweek: { at, promise }.
@@ -164,7 +168,12 @@ export function useFplData({ admin = false } = {}) {
     writeGwParam(selectedGw && selectedGw !== target ? selectedGw : null);
   }, [selectedGw, liveStatic]);
 
-  function getOptimalXiTotal(staticData) {
+  // The best XI's predicted points, the Squad Score's 100. For a closed
+  // gameweek (pastGwId) that's its frozen best squad, the one its best
+  // squad screen shows, once loadTeamForGw has fetched it; otherwise it's
+  // built from `staticData`.
+  function getOptimalXiTotal(staticData, pastGwId = null) {
+    if (pastGwId && frozenTotalsRef.current.get(pastGwId) > 0) return frozenTotalsRef.current.get(pastGwId);
     if (!optimalXiTotalRef.current.has(staticData)) {
       optimalXiTotalRef.current.set(staticData, computeOptimalXiTotal(staticData));
     }
@@ -202,6 +211,21 @@ export function useFplData({ admin = false } = {}) {
     const gwStatic = await staticDataForGw(gwId, { formula: true });
     if (!gwStatic || gwStatic.asOfFailedGwId) return snap;
     try { return formulaSnapshotFor(snap, gwStatic); } catch { return snap; }
+  }
+
+  // A closed gameweek's frozen best squad XI total (see getOptimalXiTotal),
+  // or null when it can't be had. Fetched once per gameweek.
+  function frozenOptimalXi(gwId, staticData) {
+    if (!frozenOptimalRef.current.has(gwId)) {
+      const promise = fetch(`/api/optimal-squad?gw=${gwId}`)
+        .then(res => (res.ok ? res.json() : null))
+        .then(snap => (snap ? formulaSnapshot(snap, gwId) : null))
+        .then(snap => (snap && snapshotIsForSeason(snap, staticData.seasonId, staticData.allEvents) ? snapshotXiTotal(snap) : null))
+        .catch(() => null)
+        .then(total => { if (total > 0) frozenTotalsRef.current.set(gwId, total); else frozenOptimalRef.current.delete(gwId); return total; });
+      frozenOptimalRef.current.set(gwId, promise);
+    }
+    return frozenOptimalRef.current.get(gwId);
   }
 
   // Live points for a gameweek ({ [playerId]: { totalPoints, minutes } }),
@@ -261,6 +285,7 @@ export function useFplData({ admin = false } = {}) {
     // A week still being played is scored as FPL will settle it (projected
     // bonus, automatic subs, the vice-captain), which needs its matches.
     const fixturesPromise = isPastGwView && !weekFinished ? fixturesForGw(gwId) : Promise.resolve(null);
+    const frozenPromise = isPastGwView ? frozenOptimalXi(gwId, staticData) : Promise.resolve(null);
     const settle = promise => promise.then(value => ({ value }), error => ({ error }));
     const [picksResult, entryResult] = await Promise.all([
       settle(fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`)),
@@ -320,7 +345,7 @@ export function useFplData({ admin = false } = {}) {
     if (borrowed) entryMeta.picksFromGwId = picksGwId;
 
     onProgress(isPastGwView ? t('Rebuilding player data from before that deadline…') : t('Checking fixtures and working out predictions…'));
-    const [gwStatic, liveById, weekFixtures] = await Promise.all([gwStaticPromise, livePromise, fixturesPromise]);
+    const [gwStatic, liveById, weekFixtures] = await Promise.all([gwStaticPromise, livePromise, fixturesPromise, frozenPromise]);
     if (isStale()) return null;
 
     const rawSquad = scoreSlots(picks.picks.map(pk => ({
