@@ -95,3 +95,19 @@ test('two hours out with no transfer made, the deadline alert says so', () => {
   assert.match(alerts[0].body, /^You haven't made a transfer for Gameweek 8 yet\. /);
   assert.doesNotMatch(buildAlerts(data(5, []), [], NOW, { noTransferYet: true })[0].body, /haven't made/, 'only in the last two hours');
 });
+
+test('watched players: their news and price moves, as info, not your own twice', () => {
+  const players = [
+    { id: 1, webName: 'Saka', status: 'a', priceChangePercent: 95 },
+    { id: 2, webName: 'Isak', status: 'i', news: 'Hamstring injury', note: 'Injured', priceChangePercent: -93 },
+    { id: 3, webName: 'Rice', status: 'a', priceChangePercent: 99 },
+  ];
+  const alerts = buildAlerts(data(48, players), [3], NOW, { watchIds: [1, 2, 3, 99] });
+  const watched = alerts.filter(a => a.watched);
+  assert.deepEqual(watched.map(a => `${a.kind}-${a.title.split(/[: ]/)[0]}`).sort(), ['fall-Isak', 'news-Isak', 'rise-Saka']);
+  assert.ok(watched.every(a => a.id.startsWith('watch-')), 'ids of their own, so buying him later alerts afresh');
+  assert.ok(watched.every(a => a.level === 'info'));
+  assert.match(watched.find(a => a.kind === 'rise').body, /buying before the change gets today's price/);
+  assert.equal(alerts.filter(a => a.id.includes('-3-')).length, 1, 'a watched player you own alerts once, as yours');
+  assert.deepEqual(buildAlerts(data(48, players), [], NOW).filter(a => a.watched), [], 'no watchlist, no watched alerts');
+});

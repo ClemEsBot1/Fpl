@@ -1,6 +1,9 @@
 // Builds an .ics calendar event for an FPL deadline, with an alert a few
 // hours before. Works in every calendar app (Google, Apple, Outlook)
-// without notifications permissions, accounts or a push server.
+// without notifications permissions, accounts or a push server. The text is
+// in the app's language (src/lib/i18n.js).
+
+import { t } from './i18n.js';
 
 function icsDate(d) {
   return new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
@@ -38,9 +41,9 @@ export function buildDeadlineIcs({ gwName, deadline, notes = [], url = '', alert
   const start = new Date(deadline);
   const end = new Date(start.getTime() + 15 * 60 * 1000);
   const description = [
-    `${gwName} deadline. Make your transfers and pick your captain before then.`,
+    t('{gw} deadline. Make your transfers and pick your captain before then.', { gw: gwName }),
     ...notes,
-    url ? `Check your squad: ${url}` : '',
+    url ? t('Check your squad: {url}', { url }) : '',
   ].filter(Boolean).join('\n');
   const lines = [
     'BEGIN:VCALENDAR',
@@ -53,12 +56,12 @@ export function buildDeadlineIcs({ gwName, deadline, notes = [], url = '', alert
     `DTSTAMP:${icsDate(now)}`,
     `DTSTART:${icsDate(start)}`,
     `DTEND:${icsDate(end)}`,
-    `SUMMARY:${escapeText(`FPL ${gwName} deadline`)}`,
+    `SUMMARY:${escapeText(t('FPL {gw} deadline', { gw: gwName }))}`,
     `DESCRIPTION:${escapeText(description)}`,
     ...(url ? [`URL:${url}`] : []),
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
-    `DESCRIPTION:${escapeText(`FPL ${gwName} deadline in ${alertHoursBefore} hours`)}`,
+    `DESCRIPTION:${escapeText(t('FPL {gw} deadline in {hours} hours', { gw: gwName, hours: alertHoursBefore }))}`,
     `TRIGGER:-PT${alertHoursBefore}H`,
     'END:VALARM',
     'END:VEVENT',
@@ -72,9 +75,9 @@ export function buildDeadlineIcs({ gwName, deadline, notes = [], url = '', alert
 export function squadWarnings(squad) {
   const notes = [];
   const captain = squad.find(s => s.isCaptain);
-  if (captain && captain.availNote) notes.push(`Your captain ${captain.player.webName} is flagged: ${captain.availNote}.`);
+  if (captain && captain.availNote) notes.push(t('Your captain {name} is flagged: {note}.', { name: captain.player.webName, note: captain.availNote }));
   squad
     .filter(s => s.isStarting && s.availNote && s !== captain)
-    .forEach(s => notes.push(`${s.player.webName} (starting): ${s.availNote}.`));
+    .forEach(s => notes.push(t('{name} (starting): {note}.', { name: s.player.webName, note: s.availNote })));
   return notes;
 }
