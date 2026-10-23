@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, CalendarRange, ChartColumn, Clock, TrendingUp } from 'lucide-react';
 import { DIFF_COLORS } from '../lib/format.js';
 import { AccuracyPanel } from './IntroScreen.jsx';
+import { LanguagePicker } from '../components/common.jsx';
 import { t } from '../lib/i18n.js';
 
 // Adds `is-in` to each `.fpl-rv` element inside `rootRef` as it scrolls
@@ -206,7 +207,10 @@ export function WelcomeScreen({ loggedIn, onStart, onSignUp, onLogIn }) {
     <div className="fpl-welcome" ref={rootRef}>
       <header className="fpl-welcome-hero">
         <div className="fpl-welcome-intro">
-          <span className="fpl-kicker">{t('Fantasy Premier League')}</span>
+          <div className="fpl-welcome-top">
+            <span className="fpl-kicker">{t('Fantasy Premier League')}</span>
+            {!loggedIn && <LanguagePicker />}
+          </div>
           <h1 className="fpl-display">{t('Know your points before the deadline.')}</h1>
           <p>{t('FPL Checker predicts what every player in your squad will score, then shows who to transfer in and who should wear the armband.')}</p>
           {buttons}
