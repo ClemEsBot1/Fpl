@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPriceWatch, buildTransferTrends, nextPriceChangeAt, predictPriceChange, topByPoints } from '../src/lib/transferTrends.js';
+import { buildPriceWatch, buildTransferTrends, nextPriceChangeAt, predictPriceChange, priceMoveText, topByPoints } from '../src/lib/transferTrends.js';
 
 const TOTAL = 10_000_000;
 const p = (id, selectedBy, inn, out) => ({ id, webName: `P${id}`, selectedBy, transfersInEvent: inn, transfersOutEvent: out });
@@ -73,4 +73,12 @@ test('transfers in the last hour come from the snapshot about an hour old', asyn
   // A new gameweek starts from zero: last week's snapshots don't count.
   assert.equal(pickBaseline(snaps, transferSnapshot(boot(5, 1, 9), 2 * H)), null);
   assert.equal(transferDeltas(now, null), null);
+});
+
+test('price move phrase for cards: strong or possible, rise or drop', () => {
+  assert.equal(priceMoveText(null), '');
+  assert.equal(priceMoveText({ dir: 'rise', confidence: 'very likely', percent: 99 }), 'likely to rise in price');
+  assert.equal(priceMoveText({ dir: 'rise', confidence: 'likely', percent: 80 }), 'could rise in price');
+  assert.equal(priceMoveText({ dir: 'fall', confidence: 'likely' }), 'likely to drop in price');
+  assert.equal(priceMoveText({ dir: 'fall', confidence: 'possible' }), 'could drop in price');
 });

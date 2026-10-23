@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, FileText, KeyRound, Languages, Link2, LogOut, Mail, MessageSquare, ShieldCheck, Trash2, X } from 'lucide-react';
 import { TERMS_PATH } from '../lib/terms.js';
 import { fetchFplJson } from '../lib/fplClient.js';
-import { careerStats, rankChartPoints } from '../lib/career.js';
+import { careerStats, rankChartPoints, valueChartPoints } from '../lib/career.js';
 import { parseTeamId } from '../lib/teamIdInput.js';
 import { useGoogleEnabled } from '../lib/googleEnabled.js';
 import { GoogleMark } from '../components/GoogleMark.jsx';
@@ -68,20 +68,28 @@ const CHART_W = 600;
 const CHART_H = 170;
 const BARS_H = 52;
 
-// Overall rank through the season (a line, best rank at the top) over each
-// gameweek's points (bars), one gameweek picked at a time: by pointer, by
-// tapping, or with the arrow keys once the chart has focus.
+// Overall rank through the season (a line, best rank at the top), or team
+// value (highest at the top), over each gameweek's points (bars), one
+// gameweek picked at a time: by pointer, by tapping, or with the arrow keys
+// once the chart has focus.
 function RankChart({ rows }) {
   const [picked, setPicked] = useState(null);
+  const [mode, setMode] = useState('rank');
   const boxRef = useRef(null);
-  const pts = rankChartPoints(rows, { width: CHART_W, height: CHART_H, pad: 10 });
+  const rankPts = rankChartPoints(rows, { width: CHART_W, height: CHART_H, pad: 10 });
+  const valuePts = valueChartPoints(rows, { width: CHART_W, height: CHART_H, pad: 10 });
+  const hasValue = valuePts.length >= 2;
+  const isValue = mode === 'value' && hasValue;
+  const pts = isValue ? valuePts : rankPts;
   if (pts.length < 2) return null;
   const i = picked === null || picked >= pts.length ? pts.length - 1 : picked;
   const cur = pts[i];
+  // Places gained, or £m gained, since the gameweek before.
+  const change = isValue ? (i ? Math.round((cur.value - pts[i - 1].value) * 10) / 10 : 0) : cur.rankChange;
   const line = pts.map((p, k) => `${k ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${CHART_H} L${pts[0].x.toFixed(1)},${CHART_H} Z`;
   const maxPts = Math.max(1, ...pts.map(p => p.points || 0));
-  const best = pts.reduce((b, p) => (p.overallRank < b.overallRank ? p : b), pts[0]);
+  const best = pts.reduce((b, p) => ((isValue ? p.value > b.value : p.overallRank < b.overallRank) ? p : b), pts[0]);
   const barW = Math.max(2, Math.min(18, (CHART_W - 20) / pts.length - 3));
   const pct = v => `${(v / CHART_W) * 100}%`;
 
@@ -104,33 +112,44 @@ function RankChart({ rows }) {
     <div className="fpl-block fpl-rank-chart">
       <div className="fpl-rank-chart-head">
         <div>
-          <div className="fpl-mono fpl-profile-stat-label">{t('Overall rank')} · GW{cur.gw}</div>
+          <div className="fpl-mono fpl-profile-stat-label">{isValue ? t('Team value') : t('Overall rank')} · GW{cur.gw}</div>
           <div className="fpl-rank-chart-value">
-            {fmtInt(cur.overallRank)}
-            {cur.rankChange ? (
-              <span className={`fpl-rank-move ${cur.rankChange > 0 ? 'is-up' : 'is-down'}`}>
-                {cur.rankChange > 0 ? <ArrowUp size={14} aria-hidden="true" /> : <ArrowDown size={14} aria-hidden="true" />}
-                <span className="fpl-sr-only">{cur.rankChange > 0 ? t('up') : t('down')} </span>{fmtInt(Math.abs(cur.rankChange))}
+            {isValue ? fmtMoney(cur.value) : fmtInt(cur.overallRank)}
+            {change ? (
+              <span className={`fpl-rank-move ${change > 0 ? 'is-up' : 'is-down'}`}>
+                {change > 0 ? <ArrowUp size={14} aria-hidden="true" /> : <ArrowDown size={14} aria-hidden="true" />}
+                <span className="fpl-sr-only">{change > 0 ? t('up') : t('down')} </span>{isValue ? fmtMoney(Math.abs(change)) : fmtInt(Math.abs(change))}
               </span>
             ) : null}
           </div>
         </div>
         <div className="fpl-rank-chart-side fpl-mono" aria-live="polite">
           <span><b>{cur.points}</b> {t('pts')}{cur.hit ? ` (−${cur.hit})` : ''}</span>
-          {cur.gwRank ? <span>{t('GW rank {n}', { n: fmtInt(cur.gwRank) })}</span> : null}
+          {isValue
+            ? (cur.bank !== null ? <span>{t('{money} in the bank', { money: fmtMoney(cur.bank) })}</span> : null)
+            : (cur.gwRank ? <span>{t('GW rank {n}', { n: fmtInt(cur.gwRank) })}</span> : null)}
           {cur.chip ? <span className="fpl-rank-chip">{cur.chip}</span> : null}
         </div>
+        {hasValue && (
+          <div className="fpl-seg fpl-rank-mode" role="group" aria-label={t('Chart')}>
+            {[['rank', t('Rank')], ['value', t('Value')]].map(([key, label]) => (
+              <button key={key} type="button" className={mode === key ? 'is-on' : ''} aria-pressed={mode === key} onClick={() => setMode(key)}>{label}</button>
+            ))}
+          </div>
+        )}
       </div>
       <div
         ref={boxRef}
         className="fpl-rank-chart-plot"
         role="slider"
         tabIndex={0}
-        aria-label={t('Gameweek on the rank chart')}
+        aria-label={isValue ? t('Gameweek on the value chart') : t('Gameweek on the rank chart')}
         aria-valuemin={pts[0].gw}
         aria-valuemax={pts[pts.length - 1].gw}
         aria-valuenow={cur.gw}
-        aria-valuetext={t('Gameweek {gw}: overall rank {rank}, {n} points', { gw: cur.gw, rank: fmtInt(cur.overallRank), n: cur.points })}
+        aria-valuetext={isValue
+          ? t('Gameweek {gw}: team value {money}, {n} points', { gw: cur.gw, money: fmtMoney(cur.value), n: cur.points })
+          : t('Gameweek {gw}: overall rank {rank}, {n} points', { gw: cur.gw, rank: fmtInt(cur.overallRank), n: cur.points })}
         onKeyDown={onKey}
         onPointerMove={e => pickAt(e.clientX)}
         onPointerDown={e => pickAt(e.clientX)}
@@ -148,7 +167,7 @@ function RankChart({ rows }) {
           <line x1={cur.x} x2={cur.x} y1="0" y2={CHART_H} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
         </svg>
         <span className="fpl-rank-dot" style={{ left: pct(cur.x), top: `${(cur.y / CHART_H) * 100}%` }} aria-hidden="true" />
-        <span className={`fpl-mono fpl-rank-best${best.x < CHART_W * 0.12 ? ' is-start' : best.x > CHART_W * 0.88 ? ' is-end' : ''}`} style={{ left: pct(best.x), top: `${(best.y / CHART_H) * 100}%` }} aria-hidden="true">{t('Best {n}', { n: fmtInt(best.overallRank) })}</span>
+        <span className={`fpl-mono fpl-rank-best${best.x < CHART_W * 0.12 ? ' is-start' : best.x > CHART_W * 0.88 ? ' is-end' : ''}`} style={{ left: pct(best.x), top: `${(best.y / CHART_H) * 100}%` }} aria-hidden="true">{isValue ? t('Peak {money}', { money: fmtMoney(best.value) }) : t('Best {n}', { n: fmtInt(best.overallRank) })}</span>
         </div>
         <svg viewBox={`0 0 ${CHART_W} ${BARS_H}`} preserveAspectRatio="none" className="fpl-rank-bars" aria-hidden="true">
           {pts.map((p, k) => {

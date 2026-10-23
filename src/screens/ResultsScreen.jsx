@@ -21,6 +21,8 @@ import { templateReport } from '../lib/ownership.js';
 import { fmtNumber, t } from '../lib/i18n.js';
 import { tr } from '../lib/i18nRich.jsx';
 import { serverMessage } from '../lib/serverMessages.js';
+import { predictPriceChange } from '../lib/transferTrends.js';
+import { PriceChip } from '../components/PriceChip.jsx';
 
 // Every input that fed into a player's predicted points, in plain language
 // — see computePlayerPrediction in src/lib/predictions.js for where each
@@ -143,7 +145,7 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
   );
 }
 
-export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle, isPastGw }) {
+export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, onToggle, isPastGw, priceMove }) {
   const { player, predicted, availNote, isCaptain, isViceCaptain } = slot;
   const [showWhy, setShowWhy] = useState(false);
   const team = teamsById[player.team];
@@ -173,6 +175,7 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
           </div>
           <div className="fpl-row-sub">
             {team ? team.short_name : '—'} · {fmtPrice(player.price)}
+            {!isPastGw && priceMove ? <> <PriceChip change={priceMove} /></> : null}
             {setPieceTags(player).map(tag => <span key={tag} className="fpl-sp-tag">{tag}</span>)}
           </div>
           <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
@@ -515,7 +518,7 @@ function playersByPositionSorted(allPlayers, predictionsById, posId) {
   return byPos[posId];
 }
 
-export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, teamsById, bankTenths, onSwap }) {
+export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, teamsById, bankTenths, onSwap, totalPlayers = 0 }) {
   const [query, setQuery] = useState('');
   const posId = outSlot.player.positionId;
   const searching = searchKey(query).length >= 2;
@@ -567,6 +570,7 @@ export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, 
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
               <strong>{p.webName}</strong>{' '}
               <span className="fpl-dim">· {team ? team.short_name : '—'} · {fmtPrice(p.price)}</span>
+              {' '}<PriceChip change={predictPriceChange(p, totalPlayers)} />
               {blocker && <span className="fpl-mono" style={{ display: 'block', fontSize: '0.62rem', color: 'var(--amber)' }}>{blocker}</span>}
             </span>
             <span className="fpl-mono" style={{ flexShrink: 0, fontSize: '0.72rem', display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -834,7 +838,7 @@ function applyPlanned(squad, bankTenths, planned, predictionsById) {
 // prices; remove a player and pick who comes in, or let Auto Pick fill the
 // gaps with the best-predicted players that fit. Nothing changes until
 // Make transfers.
-function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teamsById, fixturesByTeam, freeTransfers, onFreeTransfers, startOut, onConfirm, onCancel }) {
+function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teamsById, fixturesByTeam, freeTransfers, onFreeTransfers, startOut, onConfirm, onCancel, totalPlayers = 0 }) {
   const [planned, setPlanned] = useState(() => (startOut ? { [startOut]: null } : {}));
   const [pickFor, setPickFor] = useState(startOut || null);
   const { work, bank } = applyPlanned(squad, bankTenths, planned, predictionsById);
@@ -881,14 +885,14 @@ function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teams
   const card = slot => {
     const id = slot.player.id;
     if (!(id in planned)) {
-      return <PlayerCard key={id} slot={slot} team={teamsById[slot.player.team]} price={slot.player.price}
+      return <PlayerCard key={id} slot={slot} team={teamsById[slot.player.team]} price={slot.player.price} priceMove={predictPriceChange(slot.player, totalPlayers)}
         info={nextFixtureLabel(slot.player, fixturesByTeam, teamsById)} onRemove={() => remove(id)} onClick={() => remove(id)}
         label={t('{name}, {price}: transfer out', { name: slot.player.webName, price: fmtPrice(slot.player.price) })} />;
     }
     const inPlayer = planned[id];
     if (!inPlayer) return <EmptyCard key={id} positionId={slot.player.positionId} onClick={() => setPickFor(id)} />;
     const pred = predictionsById[inPlayer.id];
-    return <PlayerCard key={id} slot={{ player: inPlayer, availNote: pred ? pred.availNote : null }} team={teamsById[inPlayer.team]} price={inPlayer.price}
+    return <PlayerCard key={id} slot={{ player: inPlayer, availNote: pred ? pred.availNote : null }} team={teamsById[inPlayer.team]} price={inPlayer.price} priceMove={predictPriceChange(inPlayer, totalPlayers)}
       info={nextFixtureLabel(inPlayer, fixturesByTeam, teamsById)} state="in" tag={t('IN')} onRemove={() => remove(id)} onClick={() => remove(id)}
       label={t('{name} coming in, {price}: change', { name: inPlayer.webName, price: fmtPrice(inPlayer.price) })} />;
   };
@@ -919,7 +923,7 @@ function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teams
       {pickSlot ? (
         <div className="fpl-planner-pick">
           <p className="fpl-mono fpl-meta">{t('Replacing {name} ({price})', { name: pickSlot.player.webName, price: fmtPrice(pickSlot.player.price) })}</p>
-          <InlineSwapSearch key={pickSlot.player.id} outSlot={pickSlot} squad={work} allPlayers={allPlayers} predictionsById={predictionsById} teamsById={teamsById} bankTenths={bank} onSwap={pick} />
+          <InlineSwapSearch key={pickSlot.player.id} outSlot={pickSlot} squad={work} allPlayers={allPlayers} predictionsById={predictionsById} teamsById={teamsById} bankTenths={bank} onSwap={pick} totalPlayers={totalPlayers} />
         </div>
       ) : null}
       <div className="fpl-planner-actions">
@@ -933,7 +937,7 @@ function TransferPlanner({ squad, bankTenths, allPlayers, predictionsById, teams
 }
 
 function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId, onSaveCustomSquad, onSaveTeamChanges, onResetTeamChanges, onRequestLoginToSave }) {
-  const { squad, starters, bench, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById, activeChip } = data;
+  const { squad, starters, bench, captain, captainSuggestion, suggestions, entryMeta, bankTenths, squadScore, isOptimalBuild, isPastGw, nextRefreshAt, backfilled, targetEvent, teamsById, fixturesByTeam, allEvents, allPlayers, predictionsById, activeChip, totalPlayers = 0 } = data;
   const [editMode, setEditMode] = useState(false);
   const [editSlotId, setEditSlotId] = useState(null);
   const [chipPreview, setChipPreview] = useState(null);
@@ -1254,6 +1258,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       {view === 'pitch' && planning ? (
         <TransferPlanner
           key={String(planning)}
+          totalPlayers={totalPlayers}
           squad={squad}
           bankTenths={bankTenths}
           allPlayers={allPlayers}
@@ -1294,6 +1299,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
               team={teamsById[slot.player.team]}
               points={points}
               pointsTone={tone}
+              priceMove={isPastGw ? null : predictPriceChange(slot.player, totalPlayers)}
               info={isPastGw ? t('pred {n}', { n: fmtPts(slot.predicted) }) : nextFixtureLabel(slot.player, fixturesByTeam, teamsById)}
               state={state}
               onClick={onClick}
@@ -1369,6 +1375,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                   isOpen={editSlotId === slot.player.id}
                   onToggle={() => toggleRowEdit(slot.player.id)}
                   isPastGw={isPastGw}
+                  priceMove={predictPriceChange(slot.player, totalPlayers)}
                 />
                 {canEdit && editMode && editSlotId === slot.player.id && (
                   <>
@@ -1391,6 +1398,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                       teamsById={teamsById}
                       bankTenths={bankTenths}
                       onSwap={applySwap}
+                      totalPlayers={totalPlayers}
                     />
                   </>
                 )}
@@ -1414,6 +1422,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                   isOpen={editSlotId === slot.player.id}
                   onToggle={() => toggleRowEdit(slot.player.id)}
                   isPastGw={isPastGw}
+                  priceMove={predictPriceChange(slot.player, totalPlayers)}
                 />
                 {canEdit && editMode && editSlotId === slot.player.id && (
                   <>
@@ -1436,6 +1445,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
                       teamsById={teamsById}
                       bankTenths={bankTenths}
                       onSwap={applySwap}
+                      totalPlayers={totalPlayers}
                     />
                   </>
                 )}

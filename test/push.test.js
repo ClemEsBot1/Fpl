@@ -141,3 +141,20 @@ test('pushes go out in the language the subscriber chose', async () => {
   await call({ push: 'subscribe' }, { redis: redis2, body: { subscription: SUB, playerIds: [], lang: 'xx' } });
   assert.equal(JSON.parse(await redis2.get(subscriptionKey(SUB.endpoint))).lang, undefined);
 });
+
+test('watched players are stored with the subscription and pushed too', async () => {
+  const redis = fakeRedis();
+  await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [], watchIds: [5, 'x', 5] } });
+  assert.deepEqual(JSON.parse(await redis.get(subscriptionKey(SUB.endpoint))).watchIds, [5]);
+  const staticData = {
+    targetEvent: { id: 8, name: 'Gameweek 8', deadline_time: new Date(NOW + 72 * 3600e3).toISOString() },
+    playersById: { 5: { id: 5, webName: 'Saka', status: 'a', priceChangePercent: 97 } },
+    predictionsById: { 5: {} },
+  };
+  const sent = [];
+  const sender = { sendNotification: async (sub, payload) => { sent.push(JSON.parse(payload).tag); } };
+  await call({ push: 'send' }, { redis, sender, staticData, now: NOW, headers: { 'content-type': 'application/json', authorization: 'Bearer cron' } });
+  assert.deepEqual(sent, ['watch-rise-5-2026-10-08']);
+  await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [] } });
+  assert.equal(JSON.parse(await redis.get(subscriptionKey(SUB.endpoint))).watchIds, undefined, 'an emptied watchlist is cleared');
+});

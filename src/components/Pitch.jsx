@@ -3,7 +3,8 @@
 // is a card with their club shirt, name and one line of info. Cards can be
 // highlighted (picked, can swap in, out of reach) for substitutions.
 import { useState } from 'react';
-import { Plus, TriangleAlert, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, TriangleAlert, X } from 'lucide-react';
+import { priceMoveText } from '../lib/transferTrends.js';
 import { POSITION_LABELS, fmtPrice } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { benchLabels, shirtUrl } from '../lib/pitch.js';
@@ -40,19 +41,24 @@ function flagFor(player, availNote) {
 // One player's card. `state` is 'selected', 'eligible' or 'dim' while
 // substituting; `points` shows in the corner; `price` above the card and
 // `onRemove` a remove button (the transfer planner).
-export function PlayerCard({ slot, team, info, points, pointsTone, state, onClick, onRemove, price, tag, label }) {
+// priceMove: predictPriceChange's answer for the player (an arrow by the
+// price, or on the shirt when there's no price), or nothing.
+export function PlayerCard({ slot, team, info, points, pointsTone, state, onClick, onRemove, price, tag, label, priceMove }) {
   const { player } = slot;
+  const MoveIcon = priceMove ? (priceMove.dir === 'rise' ? ArrowUp : ArrowDown) : null;
+  const move = MoveIcon ? <MoveIcon size={10} strokeWidth={3} aria-hidden="true" /> : null;
   const flag = flagFor(player, slot.availNote);
   // What the card shows only as badges and colours, read out too.
   const extras = [
     slot.isCaptain ? t('captain') : slot.isViceCaptain ? t('vice-captain') : null,
     flag && slot.availNote ? slot.availNote : null,
+    priceMoveText(priceMove) || null,
     state === 'eligible' ? t('can swap with the selected player') : state === 'dim' ? t("can't swap with the selected player") : null,
   ].filter(Boolean).join(', ');
   const baseLabel = label || `${player.webName}${info ? `, ${info}` : ''}${points !== undefined && points !== null ? `, ${t('{n} points', { n: points })}` : ''}`;
   return (
     <div className={`fpl-pc${state ? ` is-${state}` : ''}`}>
-      {price !== undefined ? <span className="fpl-pc-price fpl-mono">{fmtPrice(price)}</span> : null}
+      {price !== undefined ? <span className={`fpl-pc-price fpl-mono${move ? ` is-${priceMove.dir}` : ''}`}>{fmtPrice(price)}{move}</span> : null}
       {onRemove ? (
         <button type="button" className="fpl-pc-x" aria-label={t('Remove {name}', { name: player.webName })} onClick={onRemove}><X size={12} aria-hidden="true" /></button>
       ) : null}
@@ -69,6 +75,7 @@ export function PlayerCard({ slot, team, info, points, pointsTone, state, onClic
           {slot.isCaptain || slot.isViceCaptain ? <span className={`fpl-pc-arm${slot.isViceCaptain ? ' is-vc' : ''}`} aria-hidden="true">{slot.isCaptain ? t('C') : t('V')}</span> : null}
           {flag ? <span className={`fpl-pc-flag is-${flag}`} aria-hidden="true"><TriangleAlert size={11} /></span> : null}
           {tag ? <span className="fpl-pc-tag fpl-mono" aria-hidden="true">{tag}</span> : null}
+          {move && price === undefined && !tag ? <span className={`fpl-pc-move is-${priceMove.dir}`} aria-hidden="true">{move}</span> : null}
           {points !== undefined && points !== null ? <span className={`fpl-pc-pts fpl-mono${pointsTone ? ` is-${pointsTone}` : ''}`} aria-hidden="true">{points}</span> : null}
         </span>
         <span className={`fpl-pc-name${flag ? ` is-${flag}` : ''}`}>{player.webName}</span>

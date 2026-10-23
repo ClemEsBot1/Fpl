@@ -3,7 +3,7 @@
 // Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
 import { useEffect, useMemo, useState } from 'react';
-import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, RotateCcw, Shirt, Sparkles, Target, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
+import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, Plus, RotateCcw, Shirt, Sparkles, Star, Target, TrendingDown, TrendingUp, TriangleAlert, X } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { buildAlerts, predictionBaseline } from '../lib/alerts.js';
@@ -12,7 +12,11 @@ import { weeklyPicks } from '../lib/weeklyPicks.js';
 import { Shirt as ShirtKit } from '../components/Pitch.jsx';
 import { notificationState, notifyNewAlerts, setNotifications, stopPush, syncPush } from '../lib/notify.js';
 import { TransferTrends } from '../components/TransferTrends.jsx';
-import { SkeletonRows } from '../components/common.jsx';
+import { DifficultyChips, PlayerSearchPicker, SkeletonRows } from '../components/common.jsx';
+import { PriceChip } from '../components/PriceChip.jsx';
+import { predictPriceChange } from '../lib/transferTrends.js';
+import { MAX_WATCHED, watchRows } from '../lib/watchlist.js';
+import { useWatchlist } from '../hooks/useWatchlist.js';
 import { parseTeamId } from '../lib/teamIdInput.js';
 import { fmtDate, fmtNumber, plural, t } from '../lib/i18n.js';
 import { tr } from '../lib/i18nRich.jsx';
@@ -177,7 +181,7 @@ const BASELINE_KEY = 'fpl_pred_baseline';
 
 // Alerts for your team (src/lib/alerts.js), with a switch for sending them
 // as notifications. Rechecked every minute.
-function Alerts({ staticData, homeTeam }) {
+function Alerts({ staticData, homeTeam, watchIds }) {
   const [now, setNow] = useState(() => Date.now());
   const [notify, setNotify] = useState(notificationState);
   const [showAll, setShowAll] = useState(false);
@@ -195,11 +199,11 @@ function Alerts({ staticData, homeTeam }) {
     try { localStorage.setItem(BASELINE_KEY, JSON.stringify(next)); } catch { /* not saved */ }
     return previous && previous.gwId === next.gwId ? previous : null;
   }, [staticData, squad]);
-  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now, { baseline }), [staticData, squad, now, baseline]);
+  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now, { baseline, watchIds }), [staticData, squad, now, baseline, watchIds]);
   useEffect(() => { notifyNewAlerts(alerts); }, [alerts]);
   // With notifications on, the server is told this squad, so it can push
   // its alerts with the app closed.
-  useEffect(() => { if (notify === 'on' && squad) syncPush(squad.map(s => s.player.id), homeTeam.teamId); }, [notify, squad, homeTeam.teamId]);
+  useEffect(() => { if (notify === 'on' && squad) syncPush(squad.map(s => s.player.id), homeTeam.teamId, watchIds); }, [notify, squad, homeTeam.teamId, watchIds]);
   if (!staticData || !homeTeam.teamId) return null;
   const toggle = async () => {
     const next = await setNotifications(notify !== 'on');
@@ -237,6 +241,58 @@ function Alerts({ staticData, homeTeam }) {
       ) : null}
       {notify === 'on' ? <p className="fpl-home-hint">{t('Notifications come to this device.')}</p> : null}
       {notify === 'blocked' ? <p className="fpl-home-hint">{t('Your browser is blocking notifications for this site; allow them in its site settings.')}</p> : null}
+    </section>
+  );
+}
+
+// Players you might buy (src/lib/watchlist.js): price move, next fixtures
+// and predicted points, with a search to add more.
+function Watchlist({ staticData, watchIds, onToggle }) {
+  const [adding, setAdding] = useState(false);
+  if (!staticData) return null;
+  const rows = watchRows(staticData, watchIds);
+  const full = watchIds.length >= MAX_WATCHED;
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="watch-h">
+      <div className="fpl-home-team-head">
+        <h2 id="watch-h" className="fpl-home-h"><Star size={18} aria-hidden="true" /> {t('Watchlist')}</h2>
+        {adding || !full ? (
+          <button type="button" className="fpl-link" aria-expanded={adding} onClick={() => setAdding(v => !v)}>
+            {adding ? t('Done') : <><Plus size={14} aria-hidden="true" /> {t('Add player')}</>}
+          </button>
+        ) : null}
+      </div>
+      {adding ? (
+        full
+          ? <p className="fpl-home-hint">{t('Your watchlist is full ({n} players). Remove one to add another.', { n: MAX_WATCHED })}</p>
+          : <PlayerSearchPicker allPlayers={staticData.allPlayers} excludeIds={new Set(watchIds)} onPick={p => onToggle(p.id)} />
+      ) : null}
+      {rows.length ? (
+        <ul className="fpl-watch">
+          {rows.map(({ player, prediction, fixtures }) => {
+            const team = staticData.teamsById[player.team];
+            return (
+              <li key={player.id} className="fpl-watch-row">
+                <span className="fpl-watch-who">
+                  <b>{player.webName}</b>
+                  <span className="fpl-meta">
+                    {POSITION_LABELS[player.positionId]} · {team ? team.short_name : '—'} · {fmtPrice(player.price)}
+                    {' '}<PriceChip change={predictPriceChange(player, staticData.totalPlayers)} />
+                  </span>
+                  {prediction && prediction.availNote ? <span className="fpl-availnote">{prediction.availNote}</span> : null}
+                </span>
+                <span className="fpl-watch-fix"><DifficultyChips fixtures={fixtures} teamsById={staticData.teamsById} max={3} /></span>
+                <span className="fpl-watch-pts fpl-mono">{prediction ? fmtPts(prediction.predicted) : '–'}<small>{t('pts/wk')}</small></span>
+                <button type="button" className="fpl-watch-x" aria-label={t('Remove {name} from your watchlist', { name: player.webName })} onClick={() => onToggle(player.id)}>
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="fpl-home-text" style={{ margin: 0 }}>{t('Add players you might buy to follow their price, fixtures and predicted points here. Their injury news and price moves join your alerts.')}</p>
+      )}
     </section>
   );
 }
@@ -453,6 +509,7 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
   // Everything on Home is for the gameweek picked in the header.
   const event = (staticData && staticData.allEvents.find(e => e.id === selectedGw)) || target;
   const isPast = !!(event && target && event.id < target.id);
+  const [watchIds, toggleWatch] = useWatchlist();
   return (
     <div className="fpl-home">
       <div className="fpl-home-top">
@@ -474,7 +531,8 @@ export function HomeScreen({ staticData, selectedGw, live, homeTeam, onCheckTeam
       <div className="fpl-home-layout">
         <div className="fpl-home-main">
           <YourGameweek homeTeam={homeTeam} onCheckTeam={onCheckTeam} onOpenTeam={onOpenTeam} onChangeTeam={onChangeTeam} onRetry={onRetryTeam} />
-          <Alerts staticData={staticData} homeTeam={homeTeam} />
+          <Alerts staticData={staticData} homeTeam={homeTeam} watchIds={watchIds} />
+          <Watchlist staticData={staticData} watchIds={watchIds} onToggle={toggleWatch} />
           <WeeklyPicks staticData={staticData} />
           <FixtureTicker staticData={staticData} fromGw={event && event.id} />
           <PredictionCheck gwId={isPast && event.finished ? event.id : null} playersById={staticData && staticData.playersById} />
