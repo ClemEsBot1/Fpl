@@ -1,10 +1,27 @@
 // Pieces shared across screens: header, loading/error states, player
 // search and fixture-difficulty chips.
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, RotateCcw, Search, User } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Languages, RotateCcw, Search, User } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { isEventLocked } from '../lib/predictions.js';
-import { t } from '../lib/i18n.js';
+import { LANGUAGES, currentLanguage, t } from '../lib/i18n.js';
+import { chooseLanguage } from '../lib/i18nLoad.js';
+
+// The app's language for people who aren't logged in (logged-in users pick
+// it in Profile): a native select laid over a small "EN" button, so phones
+// show their own picker. Picking one saves it and reloads the page.
+export function LanguagePicker() {
+  const code = currentLanguage();
+  return (
+    <label className="fpl-mono fpl-lang-pick">
+      <Languages size={14} aria-hidden="true" />
+      <span aria-hidden="true">{code.toUpperCase()}</span>
+      <select aria-label={t('Language')} value={code} onChange={e => chooseLanguage(e.target.value)}>
+        {LANGUAGES.map(l => <option key={l.code} value={l.code} lang={l.code}>{l.name}</option>)}
+      </select>
+    </label>
+  );
+}
 
 export function DifficultyChips({ fixtures, teamsById, max = 3 }) {
   const list = (fixtures || []).slice(0, max);
@@ -65,16 +82,17 @@ export function Header({ summary, gwOptions, selectedGw, onSelectGw, onGoHome, s
         >
           FPL <span style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>CHECKER</span>
         </button>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, position: 'relative' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, position: 'relative', minWidth: 0 }}>
+          {!session && <LanguagePicker />}
           <button
             onClick={() => { setOpenPanel(null); if (session) onProfileClick(); else onLoginClick(); }}
             aria-label={session ? t('Your profile ({name})', { name: session.username }) : t('Log in')}
             aria-current={profileOpen ? 'page' : undefined}
             className="fpl-mono"
-            style={{ background: profileOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', maxWidth: 140 }}
+            style={{ background: profileOpen ? 'var(--panel-alt)' : 'none', border: '1px solid var(--line)', color: 'var(--ink)', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', maxWidth: 140, minWidth: 0 }}
           >
             <User size={14} style={{ flexShrink: 0 }} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session ? session.username : t('Log in')}</span>
+            <span className="fpl-acct-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session ? session.username : t('Log in')}</span>
           </button>
           {gwOptions && gwOptions.length > 0 && (
             <button

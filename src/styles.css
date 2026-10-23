@@ -1326,3 +1326,14 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-template-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fpl-template-up { color: var(--green); }
 .fpl-template-down { color: #FF8A8A; }
+
+/* Header language picker (logged out): a native select over a small button. */
+.fpl-lang-pick { position: relative; display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); color: var(--ink); padding: 6px 8px; font-size: 0.72rem; cursor: pointer; }
+.fpl-lang-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.fpl-lang-pick:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .fpl-lang-pick:hover { background: var(--panel-alt); } }
+.fpl-welcome-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.fpl-welcome-top .fpl-lang-pick { color: #05041A; border-color: rgba(5,4,26,0.35); border-radius: 999px; padding: 6px 10px; }
+@media (hover: hover) and (pointer: fine) { .fpl-welcome-top .fpl-lang-pick:hover { background: rgba(255,255,255,0.35); } }
+@media (max-width: 420px) { header .fpl-lang-pick span { display: none; } header .fpl-lang-pick { padding: 6px 7px; } }
+@media (max-width: 340px) { header .fpl-acct-label { display: none; } }
