@@ -98,6 +98,29 @@ export function availabilityNote(p, tr = t) {
   return null;
 }
 
+// Bonus points a player usually earns per 90 minutes, by position, for
+// someone without enough minutes of his own yet (rough league averages for
+// regular starters).
+const BONUS_PER_90_PRIOR = { 1: 0.28, 2: 0.32, 3: 0.38, 4: 0.45 };
+const BONUS_PRIOR_MINUTES = 900;
+
+// Bonus points expected this gameweek, for explaining a prediction (it is
+// already inside FPL's ep_next and points per game, so it isn't added to
+// them): his bonus per 90 minutes this season, drawn towards his
+// position's usual rate while his minutes are few, times his share of
+// minutes, his chance of playing and the number of matches.
+export function expectedBonus(p, { fixtures = 1, availMult = 1 } = {}) {
+  if (!fixtures || !availMult) return 0;
+  const minutes = p.minutes || 0;
+  const prior = BONUS_PER_90_PRIOR[p.positionId] || 0.35;
+  const own = minutes > 0 ? ((p.bonus || 0) / minutes) * 90 : prior;
+  const weight = minutes / (minutes + BONUS_PRIOR_MINUTES);
+  const per90 = weight * own + (1 - weight) * prior;
+  const share = typeof p.recentMinutesShare === 'number' ? p.recentMinutesShare
+    : typeof p.seasonMinutesShare === 'number' ? p.seasonMinutesShare : 1;
+  return Math.round(per90 * share * availMult * fixtures * 100) / 100;
+}
+
 export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextShrink = null, options = {}) {
   const weights = { ...DEFAULT_PREDICTION_WEIGHTS, ...options.weights };
   const rawEpNext = p.epNext || 0;
@@ -387,6 +410,7 @@ export function computePlayerPrediction(p, fixturesByTeam, formEligible, epNextS
         range: mlOut.range,
       } : null,
       epNext: Math.round(epNext * 100) / 100,
+      expectedBonus: expectedBonus(p, { fixtures: fixtureCountThisEvent, availMult }),
       epNextShrunk: !!(epNextShrink && confidence < 1),
       ppg: Math.round(ppg * 100) / 100,
       appearanceShare: typeof p.appearanceShare === 'number' ? Math.round(p.appearanceShare * 100) / 100 : null,
@@ -613,6 +637,7 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       directFreekicksOrder: e.direct_freekicks_order === null || e.direct_freekicks_order === undefined ? null : Number(e.direct_freekicks_order),
       cornersOrder: e.corners_and_indirect_freekicks_order === null || e.corners_and_indirect_freekicks_order === undefined ? null : Number(e.corners_and_indirect_freekicks_order),
       minutes: Number(e.minutes) || 0,
+      bonus: Number(e.bonus) || 0,
       goalsScored: Number(e.goals_scored) || 0,
       assists: Number(e.assists) || 0,
       expectedGoals: parseFloat(e.expected_goals) || 0,
