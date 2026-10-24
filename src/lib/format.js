@@ -22,6 +22,18 @@ export function availLevel(player) {
   if (chance <= 50) return 'c50';
   return 'c75';
 }
+// What a player's prediction counts for in a predicted total: the
+// captain's armband (2, or 3 under Triple Captain), 1 for the rest of the
+// XI, and 0 on the bench (1 under Bench Boost). The vice-captain only ever
+// counts once: FPL hands him the armband when the captain doesn't play,
+// but a prediction is for the captain you picked. activeChip, when known,
+// settles the armband; otherwise a captain's own multiplier of 3 shows it.
+export function predictedMultiplier(slot, activeChip = null) {
+  if (!slot.isStarting) return activeChip === 'bboost' ? 1 : 0;
+  if (slot.isCaptain) return activeChip === '3xc' ? 3 : Math.max(2, Math.min(3, slot.multiplier || 0));
+  return 1;
+}
+
 // " is-<level>" for a class list, or ''.
 export const availClass = player => { const level = availLevel(player); return level ? ` is-${level}` : ''; };
 

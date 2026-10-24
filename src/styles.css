@@ -1468,3 +1468,4 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-save { color: var(--green); font-weight: 700; }
 .fpl-profile-alt-pts { font-weight: 700; color: var(--blue); }
 .fpl-profile-alt-pts small { margin-left: 3px; font-size: 0.65rem; color: var(--ink-dim); font-weight: 500; }
+.fpl-admin-pr { margin-left: 10px; font-size: 0.9rem; font-weight: 600; color: var(--ink-dim); padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); vertical-align: middle; }

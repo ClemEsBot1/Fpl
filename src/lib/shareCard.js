@@ -4,6 +4,7 @@
 // files isn't supported.
 
 import { fmtNumber, ordinal, t } from './i18n.js';
+import { predictedMultiplier } from './format.js';
 
 const W = 1080;
 const H = 1350;
@@ -121,7 +122,7 @@ export async function drawShareCard({ teamName, gwName, total, slots, teamsById,
     ctx.font = `700 32px ${mono}`;
     // Starters at their multiplier (captain 2x, or 3x under Triple
     // Captain), the bench as is — matching the total at the top.
-    ctx.fillText(fmt(s.nextMatchPredicted * (s.isStarting ? (s.multiplier || 1) : 1)), W - 116, y - 6);
+    ctx.fillText(fmt(s.nextMatchPredicted * (s.isStarting ? predictedMultiplier(s) : 1)), W - 116, y - 6);
     ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
     y += rowH;

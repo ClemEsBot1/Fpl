@@ -603,12 +603,15 @@ const TABS = [
   { id: 'h2h', label: 'Formula v ML v blend', Icon: Scale },
 ];
 
+// The pull request this version was built from (vite.config.ts), or null.
+const PR_NUMBER = import.meta.env.VITE_PR_NUMBER;
+
 export function AdminScreen({ session }) {
   const [tab, setTab] = useState('health');
   return (
     <div className="fpl-tool">
       <header className="fpl-tool-head">
-        <h1 className="fpl-tool-h"><ShieldCheck size={22} aria-hidden="true" /> Admin</h1>
+        <h1 className="fpl-tool-h"><ShieldCheck size={22} aria-hidden="true" /> Admin{PR_NUMBER ? <span className="fpl-admin-pr fpl-mono" title="Pull request this version was built from">#{PR_NUMBER}</span> : null}</h1>
         <p className="fpl-tool-sub">Signed in as {session.username}. Only admins see this page, and the server checks every request.</p>
       </header>
       <div className="fpl-seg fpl-admin-tabs" role="tablist" aria-label="Admin sections">
