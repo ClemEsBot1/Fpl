@@ -25,7 +25,7 @@ import { TeamIdForm } from './screens/IntroScreen.jsx';
 import { AdminScreen, AuthDialog, CompareScreen, CustomSquadBuilder, ExploreScreen, FixturesScreen, GwRecap, HindsightScreen, LiveScreen, MiniLeagueScreen, MyTeamsScreen, ProfileScreen, ResultsScreen, ReviewScreen, ScreenshotForm, WelcomeScreen } from './screens/lazyScreens.js';
 import { TermsDialog } from './components/TermsDialog.jsx';
 import { CookieBanner } from './components/CookieBanner.jsx';
-import { onConsentChange, readConsent, wantsConsentPrompt, writeConsent } from './lib/consent.js';
+import { isInstalledApp, onConsentChange, readConsent, wantsConsentPrompt, writeConsent } from './lib/consent.js';
 import { track } from './lib/track.js';
 import { t } from './lib/i18n.js';
 import { parseTeamId } from './lib/teamIdInput.js';
@@ -93,9 +93,14 @@ export default function FPLSquadChecker() {
   // The Terms pop-up shown the first time someone presses Start.
   const [termsOpen, setTermsOpen] = useState(false);
   // Visit counts and page-speed measurement run only once accepted
-  // (src/lib/consent.js); /?cookies asks again.
+  // (src/lib/consent.js); /?cookies asks again. The banner is for the
+  // website: the Android app and installed copies don't show it.
   const [consent, setConsent] = useState(readConsent);
-  const [askConsent, setAskConsent] = useState(() => !readConsent() || wantsConsentPrompt(window.location.search));
+  const [askConsent, setAskConsent] = useState(() => {
+    if (wantsConsentPrompt(window.location.search)) return true;
+    const standalone = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    return !readConsent() && !isInstalledApp({ standalone, referrer: document.referrer });
+  });
   useEffect(() => onConsentChange(choice => { setConsent(choice); if (choice) setAskConsent(false); }), []);
   const chooseConsent = analytics => { writeConsent(analytics); writeParams({ cookies: null }); };
   // Counts the screens worth knowing about as they're opened.
