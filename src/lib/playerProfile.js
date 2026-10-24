@@ -124,3 +124,33 @@ export function onOpenPlayerProfile(fn) {
   window.addEventListener(EVENT, handler);
   return () => window.removeEventListener(EVENT, handler);
 }
+
+// His price through the season: [{ gw, price }] (£m), one point a
+// gameweek (FPL's history[].value, in tenths, at each match).
+export function priceSeries(summary) {
+  const byGw = new Map();
+  for (const h of (summary && summary.history) || []) {
+    if (h.round && Number.isFinite(Number(h.value))) byGw.set(h.round, Number(h.value) / 10);
+  }
+  return [...byGw.entries()].sort((a, b) => a[0] - b[0]).map(([gw, price]) => ({ gw, price }));
+}
+
+// Predicted points over the next gameweeks (his prediction's byGw).
+const nextWeeks = pred => ((pred && pred.byGw) || []).reduce((s, w) => s + (w.points || 0), 0);
+
+// Up to `n` players like him for less: the same position, at least
+// £0.5m cheaper, fit to play (no injury, suspension or doubt under 75%),
+// predicted at least 80% of his points over the next gameweeks; the best
+// predicted first. [{ player, prediction, saving, next, share }]
+export function cheaperAlternatives(player, allPlayers, predictionsById, { n = 3, minSaving = 0.5, minShare = 0.8 } = {}) {
+  const mine = nextWeeks(predictionsById[player.id]);
+  if (!(mine > 0)) return [];
+  return (allPlayers || [])
+    .filter(p => p.id !== player.id && p.positionId === player.positionId && p.price <= player.price - minSaving + 1e-9)
+    .filter(p => !['i', 's', 'u', 'n'].includes(p.status) && !(typeof p.chanceNext === 'number' && p.chanceNext < 75))
+    .map(p => ({ player: p, prediction: predictionsById[p.id], next: round1(nextWeeks(predictionsById[p.id])) }))
+    .filter(a => a.prediction && a.next >= mine * minShare)
+    .sort((a, b) => b.next - a.next)
+    .slice(0, n)
+    .map(a => ({ ...a, saving: round1(player.price - a.player.price), share: a.next / mine }));
+}

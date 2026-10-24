@@ -8,7 +8,7 @@ import { X } from 'lucide-react';
 import { Shirt } from './Pitch.jsx';
 import { fetchFplJson } from '../lib/fplClient.js';
 import { DIFF_COLORS, availClass, fmtPrice, fmtPts } from '../lib/format.js';
-import { pastSeasons, photoUrls, predictionError, profileRows, savedFor, signed } from '../lib/playerProfile.js';
+import { cheaperAlternatives, openPlayerProfile, pastSeasons, photoUrls, predictionError, priceSeries, profileRows, savedFor, signed } from '../lib/playerProfile.js';
 import { t } from '../lib/i18n.js';
 
 const positionName = id => ({ 1: t('Goalkeeper'), 2: t('Defender'), 3: t('Midfielder'), 4: t('Forward') })[id];
@@ -23,6 +23,108 @@ function loadSaved() {
       .then(data => { if (!data) savedAll = null; return data; });
   }
   return savedAll;
+}
+
+// Points against the prediction, gameweek by gameweek: two bars each,
+// oldest on the left. rows: played gameweeks, newest first.
+function PointsChart({ rows }) {
+  const weeks = rows.filter(r => r.played).slice().reverse();
+  if (weeks.length < 2) return null;
+  const values = weeks.flatMap(r => [r.points || 0, r.predicted || 0]);
+  const top = Math.max(4, Math.ceil(Math.max(...values) / 2) * 2);
+  const bottom = Math.min(0, Math.floor(Math.min(...values)));
+  const H = 120, PAD = 18, bar = 9, gap = 2, group = bar * 2 + gap + 8;
+  const W = 24 + weeks.length * group;
+  const y = v => PAD + ((top - v) / (top - bottom)) * (H - PAD * 2);
+  const ticks = [top, top / 2, 0];
+  return (
+    <figure className="fpl-profile-chart">
+      <figcaption>
+        <span>{t('Points and predictions')}</span>
+        <span className="fpl-profile-legend"><i className="is-actual" /> {t('Points')} <i className="is-pred" /> {t('Predicted')}</span>
+      </figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('Points and predictions')}>
+        {ticks.map(v => (
+          <g key={v}>
+            <line x1="22" x2={W} y1={y(v)} y2={y(v)} className="fpl-chart-grid" />
+            <text x="18" y={y(v) + 3} className="fpl-chart-axis" textAnchor="end">{v}</text>
+          </g>
+        ))}
+        {weeks.map((r, i) => {
+          const x = 26 + i * group;
+          const pts = r.points || 0;
+          const pred = r.predicted;
+          const barRect = (v, bx, cls) => <rect x={bx} width={bar} y={Math.min(y(v), y(0))} height={Math.max(1, Math.abs(y(v) - y(0)))} rx="2" className={cls} />;
+          return (
+            <g key={r.gw}>
+              <title>{t('GW{gw}: {pts} points, {pred} predicted', { gw: r.gw, pts, pred: pred === null ? '–' : fmtPts(pred) })}</title>
+              <rect x={x - 3} y="0" width={group - 2} height={H} fill="transparent" />
+              {barRect(pts, x, 'fpl-chart-actual')}
+              {pred !== null ? barRect(pred, x + bar + gap, 'fpl-chart-pred') : null}
+              {weeks.length <= 14 || i % 2 === 0 ? <text x={x + bar + gap / 2} y={H - 3} className="fpl-chart-axis" textAnchor="middle">{r.gw}</text> : null}
+            </g>
+          );
+        })}
+      </svg>
+    </figure>
+  );
+}
+
+// His price through the season, one point a gameweek.
+function PriceChart({ series }) {
+  if (series.length < 2) return null;
+  const prices = series.map(p => p.price);
+  const lo = Math.min(...prices) - 0.2, hi = Math.max(...prices) + 0.2;
+  const H = 80, W = 320, PAD = 12;
+  const x = i => 30 + (i / (series.length - 1)) * (W - 50);
+  const y = v => PAD + ((hi - v) / (hi - lo)) * (H - PAD * 2);
+  const path = series.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.price).toFixed(1)}`).join(' ');
+  const first = series[0], last = series[series.length - 1];
+  return (
+    <figure className="fpl-profile-chart">
+      <figcaption><span>{t('Price')}</span><span className="fpl-mono">{fmtPrice(first.price)} → {fmtPrice(last.price)}</span></figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('Price from {from} to {to}', { from: fmtPrice(first.price), to: fmtPrice(last.price) })}>
+        <path d={path} className="fpl-chart-line" />
+        {series.map((p, i) => (
+          <g key={p.gw}>
+            <title>{t('GW{gw}: {price}', { gw: p.gw, price: fmtPrice(p.price) })}</title>
+            <circle cx={x(i)} cy={y(p.price)} r="8" fill="transparent" />
+            {i === 0 || i === series.length - 1 ? <circle cx={x(i)} cy={y(p.price)} r="4" className="fpl-chart-dot" /> : null}
+          </g>
+        ))}
+        <text x={x(0) - 6} y={y(first.price) + 4} className="fpl-chart-axis" textAnchor="end">{first.price.toFixed(1)}</text>
+      </svg>
+    </figure>
+  );
+}
+
+// Cheaper players predicted nearly as well (cheaperAlternatives).
+function Alternatives({ player, staticData }) {
+  const alts = cheaperAlternatives(player, staticData.allPlayers, staticData.predictionsById);
+  if (!alts.length) return null;
+  const mine = ((staticData.predictionsById[player.id] || {}).byGw || []).reduce((s, w) => s + (w.points || 0), 0);
+  const weeks = ((staticData.predictionsById[player.id] || {}).byGw || []).length;
+  return (
+    <section className="fpl-profile-alts" aria-labelledby="alts-h">
+      <h3 id="alts-h">{t('Cheaper options')}</h3>
+      <p className="fpl-meta">{t('Same position, £0.5m or more cheaper, and predicted at least 80% of {name}’s {mine} points over the next {n} gameweeks.', { name: player.webName, mine: fmtPts(mine), n: weeks })}</p>
+      <ul>
+        {alts.map(a => {
+          const team = staticData.teamsById[a.player.team];
+          return (
+            <li key={a.player.id}>
+              <span className="fpl-explore-shirt"><Shirt team={team} isKeeper={a.player.positionId === 1} /></span>
+              <span className="fpl-profile-alt-who">
+                <button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(a.player.id)}>{a.player.webName}</button>
+                <span className="fpl-meta">{team ? team.short_name : '—'} · {fmtPrice(a.player.price)} · <b className="fpl-profile-save">−{fmtPrice(a.saving)}</b></span>
+              </span>
+              <span className="fpl-mono fpl-profile-alt-pts">{fmtPts(a.next)}<small>{t('pts')}</small></span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function Photo({ player, team }) {
@@ -124,6 +226,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
             </p>
           </div>
         ) : null}
+        <Alternatives player={player} staticData={staticData} />
         <div className="fpl-seg fpl-profile-tabs" role="group" aria-label={t('Show')}>
           <button type="button" className={tab === 'season' ? 'is-on' : ''} aria-pressed={tab === 'season'} onClick={() => setTab('season')}>{t('This season')}</button>
           <button type="button" className={tab === 'fixtures' ? 'is-on' : ''} aria-pressed={tab === 'fixtures'} onClick={() => setTab('fixtures')}>{t('Fixtures')}</button>
@@ -131,6 +234,12 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
         </div>
         {state.error ? <p className="fpl-meta">{t('Couldn’t load the matches. Try again in a minute.')}</p> : null}
         {!state.summary && !state.error ? <p className="fpl-meta">{t('Loading…')}</p> : null}
+        {state.summary && tab === 'season' && played.length ? (
+          <>
+            <PointsChart rows={rows} />
+            <PriceChart series={priceSeries(state.summary)} />
+          </>
+        ) : null}
         {state.summary && tab === 'season' ? (
           played.length ? (
             <div className="fpl-compare-wrap">

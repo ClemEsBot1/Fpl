@@ -1399,7 +1399,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (hover: hover) and (pointer: fine) { .fpl-namebtn:hover { text-decoration-color: var(--blue); } }
 .fpl-sheet-profile { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 44px; }
 .fpl-profile { max-width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); }
-.fpl-profile .fpl-dialog-card { display: grid; gap: 14px; padding: 16px; max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.fpl-profile .fpl-dialog-card { display: grid; grid-auto-rows: max-content; gap: 14px; padding: 16px; max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
 .fpl-profile .fpl-availnote { margin: 0; }
 .fpl-profile-hero { position: relative; display: flex; align-items: flex-end; gap: 14px; min-height: 132px; padding: 14px 40px 0 14px; border-radius: 14px; overflow: hidden;
   background: linear-gradient(115deg, #04F9FC 0%, #4FA5FF 45%, #9B4DFF 100%); color: #1A0B3B; }
@@ -1442,6 +1442,32 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-availnote.is-c50, .fpl-club-flag.is-c50, .fpl-compare-flag.is-c50, .fpl-home-worry.is-c50 b { color: var(--avail-50); }
 .fpl-availnote.is-c25, .fpl-club-flag.is-c25, .fpl-compare-flag.is-c25, .fpl-home-worry.is-c25 b { color: var(--avail-25); }
 .fpl-availnote.is-out, .fpl-club-flag.is-out, .fpl-compare-flag.is-out, .fpl-home-worry.is-out b { color: var(--avail-out); }
+/* Player profile charts (dataviz palette checked against the dialog's dark surface). */
+.fpl-profile { --chart-actual: #00A8B5; --chart-pred: #8C70E6; }
+.fpl-profile-chart { margin: 0; display: grid; gap: 6px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--line); }
+.fpl-profile-chart figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font: 600 0.8rem 'Space Grotesk', sans-serif; }
+.fpl-profile-chart svg { width: 100%; height: auto; max-height: 160px; overflow: visible; }
+.fpl-profile-legend { display: inline-flex; align-items: center; gap: 6px; font: 500 0.72rem 'Inter', sans-serif; color: var(--ink-dim); }
+.fpl-profile-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.fpl-profile-legend i.is-actual { background: var(--chart-actual); }
+.fpl-profile-legend i.is-pred { background: var(--chart-pred); margin-left: 6px; }
+.fpl-chart-actual { fill: var(--chart-actual); }
+.fpl-chart-pred { fill: var(--chart-pred); }
+.fpl-chart-grid { stroke: var(--line); stroke-width: 1; }
+.fpl-chart-axis { fill: var(--ink-dim); font: 500 8px 'IBM Plex Mono', monospace; }
+.fpl-chart-line { fill: none; stroke: var(--chart-actual); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.fpl-chart-dot { fill: var(--chart-actual); stroke: #1c1440; stroke-width: 2; }
+.fpl-profile-alts { display: grid; gap: 6px; }
+.fpl-profile-alts h3 { margin: 0; font: 700 0.95rem 'Space Grotesk', sans-serif; }
+.fpl-profile-alts p { margin: 0; font-size: 0.74rem; }
+.fpl-profile-alts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fpl-profile-alts li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); }
+.fpl-profile-alts .fpl-explore-shirt { width: 28px; height: 28px; flex: none; }
+.fpl-profile-alt-who { display: grid; gap: 2px; flex: 1; min-width: 0; font-weight: 600; }
+.fpl-profile-alt-who .fpl-meta { font-weight: 400; font-size: 0.74rem; }
+.fpl-profile-save { color: var(--green); font-weight: 700; }
+.fpl-profile-alt-pts { font-weight: 700; color: var(--blue); }
+.fpl-profile-alt-pts small { margin-left: 3px; font-size: 0.65rem; color: var(--ink-dim); font-weight: 500; }
 .fpl-admin-pr { margin-left: 10px; font-size: 0.9rem; font-weight: 600; color: var(--ink-dim); padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); vertical-align: middle; }
 .fpl-wildcard .fpl-btn { justify-self: start; min-height: 44px; padding: 0 16px; }
 .fpl-wildcard-sum { margin: 0; font-size: 0.86rem; }
