@@ -262,9 +262,11 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
   fixtures.forEach(f => { [f.team_h, f.team_a].forEach(team => { (fixturesByTeam[team] || (fixturesByTeam[team] = [])).push(f); }); });
 
   const card = row => {
+    // His matches are over and he didn't play (not a club without a match).
+    const dnp = row.state === 'done' && !(row.minutes > 0) && (fixturesByTeam[row.player?.team] || []).length > 0;
     const info = row.state === 'waiting'
       ? kickoffLabel((fixturesByTeam[row.player?.team] || []).find(f => !f.started)?.kickoff_time)
-      : row.state === 'playing' ? (row.minutes > 0 ? `${row.minutes}'` : t('Not on yet')) : `${t('FT')} · ${row.minutes}'`;
+      : row.state === 'playing' ? (row.minutes > 0 ? `${row.minutes}'` : t('Not on yet')) : row.minutes > 0 ? `${t('FT')} · ${row.minutes}'` : t('FT');
     const slot = {
       player: row.player, availNote: null,
       isCaptain: row.multiplier >= 2 && (row.isCaptain || row.armband),
@@ -275,12 +277,12 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
         key={row.id}
         slot={slot}
         team={staticData.teamsById[row.player.team]}
-        points={row.subOut ? row.livePoints : row.points}
+        points={dnp ? t('DNP') : row.subOut ? row.livePoints : row.points}
         pointsTone={row.state === 'playing' ? 'high' : null}
         info={info}
         tag={row.subIn ? t('IN') : row.subOut ? t('OUT') : row.bonus ? `+${row.bonus}` : null}
         state={row.subOut ? 'dim' : row.subIn ? 'in' : null}
-        label={row.bonus ? t('{name}, {n} points with {bonus} projected bonus, {info}', { name: row.player.webName, n: row.points, bonus: row.bonus, info }) : t('{name}, {n} points, {info}', { name: row.player.webName, n: row.points, info })}
+        label={dnp ? `${row.player.webName}, ${t('did not play')}` : row.bonus ? t('{name}, {n} points with {bonus} projected bonus, {info}', { name: row.player.webName, n: row.points, bonus: row.bonus, info }) : t('{name}, {n} points, {info}', { name: row.player.webName, n: row.points, info })}
       />
     );
   };

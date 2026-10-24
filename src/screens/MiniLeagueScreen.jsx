@@ -6,7 +6,7 @@ import { Anchor, Armchair, Check, MessageCircle, Scale, Share2, Swords, ArrowDow
 import { SkeletonRows } from '../components/common.jsx';
 import './headToHead.css';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
-import { fmtPrice, fmtPts } from '../lib/format.js';
+import { fmtPrice, fmtPts, noPointsLabel } from '../lib/format.js';
 import { expectedPositions, forEachLimited, headToHead, latestTransfers, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
 import { parseLeagueId } from '../lib/teamIdInput.js';
 import { fmtNumber, ordinal as ordinalFor, t } from '../lib/i18n.js';
@@ -41,7 +41,7 @@ function MemberTeam({ team, teamsById, onOpen }) {
         key={slot.player.id}
         slot={slot}
         team={club}
-        points={scored ? (slot.played === false ? '–' : slot.actualPoints * mult) : fmtPts(slot.predicted * mult)}
+        points={scored ? (slot.played === false ? noPointsLabel(slot) : slot.actualPoints * mult) : fmtPts(slot.predicted * mult)}
         info={scored ? t('pred {n}', { n: fmtPts(slot.predicted * mult) }) : (club ? club.short_name : '')}
       />
     );

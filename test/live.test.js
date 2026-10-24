@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bonusFromBps, lineup, liveBonusRace, liveTeamScore, matchDetail, projectedBonus, teamStates } from '../src/lib/live.js';
+import { bonusFromBps, didNotPlay, lineup, liveBonusRace, liveTeamScore, matchDetail, matchesOver, projectedBonus, teamStates } from '../src/lib/live.js';
 
 test('bonus follows FPL tie rules', () => {
   const b = list => bonusFromBps(list.map((value, i) => ({ element: i + 1, value })));
@@ -144,4 +144,17 @@ test('a side’s lineup: the eleven who started, then those who came on', () => 
   // Without FPL's start counts (or too few), minutes decide.
   const guess = lineup([r(1, 90, false), r(2, 10, false)]);
   assert.deepEqual([guess.starters.length, guess.subs.length], [2, 0]);
+});
+
+test("a player didn't play once his matches are over without minutes, not before, and not without a match", () => {
+  const over = matchesOver([{ id: 1, finished: true }, { id: 2, finished_provisional: true }, { id: 3, started: true }]);
+  assert.equal(over(1), true);
+  assert.equal(over(2), true);
+  assert.equal(over(3), false);
+  assert.equal(matchesOver(null, true)(99), true);
+  assert.equal(matchesOver(null)(1), false);
+  assert.equal(didNotPlay({ minutes: 0, matchesOver: true }), true);
+  assert.equal(didNotPlay({ minutes: 12, matchesOver: true }), false);
+  assert.equal(didNotPlay({ minutes: 0, matchesOver: false }), false);
+  assert.equal(didNotPlay(undefined), false);
 });

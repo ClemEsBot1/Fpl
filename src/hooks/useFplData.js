@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from '../lib/fplClient.js';
 import { sellingPrices } from '../lib/squadLogic.js';
 import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, snapshotIsForSeason, snapshotXiTotal, withPredictionSource } from '../lib/predictions.js';
-import { liveTeamScore, projectedBonus, teamStates } from '../lib/live.js';
+import { didNotPlay, liveTeamScore, matchesOver, projectedBonus, teamStates } from '../lib/live.js';
 import { computeOptimalXiTotal } from '../lib/squadLogic.js';
 import { readGwParam, readModelChoice, writeGwParam, writeModelChoice } from '../lib/appStorage.js';
 import { currentGwId, defaultGwId, isGwFinished } from '../lib/gameweeks.js';
@@ -39,7 +39,7 @@ export function scoreSlots(slots, staticData, liveById, isPastGw) {
       player, predicted: pred.predicted, nextMatchPredicted: pred.nextMatchPredicted, availNote: pred.availNote, breakdown: pred.breakdown, range: pred.range,
       isStarting: slot.isStarting, isCaptain: !!slot.isCaptain, isViceCaptain: !!slot.isViceCaptain,
       multiplier: slot.multiplier,
-      ...(isPastGw ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false } : {}),
+      ...(isPastGw ? { actualPoints: live ? live.totalPoints : 0, played: live ? live.minutes > 0 : false, dnp: didNotPlay(live) } : {}),
     };
   }).filter(Boolean);
 }
@@ -237,11 +237,16 @@ export function useFplData({ admin = false } = {}) {
   function liveForGw(gwId, finished) {
     const cached = liveCacheRef.current.get(gwId);
     if (cached && (finished || Date.now() - cached.at < LIVE_IN_PROGRESS_TTL_MS)) return cached.promise;
-    const promise = fetchFplJson(`event/${gwId}/live/`).then(live => {
+    // For a week still being played, which of its matches are over.
+    const fixturesPromise = finished ? Promise.resolve(null) : fixturesForGw(gwId);
+    const promise = Promise.all([fetchFplJson(`event/${gwId}/live/`), fixturesPromise]).then(([live, fixtures]) => {
+      const over = matchesOver(fixtures, finished);
       const liveById = {};
       (live.elements || []).forEach(el => {
         liveById[el.id] = {
           totalPoints: el.stats.total_points, minutes: el.stats.minutes,
+          // Every one of his matches this week is over (didNotPlay).
+          matchesOver: Array.isArray(el.explain) && el.explain.length > 0 && el.explain.every(x => over(x.fixture)),
           // For the gameweek recap's star and flop.
           goals: el.stats.goals_scored, assists: el.stats.assists, bonus: el.stats.bonus,
           cleanSheets: el.stats.clean_sheets, conceded: el.stats.goals_conceded, yellow: el.stats.yellow_cards,

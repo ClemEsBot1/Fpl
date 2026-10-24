@@ -68,6 +68,18 @@ export function teamStates(fixtures) {
   return out;
 }
 
+// Whether a match (by fixture id) is over: every one in a finished
+// gameweek, else the ones FPL marks finished in `fixtures` (none without).
+export function matchesOver(fixtures, weekFinished = false) {
+  if (weekFinished) return () => true;
+  const done = new Set((fixtures || []).filter(f => f.finished || f.finished_provisional).map(f => f.id));
+  return id => done.has(id);
+}
+
+// A player who didn't play: his matches this week are over (live entry's
+// matchesOver) and he had no minutes. Not one whose club had no match.
+export const didNotPlay = live => !!(live && live.matchesOver && !(live.minutes > 0));
+
 const MIN = { 2: 3, 3: 2, 4: 1 };
 
 // A team's live points. picks: FPL's picks payload ({ picks, active_chip,
