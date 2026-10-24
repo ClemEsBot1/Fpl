@@ -91,8 +91,9 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
     (async () => {
       let loggedIn = false;
       try {
-        const res = await fetch('/api/auth', { credentials: 'include' });
-        if (res.ok) { applyAccount(await res.json()); loggedIn = true; }
+        const res = await fetch('/api/auth?session=1', { credentials: 'include' });
+        const data = res.ok ? await res.json() : null;
+        if (data && data.username) { applyAccount(data); loggedIn = true; }
       } catch { /* not logged in / API unreachable — treat as logged out */ }
       clearTimeout(timer);
       leaveBoot(loggedIn || skip ? 'home' : 'welcome');

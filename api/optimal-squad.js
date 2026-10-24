@@ -215,6 +215,12 @@ async function seoHtml(req, res) {
     }
     if (page === 'player') {
       const p = model.playerBySlug[String(slug || '')];
+      // A short address (his FPL name or surname) goes to the full one.
+      const alias = !p && model.playerAliases[String(slug || '').toLowerCase()];
+      if (alias) {
+        res.status(301).setHeader('Location', `/player/${alias}`).setHeader('Cache-Control', 'public, max-age=86400').end();
+        return;
+      }
       if (!p) return sendHtml(res, 404, notFoundPage(`/player/${encodeURIComponent(String(slug || ''))}`, 'Player'));
       const history = await fetchFpl(`element-summary/${p.id}/`, 8_000).then(d => d.history).catch(() => null);
       return sendHtml(res, 200, playerPage(model, p, history));
