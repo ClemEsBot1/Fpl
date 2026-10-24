@@ -1,7 +1,9 @@
 /* App-wide styles (previously injected at runtime by a <GlobalStyle> component in App.jsx). */
 
 .fpl-root { --bg:linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%);
-  --panel:rgba(10,8,30,0.60); --panel-alt:rgba(10,8,30,0.42); --line:rgba(255,255,255,0.20);
+  /* Light marks on dark panels; the light theme swaps them (below). */
+  --tint:255 255 255; --shade:9 7 30;
+  --panel:rgb(var(--shade) / 0.60); --panel-alt:rgb(var(--shade) / 0.42); --line:rgb(var(--tint) / 0.20);
   --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.72); --blue:#04F9FC; --green:#36FE48;
   --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; --yellow:#FFD60A;
   /* Chance of playing, as the FPL app colours it (availLevel in src/lib/format.js). */
@@ -209,7 +211,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 /* ---------- App shell: the menu is a sidebar on a computer and a footer on a phone ---------- */
 .fpl-main { margin: 0 auto; max-width: 640px; }
 .fpl-main-wide { max-width: 1120px; }
-.fpl-glass { background: rgba(9,7,30,0.56); border: 1px solid rgba(255,255,255,0.22); border-radius: 18px;
+.fpl-glass { background: rgb(var(--shade) / 0.56); border: 1px solid rgb(var(--tint) / 0.22); border-radius: 18px;
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .fpl-sidenav { display: none; }
 .fpl-sidenav section { display: grid; }
@@ -218,13 +220,13 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-sidenav button { width: 100%; display: flex; align-items: center; gap: 16px; border: 0; background: transparent; padding: 12px 14px;
   border-radius: 12px; text-align: left; font: 600 1rem 'Inter', sans-serif; color: rgba(251,250,255,0.85); cursor: pointer; }
 .fpl-sidenav button svg { flex-shrink: 0; }
-@media (hover: hover) and (pointer: fine) { .fpl-sidenav button:hover { background: rgba(255,255,255,0.08); color: var(--ink); } }
+@media (hover: hover) and (pointer: fine) { .fpl-sidenav button:hover { background: rgb(var(--tint) / 0.08); color: var(--ink); } }
 .fpl-sidenav button[aria-current="page"] { background: rgba(4,249,252,0.16); color: var(--blue); }
 .fpl-sidenav-label { display: grid; gap: 2px; min-width: 0; }
 .fpl-sidenav-label small { font-size: 0.8rem; font-weight: 400; color: var(--ink-dim); }
 .fpl-sidenav button[aria-current="page"] small { color: rgba(4,249,252,0.75); }
 .fpl-footnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 90; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-  padding: 6px 4px calc(8px + env(safe-area-inset-bottom, 0px)); background: rgba(9,7,30,0.88);
+  padding: 6px 4px calc(8px + env(safe-area-inset-bottom, 0px)); background: rgb(var(--shade) / 0.88);
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-top: 1px solid var(--line); }
 .fpl-footnav button { position: relative; min-width: 0; border: 0; background: transparent; display: grid; justify-items: center; gap: 3px;
   font: 600 0.66rem 'Inter', sans-serif; color: var(--ink-dim); padding: 6px 0 2px; cursor: pointer; }
@@ -232,17 +234,17 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-footnav button[aria-current="page"], .fpl-footnav button.is-active, .fpl-footnav button[aria-expanded="true"] { color: var(--blue); }
 .fpl-footnav button[aria-current="page"]::before { content: ""; position: absolute; top: -6px; width: 26px; height: 3px; border-radius: 0 0 3px 3px; background: var(--blue); }
 .fpl-footnav-more { position: fixed; left: 10px; right: 10px; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); z-index: 91;
-  padding: 8px; display: grid; gap: 2px; background: rgba(9,7,30,0.92); animation: fplMoreIn .18s ease-out; }
+  padding: 8px; display: grid; gap: 2px; background: rgb(var(--shade) / 0.92); animation: fplMoreIn .18s ease-out; }
 @keyframes fplMoreIn { from { opacity: 0; transform: translateY(10px); } }
 .fpl-footnav-more button { display: flex; align-items: center; gap: 12px; border: 0; background: transparent; padding: 12px; border-radius: 12px;
   text-align: left; font: 500 0.95rem 'Inter', sans-serif; color: var(--ink); cursor: pointer; }
-@media (hover: hover) and (pointer: fine) { .fpl-footnav-more button:hover { background: rgba(255,255,255,0.08); } }
+@media (hover: hover) and (pointer: fine) { .fpl-footnav-more button:hover { background: rgb(var(--tint) / 0.08); } }
 .fpl-footnav-more button[aria-current="page"] { color: var(--blue); }
 .fpl-footnav-more svg { color: var(--blue); }
 .fpl-has-nav .fpl-main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 .fpl-has-nav .fpl-error-overlay { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
 .fpl-cookie { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: 440px; margin: 0 auto;
-  padding: 16px; display: grid; gap: 10px; background: rgba(9,7,30,0.9); box-shadow: 0 12px 32px rgba(5,4,26,0.45);
+  padding: 16px; display: grid; gap: 10px; background: rgb(var(--shade) / 0.9); box-shadow: 0 12px 32px rgba(5,4,26,0.45);
   animation: fplCookieIn 220ms cubic-bezier(0.23, 1, 0.32, 1); }
 @keyframes fplCookieIn { from { opacity: 0; transform: translateY(12px); } }
 .fpl-has-nav .fpl-cookie { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
@@ -269,7 +271,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
   .fpl-has-nav .fpl-shell { display: grid; grid-template-columns: 380px minmax(0, 1fr); align-items: start; }
   .fpl-sidenav { display: grid; gap: 8px; align-content: start; position: sticky; top: var(--fpl-header-h, 58px);
     height: calc(100vh - var(--fpl-header-h, 58px)); height: calc(100dvh - var(--fpl-header-h, 58px)); box-sizing: border-box; overflow-y: auto; padding: 12px 16px 24px;
-    background: rgba(9,7,30,0.56); border-right: 1px solid rgba(255,255,255,0.2);
+    background: rgb(var(--shade) / 0.56); border-right: 1px solid rgb(var(--tint) / 0.2);
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
   .fpl-footnav-root { display: none; }
   .fpl-has-nav .fpl-main { padding-bottom: 32px; }
@@ -403,7 +405,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-home-stat { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 2.4rem; line-height: 1; color: var(--lime); font-variant-numeric: tabular-nums; }
 .fpl-home-stat small { display: block; margin-top: 6px; font-size: 0.72rem; font-weight: 500; color: var(--ink-dim); }
 .fpl-home-ring-wrap { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; color: var(--ink-dim); line-height: 1.25; }
-.fpl-home-ring { --v: 0; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--blue) calc(var(--v) * 1%), rgba(255,255,255,0.14) 0); }
+.fpl-home-ring { --v: 0; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--blue) calc(var(--v) * 1%), rgb(var(--tint) / 0.14) 0); }
 .fpl-home-ring span { width: 50px; height: 50px; border-radius: 50%; background: #17123F; display: grid; place-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 1.05rem; }
 .fpl-home-players { display: grid; }
 .fpl-watch { list-style: none; margin: 0; padding: 0; display: grid; container-type: inline-size; }
@@ -418,7 +420,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-watch-x { grid-area: x; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--ink-dim); cursor: pointer; transition: background-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
 .fpl-watch-x:active { transform: scale(0.95); }
 .fpl-watch-x:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
-@media (hover: hover) and (pointer: fine) { .fpl-watch-x:hover { background: rgba(255,255,255,0.08); color: var(--ink); } }
+@media (hover: hover) and (pointer: fine) { .fpl-watch-x:hover { background: rgb(var(--tint) / 0.08); color: var(--ink); } }
 @container (min-width: 520px) {
   .fpl-watch-row { grid-template-columns: minmax(0, 1fr) auto auto 44px; grid-template-areas: 'who fix pts x'; }
 }
@@ -431,7 +433,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-home-transfer { margin: 0; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; }
 .fpl-home-transfer .fpl-mono { color: var(--green); font-size: 0.8rem; }
 .fpl-home-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
-.fpl-home-facts div { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 10px; display: grid; gap: 2px; }
+.fpl-home-facts div { background: rgb(var(--tint) / 0.08); border-radius: 12px; padding: 10px; display: grid; gap: 2px; }
 .fpl-home-facts b { font-family: 'IBM Plex Mono', monospace; font-size: 1rem; font-variant-numeric: tabular-nums; }
 .fpl-home-facts span { font-size: 0.72rem; color: var(--ink-dim); }
 .fpl-deadline-soon { color: var(--yellow); font-weight: 700; }
@@ -462,8 +464,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-trend-count { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--green); }
 .fpl-trend-count.is-out { color: var(--red); }
 .fpl-trend-chip { display: inline-flex; align-items: center; gap: 3px; font: 600 0.66rem 'IBM Plex Mono', monospace; padding: 2px 6px; border-radius: 4px;
-  color: var(--ink-dim); background: rgba(255,255,255,0.08); white-space: nowrap; }
-.fpl-trend-hour { color: var(--ink-dim); background: rgba(255,255,255,0.06); }
+  color: var(--ink-dim); background: rgb(var(--tint) / 0.08); white-space: nowrap; }
+.fpl-trend-hour { color: var(--ink-dim); background: rgb(var(--tint) / 0.06); }
 .fpl-trend-hour.is-in { color: var(--green); }
 .fpl-trend-hour.is-out { color: var(--red); }
 .fpl-trend-chip.is-rise { color: var(--green); background: rgba(54,254,72,0.12); }
@@ -501,7 +503,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-who:disabled .fpl-league-chev { opacity: 0.3; }
 .fpl-league-who.is-failed small { color: var(--yellow); }
 .fpl-league-row.is-open .fpl-league-chev { transform: rotate(180deg); }
-@media (hover: hover) and (pointer: fine) { .fpl-league-who:not(:disabled):hover { background: rgba(255,255,255,0.08); } }
+@media (hover: hover) and (pointer: fine) { .fpl-league-who:not(:disabled):hover { background: rgb(var(--tint) / 0.08); } }
 .fpl-league-edited { margin-left: 6px; font: 600 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.04em; text-transform: uppercase; color: #05041A; background: var(--yellow); padding: 1px 5px; border-radius: 4px; vertical-align: 2px; }
 .fpl-league-live { text-align: right; font-weight: 700; color: var(--blue); font-variant-numeric: tabular-nums; }
 .fpl-league-exp { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; display: grid; justify-items: end; line-height: 1.1; }
@@ -544,7 +546,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-analysis-label { grid-column: 2; font-size: 0.74rem; color: var(--ink-dim); }
 .fpl-analysis-who { grid-column: 2; font-family: 'Space Grotesk', sans-serif; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fpl-analysis-value { grid-column: 3; grid-row: 1 / span 2; font-weight: 700; font-size: 0.82rem; color: var(--lime); text-align: right; font-variant-numeric: tabular-nums; }
-.fpl-price-timer { margin: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.08); font-size: 0.82rem; }
+.fpl-price-timer { margin: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgb(var(--tint) / 0.08); font-size: 0.82rem; }
 .fpl-price-timer svg { color: var(--blue); flex-shrink: 0; }
 .fpl-price-timer span { flex: 1; }
 .fpl-price-timer b { font-variant-numeric: tabular-nums; }
@@ -876,9 +878,9 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-pc.is-in .fpl-pc-name { background: var(--green); }
 @media (prefers-reduced-motion: reduce) { .fpl-pc, .fpl-pc-body:active:not(:disabled) { transition: none; transform: none; } }
 .fpl-team-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-.fpl-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 10px; background: rgba(9,7,30,0.56); border: 1px solid var(--line); }
+.fpl-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 10px; background: rgb(var(--shade) / 0.56); border: 1px solid var(--line); }
 .fpl-seg button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-dim); font: 600 0.82rem 'Space Grotesk', sans-serif; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
-.fpl-seg button.is-on { background: rgba(255,255,255,0.14); color: var(--ink); }
+.fpl-seg button.is-on { background: rgb(var(--tint) / 0.14); color: var(--ink); }
 .fpl-seg button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .fpl-team-pitch { display: grid; gap: 10px; margin-bottom: 18px; }
 .fpl-captain-card { padding: 12px; margin-bottom: 16px; border-left: 3px solid; display: flex; gap: 10px; align-items: flex-start; }
@@ -900,7 +902,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-sheet-head p { margin: 2px 0 0; }
 .fpl-sheet .fpl-availnote { margin: 0; }
 .fpl-sheet-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.fpl-sheet-stats div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.08); }
+.fpl-sheet-stats div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: rgb(var(--tint) / 0.08); }
 .fpl-sheet-stats b { font-size: 1.05rem; }
 .fpl-sheet-stats span { font-size: 0.72rem; color: var(--ink-dim); }
 .fpl-sheet-fx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -911,15 +913,15 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-planner-head { display: flex; justify-content: space-between; align-items: center; }
 .fpl-planner-head h2 { margin: 0; }
 .fpl-planner-facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
-.fpl-planner-facts div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: rgba(9,7,30,0.56); border: 1px solid var(--line); }
+.fpl-planner-facts div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: rgb(var(--shade) / 0.56); border: 1px solid var(--line); }
 .fpl-planner-facts dt { font-size: 0.68rem; color: var(--ink-dim); }
 .fpl-planner-facts dd { margin: 0; font-weight: 700; }
 .fpl-planner-facts .is-up { color: var(--green); }
 .fpl-planner-facts .is-down { color: #FF8A8A; }
 .fpl-stepper { display: inline-flex; align-items: center; gap: 8px; }
-.fpl-stepper button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: rgba(255,255,255,0.08); color: var(--ink); cursor: pointer; font-weight: 700; }
+.fpl-stepper button { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: rgb(var(--tint) / 0.08); color: var(--ink); cursor: pointer; font-weight: 700; }
 .fpl-stepper button:disabled { opacity: 0.4; cursor: default; }
-.fpl-planner-pick { display: grid; gap: 4px; border-radius: 12px; background: rgba(9,7,30,0.56); border: 1px solid var(--line); padding-top: 10px; }
+.fpl-planner-pick { display: grid; gap: 4px; border-radius: 12px; background: rgb(var(--shade) / 0.56); border: 1px solid var(--line); padding-top: 10px; }
 .fpl-planner-pick > p { margin: 0 10px; }
 .fpl-planner-actions { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
 .fpl-planner-actions .fpl-btn { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 46px; }
@@ -949,14 +951,14 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 
 /* Typical miss by position, under the accuracy facts. */
 .fpl-acc-pos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.fpl-acc-pos span { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); font-size: 0.72rem; color: var(--ink-dim); }
+.fpl-acc-pos span { padding: 4px 8px; border-radius: 6px; background: rgb(var(--tint) / 0.06); font-size: 0.72rem; color: var(--ink-dim); }
 .fpl-acc-pos b { color: var(--ink); margin-right: 4px; font-weight: 600; }
 
 /* The transfer plan over the next few gameweeks. */
 .fpl-plan { padding: 14px; margin-top: 12px; display: grid; gap: 10px; }
 .fpl-plan-h { margin: 0; font-size: 0.95rem; }
 .fpl-plan-weeks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.fpl-plan-weeks li { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
+.fpl-plan-weeks li { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid rgb(var(--tint) / 0.08); font-size: 0.85rem; }
 .fpl-plan-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .fpl-plan-horizon button { font-size: 0.72rem; padding: 0 10px; }
 .fpl-plan-move { display: grid; gap: 2px; }
@@ -1004,11 +1006,11 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-ticker-legend i { width: 18px; height: 10px; border-radius: 3px; }
 .fpl-ticker-legend-note { margin-left: auto; }
 
-.fpl-club-players { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; }
+.fpl-club-players { background: rgb(var(--tint) / 0.04); border-radius: 8px; padding: 8px 10px; }
 .fpl-club-table { width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; }
 .fpl-club-table th, .fpl-club-table td { padding: 5px 6px; text-align: left; white-space: nowrap; }
 .fpl-club-table thead th { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
-.fpl-club-table tbody tr + tr { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-club-table tbody tr + tr { border-top: 1px solid rgb(var(--tint) / 0.06); }
 .fpl-club-pts { color: var(--lime); font-weight: 700; }
 .fpl-club-flag { color: var(--amber); font-weight: 700; }
 .fpl-compare-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 0.72rem; }
@@ -1029,7 +1031,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-compare-remove { font-size: 0.75rem; margin-top: 4px; }
 .fpl-compare tbody th { text-align: left; font-weight: 500; font-size: 0.8rem; color: var(--ink-dim); padding: 7px 6px 7px 0; }
 .fpl-compare tbody td { text-align: center; padding: 7px 6px; font-size: 0.85rem; border-radius: 6px; }
-.fpl-compare tbody tr + tr > * { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-compare tbody tr + tr > * { border-top: 1px solid rgb(var(--tint) / 0.06); }
 .fpl-compare td.is-best { background: rgba(206,255,16,0.12); color: var(--lime); font-weight: 700; }
 .fpl-compare-fx { display: flex; justify-content: center; gap: 3px; margin-top: 3px; }
 .fpl-compare-fx .fpl-ticker-fx { min-width: 34px; }
@@ -1051,7 +1053,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-live-total > b { font-size: 2.6rem; line-height: 1; color: var(--lime); font-variant-numeric: tabular-nums; }
 .fpl-live-total .fpl-meta b { color: var(--ink); }
 .fpl-live-matches { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.fpl-live-match { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid transparent; }
+.fpl-live-match { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgb(var(--tint) / 0.05); border: 1px solid transparent; }
 .fpl-live-match.is-live { border-color: rgba(206,255,16,0.45); background: rgba(206,255,16,0.06); }
 .fpl-live-score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
 .fpl-live-team { font-weight: 700; }
@@ -1076,7 +1078,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 
 /* Alerts on Home. */
 .fpl-alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.fpl-alert { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border-left: 3px solid var(--sky); font-size: 0.85rem; line-height: 1.4; }
+.fpl-alert { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; background: rgb(var(--tint) / 0.05); border-left: 3px solid var(--sky); font-size: 0.85rem; line-height: 1.4; }
 .fpl-alert.is-warn { border-left-color: var(--amber); }
 .fpl-alert > svg { margin-top: 2px; color: var(--ink-dim); }
 .fpl-alert.is-warn > svg { color: var(--amber); }
@@ -1088,7 +1090,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-ml-weeks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .fpl-ml-weeks li { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: center; font-size: 0.8rem; }
 .fpl-ml-gw { color: var(--ink-dim); font-size: 0.72rem; }
-.fpl-ml-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.fpl-ml-bar { height: 8px; border-radius: 4px; background: rgb(var(--tint) / 0.08); overflow: hidden; }
 .fpl-ml-bar i { display: block; height: 100%; border-radius: 4px; background: var(--lime); }
 
 /* Admin page. */
@@ -1098,23 +1100,23 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-admin-actions .fpl-btn { display: inline-flex; align-items: center; gap: 6px; }
 .fpl-btn-danger { color: var(--red); border-color: rgba(255,90,90,0.5); }
 .fpl-admin-warn { color: var(--amber); }
-.fpl-admin-compose { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: var(--ink); font: 400 0.9rem/1.5 Inter, sans-serif; resize: vertical; }
+.fpl-admin-compose { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgb(var(--tint) / 0.06); color: var(--ink); font: 400 0.9rem/1.5 Inter, sans-serif; resize: vertical; }
 .fpl-admin-compose:focus-visible { outline: 2px solid var(--lime); outline-offset: 1px; }
 .fpl-btn.is-disabled { opacity: 0.45; pointer-events: none; }
-.fpl-admin-post { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.fpl-admin-post { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid rgb(var(--tint) / 0.08); }
 .fpl-admin-post-h { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
-.fpl-admin-sent { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.12); color: var(--ink-dim); font-size: 0.68rem; font-weight: 600; }
+.fpl-admin-sent { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: rgb(var(--tint) / 0.12); color: var(--ink-dim); font-size: 0.68rem; font-weight: 600; }
 .fpl-admin-due { padding: 2px 8px; border-radius: 999px; background: var(--lime); color: #05041A; font-size: 0.68rem; font-weight: 700; }
 .fpl-admin-xdone { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 500; color: var(--ink-dim); cursor: pointer; }
 .fpl-admin-xdone input { accent-color: var(--lime); width: 15px; height: 15px; }
 .fpl-admin-post.is-done { opacity: 0.45; filter: grayscale(0.6); transition: opacity 0.2s ease; }
 .fpl-admin-post.is-done:hover, .fpl-admin-post.is-done:focus-within { opacity: 0.8; }
-.fpl-admin-post-text { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.85rem; line-height: 1.5; }
-.fpl-admin-msg { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.06); font-size: 0.85rem; grid-column: 1 / -1; }
+.fpl-admin-post-text { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgb(var(--tint) / 0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.85rem; line-height: 1.5; }
+.fpl-admin-msg { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgb(var(--tint) / 0.06); font-size: 0.85rem; grid-column: 1 / -1; }
 .fpl-admin-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .fpl-admin-table th, .fpl-admin-table td { text-align: left; padding: 5px 6px; }
 .fpl-admin-table thead th { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
-.fpl-admin-table tbody tr + tr { border-top: 1px solid rgba(255,255,255,0.06); }
+.fpl-admin-table tbody tr + tr { border-top: 1px solid rgb(var(--tint) / 0.06); }
 .fpl-admin-runs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.8rem; }
 .fpl-admin-runs li { display: flex; gap: 10px; align-items: baseline; }
 .fpl-admin-runs .is-success { color: var(--green); }
@@ -1130,7 +1132,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (min-width: 1000px) { .fpl-admin-reports { grid-template-columns: 1fr 1fr; } }
 .fpl-admin-report { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 12px; min-width: 0; }
 .fpl-admin-report.is-done { opacity: 0.6; }
-.fpl-admin-shot { display: block; width: 110px; height: 160px; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.06); }
+.fpl-admin-shot { display: block; width: 110px; height: 160px; border-radius: 8px; overflow: hidden; background: rgb(var(--tint) / 0.06); }
 .fpl-admin-shot img { width: 100%; height: 100%; object-fit: cover; }
 .fpl-admin-report-body { display: grid; gap: 6px; align-content: start; min-width: 0; font-size: 0.85rem; overflow-wrap: anywhere; }
 .fpl-admin-fixes { margin: 0; padding-left: 16px; font-size: 0.8rem; }
@@ -1139,7 +1141,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-admin-weeks i { align-self: end; width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--lime); }
 .fpl-admin-weeks span { font-size: 0.72rem; }
 .fpl-admin-weeks small { font-size: 0.62rem; color: var(--ink-dim); }
-.fpl-admin-user { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); }
+.fpl-admin-user { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgb(var(--tint) / 0.05); }
 .fpl-admin-badge { margin-left: 8px; padding: 1px 6px; border-radius: 4px; font: 600 0.66rem 'IBM Plex Mono', monospace; color: #05041A; background: var(--lime); }
 @media (max-width: 599px) {
   .fpl-admin-report { grid-template-columns: 1fr; }
@@ -1230,7 +1232,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 
 /* Admin-only Reddit reply under the team results. */
 .fpl-reddit { display: grid; gap: 10px; margin-top: 16px; }
-.fpl-reddit-text { margin: 0; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.55; }
+.fpl-reddit-text { margin: 0; padding: 12px 14px; border-radius: 10px; background: rgb(var(--tint) / 0.06); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.55; }
 
 .fpl-digest { margin-top: 12px; }
 .fpl-digest-row { display: flex; gap: 10px; align-items: flex-start; font-size: 0.85rem; line-height: 1.45; cursor: pointer; }
@@ -1292,8 +1294,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-rows { padding: 4px 0; }
 .fpl-profile-row { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 56px; cursor: pointer; color: var(--ink); transition: background-color 150ms ease; }
 .fpl-profile-row + .fpl-profile-row { border-top: 1px solid var(--line); }
-@media (hover: hover) { .fpl-profile-row:hover { background: rgba(255,255,255,0.05); } }
-.fpl-profile-row:active { background: rgba(255,255,255,0.08); }
+@media (hover: hover) { .fpl-profile-row:hover { background: rgb(var(--tint) / 0.05); } }
+.fpl-profile-row:active { background: rgb(var(--tint) / 0.08); }
 .fpl-profile-row.is-static { cursor: default; background: none; }
 .fpl-profile-row:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .fpl-profile-row-icon { flex: none; color: var(--ink-dim); }
@@ -1365,7 +1367,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 /* Set-piece tags on player rows, the set-piece table, the template card */
 .fpl-sp-tag { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 4px; font: 600 0.58rem 'IBM Plex Mono', monospace; letter-spacing: 0.02em; color: var(--lime); border: 1px solid rgba(206,255,16,0.4); vertical-align: 1px; }
 .fpl-sp-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.fpl-sp-table th, .fpl-sp-table td { text-align: left; padding: 7px 8px; border-top: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
+.fpl-sp-table th, .fpl-sp-table td { text-align: left; padding: 7px 8px; border-top: 1px solid rgb(var(--tint) / 0.08); vertical-align: top; }
 .fpl-sp-table thead th { border-top: 0; font: 600 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.06em; color: var(--ink-dim); text-transform: uppercase; }
 .fpl-sp-table tbody th { font-size: 0.72rem; color: var(--ink-dim); width: 1%; white-space: nowrap; }
 .fpl-sp-table td span { display: block; }
@@ -1375,7 +1377,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (min-width: 560px) { .fpl-template-cols { grid-template-columns: 1fr 1fr; } }
 .fpl-template-h { margin: 0 0 6px; font-size: 0.6rem; letter-spacing: 0.06em; color: var(--ink-dim); font-weight: 600; }
 .fpl-template-list { list-style: none; margin: 0; padding: 0; display: grid; }
-.fpl-template-list li { display: grid; grid-template-columns: 1fr auto 52px; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
+.fpl-template-list li { display: grid; grid-template-columns: 1fr auto 52px; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid rgb(var(--tint) / 0.08); font-size: 0.85rem; }
 .fpl-template-list li > :last-child { text-align: right; font-variant-numeric: tabular-nums; }
 .fpl-template-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fpl-template-up { color: var(--green); }
@@ -1393,7 +1395,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (max-width: 340px) { header .fpl-acct-label { display: none; } }
 
 /* Player profile (src/components/PlayerProfile.jsx) */
-.fpl-namebtn { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.3); text-underline-offset: 3px; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+.fpl-namebtn { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: rgb(var(--tint) / 0.3); text-underline-offset: 3px; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
 .fpl-namebtn:active { transform: scale(0.97); }
 .fpl-namebtn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 3px; }
 @media (hover: hover) and (pointer: fine) { .fpl-namebtn:hover { text-decoration-color: var(--blue); } }
@@ -1413,10 +1415,10 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-club { font-size: 0.9rem; }
 .fpl-profile .fpl-dialog-close { z-index: 1; top: 22px; right: 22px; color: #1A0B3B; }
 .fpl-profile-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.fpl-profile-stats div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.08); }
+.fpl-profile-stats div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: rgb(var(--tint) / 0.08); }
 .fpl-profile-stats b { font-size: 1.02rem; }
 .fpl-profile-stats span { font-size: 0.7rem; color: var(--ink-dim); }
-.fpl-profile-error { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.05); }
+.fpl-profile-error { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: rgb(var(--tint) / 0.05); }
 .fpl-profile-error > span { font-size: 1.5rem; font-weight: 700; color: var(--blue); flex: none; }
 .fpl-profile-error p { margin: 0; font-size: 0.8rem; color: var(--ink-dim); line-height: 1.45; }
 .fpl-profile-error .is-up, .fpl-profile-diff.is-up { color: var(--green); }
@@ -1432,7 +1434,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-diff { font-weight: 700; }
 .fpl-profile-opps { display: inline-flex; flex-direction: column; gap: 4px; }
 .fpl-profile-opp { display: inline-flex; align-items: center; gap: 5px; }
-.fpl-profile-score { font: 700 0.7rem 'IBM Plex Mono', monospace; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.14); }
+.fpl-profile-score { font: 700 0.7rem 'IBM Plex Mono', monospace; padding: 2px 6px; border-radius: 4px; background: rgb(var(--tint) / 0.14); }
 .fpl-profile-score.is-W { background: #1E9E4A; color: #fff; }
 .fpl-profile-score.is-L { background: #D92D3A; color: #fff; }
 .fpl-profile-note { margin: 8px 0 0; font-size: 0.72rem; white-space: normal; }
@@ -1444,7 +1446,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-availnote.is-out, .fpl-club-flag.is-out, .fpl-compare-flag.is-out, .fpl-home-worry.is-out b { color: var(--avail-out); }
 /* Player profile charts (dataviz palette checked against the dialog's dark surface). */
 .fpl-profile { --chart-actual: #00A8B5; --chart-pred: #8C70E6; }
-.fpl-profile-chart { margin: 0; display: grid; gap: 6px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--line); }
+.fpl-profile-chart { margin: 0; display: grid; gap: 6px; padding: 12px; border-radius: 10px; background: rgb(var(--tint) / 0.05); border: 1px solid var(--line); }
 .fpl-profile-chart figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font: 600 0.8rem 'Space Grotesk', sans-serif; }
 .fpl-profile-chart svg { width: 100%; height: auto; max-height: 160px; overflow: visible; }
 .fpl-profile-legend { display: inline-flex; align-items: center; gap: 6px; font: 500 0.72rem 'Inter', sans-serif; color: var(--ink-dim); }
@@ -1461,13 +1463,49 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-alts h3 { margin: 0; font: 700 0.95rem 'Space Grotesk', sans-serif; }
 .fpl-profile-alts p { margin: 0; font-size: 0.74rem; }
 .fpl-profile-alts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.fpl-profile-alts li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); }
+.fpl-profile-alts li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgb(var(--tint) / 0.06); }
 .fpl-profile-alts .fpl-explore-shirt { width: 28px; height: 28px; flex: none; }
 .fpl-profile-alt-who { display: grid; gap: 2px; flex: 1; min-width: 0; font-weight: 600; }
 .fpl-profile-alt-who .fpl-meta { font-weight: 400; font-size: 0.74rem; }
 .fpl-profile-save { color: var(--green); font-weight: 700; }
 .fpl-profile-alt-pts { font-weight: 700; color: var(--blue); }
 .fpl-profile-alt-pts small { margin-left: 3px; font-size: 0.65rem; color: var(--ink-dim); font-weight: 500; }
+.fpl-admin-pr { margin-left: 10px; font-size: 0.9rem; font-weight: 600; color: var(--ink-dim); padding: 2px 8px; border-radius: 6px; background: rgb(var(--tint) / 0.1); vertical-align: middle; }
+
+/* Light theme: html[data-theme="light"] (src/lib/theme.js). Dark ink on
+   pale panels over a softer take on the brand gradient. Accent colours are
+   deepened so text in them stays readable on white; the pitch and the
+   gameweek recap keep their own colours. */
+:root[data-theme="light"] .fpl-root {
+  --bg:linear-gradient(135deg, #D6FDFF 0%, #E3E2FF 55%, #F5DCFF 100%);
+  --tint:23 16 58; --shade:255 255 255;
+  --panel:rgb(255 255 255 / 0.74); --panel-alt:rgb(255 255 255 / 0.6); --line:rgb(23 16 58 / 0.16);
+  --ink:#17103A; --ink-dim:rgb(23 16 58 / 0.7);
+  --blue:#00788A; --green:#12802F; --mint:#00845A; --lime:#4F6E00; --red:#C93434; --sky:#4E4AD6; --amber:#B0560A; --yellow:#8C6C00;
+  --avail-75:#E0B000; --avail-50:#EE8A2E; --avail-25:#E2582A; --avail-out:#D63845;
+  color-scheme:light;
+}
+:root[data-theme="light"] body { background:#EEF1FF; }
+:root[data-theme="light"] .fpl-btn:focus-visible, :root[data-theme="light"] .fpl-btn-solid, :root[data-theme="light"] .fpl-armband { color:#FFFFFF; }
+@media (hover: hover) and (pointer: fine) { :root[data-theme="light"] .fpl-btn:hover { color:#FFFFFF; } :root[data-theme="light"] .fpl-btn-solid:hover { color:#17103A; background:#CEFF10; } }
+:root[data-theme="light"] .fpl-btn, :root[data-theme="light"] .fpl-chip-btn {
+  background:linear-gradient(145deg, rgba(255,255,255,0.7), rgba(255,255,255,0.35)), rgba(255,255,255,0.3);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 14px rgba(23,16,58,0.08);
+}
+:root[data-theme="light"] .fpl-btn-solid { background:var(--blue); }
+:root[data-theme="light"] .fpl-dialog::backdrop { background:rgba(23,16,58,0.3); }
+:root[data-theme="light"] .fpl-dialog-card { background:linear-gradient(160deg, #FFFFFF, #F1F0FF); box-shadow:0 20px 60px rgba(23,16,58,0.2); }
+:root[data-theme="light"] .fpl-glass { box-shadow:0 8px 30px rgba(23,16,58,0.08); }
+/* The recap is a story over the full gradient: it stays dark. */
+:root[data-theme="light"] .fpl-recap {
+  --tint:255 255 255; --shade:9 7 30; --panel:rgba(10,8,30,0.60); --panel-alt:rgba(10,8,30,0.42); --line:rgba(255,255,255,0.20);
+  --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.72); --blue:#04F9FC; --green:#36FE48; --lime:#CEFF10; --red:#FF5A5A; --yellow:#FFD60A; --amber:#FF9A45;
+  color-scheme:dark;
+}
+:root[data-theme="light"] .fpl-home-ring span { background:#FFFFFF; }
+:root[data-theme="light"] .fpl-chart-dot { stroke:#FFFFFF; }
+.fpl-profile-row .fpl-seg { flex: none; }
+.fpl-profile-row .fpl-seg button { min-height: 32px; padding: 0 10px; }
 .fpl-admin-pr { margin-left: 10px; font-size: 0.9rem; font-weight: 600; color: var(--ink-dim); padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); vertical-align: middle; }
 .fpl-wildcard .fpl-btn { justify-self: start; min-height: 44px; padding: 0 16px; }
 .fpl-wildcard-sum { margin: 0; font-size: 0.86rem; }
