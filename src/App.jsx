@@ -25,7 +25,7 @@ import { TeamIdForm } from './screens/IntroScreen.jsx';
 import { AdminScreen, AuthDialog, CompareScreen, CustomSquadBuilder, ExploreScreen, FixturesScreen, GwRecap, HindsightScreen, LiveScreen, MiniLeagueScreen, MyTeamsScreen, ProfileScreen, ResultsScreen, ReviewScreen, ScreenshotForm, WelcomeScreen } from './screens/lazyScreens.js';
 import { TermsDialog } from './components/TermsDialog.jsx';
 import { CookieBanner } from './components/CookieBanner.jsx';
-import { isInstalledApp, onConsentChange, readConsent, wantsConsentPrompt, writeConsent } from './lib/consent.js';
+import { analyticsAllowed, fetchCountry, needsConsent, onConsentChange, readConsent, runningAsApp, wantsConsentPrompt, writeConsent } from './lib/consent.js';
 import { track } from './lib/track.js';
 import { t } from './lib/i18n.js';
 import { parseTeamId } from './lib/teamIdInput.js';
@@ -94,14 +94,30 @@ export default function FPLSquadChecker() {
   const [termsOpen, setTermsOpen] = useState(false);
   // Visit counts and page-speed measurement run only once accepted
   // (src/lib/consent.js); /?cookies asks again. The banner is for the
-  // website: the Android app and installed copies don't show it.
+  // website: in the Android app and installed copies they're on until
+  // turned off in Profile, except in the EU, EEA and Switzerland, where the
+  // app asks too (decided once the country is known; off until then).
   const [consent, setConsent] = useState(readConsent);
+  // Read once: the app's referrer is only there on the first page.
+  const [inApp] = useState(runningAsApp);
   const [askConsent, setAskConsent] = useState(() => {
     if (wantsConsentPrompt(window.location.search)) return true;
-    const standalone = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-    return !readConsent() && !isInstalledApp({ standalone, referrer: document.referrer });
+    return !readConsent() && !inApp;
   });
+  const [appRegion, setAppRegion] = useState(null); // null | 'ask' | 'default-on'
   useEffect(() => onConsentChange(choice => { setConsent(choice); if (choice) setAskConsent(false); }), []);
+  useEffect(() => {
+    if (!inApp || readConsent()) return undefined;
+    let live = true;
+    fetchCountry().then(country => {
+      if (!live) return;
+      const ask = needsConsent({ country, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      setAppRegion(ask ? 'ask' : 'default-on');
+      if (ask) setAskConsent(true);
+    });
+    return () => { live = false; };
+  }, [inApp]);
+  const analyticsByDefault = inApp && appRegion === 'default-on';
   const chooseConsent = analytics => { writeConsent(analytics); writeParams({ cookies: null }); };
   // Counts the screens worth knowing about as they're opened.
   useEffect(() => {
@@ -911,6 +927,7 @@ export default function FPLSquadChecker() {
             {stage === 'profile' && session && (
               <ProfileScreen
                 session={session}
+                analyticsByDefault={analyticsByDefault}
                 notice={account.profileNotice}
                 onDismissNotice={() => account.setProfileNotice('')}
                 savedTeams={savedTeams}
@@ -987,7 +1004,7 @@ export default function FPLSquadChecker() {
         </ScreenErrorBoundary>
       )}
       {askConsent && <CookieBanner onChoose={chooseConsent} />}
-      {consent && consent.analytics ? <><Analytics /><SpeedInsights /></> : null}
+      {analyticsAllowed(consent, analyticsByDefault) ? <><Analytics /><SpeedInsights /></> : null}
     </div>
   );
 }

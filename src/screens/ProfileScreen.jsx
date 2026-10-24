@@ -8,7 +8,7 @@ import { useGoogleEnabled } from '../lib/googleEnabled.js';
 import { GoogleMark } from '../components/GoogleMark.jsx';
 import { LANGUAGES, currentLanguage, fmtDate, fmtNumber, t } from '../lib/i18n.js';
 import { chooseLanguage } from '../lib/i18nLoad.js';
-import { onConsentChange, readConsent, writeConsent } from '../lib/consent.js';
+import { analyticsAllowed, onConsentChange, readConsent, writeConsent } from '../lib/consent.js';
 
 /* ----------------------------------------------------------------------------
    PROFILE: the account's page. FPL career stats for a Team ID (theirs, or
@@ -51,10 +51,11 @@ function SettingRow({ icon: Icon, title, detail, action, onAction, danger = fals
 }
 
 // Visit counts and page-speed measurement (src/lib/consent.js), on or off.
-function CookieRow() {
+// byDefault: on without a saved choice (the app, outside the EU).
+function CookieRow({ byDefault }) {
   const [consent, setConsent] = useState(readConsent);
   useEffect(() => onConsentChange(setConsent), []);
-  const on = !!(consent && consent.analytics);
+  const on = analyticsAllowed(consent, byDefault);
   return (
     <SettingRow icon={Cookie} title={t('Visit counts and page speed')} detail={on ? t('On: counted with Vercel Analytics, which doesn’t identify you') : t('Off: only the login cookie is used')}
       action={on ? t('Turn off') : t('Turn on')} onAction={() => writeConsent(!on)} />
@@ -193,7 +194,7 @@ function RankChart({ rows }) {
   );
 }
 
-export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeams = [], homeTeamId, onPickTeam, onOpenDialog, onMyTeams, onLogout }) {
+export function ProfileScreen({ session, analyticsByDefault = false, notice = '', onDismissNotice, savedTeams = [], homeTeamId, onPickTeam, onOpenDialog, onMyTeams, onLogout }) {
   const googleEnabled = useGoogleEnabled();
   const teamIds = [...new Set([homeTeamId, session.digestTeamId, ...savedTeams.filter(t => t.type === 'teamId').map(t => t.teamId)].filter(Boolean).map(String))];
   const [teamId, setTeamId] = useState(teamIds[0] || '');
@@ -345,7 +346,7 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
           <SettingRow icon={Bell} title={t('Deadline emails')} detail={session.digestTeamId ? t('On for team {id}', { id: session.digestTeamId }) : t('Off: turn on from your team’s page')} onAction={onMyTeams} />
           <SettingRow icon={MessageSquare} title={t('Send feedback')} detail={t('Report a problem or suggest something')} onAction={() => onOpenDialog('feedback')} />
           <LanguageRow />
-          <CookieRow />
+          <CookieRow byDefault={analyticsByDefault} />
           <SettingRow icon={FileText} title={t('Terms and privacy')} href={TERMS_PATH} />
           <SettingRow icon={LogOut} title={t('Log out')} onAction={onLogout} />
         </div>

@@ -27,6 +27,7 @@ import { recordEvent, usageReport } from '../src/lib/usage.js';
 import { addFeedback, cleanFeedback, clearFeedback, listFeedback } from '../src/lib/feedback.js';
 import { digestHandler } from '../src/lib/digestHandler.js';
 import { cleanTeamId } from '../src/lib/digest.js';
+import { cleanCountry } from '../src/lib/consent.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
 // Failed logins are counted per username (protects one account from a
@@ -359,6 +360,14 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
   // Push notifications live here too (src/lib/push.js), so they don't need
   // a serverless function of their own.
   if (req.query && req.query.push) return pushHandler(req, res, redisOverride ? { redis: redisOverride } : {});
+
+  // The visitor's country, so the app knows whether to ask about analytics
+  // first (src/lib/consent.js). Nothing is stored.
+  if (req.query && req.query.region) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json({ country: cleanCountry(req.headers && req.headers['x-vercel-ip-country']) });
+    return;
+  }
 
   let secret;
   try {
