@@ -4,7 +4,7 @@
 // footer on a phone).
 import { useEffect, useMemo, useState } from 'react';
 import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, Plus, RotateCcw, Shirt, Sparkles, Star, Target, TrendingDown, TrendingUp, TriangleAlert, X } from 'lucide-react';
-import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
+import { DIFF_COLORS, POSITION_LABELS, availClass, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { buildAlerts, predictionBaseline } from '../lib/alerts.js';
 import { GUIDES } from '../lib/seoPage.js';
@@ -135,7 +135,7 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
           <div>
             <h3 className="fpl-home-sub"><TriangleAlert size={15} aria-hidden="true" /> {t('Needs a look')}</h3>
             {worries.length ? worries.map(s => (
-              <p key={s.player.id} className="fpl-home-worry"><b>{s.player.webName}</b> · {s.availNote}</p>
+              <p key={s.player.id} className={`fpl-home-worry${availClass(s.player)}`}><b>{s.player.webName}</b> · {s.availNote}</p>
             )) : <p className="fpl-home-hint">{t('No injury or suspension worries in your starting XI.')}</p>}
           </div>
           <div>
@@ -280,7 +280,7 @@ function Watchlist({ staticData, watchIds, onToggle }) {
                     {POSITION_LABELS[player.positionId]} · {team ? team.short_name : '—'} · {fmtPrice(player.price)}
                     {' '}<PriceChip change={predictPriceChange(player, staticData.totalPlayers)} />
                   </span>
-                  {prediction && prediction.availNote ? <span className="fpl-availnote">{prediction.availNote}</span> : null}
+                  {prediction && prediction.availNote ? <span className={`fpl-availnote${availClass(player)}`}>{prediction.availNote}</span> : null}
                 </span>
                 <span className="fpl-watch-fix"><DifficultyChips fixtures={fixtures} teamsById={staticData.teamsById} max={3} /></span>
                 <span className="fpl-watch-pts fpl-mono">{prediction ? fmtPts(prediction.predicted) : '–'}<small>{t('pts/wk')}</small></span>

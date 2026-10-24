@@ -5,7 +5,7 @@ import { ArrowLeftRight, ArrowRight, ArrowUpDown, Ban, Bell, Bookmark, Check, Ch
 import { DifficultyChips } from '../components/common.jsx';
 import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
-import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
+import { POSITION_LABELS, availClass, fmtPrice, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { openPlayerProfile } from '../lib/playerProfile.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
@@ -182,7 +182,7 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
           <div className="fpl-row-sub fpl-mono" style={{ fontSize: '0.62rem' }}>
             {t('{n} pts', { n: fmtPts(player.displaySeasonPoints) })} · {t('{n} pts/match', { n: fmtPts(player.displaySeasonPPG) })}{player.displayIsLastSeason ? ` ${t('(LS)')}` : ''}{typeof player.selectedBy === 'number' ? ` · ${t('{pct} owned', { pct: fmtOwn(player.selectedBy) })}` : ''}
           </div>
-          {availNote && <div className="fpl-availnote">{availNote}</div>}
+          {availNote && <div className={`fpl-availnote${availClass(player)}`}>{availNote}</div>}
           {slot.breakdown && (
             <button
               type="button"
@@ -787,7 +787,7 @@ function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit,
             <p className="fpl-mono fpl-meta">{POSITION_LABELS[player.positionId]} · {team ? team.name : '—'} · {fmtPrice(player.price)}</p>
           </div>
         </div>
-        {slot.availNote ? <p className="fpl-availnote">{slot.availNote}</p> : null}
+        {slot.availNote ? <p className={`fpl-availnote${availClass(player)}`}>{slot.availNote}</p> : null}
         <div className="fpl-sheet-stats">
           {isPastGw ? (
             <div><b className="fpl-mono">{slot.played === false ? '–' : slot.actualPoints ?? '–'}</b><span>{t('points this gameweek')}</span></div>

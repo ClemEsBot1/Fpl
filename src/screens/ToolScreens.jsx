@@ -4,7 +4,7 @@ import { ArrowDownAZ, CalendarRange, ChevronDown, CircleDot, Compass, GitCompare
 import { useWatchlist } from '../hooks/useWatchlist.js';
 import { PlayerSearchPicker } from '../components/common.jsx';
 import { Shirt } from '../components/Pitch.jsx';
-import { DIFF_COLORS, POSITION_LABELS, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
+import { DIFF_COLORS, POSITION_LABELS, availClass, fmtPrice, fmtPts, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { openPlayerProfile } from '../lib/playerProfile.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { haulChance } from '../lib/captaincy.js';
@@ -75,7 +75,7 @@ function ClubPlayers({ team, staticData, compareIds, onToggleCompare }) {
             const pred = staticData.predictionsById[p.id];
             return (
               <tr key={p.id}>
-                <th scope="row"><button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>{pred.availNote ? <span className="fpl-club-flag" title={pred.availNote}> !</span> : null}</th>
+                <th scope="row"><button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>{pred.availNote ? <span className={`fpl-club-flag${availClass(p)}`} title={pred.availNote}> !</span> : null}</th>
                 <td>{POSITION_LABELS[p.positionId]}</td>
                 <td>{fmtPrice(p.price)}</td>
                 <td className="fpl-club-pts">{fmtPts(pred.predicted)}</td>
@@ -250,7 +250,7 @@ export function CompareScreen({ staticData, compareIds, onToggleCompare, onClear
                         <span className="fpl-compare-shirt"><Shirt team={staticData.teamsById[p.team]} isKeeper={p.positionId === 1} /></span>
                         <button type="button" className="fpl-compare-name fpl-namebtn" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>
                         <span className="fpl-mono fpl-meta">{staticData.teamsById[p.team]?.short_name} · {POSITION_LABELS[p.positionId]}</span>
-                        {pred.availNote ? <span className="fpl-compare-flag">{pred.availNote}</span> : null}
+                        {pred.availNote ? <span className={`fpl-compare-flag${availClass(p)}`}>{pred.availNote}</span> : null}
                         <button type="button" className="fpl-link fpl-compare-remove" onClick={() => onToggleCompare(p.id)}>{t('Remove')}</button>
                       </th>
                     );
@@ -375,7 +375,7 @@ function PlayerExploreTable({ staticData, compareIds, onToggleCompare }) {
               <tr key={p.id}>
                 <th scope="row">
                   <span className="fpl-explore-shirt"><Shirt team={staticData.teamsById[p.team]} isKeeper={p.positionId === 1} /></span>
-                  <button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>{pred.availNote ? <span className="fpl-club-flag" title={pred.availNote}> !</span> : null}
+                  <button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>{pred.availNote ? <span className={`fpl-club-flag${availClass(p)}`} title={pred.availNote}> !</span> : null}
                 </th>
                 <td>{POSITION_LABELS[p.positionId]}</td>
                 <td className="fpl-club-pts">{fmtPts(pred.predicted)}</td>

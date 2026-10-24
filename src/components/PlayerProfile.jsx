@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Shirt } from './Pitch.jsx';
 import { fetchFplJson } from '../lib/fplClient.js';
-import { DIFF_COLORS, fmtPrice, fmtPts } from '../lib/format.js';
+import { DIFF_COLORS, availClass, fmtPrice, fmtPts } from '../lib/format.js';
 import { pastSeasons, photoUrls, predictionError, profileRows, savedFor, signed } from '../lib/playerProfile.js';
 import { t } from '../lib/i18n.js';
 
@@ -105,7 +105,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
             <span className="fpl-profile-club">{team ? team.name : '—'}</span>
           </div>
         </div>
-        {prediction && prediction.availNote ? <p className="fpl-availnote">{prediction.availNote}</p> : null}
+        {prediction && prediction.availNote ? <p className={`fpl-availnote${availClass(player)}`}>{prediction.availNote}</p> : null}
         <div className="fpl-profile-stats">
           <div><b className="fpl-mono">{fmtPrice(player.price)}</b><span>{t('Price')}</span></div>
           <div><b className="fpl-mono">{player.form.toFixed(1)}</b><span>{t('Form')}</span></div>
