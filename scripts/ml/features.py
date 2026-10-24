@@ -191,6 +191,32 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
                 d = k.strftime('%Y-%m-%d')
                 event_start[e] = min(event_start.get(e, d), d)
     nan4 = (np.nan, np.nan, np.nan, np.nan)
+    # Each club's league kickoffs in order, and each (club, gameweek)'s, for
+    # rest and fixture congestion (sch_ features). League games only: the
+    # archive has no cup or European fixtures.
+    team_kicks, kicks_at = {}, {}
+    if kick is not None:
+        for f, k in zip(fixtures.itertuples(), kick):
+            if pd.isna(k):
+                continue
+            for t in (f.team_h, f.team_a):
+                team_kicks.setdefault(t, []).append(k)
+                kicks_at.setdefault((t, f.event), []).append(k)
+        for t in team_kicks:
+            team_kicks[t].sort()
+
+    def schedule(t, gk):
+        # (days since the club's previous league game, its league games in
+        # the 14 days before) for its first game in gameweek gk.
+        ks = sorted(kicks_at.get((t, gk), []))
+        if not ks:
+            return np.nan, np.nan
+        first, all_k = ks[0], team_kicks.get(t, [])
+        before = [k for k in all_k if k < first]
+        rest = (first - before[-1]).total_seconds() / 86400 if before else np.nan
+        recent = sum(1 for k in before if (first - k).total_seconds() <= 14 * 86400)
+        return rest, float(recent)
+
     fx_team = {}
     for f in fixtures.itertuples():
         o = md.odds(season, names.get(f.team_h, ''), names.get(f.team_a, '')) if (md is not None and 'odds' in extras) else None
@@ -331,6 +357,20 @@ def build_season(cache, season, prev_rates, last_finished=38, predict_gw=None, m
                     row['opp_ga_10'] = np.nanmean(oga) if not np.all(np.isnan(oga)) else np.nan
                 else:
                     row['home'] = row['fdr'] = row['opp_gf_10'] = row['opp_ga_10'] = np.nan
+                rest, recent = schedule(t, gk)
+                row['sch_rest'] = rest
+                row['sch_games_14'] = recent
+                opp_rest = [schedule(o, gk)[0] for o, *_ in fx]
+                opp_rest = [x for x in opp_rest if np.isfinite(x)]
+                row['sch_rest_diff'] = rest - float(np.mean(opp_rest)) if opp_rest and np.isfinite(rest) else np.nan
+                if inj_idx is not None:
+                    # How much of the opponent is out injured, as of the
+                    # deadline: the whole side, and its goalkeeper and
+                    # defence (what an attacker plays against).
+                    ot = [team_out.get((o, g0), 0.0) for o, *_ in fx]
+                    od = [(pos_out.get((o, 1, g0), 0.0) + pos_out.get((o, 2, g0), 0.0)) / 2 for o, *_ in fx]
+                    row['oinj_team_out'] = float(np.mean(ot)) if ot else np.nan
+                    row['oinj_def_out'] = float(np.mean(od)) if od else np.nan
                 if md is not None and 'elo' in extras:
                     row['elo_team'] = elo_at(t, g0)
                     opp = [e for e in (elo_at(f[0], g0) for f in fx) if np.isfinite(e)]

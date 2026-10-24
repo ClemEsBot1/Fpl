@@ -45,6 +45,12 @@ VARIANTS = {
     'ts_fpl': dict(two_stage=True, drop=('us_',)),  # FPL's deadline data, 2025-26 on
     'ts_us': dict(two_stage=True, drop=('fpl_',)),  # Understat
     'ts_all': dict(two_stage=True),
+    # Third round: rest and fixture congestion (sch_) and the opponent's
+    # injuries (oinj_), on the live model (two-stage, no fpl_/us_).
+    'live': dict(two_stage=True, drop=('fpl_', 'us_', 'sch_', 'oinj_')),
+    'live_sch': dict(two_stage=True, drop=('fpl_', 'us_', 'oinj_')),
+    'live_oinj': dict(two_stage=True, drop=('fpl_', 'us_', 'sch_')),
+    'live_both': dict(two_stage=True, drop=('fpl_', 'us_')),
 }
 
 
