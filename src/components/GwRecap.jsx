@@ -430,6 +430,66 @@ function Transfers({ recap, wide }) {
     </div>
   );
 }
+// What the app's suggested transfers would have scored against yours.
+function Suggested({ recap, wide }) {
+  const sg = recap.suggested;
+  const shown = sg.moves.slice(0, MAX_MOVES);
+  const verdict = sg.diff > 0 ? t('The suggestions would have scored {n} more.', { n: n(sg.diff) })
+    : sg.diff < 0 ? t('Your transfers scored {n} more than the suggestions.', { n: n(-sg.diff) })
+      : t('Level with the suggestions.');
+  const list = sg.moves.length ? (
+    <ul className="fpl-recap-card fpl-recap-moves">
+      {shown.map(m => (
+        <li key={`${m.out.id}-${m.in.id}`}>
+          <span><small className="is-down">{t('Out')}</small><b>{m.out.name}</b><span className="fpl-mono">{t('{n} pts', { n: m.out.points })}</span></span>
+          <ArrowRight size={20} aria-hidden="true" />
+          <span><small className="is-up">{t('In')}{m.made ? <i> · {t('You made this one')}</i> : null}</small><b>{m.in.name}</b><span className="fpl-mono">{t('{n} pts', { n: m.in.points })}</span></span>
+        </li>
+      ))}
+      {sg.moves.length > shown.length ? <li className="fpl-recap-more">{t('and {n} more', { n: sg.moves.length - shown.length })}</li> : null}
+    </ul>
+  ) : <div className="fpl-recap-card"><p className="fpl-recap-note">{t('The app suggested no transfers this week.')}</p></div>;
+  const sum = (
+    <dl className="fpl-recap-card fpl-recap-sum">
+      {sg.moves.length ? <div><dt>{t('Players in')}</dt><dd className="fpl-mono">{sg.pointsIn}</dd></div> : null}
+      {sg.moves.length ? <div><dt>{t('Players out')}</dt><dd className="fpl-mono">−{sg.pointsOut}</dd></div> : null}
+      {sg.hit ? <div><dt>{t('Hit')}</dt><dd className="fpl-mono">−{sg.hit}</dd></div> : null}
+      <div><dt>{t('Suggested transfers')}</dt><dd className={`fpl-mono ${tone(sg.net)}`}>{signed(sg.net)}</dd></div>
+      <div><dt>{t('Your transfers')}</dt><dd className={`fpl-mono ${tone(sg.madeNet)}`}>{signed(sg.madeNet)}</dd></div>
+      <div className="fpl-recap-net"><dt>{t('Difference')}</dt><dd className={`fpl-mono ${tone(sg.diff)}`}>{signed(sg.diff)}</dd></div>
+    </dl>
+  );
+  const notes = (
+    <>
+      <p className={`fpl-recap-note ${tone(sg.diff)}`}>{verdict}</p>
+      <p className="fpl-recap-note is-small">{sg.freeTransfers !== null
+        ? t('Suggested before the deadline for your squad then. A 4 point hit for each move past your {n} free transfers.', { n: sg.freeTransfers })
+        : t('Suggested before the deadline for your squad then.')}</p>
+    </>
+  );
+  if (!wide) {
+    return (
+      <>
+        <h2 className="fpl-recap-title">{t("If you'd made the suggested transfers")}</h2>
+        {list}
+        {sum}
+        {notes}
+      </>
+    );
+  }
+  return (
+    <div className="fpl-recap-wide" style={{ '--cols': 'minmax(0, 1.15fr) minmax(0, 1fr)' }}>
+      <div className="fpl-recap-col">
+        <h2 className="fpl-recap-title">{t("If you'd made the suggested transfers")}</h2>
+        {list}
+      </div>
+      <div className="fpl-recap-col">
+        {sum}
+        {notes}
+      </div>
+    </div>
+  );
+}
 // The league picker: one button per mini-league, with your rank.
 function LeagueTabs({ leagues, selected, onSelect }) {
   if (!leagues || leagues.length < 2) return null;
@@ -761,6 +821,7 @@ const SLIDES = [
   { key: 'captain', Slide: Captain },
   { key: 'starFlop', Slide: StarFlop },
   { key: 'transfers', Slide: Transfers },
+  { key: 'suggested', Slide: Suggested },
   { key: 'league', Slide: League },
   { key: 'vsModel', Slide: VsModel },
   { key: 'predictions', Slide: Predictions },

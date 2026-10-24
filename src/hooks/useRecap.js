@@ -5,7 +5,7 @@ import { fetchFplJson } from '../lib/fplClient.js';
 import { SQUAD_BUDGET, buildHindsightSquad, hydrateFrozenSquadSnapshot, snapshotIsForSeason } from '../lib/predictions.js';
 import { forEachLimited, parseStandings, privateLeagues } from '../lib/leagues.js';
 import { summariseAccuracy } from '../lib/accuracy.js';
-import { buildRecap, lastFinishedGw, markRecapSeen, recapSeenFor } from '../lib/recap.js';
+import { buildRecap, freeTransfersFor, lastFinishedGw, markRecapSeen, recapSeenFor, suggestionsBefore } from '../lib/recap.js';
 import { recapChunk } from '../lib/chunks.js';
 import { isGwFinished, liveGwIdFor } from '../lib/gameweeks.js';
 import { teamErrorMessage } from './useFplData.js';
@@ -74,15 +74,28 @@ export function useRecap({ stage, homeTeamId, fpl }) {
       // before the deadline when there are some, otherwise worked out here
       // from that gameweek's predictions (made only from what was known
       // before it) and every player's points.
+      // That gameweek's predictions, made only from what was known before
+      // its deadline (null if they can't be rebuilt).
+      const asOf = await optional(staticDataForGw(gwId));
+      const gwStatic = asOf && !asOf.asOfFailedGwId ? asOf : null;
       let accuracy = savedAccuracy;
       if (!accuracy) {
-        const gwStatic = await optional(staticDataForGw(gwId));
-        if (gwStatic && !gwStatic.asOfFailedGwId) {
+        if (gwStatic) {
           const predictedById = Object.fromEntries(Object.entries(gwStatic.predictionsById).map(([id, p]) => [id, p.predicted]));
           const elements = Object.entries(liveById).map(([id, l]) => ({ id: Number(id), stats: { total_points: l.totalPoints, minutes: l.minutes } }));
           const positionById = Object.fromEntries(gwStatic.allPlayers.map(p => [p.id, p.positionId]));
           accuracy = summariseAccuracy(predictedById, elements, positionById);
         }
+      }
+      // What the app would have suggested before the deadline, for the
+      // squad as it was before the week's transfers.
+      let suggestions = null;
+      if (gwStatic && Array.isArray(transfers)) {
+        try {
+          suggestions = suggestionsBefore({
+            squadIds: team.squad.map(s => s.player.id), bankTenths: team.bankTenths, transfers, history, gwId, gwStatic,
+          });
+        } catch { /* no slide */ }
       }
       if (isStale()) return;
       // The mini-leagues, while no later gameweek has started (their
@@ -109,7 +122,7 @@ export function useRecap({ stage, homeTeamId, fpl }) {
         fixturesByTeam: staticData.fixturesByTeam, predictionsById: staticData.predictionsById,
         top: topPicks && !topPicks.detail ? { name: (topMeta && topMeta.name) || t('Top team'), picks: topPicks } : null,
         league, leagues, modelScore, bestScore: best.totalScore, modelSquad: frozen ? frozen.squad : null, bestSquad: best.squad,
-        accuracy,
+        accuracy, suggestions, freeTransfers: freeTransfersFor(history, gwId),
       });
       setRecap({ gwId, teamId, status: 'ready', data, error: null, open: true });
     } catch (e) {
