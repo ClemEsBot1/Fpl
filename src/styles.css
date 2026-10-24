@@ -1506,3 +1506,6 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 :root[data-theme="light"] .fpl-chart-dot { stroke:#FFFFFF; }
 .fpl-profile-row .fpl-seg { flex: none; }
 .fpl-profile-row .fpl-seg button { min-height: 32px; padding: 0 10px; }
+.fpl-admin-pr { margin-left: 10px; font-size: 0.9rem; font-weight: 600; color: var(--ink-dim); padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); vertical-align: middle; }
+.fpl-wildcard .fpl-btn { justify-self: start; min-height: 44px; padding: 0 16px; }
+.fpl-wildcard-sum { margin: 0; font-size: 0.86rem; }

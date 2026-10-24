@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, sellPriceOf, sellingPrices, squadProblems, substitutePlayers, substitutionOptions, suggestTransfers, swapBlocker, swapPlayerInSquad } from '../src/lib/squadLogic.js';
+import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, sellPriceOf, sellingPrices, squadProblems, substitutePlayers, substitutionOptions, suggestTransfers, swapBlocker, swapPlayerInSquad, wildcardSquad } from '../src/lib/squadLogic.js';
 import { normalize, playerMatchesSearch, levenshtein } from '../src/lib/format.js';
 import { buildStaticDataFromRaw } from '../src/lib/predictions.js';
 import { league } from './helpers/league.js';
@@ -269,4 +269,27 @@ test('a player bought in a swap sells at today\'s price, not the one he replaced
   const squad = [{ player: { id: 1, price: 5.5 }, sellPrice: 5.2, isStarting: true, multiplier: 1 }];
   const [after] = swapPlayerInSquad(squad, 1, { id: 2, price: 6 }, { 2: { predicted: 3 } });
   assert.equal(after.sellPrice, undefined);
+});
+
+test('a wildcard spends your selling value and bank, keeping owned players at their selling price', () => {
+  const mine = players();
+  // Twenty better players on the market at £5.5m, each at another club.
+  const market = Array.from({ length: 20 }, (_, i) => ({
+    id: 100 + i, webName: `M${i}`, positionId: POSITIONS[i % 15], team: 20 + (i % 20), price: 5.5, status: 'a',
+  }));
+  const predictionsById = {};
+  mine.forEach(p => { predictionsById[p.id] = { predicted: 2, nextMatchPredicted: 2 }; });
+  market.forEach(p => { predictionsById[p.id] = { predicted: 6, nextMatchPredicted: 6 }; });
+  // Player 3 was bought at £4.0m and has risen to £5.0m: he sells for £4.5m.
+  const squad = mine.map(p => slot(p, { predicted: 2, ...(p.id === 3 ? { sellPrice: 4.5 } : {}) }));
+  squad[2] = { ...squad[2], isCaptain: true, multiplier: 2 };
+  const wc = wildcardSquad(squad, 20, [...mine, ...market], predictionsById);
+  assert.equal(wc.budgetTenths, 14 * 50 + 45 + 20, 'selling value plus bank');
+  assert.equal(wc.squad.length, 15);
+  const cost = wc.squad.reduce((s, x) => s + Math.round((x.player.id === 3 ? 4.5 : x.player.price) * 10), 0);
+  assert.ok(cost <= wc.budgetTenths, 'affordable');
+  assert.equal(cost + wc.bankTenths, wc.budgetTenths);
+  assert.equal(wc.ins.length, wc.outs.length);
+  assert.ok(wc.ins.length > 0 && wc.xiWildcard > wc.xiNow);
+  assert.equal(wc.xiNow, 11 * 2 + 2, 'your XI, captain doubled');
 });
