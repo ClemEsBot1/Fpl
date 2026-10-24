@@ -3,7 +3,7 @@
 // Everything else is in the menu (sidebar on a computer,
 // footer on a phone).
 import { useEffect, useMemo, useState } from 'react';
-import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, Plus, RotateCcw, Shirt, Sparkles, Star, Target, TrendingDown, TrendingUp, TriangleAlert, X } from 'lucide-react';
+import { AlarmClock, ArrowRight, Bell, BellOff, BellRing, BrainCircuit, CalendarRange, Crown, Plus, RotateCcw, Shirt, Sparkles, Star, Target, TrendingDown, TrendingUp, TriangleAlert, Users, X } from 'lucide-react';
 import { DIFF_COLORS, POSITION_LABELS, availClass, fmtPrice, fmtPts, formatCountdown, isDeadlineSoon, officialGwPoints } from '../lib/format.js';
 import { buildFixtureTicker } from '../lib/fixtureTicker.js';
 import { buildAlerts, predictionBaseline } from '../lib/alerts.js';
@@ -18,6 +18,7 @@ import { predictPriceChange } from '../lib/transferTrends.js';
 import { MAX_WATCHED, watchRows } from '../lib/watchlist.js';
 import { openPlayerProfile } from '../lib/playerProfile.js';
 import { useWatchlist } from '../hooks/useWatchlist.js';
+import { useRival } from '../hooks/useRival.js';
 import { parseTeamId } from '../lib/teamIdInput.js';
 import { fmtDate, fmtNumber, plural, t } from '../lib/i18n.js';
 import { tr } from '../lib/i18nRich.jsx';
@@ -175,7 +176,7 @@ function YourGameweek({ homeTeam, onCheckTeam, onOpenTeam, onChangeTeam, onRetry
 // How last gameweek's predictions (or the picked gameweek's, once it's
 // over) compared with what players scored. Hidden when there's nothing
 // saved for it.
-const ALERT_ICONS = { deadline: AlarmClock, rise: TrendingUp, fall: TrendingDown, news: TriangleAlert, drop: TrendingDown };
+const ALERT_ICONS = { deadline: AlarmClock, rise: TrendingUp, fall: TrendingDown, news: TriangleAlert, drop: TrendingDown, rival: Users };
 // This device's record of the squad's predictions as first seen this
 // gameweek (src/lib/alerts.js, predictionBaseline).
 const BASELINE_KEY = 'fpl_pred_baseline';
@@ -200,7 +201,8 @@ function Alerts({ staticData, homeTeam, watchIds }) {
     try { localStorage.setItem(BASELINE_KEY, JSON.stringify(next)); } catch { /* not saved */ }
     return previous && previous.gwId === next.gwId ? previous : null;
   }, [staticData, squad]);
-  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now, { baseline, watchIds }), [staticData, squad, now, baseline, watchIds]);
+  const rival = useRival(homeTeam.teamId, staticData);
+  const alerts = useMemo(() => buildAlerts(staticData, squad ? squad.map(s => s.player.id) : [], now, { baseline, watchIds, rival: rival && { ...rival, now } }), [staticData, squad, now, baseline, watchIds, rival]);
   useEffect(() => { notifyNewAlerts(alerts); }, [alerts]);
   // With notifications on, the server is told this squad, so it can push
   // its alerts with the app closed.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAlerts } from '../src/lib/alerts.js';
+import { buildAlerts, pickRival } from '../src/lib/alerts.js';
 
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const data = (deadlineInHours, players) => ({
@@ -110,4 +110,31 @@ test('watched players: their news and price moves, as info, not your own twice',
   assert.match(watched.find(a => a.kind === 'rise').body, /buying before the change gets today's price/);
   assert.equal(alerts.filter(a => a.id.includes('-3-')).length, 1, 'a watched player you own alerts once, as yours');
   assert.deepEqual(buildAlerts(data(48, players), [], NOW).filter(a => a.watched), [], 'no watchlist, no watched alerts');
+});
+
+test('your mini-league rival: the one just above you, or below if you lead', () => {
+  const members = [{ entry: 5, teamName: 'B', rank: 2 }, { entry: 9, teamName: 'A', rank: 1 }, { entry: 7, teamName: 'C', rank: 3 }];
+  assert.deepEqual(pickRival(members, 7), { entry: 5, teamName: 'B', ahead: true });
+  assert.deepEqual(pickRival(members, '9'), { entry: 5, teamName: 'B', ahead: false });
+  assert.equal(pickRival(members, 4), null, 'not in the league');
+  assert.equal(pickRival([members[0]], 5), null);
+});
+
+test('before the deadline, your rival’s likely captain and the players they have that you don’t', () => {
+  const players = [
+    { id: 1, webName: 'Haaland' }, { id: 2, webName: 'Saka' }, { id: 3, webName: 'Palmer' }, { id: 4, webName: 'Raya' }, { id: 5, webName: 'Bench' },
+  ];
+  const d = data(20, players);
+  d.predictionsById = { 1: { nextMatchPredicted: 8 }, 2: { nextMatchPredicted: 6 }, 3: { nextMatchPredicted: 5 }, 4: { nextMatchPredicted: 4 }, 5: { nextMatchPredicted: 9 } };
+  const picks = [
+    { element: 1, position: 1, is_captain: true }, { element: 2, position: 2 }, { element: 3, position: 3 }, { element: 4, position: 4 }, { element: 5, position: 12 },
+  ];
+  const rival = { entry: 5, teamName: 'Rivals FC', ahead: true, picks, fromGw: 7, now: NOW };
+  const alert = buildAlerts(d, [1, 4], NOW, { rival }).find(a => a.kind === 'rival');
+  assert.equal(alert.id, 'rival-8-5');
+  assert.equal(alert.title, 'Rivals FC (just above you) will likely captain Haaland');
+  assert.match(alert.body, /^They have Saka and Palmer, who you don't: 11\.0 predicted points between them\. From their Gameweek 7 team/);
+  assert.doesNotMatch(alert.body, /captain\./, 'you own their captain');
+  // Not more than two days before the deadline.
+  assert.equal(buildAlerts(data(60, players), [1], NOW, { rival }).find(a => a.kind === 'rival'), undefined);
 });

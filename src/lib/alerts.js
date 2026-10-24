@@ -70,7 +70,9 @@ function swapIdea(staticData, out, playerIds, tr) {
 // tr: the translator (the push sender passes each subscriber's language).
 // watchIds: players on your watchlist (src/lib/watchlist.js), whose news and
 // price moves come too, as info (they aren't yours yet), marked watched.
-export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null, noTransferYet = false, tr = t, watchIds = [] } = {}) {
+// rival: the mini-league rival just above you (or below, if you lead),
+// from pickRival, for a heads-up before the deadline (rivalAlert).
+export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline = null, noTransferYet = false, tr = t, watchIds = [], rival = null } = {}) {
   if (!staticData) return [];
   const alerts = [];
   const target = staticData.targetEvent;
@@ -165,6 +167,8 @@ export function buildAlerts(staticData, playerIds, now = Date.now(), { baseline 
       });
     }
   });
+  const rivalLine = rivalAlert(staticData, playerIds, rival, tr);
+  if (rivalLine) alerts.push(rivalLine);
   const order = { warn: 0, info: 1 };
   return alerts.sort((a, b) => (b.kind === 'deadline') - (a.kind === 'deadline') || order[a.level] - order[b.level]);
 }
@@ -183,4 +187,54 @@ export function predictionBaseline(previous, staticData, playerIds) {
     if (!(id in byId) && pred && typeof pred.nextMatchPredicted === 'number') byId[id] = pred.nextMatchPredicted;
   });
   return { gwId: target.id, byId };
+}
+
+// The member of your mini-league just above you, or just below if you
+// lead: { entry, teamName, ahead }, or null. members from parseStandings.
+export function pickRival(members, youEntry) {
+  const order = [...(members || [])].sort((a, b) => a.rank - b.rank);
+  const at = order.findIndex(m => m.entry === Number(youEntry));
+  if (at < 0 || order.length < 2) return null;
+  const other = at > 0 ? order[at - 1] : order[1];
+  return { entry: other.entry, teamName: other.teamName, ahead: at > 0 };
+}
+
+// Before the deadline: your rival's likely captain and the players they
+// have that you don't, best predicted first. Their picks for this
+// gameweek stay hidden until the deadline, so it reads their last ones
+// (rival.picks: FPL's picks list, rival.fromGw). null when there's nothing
+// to say or it's not the day before the deadline.
+export function rivalAlert(staticData, playerIds, rival, tr = t) {
+  const target = staticData && staticData.targetEvent;
+  if (!rival || !target || !Array.isArray(rival.picks) || !rival.picks.length) return null;
+  const left = new Date(target.deadline_time).getTime() - (rival.now ?? Date.now());
+  if (!(left > 0 && left < 48 * HOUR)) return null;
+  const mine = new Set(playerIds || []);
+  const pts = id => ((staticData.predictionsById[id] || {}).nextMatchPredicted) || 0;
+  const captainPick = rival.picks.find(pk => pk.is_captain);
+  const captain = captainPick ? staticData.playersById[captainPick.element] : null;
+  const theirs = rival.picks
+    .filter(pk => pk.position <= 11 && !mine.has(pk.element) && staticData.playersById[pk.element])
+    .map(pk => staticData.playersById[pk.element])
+    .sort((a, b) => pts(b.id) - pts(a.id))
+    .slice(0, 2);
+  if (!captain && !theirs.length) return null;
+  const parts = [];
+  if (theirs.length) {
+    parts.push(tr("They have {names}, who you don't: {pts} predicted points between them.", {
+      names: theirs.map(p => p.webName).join(tr(' and ')),
+      pts: theirs.reduce((s, p) => s + pts(p.id), 0).toFixed(1),
+    }));
+  }
+  if (captain && !mine.has(captain.id)) parts.push(tr("You don't own their captain."));
+  parts.push(tr('From their Gameweek {n} team: this week’s stays hidden until the deadline.', { n: rival.fromGw }));
+  return {
+    id: `rival-${target.id}-${rival.entry}`,
+    kind: 'rival',
+    level: 'info',
+    title: captain
+      ? tr('{team} ({where}) will likely captain {name}', { team: rival.teamName, where: rival.ahead ? tr('just above you') : tr('just below you'), name: captain.webName })
+      : tr('{team} ({where}) has players you don’t', { team: rival.teamName, where: rival.ahead ? tr('just above you') : tr('just below you') }),
+    body: parts.join(' '),
+  };
 }
