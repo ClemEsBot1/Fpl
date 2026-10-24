@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, FileText, KeyRound, Languages, Link2, LogOut, Mail, MessageSquare, ShieldCheck, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, Cookie, FileText, KeyRound, Languages, Link2, LogOut, Mail, MessageSquare, ShieldCheck, Trash2, X } from 'lucide-react';
 import { TERMS_PATH } from '../lib/terms.js';
 import { fetchFplJson } from '../lib/fplClient.js';
 import { careerStats, rankChartPoints, valueChartPoints } from '../lib/career.js';
@@ -8,6 +8,7 @@ import { useGoogleEnabled } from '../lib/googleEnabled.js';
 import { GoogleMark } from '../components/GoogleMark.jsx';
 import { LANGUAGES, currentLanguage, fmtDate, fmtNumber, t } from '../lib/i18n.js';
 import { chooseLanguage } from '../lib/i18nLoad.js';
+import { onConsentChange, readConsent, writeConsent } from '../lib/consent.js';
 
 /* ----------------------------------------------------------------------------
    PROFILE: the account's page. FPL career stats for a Team ID (theirs, or
@@ -47,6 +48,17 @@ function SettingRow({ icon: Icon, title, detail, action, onAction, danger = fals
   return href
     ? <a className={className} href={href}>{body}</a>
     : <button type="button" className={className} onClick={onAction}>{body}</button>;
+}
+
+// Visit counts and page-speed measurement (src/lib/consent.js), on or off.
+function CookieRow() {
+  const [consent, setConsent] = useState(readConsent);
+  useEffect(() => onConsentChange(setConsent), []);
+  const on = !!(consent && consent.analytics);
+  return (
+    <SettingRow icon={Cookie} title={t('Visit counts and page speed')} detail={on ? t('On: counted with Vercel Analytics, which doesn’t identify you') : t('Off: only the login cookie is used')}
+      action={on ? t('Turn off') : t('Turn on')} onAction={() => writeConsent(!on)} />
+  );
 }
 
 // The app's language: picking one saves it and reloads the page in it.
@@ -333,6 +345,7 @@ export function ProfileScreen({ session, notice = '', onDismissNotice, savedTeam
           <SettingRow icon={Bell} title={t('Deadline emails')} detail={session.digestTeamId ? t('On for team {id}', { id: session.digestTeamId }) : t('Off: turn on from your team’s page')} onAction={onMyTeams} />
           <SettingRow icon={MessageSquare} title={t('Send feedback')} detail={t('Report a problem or suggest something')} onAction={() => onOpenDialog('feedback')} />
           <LanguageRow />
+          <CookieRow />
           <SettingRow icon={FileText} title={t('Terms and privacy')} href={TERMS_PATH} />
           <SettingRow icon={LogOut} title={t('Log out')} onAction={onLogout} />
         </div>
