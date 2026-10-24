@@ -3,7 +3,9 @@
 .fpl-root { --bg:linear-gradient(135deg, #04F9FC 0%, #7573F7 55%, #BF1CF0 100%);
   --panel:rgba(10,8,30,0.60); --panel-alt:rgba(10,8,30,0.42); --line:rgba(255,255,255,0.20);
   --ink:#FBFAFF; --ink-dim:rgba(251,250,255,0.72); --blue:#04F9FC; --green:#36FE48;
-  --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; --yellow:#FFD60A; }
+  --mint:#04F9A5; --lime:#CEFF10; --red:#FF5A5A; --sky:#7573F7; --amber:#FF9A45; --yellow:#FFD60A;
+  /* Chance of playing, as the FPL app colours it (availLevel in src/lib/format.js). */
+  --avail-75:#FFD60A; --avail-50:#FF9A45; --avail-25:#FF6B3D; --avail-out:#FF4D5A; }
 .fpl-root { font-family:'Inter',sans-serif; background:var(--bg) fixed; color:var(--ink); min-height:100vh; min-height:100dvh; }
 /* No grey/blue box flashing over whatever is tapped on a phone: each control shows its own press state instead. */
 .fpl-root, .fpl-root * { -webkit-tap-highlight-color: transparent; }
@@ -847,14 +849,15 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-pc-shirt { position: relative; width: var(--shirt); height: var(--shirt); margin-bottom: 2px; }
 .fpl-shirt { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 3px 4px rgba(5,4,26,0.35)); user-select: none; }
 .fpl-pc-name { width: 100%; box-sizing: border-box; padding: 2px 3px; border-radius: 4px 4px 0 0; background: #FBFAFF; color: #05041A; font: 600 0.66rem 'Inter', sans-serif; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fpl-pc-name.is-doubt { background: var(--yellow); }
-.fpl-pc-name.is-out { background: #FF8A8A; }
+.fpl-pc-name.is-c75, .fpl-pc-flag.is-c75 { background: var(--avail-75); }
+.fpl-pc-name.is-c50, .fpl-pc-flag.is-c50 { background: var(--avail-50); }
+.fpl-pc-name.is-c25, .fpl-pc-flag.is-c25 { background: var(--avail-25); }
+.fpl-pc-name.is-out, .fpl-pc-flag.is-out { background: var(--avail-out); }
 .fpl-pc-info { width: 100%; box-sizing: border-box; padding: 2px 3px; border-radius: 0 0 4px 4px; background: rgba(230,231,240,0.92); color: #05041A; font-size: 0.6rem; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (min-width: 600px) { .fpl-pc-name { font-size: 0.74rem; padding: 3px 4px; } .fpl-pc-info { font-size: 0.66rem; } }
 .fpl-pc-arm { position: absolute; left: -6px; top: -2px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; background: #05041A; color: #FBFAFF; font: 700 0.6rem 'IBM Plex Mono', monospace; box-shadow: 0 0 0 1.5px #FBFAFF; }
 .fpl-pc-arm.is-vc { background: #3B2A80; }
 .fpl-pc-flag { position: absolute; right: -4px; top: -2px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); color: #05041A; }
-.fpl-pc-flag.is-out { background: #FF5A5A; }
 .fpl-pc-pts { position: absolute; right: -8px; bottom: 0; min-width: 20px; padding: 1px 4px; border-radius: 6px; background: #05041A; color: var(--lime); font-size: 0.64rem; font-weight: 700; text-align: center; box-shadow: 0 0 0 1px rgba(255,255,255,0.35); }
 .fpl-pc-pts.is-high { background: var(--lime); color: #05041A; }
 .fpl-pc-pts.is-low { color: #FF8A8A; }
@@ -1433,3 +1436,9 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-score.is-W { background: #1E9E4A; color: #fff; }
 .fpl-profile-score.is-L { background: #D92D3A; color: #fff; }
 .fpl-profile-note { margin: 8px 0 0; font-size: 0.72rem; white-space: normal; }
+
+/* Injury and doubt notes coloured by chance of playing (availLevel). */
+.fpl-availnote.is-c75, .fpl-club-flag.is-c75, .fpl-compare-flag.is-c75, .fpl-home-worry.is-c75 b { color: var(--avail-75); }
+.fpl-availnote.is-c50, .fpl-club-flag.is-c50, .fpl-compare-flag.is-c50, .fpl-home-worry.is-c50 b { color: var(--avail-50); }
+.fpl-availnote.is-c25, .fpl-club-flag.is-c25, .fpl-compare-flag.is-c25, .fpl-home-worry.is-c25 b { color: var(--avail-25); }
+.fpl-availnote.is-out, .fpl-club-flag.is-out, .fpl-compare-flag.is-out, .fpl-home-worry.is-out b { color: var(--avail-out); }

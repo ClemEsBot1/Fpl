@@ -3,6 +3,28 @@
 import { t } from './i18n.js';
 export const POSITION_LABELS = { 1: t('GKP'), 2: t('DEF'), 3: t('MID'), 4: t('FWD') };
 
+// How likely a player is to miss the next match, coloured as in the FPL
+// app: 'c75' (75% chance of playing, yellow), 'c50' (orange), 'c25' (dark
+// orange) and 'out' (injured, suspended or unavailable, red); null when
+// there's no worry (the same players availabilityNote in predictions.js
+// notes). A doubt with no chance given counts as 50%.
+export function availLevel(player) {
+  if (!player) return null;
+  const chance = typeof player.chanceNext === 'number' ? player.chanceNext : null;
+  if (player.status === 'u' || player.status === 'n') return 'out';
+  if (chance === null) {
+    if (player.status === 'i' || player.status === 's') return 'out';
+    return player.status === 'd' ? 'c50' : null;
+  }
+  if (chance > 75 && player.status !== 'i' && player.status !== 's') return null;
+  if (chance <= 0) return 'out';
+  if (chance <= 25) return 'c25';
+  if (chance <= 50) return 'c50';
+  return 'c75';
+}
+// " is-<level>" for a class list, or ''.
+export const availClass = player => { const level = availLevel(player); return level ? ` is-${level}` : ''; };
+
 // Previously matched availNote against a fixed list of exact strings
 // ['Injured', 'Suspended', 'Unavailable'] to decide whether a player's
 // availability alone should force them onto the transfer-suggestion

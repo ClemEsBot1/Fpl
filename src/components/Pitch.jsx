@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, TriangleAlert, X } from 'lucide-react';
 import { priceMoveText } from '../lib/transferTrends.js';
-import { POSITION_LABELS, fmtPrice } from '../lib/format.js';
+import { POSITION_LABELS, fmtPrice, availLevel } from '../lib/format.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { benchLabels, shirtUrl } from '../lib/pitch.js';
 import { t } from '../lib/i18n.js';
@@ -32,10 +32,10 @@ export function Shirt({ team, isKeeper }) {
   return <img className="fpl-shirt" src={src} alt="" loading="lazy" decoding="async" draggable="false" onError={() => setFailed(true)} />;
 }
 
-// Injured, suspended or unavailable: red; a doubt: yellow.
+// Coloured by how likely he is to miss out, as in the FPL app (availLevel).
 function flagFor(player, availNote) {
   if (!availNote) return null;
-  return ['i', 's', 'u', 'n'].includes(player.status) ? 'out' : 'doubt';
+  return availLevel(player) || 'c50';
 }
 
 // One player's card. `state` is 'selected', 'eligible' or 'dim' while
