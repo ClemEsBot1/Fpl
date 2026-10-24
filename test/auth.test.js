@@ -344,3 +344,19 @@ test('a user can delete their own account with their password, and everything go
   assert.equal((await call(redis, { action: 'login', username: 'leaving', password: 'correct-horse1' })).status, 401);
   assert.equal((await call(redis, { action: 'register', acceptTerms: true, username: 'newowner', password: 'correct-horse1', email: 'leaving@example.com' })).status, 200);
 });
+
+test('?region tells the app the visitor\'s country from Vercel\'s header, storing nothing', async () => {
+  const ask = async headers => {
+    const res = { headers: {}, statusCode: 0, body: null };
+    res.status = c => { res.statusCode = c; return res; };
+    res.json = b => { res.body = b; return res; };
+    res.setHeader = (k, v) => { res.headers[k] = v; return res; };
+    await handler({ method: 'GET', query: { region: '1' }, headers, socket: { remoteAddress: '203.0.113.1' } }, res, fakeRedis());
+    return res;
+  };
+  const de = await ask({ 'x-vercel-ip-country': 'DE' });
+  assert.equal(de.statusCode, 200);
+  assert.deepEqual(de.body, { country: 'DE' });
+  assert.equal(de.headers['Cache-Control'], 'no-store');
+  assert.deepEqual((await ask({})).body, { country: '' });
+});
