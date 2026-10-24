@@ -45,6 +45,12 @@ VARIANTS = {
     'ts_fpl': dict(two_stage=True, drop=('us_',)),  # FPL's deadline data, 2025-26 on
     'ts_us': dict(two_stage=True, drop=('fpl_',)),  # Understat
     'ts_all': dict(two_stage=True),
+    # Also tried on the live model (Oct 2026, 2020-21 to 2025-26 walk-forward)
+    # and left out, as neither helped: rest days and fixture congestion
+    # (days since the last match, matches in 14 days, rest versus the
+    # opponent) and the opponent's injuries (players and defenders out).
+    # Next-GW MAE 1.042 live, 1.044 with congestion, 1.043 with injuries,
+    # 1.044 with both; four-GW MAE 0.763 against 0.764 for all three.
 }
 
 
