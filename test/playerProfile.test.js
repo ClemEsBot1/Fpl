@@ -55,3 +55,19 @@ test('a prediction worked out afterwards is marked as such', () => {
   const rows = profileRows({ history: [played(1, 7, true, 1, 0, 6), played(2, 9, false, 0, 0, 2)] }, { teamsById, predictedByGw: { 1: 3, 2: 4 }, finishedGws: new Set([1, 2]), workedOutGws: new Set([1]) });
   assert.deepEqual(rows.map(r => [r.gw, r.workedOut]), [[2, false], [1, true]]);
 });
+
+test('price through the season and cheaper players predicted nearly as well', async () => {
+  const { priceSeries, cheaperAlternatives } = await import('../src/lib/playerProfile.js');
+  assert.deepEqual(priceSeries({ history: [{ round: 2, value: 61 }, { round: 1, value: 60 }, { round: 2, value: 61 }] }), [{ gw: 1, price: 6 }, { gw: 2, price: 6.1 }]);
+  assert.deepEqual(priceSeries(null), []);
+  const pl = (id, price, o = {}) => ({ id, price, positionId: 3, status: 'a', chanceNext: null, ...o });
+  const weeks = total => ({ byGw: Array.from({ length: 5 }, (_, i) => ({ event: 9 + i, points: total / 5 })) });
+  const me = pl(1, 8);
+  const all = [me, pl(2, 7.5), pl(3, 6), pl(4, 6, { status: 'd', chanceNext: 50 }), pl(5, 5), pl(6, 7.8), pl(7, 6, { positionId: 4 })];
+  const preds = { 1: weeks(25), 2: weeks(24), 3: weeks(21), 4: weeks(30), 5: weeks(15), 6: weeks(26), 7: weeks(30) };
+  const alts = cheaperAlternatives(me, all, preds);
+  assert.deepEqual(alts.map(a => a.player.id), [2, 3], 'cheaper by £0.5m+, fit, same position, at least 80% of his points');
+  assert.equal(alts[0].saving, 0.5);
+  assert.equal(alts[1].next, 21);
+  assert.deepEqual(cheaperAlternatives(me, all, { 1: weeks(0) }), []);
+});
