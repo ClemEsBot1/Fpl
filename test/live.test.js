@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bonusFromBps, liveBonusRace, liveTeamScore, matchDetail, projectedBonus, teamStates } from '../src/lib/live.js';
+import { bonusFromBps, lineup, liveBonusRace, liveTeamScore, matchDetail, projectedBonus, teamStates } from '../src/lib/live.js';
 
 test('bonus follows FPL tie rules', () => {
   const b = list => bonusFromBps(list.map((value, i) => ({ element: i + 1, value })));
@@ -132,4 +132,16 @@ test('a match in detail: each side’s players with this match’s points, BPS a
   const d2 = matchDetail(done, live2, playersById);
   assert.equal(d2.bonusProjected, false);
   assert.deepEqual(d2.home.map(r => [r.points, r.bonus]), [[13, 3], [5, 0]]);
+});
+
+test('a side’s lineup: the eleven who started, then those who came on', () => {
+  const r = (element, minutes, started) => ({ element, minutes, started });
+  const rows = [r(1, 90, true), r(2, 15, false), r(3, 75, true), ...Array.from({ length: 9 }, (_, i) => r(10 + i, 90, true))];
+  const { starters, subs } = lineup(rows);
+  assert.equal(starters.length, 11);
+  assert.ok(starters.some(s => s.element === 3), 'a starter taken off early is still a starter');
+  assert.deepEqual(subs.map(s => s.element), [2]);
+  // Without FPL's start counts (or too few), minutes decide.
+  const guess = lineup([r(1, 90, false), r(2, 10, false)]);
+  assert.deepEqual([guess.starters.length, guess.subs.length], [2, 0]);
 });

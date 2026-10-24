@@ -4,8 +4,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Radio, RefreshCw, Users, X } from 'lucide-react';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
+import { POSITION_LABELS } from '../lib/format.js';
 import { SkeletonRows } from '../components/common.jsx';
-import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, liveBonusRace, matchDetail } from '../lib/live.js';
+import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, lineup, liveBonusRace, matchDetail } from '../lib/live.js';
 import { openPlayerProfile } from '../lib/playerProfile.js';
 import './liveBonus.css';
 import { fmtDateTime, fmtTime, t } from '../lib/i18n.js';
@@ -106,10 +107,42 @@ function SideTable({ team, rows, ownedIds, projected }) {
   );
 }
 
+// One side's players on a pitch, as My team shows a squad: the eleven who
+// started in formation, then those who came on, each with his points from
+// this match, minutes and bonus. Tapping one opens his profile.
+function SidePitch({ team, rows, ownedIds }) {
+  const { starters, subs } = lineup(rows);
+  const card = r => (
+    <PlayerCard
+      key={r.element}
+      slot={{ player: r.player || { webName: '?', positionId: 3 }, availNote: null }}
+      team={team}
+      points={r.points}
+      pointsTone={ownedIds.has(r.element) ? 'high' : null}
+      info={`${r.minutes}'${r.goals ? ` · ${r.goals}${t('G')}` : ''}${r.assists ? ` · ${r.assists}${t('A')}` : ''}`}
+      tag={r.bonus ? `+${r.bonus}` : null}
+      onClick={r.player ? () => openPlayerProfile(r.element) : undefined}
+      label={t('{name}, {n} points, {info}', { name: r.player ? r.player.webName : '?', n: r.points, info: `${r.minutes}'` })}
+    />
+  );
+  return (
+    <Pitch
+      starters={starters.filter(r => r.player)}
+      bench={subs.filter(r => r.player)}
+      card={card}
+      compact
+      benchTitle={t('Came on')}
+      benchLabel={r => POSITION_LABELS[r.player.positionId]}
+    />
+  );
+}
+
 // One match: its events and every player's points, BPS and bonus, kept up
 // to date with the screen's refresh.
 function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) {
   const dialogRef = useRef(null);
+  const [side, setSide] = useState('home');
+  const [view, setView] = useState('pitch');
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
@@ -149,8 +182,19 @@ function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) 
             </tbody>
           </table>
         ) : null}
-        <SideTable team={home} rows={d.home} ownedIds={ownedIds} projected={d.bonusProjected} />
-        <SideTable team={away} rows={d.away} ownedIds={ownedIds} projected={d.bonusProjected} />
+        <div className="fpl-match-switch">
+          <div className="fpl-seg" role="group" aria-label={t('Team')}>
+            <button type="button" className={side === 'home' ? 'is-on' : ''} aria-pressed={side === 'home'} onClick={() => setSide('home')}>{home ? home.short_name : '?'}</button>
+            <button type="button" className={side === 'away' ? 'is-on' : ''} aria-pressed={side === 'away'} onClick={() => setSide('away')}>{away ? away.short_name : '?'}</button>
+          </div>
+          <div className="fpl-seg" role="group" aria-label={t('Show')}>
+            <button type="button" className={view === 'pitch' ? 'is-on' : ''} aria-pressed={view === 'pitch'} onClick={() => setView('pitch')}>{t('Pitch')}</button>
+            <button type="button" className={view === 'table' ? 'is-on' : ''} aria-pressed={view === 'table'} onClick={() => setView('table')}>{t('List')}</button>
+          </div>
+        </div>
+        {view === 'pitch'
+          ? <SidePitch key={side} team={side === 'home' ? home : away} rows={side === 'home' ? d.home : d.away} ownedIds={ownedIds} />
+          : <SideTable team={side === 'home' ? home : away} rows={side === 'home' ? d.home : d.away} ownedIds={ownedIds} projected={d.bonusProjected} />}
         {d.bonusProjected ? <p className="fpl-meta fpl-pp-note">{t('* Bonus from the bonus points system: FPL confirms it after the match. Points include it.')}</p> : null}
       </div>
     </dialog>

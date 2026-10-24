@@ -184,6 +184,9 @@ export function matchDetail(fixture, liveElements, playersById = {}) {
       red: v('red_cards'),
       bps: bpsOf.get(el.id) ?? 0, // FPL leaves 0 BPS out of the list
       bonus: v('bonus') || extra,
+      // Whether he started: FPL's gameweek count, so in a double gameweek
+      // a start in either match counts (lineup() sorts that out).
+      started: !!(el.stats && el.stats.starts > 0),
     };
     const isHome = homeIds.has(el.id) || (!awayIds.has(el.id) && player && player.team === fixture.team_h);
     (isHome ? home : away).push(row);
@@ -196,4 +199,15 @@ export function matchDetail(fixture, liveElements, playersById = {}) {
     events.away[id] = s.a.map(e => ({ element: e.element, player: playersById[e.element] || null, value: e.value }));
   });
   return { home: home.sort(byPoints), away: away.sort(byPoints), events, bonusProjected: !confirmed.length && fixture.started };
+}
+
+// One side's players as a lineup for the pitch: the eleven who started
+// (those FPL counts as starting, most minutes first, topped up by minutes
+// if that doesn't make eleven), then whoever came on.
+// rows: one side from matchDetail. Returns { starters, subs }.
+export function lineup(rows) {
+  const byMinutes = [...rows].sort((a, b) => b.minutes - a.minutes);
+  const starters = byMinutes.filter(r => r.started).slice(0, 11);
+  byMinutes.forEach(r => { if (starters.length < 11 && !starters.includes(r)) starters.push(r); });
+  return { starters, subs: byMinutes.filter(r => !starters.includes(r)) };
 }
