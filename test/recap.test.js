@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRecap, lastFinishedGw, missVerdict, mostOwnedXi, recapText } from '../src/lib/recap.js';
+import { buildRecap, freeTransfersFor, lastFinishedGw, missVerdict, mostOwnedXi, recapText, squadBeforeTransfers, suggestionsBefore } from '../src/lib/recap.js';
 
 const player = (id, webName, positionId, price = 6) => ({ id, webName, positionId, team: 1, price });
 const slot = (p, actualPoints, predicted, extra = {}) => ({ player: p, actualPoints, predicted, isStarting: true, multiplier: 1, ...extra });
@@ -179,4 +179,65 @@ test("each player's miss is judged against how far off every player was", () => 
   assert.equal(p.missCompared, 'much-bigger');
   assert.equal(missVerdict(-5, 0, p.range), 'dnp');
   assert.equal(buildRecap(base).predictions.range, null);
+});
+
+test("the week's transfers are undone to get the squad and bank before them", () => {
+  const transfers = [
+    { event: 19, element_in: 12, element_out: 10, element_in_cost: 80, element_out_cost: 70, time: '2026-01-02' },
+    { event: 19, element_in: 10, element_out: 11, element_in_cost: 70, element_out_cost: 65, time: '2026-01-01' },
+    { event: 18, element_in: 3, element_out: 4, element_in_cost: 60, element_out_cost: 60, time: '2025-12-20' },
+  ];
+  // Bought Mbeumo for Bowen, then swapped Mbeumo on again: Bowen was there before.
+  assert.deepEqual(squadBeforeTransfers([1, 2, 12], 5, transfers, 19), { ids: [1, 2, 11], bankTenths: 20 });
+});
+
+test('free transfers build up a week at a time, less the ones used, kept through a Wildcard', () => {
+  const history = {
+    current: [
+      { event: 1, event_transfers: 0 }, { event: 2, event_transfers: 0 }, { event: 3, event_transfers: 3 },
+      { event: 4, event_transfers: 9 }, { event: 5, event_transfers: 0 },
+    ],
+    chips: [{ name: 'wildcard', event: 4 }],
+  };
+  assert.equal(freeTransfersFor(history, 2), 1);
+  assert.equal(freeTransfersFor(history, 3), 2);
+  assert.equal(freeTransfersFor(history, 4), 1);
+  assert.equal(freeTransfersFor(history, 5), 1);
+  assert.equal(freeTransfersFor(history, 6), 2);
+  assert.equal(freeTransfersFor(null, 6), null);
+});
+
+test('the suggested transfers are scored against the ones made, with a hit past the free transfers', () => {
+  const sug = (outId, inId) => ({ out: { player: { id: outId, webName: `P${outId}` } }, inPlayer: { id: inId, webName: `P${inId}` } });
+  const liveById = { ...base.liveById, 20: { totalPoints: 12 }, 21: { totalPoints: 1 } };
+  const r = buildRecap({ ...base, liveById, suggestions: [sug(11, 10), sug(3, 20)], freeTransfers: 1 });
+  assert.deepEqual(r.suggested.moves.map(m => [m.out.name, m.in.name, m.made]), [['Bowen', 'Mbeumo', true], ['P3', 'P20', false]]);
+  // In 9 + 12, out 2 + 1, a 4 point hit: +14 against your +3 (9 − 2 − 4).
+  assert.equal(r.suggested.net, 14);
+  assert.equal(r.suggested.madeNet, 3);
+  assert.equal(r.suggested.diff, 11);
+  assert.equal(buildRecap({ ...base, suggestions: [], freeTransfers: 1 }).suggested.diff, -3);
+  assert.equal(buildRecap(base).suggested, null);
+  assert.equal(buildRecap({ ...base, suggestions: [], activeChip: 'wildcard' }).suggested, null);
+});
+
+test("the app's suggestions are worked out for the squad before the week's transfers", () => {
+  const mk = (id, positionId, team, price, predicted) => ({ p: { id, webName: `P${id}`, positionId, team, price, status: 'a', costChangeStart: 0 }, predicted });
+  const list = [
+    mk(1, 1, 1, 4.5, 4), mk(2, 1, 2, 4, 1),
+    ...[3, 4, 5, 6, 7].map((id, i) => mk(id, 2, 3 + i, 4.5, 3)),
+    ...[8, 9, 10, 11, 12].map((id, i) => mk(id, 3, 8 + i, 5, 4)),
+    mk(13, 4, 13, 6, 5), mk(14, 4, 14, 6, 5), mk(15, 4, 15, 6, 1),
+    mk(16, 4, 16, 6, 9), // the striker the app would buy
+  ];
+  const gwStatic = {
+    playersById: Object.fromEntries(list.map(x => [x.p.id, x.p])),
+    predictionsById: Object.fromEntries(list.map(x => [x.p.id, { predicted: x.predicted }])),
+    allPlayers: list.map(x => x.p),
+  };
+  const squadIds = list.slice(0, 15).map(x => x.p.id);
+  const s = suggestionsBefore({ squadIds, bankTenths: 0, transfers: [], history: null, gwId: 5, gwStatic });
+  assert.equal(s[0].inPlayer.id, 16);
+  assert.equal(s[0].out.player.id, 15);
+  assert.equal(suggestionsBefore({ squadIds: [...squadIds.slice(0, 14), 99], bankTenths: 0, transfers: [], gwId: 5, gwStatic }), null);
 });

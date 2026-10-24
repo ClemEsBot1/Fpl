@@ -1,4 +1,5 @@
 import { fmtNumber, ordinal, plural, t } from './i18n.js';
+import { sellingPrices, suggestTransfers } from './squadLogic.js';
 // The gameweek recap: the slides that pop up once a gameweek is over,
 // summing up how your team did. Pure functions; App.jsx fetches what they
 // need and src/components/GwRecap.jsx draws the slides.
@@ -247,6 +248,83 @@ function transfersSlide({ gwId, transfers, liveById, playersById, entryHistory, 
   };
 }
 
+// The squad as it stood before gameweek `gwId`'s transfers: each of the
+// week's moves undone, newest first, and the bank before them (tenths).
+export function squadBeforeTransfers(squadIds, bankTenths, transfers, gwId) {
+  const moves = (Array.isArray(transfers) ? transfers : [])
+    .filter(tr => tr && tr.event === gwId)
+    .sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
+  let ids = [...squadIds];
+  let bank = bankTenths || 0;
+  for (const tr of moves) {
+    ids = ids.map(id => (id === tr.element_in ? tr.element_out : id));
+    bank += (Number(tr.element_in_cost) || 0) - (Number(tr.element_out_cost) || 0);
+  }
+  return { ids, bankTenths: bank };
+}
+
+// Free transfers going into gameweek `gwId`, from FPL's entry history: one
+// after the first week, one more each week up to five, less the ones used;
+// a Wildcard or Free Hit week keeps what was saved. null without history.
+export function freeTransfersFor(history, gwId) {
+  const rows = history && Array.isArray(history.current) ? [...history.current].sort((a, b) => a.event - b.event) : null;
+  if (!rows || !rows.length) return null;
+  const kept = new Set(((history && history.chips) || []).filter(c => c.name === 'wildcard' || c.name === 'freehit').map(c => c.event));
+  let ft = null;
+  for (const r of rows) {
+    if (r.event >= gwId) break;
+    if (ft === null) ft = 1;
+    else if (!kept.has(r.event)) ft = Math.min(5, Math.max(0, ft - (r.event_transfers || 0)) + 1);
+  }
+  return ft === null ? null : ft;
+}
+
+// The transfers the app would have suggested before gwId's deadline, for
+// the squad as it was then: suggestTransfers over that gameweek's
+// predictions (gwStatic, from staticDataForGw). null when a player can't
+// be found in them.
+export function suggestionsBefore({ squadIds, bankTenths, transfers, history, gwId, gwStatic }) {
+  if (!gwStatic || !gwStatic.playersById || !gwStatic.predictionsById) return null;
+  const before = squadBeforeTransfers(squadIds, bankTenths, transfers, gwId);
+  if (before.ids.some(id => !gwStatic.playersById[id] || !gwStatic.predictionsById[id])) return null;
+  const freeHits = ((history && history.chips) || []).filter(c => c.name === 'freehit').map(c => c.event);
+  const earlier = (Array.isArray(transfers) ? transfers : []).filter(tr => tr && tr.event < gwId);
+  const sell = sellingPrices(before.ids, earlier, gwStatic.playersById, freeHits);
+  const squad = before.ids.map(id => ({
+    player: gwStatic.playersById[id],
+    availNote: gwStatic.predictionsById[id].availNote,
+    ...(Number.isFinite(sell[id]) ? { sellPrice: sell[id] / 10 } : {}),
+  }));
+  return suggestTransfers(squad, gwStatic.allPlayers || [], gwStatic.predictionsById, before.bankTenths);
+}
+
+// What the app's suggested transfers would have scored this gameweek
+// against the ones you made: the points of the players in and out, a 4
+// point hit for each move past your free transfers, and the difference.
+function suggestedSlide({ gwId, suggestions, liveById, playersById, transfers, freeTransfers, activeChip, made }) {
+  if (!Array.isArray(suggestions)) return null;
+  if (activeChip === 'wildcard' || activeChip === 'freehit') return null;
+  const pts = id => (liveById[id] && liveById[id].totalPoints) || 0;
+  const bought = new Set((Array.isArray(transfers) ? transfers : []).filter(tr => tr.event === gwId).map(tr => tr.element_in));
+  const moves = suggestions.map(s => {
+    const outId = s.out.player.id;
+    const inId = s.inPlayer.id;
+    const name = (id, p) => (playersById[id] && playersById[id].webName) || (p && p.webName) || `#${id}`;
+    return {
+      out: { id: outId, name: name(outId, s.out.player), points: pts(outId) },
+      in: { id: inId, name: name(inId, s.inPlayer), points: pts(inId) },
+      made: bought.has(inId),
+    };
+  });
+  const pointsIn = moves.reduce((s, m) => s + m.in.points, 0);
+  const pointsOut = moves.reduce((s, m) => s + m.out.points, 0);
+  const free = typeof freeTransfers === 'number' ? freeTransfers : 1;
+  const hit = Math.max(0, moves.length - free) * 4;
+  const net = pointsIn - pointsOut - hit;
+  const madeNet = made ? made.net : 0;
+  return { moves, pointsIn, pointsOut, hit, net, freeTransfers: typeof freeTransfers === 'number' ? freeTransfers : null, madeNet, diff: net - madeNet };
+}
+
 // Your place in a mini-league before and after the gameweek, the week's
 // top scorer there, and how you did against the closest team on points.
 // Only for the latest gameweek to have started: the standings are FPL's
@@ -361,13 +439,15 @@ export function buildRecap(input) {
   const actual = squad.reduce((s, x) => s + (x.actualPoints || 0) * (x.multiplier || 0), 0);
   const points = entryHistory && typeof entryHistory.points === 'number' ? entryHistory.points : actual;
   const ctx = { ...input, liveById, playersById, points };
+  const made = transfersSlide(ctx);
   return {
     gwId, gwName, teamName, teamId,
     headline: headlineSlide(ctx),
     rank: rankSlide(ctx),
     captain: captainSlide(ctx),
     starFlop: starFlopSlide(ctx),
-    transfers: transfersSlide(ctx),
+    transfers: made,
+    suggested: suggestedSlide({ ...ctx, made }),
     league: leagueSlide(input.league, teamId),
     leagues: input.league ? input.leagues || [] : [],
     vsModel: vsModelSlide(ctx),
