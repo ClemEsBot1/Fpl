@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, Cookie, FileText, KeyRound, Languages, Link2, LogOut, Mail, MessageSquare, ShieldCheck, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, Cookie, FileText, KeyRound, Languages, Link2, LogOut, Mail, MessageSquare, SunMoon, ShieldCheck, Trash2, X } from 'lucide-react';
 import { TERMS_PATH } from '../lib/terms.js';
 import { fetchFplJson } from '../lib/fplClient.js';
 import { careerStats, rankChartPoints, valueChartPoints } from '../lib/career.js';
@@ -8,6 +8,7 @@ import { useGoogleEnabled } from '../lib/googleEnabled.js';
 import { GoogleMark } from '../components/GoogleMark.jsx';
 import { LANGUAGES, currentLanguage, fmtDate, fmtNumber, t } from '../lib/i18n.js';
 import { chooseLanguage } from '../lib/i18nLoad.js';
+import { chooseTheme, readTheme } from '../lib/theme.js';
 import { analyticsAllowed, onConsentChange, readConsent, writeConsent } from '../lib/consent.js';
 
 /* ----------------------------------------------------------------------------
@@ -59,6 +60,26 @@ function CookieRow({ byDefault }) {
   return (
     <SettingRow icon={Cookie} title={t('Visit counts and page speed')} detail={on ? t('On: counted with Vercel Analytics, which doesn’t identify you') : t('Off: only the login cookie is used')}
       action={on ? t('Turn off') : t('Turn on')} onAction={() => writeConsent(!on)} />
+  );
+}
+
+// Light, dark or as the device is set (src/lib/theme.js).
+function ThemeRow() {
+  const [choice, setChoice] = useState(readTheme);
+  const pick = c => { chooseTheme(c); setChoice(c); };
+  const labels = { system: t('Device'), light: t('Light'), dark: t('Dark') };
+  return (
+    <div className="fpl-profile-row is-static">
+      <SunMoon size={18} aria-hidden="true" className="fpl-profile-row-icon" />
+      <span className="fpl-profile-row-text">
+        <span className="fpl-profile-row-title" id="theme-h">{t('Theme')}</span>
+      </span>
+      <div className="fpl-seg" role="group" aria-labelledby="theme-h">
+        {Object.entries(labels).map(([c, label]) => (
+          <button key={c} type="button" className={choice === c ? 'is-on' : ''} aria-pressed={choice === c} onClick={() => pick(c)}>{label}</button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -346,6 +367,7 @@ export function ProfileScreen({ session, analyticsByDefault = false, notice = ''
           <SettingRow icon={Bell} title={t('Deadline emails')} detail={session.digestTeamId ? t('On for team {id}', { id: session.digestTeamId }) : t('Off: turn on from your team’s page')} onAction={onMyTeams} />
           <SettingRow icon={MessageSquare} title={t('Send feedback')} detail={t('Report a problem or suggest something')} onAction={() => onOpenDialog('feedback')} />
           <LanguageRow />
+          <ThemeRow />
           <CookieRow byDefault={analyticsByDefault} />
           <SettingRow icon={FileText} title={t('Terms and privacy')} href={TERMS_PATH} />
           <SettingRow icon={LogOut} title={t('Log out')} onAction={onLogout} />
