@@ -32,6 +32,40 @@ async function formulaPredictionsAsOf(bootstrap, gwId) {
   return Object.fromEntries(Object.entries(staticData.predictionsById).map(([id, p]) => [id, p.nextMatchPredicted]));
 }
 
+// The predictions saved before gameweek `gwId`'s deadline, or null when
+// there's no file for it this season. Predictions the model made are
+// replaced by the formula's, worked out as of that deadline, and saved back
+// so this happens once.
+async function savedPredictions(bootstrap, gwId) {
+  const saved = await get(predictionsPathnameFor(gwId), { access: 'public', useCache: false });
+  if (!saved) return null;
+  let savedJson = JSON.parse(await new Response(saved.stream).text());
+  // The file for this gameweek number may be from last season.
+  if (!snapshotIsForSeason(savedJson, seasonIdFor(bootstrap.events), bootstrap.events)) return null;
+  if (snapshotFromModel(savedJson)) {
+    savedJson = { ...savedJson, predictedById: await formulaPredictionsAsOf(bootstrap, gwId), source: 'formula' };
+    try {
+      await put(predictionsPathnameFor(gwId), JSON.stringify(savedJson), { access: 'public', contentType: 'application/json', allowOverwrite: true });
+    } catch { /* worked out again next time */ }
+  }
+  return savedJson;
+}
+
+// GET /api/accuracy?all=1 — every player's saved prediction for each
+// gameweek this season whose deadline has passed, for the player profile
+// (src/lib/playerProfile.js): { season, gws: { [gw]: { [id]: points } } }.
+async function allSaved(res, bootstrap) {
+  const now = Date.now();
+  const closed = (bootstrap.events || []).filter(e => Date.parse(e.deadline_time) <= now).map(e => e.id);
+  const files = await Promise.all(closed.map(gw => savedPredictions(bootstrap, gw).catch(() => null)));
+  const gws = {};
+  closed.forEach((gw, i) => { if (files[i] && files[i].predictedById) gws[gw] = files[i].predictedById; });
+  res
+    .status(200)
+    .setHeader('Cache-Control', 'public, max-age=1800, s-maxage=1800, stale-while-revalidate=86400')
+    .json({ season: seasonIdFor(bootstrap.events), gws });
+}
+
 function notAvailable(res, body) {
   res.status(404).setHeader('Cache-Control', 'public, max-age=600, s-maxage=600').json(body);
 }
@@ -39,9 +73,11 @@ function notAvailable(res, body) {
 // GET /api/accuracy[?gw=N] — how last gameweek's (or gameweek N's)
 // predictions compared with what players actually scored. 404 when there
 // are no saved predictions for it (e.g. gameweeks before this existed).
+// ?all=1 gives every gameweek's saved predictions instead (allSaved).
 export default async function handler(req, res) {
   try {
     const bootstrap = await fplJson('bootstrap-static/');
+    if (req.query && req.query.all) { await allSaved(res, bootstrap); return; }
     let gwId = Number(req.query && req.query.gw);
     let gwName = null;
     if (!Number.isInteger(gwId) || gwId < 1) {
@@ -53,23 +89,8 @@ export default async function handler(req, res) {
 
     // null means there's no file; a storage failure throws, and is answered
     // below without being cached.
-    const saved = await get(predictionsPathnameFor(gwId), { access: 'public', useCache: false });
-    if (!saved) { notAvailable(res, { error: 'no_saved_predictions', gwId }); return; }
-    let savedJson = JSON.parse(await new Response(saved.stream).text());
-    // The file for this gameweek number may be from last season.
-    if (!snapshotIsForSeason(savedJson, seasonIdFor(bootstrap.events), bootstrap.events)) {
-      notAvailable(res, { error: 'no_saved_predictions', gwId });
-      return;
-    }
-
-    // Predictions the model made are replaced by the formula's, worked out
-    // as of that deadline, and saved back so this happens once.
-    if (snapshotFromModel(savedJson)) {
-      savedJson = { ...savedJson, predictedById: await formulaPredictionsAsOf(bootstrap, gwId), source: 'formula' };
-      try {
-        await put(predictionsPathnameFor(gwId), JSON.stringify(savedJson), { access: 'public', contentType: 'application/json', allowOverwrite: true });
-      } catch { /* worked out again next time */ }
-    }
+    const savedJson = await savedPredictions(bootstrap, gwId);
+    if (!savedJson) { notAvailable(res, { error: 'no_saved_predictions', gwId }); return; }
 
     const live = await fplJson(`event/${gwId}/live/`);
     const positionById = Object.fromEntries((bootstrap.elements || []).map(e => [e.id, e.element_type]));

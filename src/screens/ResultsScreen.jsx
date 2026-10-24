@@ -1,11 +1,12 @@
 // Results for a squad: predicted points per player, captaincy, transfer
 // suggestions, chip timing, editing, saving, sharing and reminders.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, ArrowUpDown, Ban, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Copy, Crown, Download, Edit3, ExternalLink, Info, LayoutGrid, List as ListIcon, Lock, MessageSquare, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Sparkles, Trophy, X, Zap } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, ArrowUpDown, Ban, Bell, Bookmark, Check, CheckCircle2, ChevronDown, Clipboard, Copy, Crown, Download, Edit3, ExternalLink, Info, LayoutGrid, List as ListIcon, Lock, MessageSquare, RefreshCw, RotateCcw, Search, Share2, ShieldAlert, Sparkles, Trophy, UserRound, X, Zap } from 'lucide-react';
 import { DifficultyChips } from '../components/common.jsx';
 import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
 import { POSITION_LABELS, fmtPrice, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
+import { openPlayerProfile } from '../lib/playerProfile.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
 import { captainOptions, differentialCaptain } from '../lib/captaincy.js';
@@ -804,6 +805,7 @@ function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit,
             {showWhy ? <PredictionBreakdown breakdown={slot.breakdown} prediction={{ nextMatchPredicted: slot.nextMatchPredicted ?? slot.predicted, isDoubleThisEvent: slot.breakdown.isDoubleThisEvent, range: slot.range }} player={player} /> : null}
           </>
         ) : null}
+        <button type="button" className="fpl-btn fpl-sheet-profile" onClick={() => { onClose(); openPlayerProfile(player.id); }}><UserRound size={15} aria-hidden="true" /> {t('Player profile')}</button>
         {canEdit ? (
           <div className="fpl-sheet-actions">
             {slot.isStarting ? (

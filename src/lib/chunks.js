@@ -26,8 +26,9 @@ export const leagueChunk = chunk(() => import('../screens/MiniLeagueScreen.jsx')
 export const recapChunk = chunk(() => import('../components/GwRecap.jsx'));
 export const toolsChunk = chunk(() => import('../screens/ToolScreens.jsx'));
 export const liveChunk = chunk(() => import('../screens/LiveScreen.jsx'));
+export const profileChunk = chunk(() => import('../components/PlayerProfile.jsx'));
 export const adminChunk = chunk(() => import('../screens/AdminScreen.jsx'));
-export const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk, recapChunk, toolsChunk, liveChunk];
+export const ALL_CHUNKS = [resultsChunk, screenshotChunk, accountChunk, builderChunk, hindsightChunk, welcomeChunk, leagueChunk, recapChunk, toolsChunk, liveChunk, profileChunk];
 // For fetching a screen ahead of time; a failure shows up when it's opened.
 export const preload = source => () => { source.load().catch(() => {}); };
 export const loadResultsScreen = preload(resultsChunk);

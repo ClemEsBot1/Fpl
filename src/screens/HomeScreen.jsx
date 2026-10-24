@@ -16,6 +16,7 @@ import { DifficultyChips, PlayerSearchPicker, SkeletonRows } from '../components
 import { PriceChip } from '../components/PriceChip.jsx';
 import { predictPriceChange } from '../lib/transferTrends.js';
 import { MAX_WATCHED, watchRows } from '../lib/watchlist.js';
+import { openPlayerProfile } from '../lib/playerProfile.js';
 import { useWatchlist } from '../hooks/useWatchlist.js';
 import { parseTeamId } from '../lib/teamIdInput.js';
 import { fmtDate, fmtNumber, plural, t } from '../lib/i18n.js';
@@ -274,7 +275,7 @@ function Watchlist({ staticData, watchIds, onToggle }) {
             return (
               <li key={player.id} className="fpl-watch-row">
                 <span className="fpl-watch-who">
-                  <b>{player.webName}</b>
+                  <b><button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(player.id)}>{player.webName}</button></b>
                   <span className="fpl-meta">
                     {POSITION_LABELS[player.positionId]} · {team ? team.short_name : '—'} · {fmtPrice(player.price)}
                     {' '}<PriceChip change={predictPriceChange(player, staticData.totalPlayers)} />
