@@ -33,3 +33,24 @@ test('chance of playing is coloured as in the FPL app', async () => {
   assert.equal(availClass(p('a')), '');
   assert.equal(availLevel(null), null);
 });
+
+test('a prediction counts the captain picked, never the vice-captain', async () => {
+  const { predictedMultiplier } = await import('../src/lib/format.js');
+  const slot = (o) => ({ isStarting: true, isCaptain: false, isViceCaptain: false, multiplier: 1, ...o });
+  // FPL passed the armband: the captain didn't play, the vice has 2.
+  assert.equal(predictedMultiplier(slot({ isCaptain: true, multiplier: 0 })), 2);
+  assert.equal(predictedMultiplier(slot({ isViceCaptain: true, multiplier: 2 })), 1);
+  assert.equal(predictedMultiplier(slot({ isCaptain: true, multiplier: 3 })), 3, 'Triple Captain');
+  assert.equal(predictedMultiplier(slot({ isCaptain: true, multiplier: 0 }), '3xc'), 3);
+  assert.equal(predictedMultiplier(slot({ isStarting: false, multiplier: 0 })), 0);
+  assert.equal(predictedMultiplier(slot({ isStarting: false, multiplier: 0 }), 'bboost'), 1);
+});
+
+test('the build knows its pull request from Vercel or the squash merge', async () => {
+  const { prNumberFrom } = await import('../src/lib/buildInfo.js');
+  assert.equal(prNumberFrom({ prId: '120' }), 120);
+  assert.equal(prNumberFrom({ message: 'Colour injured and doubtful players as the FPL app does (#119)' }), 119);
+  assert.equal(prNumberFrom({ message: 'Fix (#12) thing\n\nbody (#5)' }), null, 'only a number closing the title');
+  assert.equal(prNumberFrom({ prId: '', message: 'Local change' }), null);
+  assert.equal(prNumberFrom(), null);
+});
