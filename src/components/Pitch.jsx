@@ -100,10 +100,12 @@ export function EmptyCard({ positionId, onClick, price }) {
 
 // The pitch. `rows` are the XI by position (or any rows of slots, as in
 // the transfer planner); `bench` the substitutes in order. `card(slot, i)`
-// draws each one.
-export function Pitch({ starters, bench, rows, card, compact, benchTitle = t('Substitutes'), className = '' }) {
+// draws each one. `benchLabel(slot, i)` labels each bench place, for a
+// bench that isn't FPL's ordered substitutes (the live match's players who
+// came on); otherwise they read GKP, 1., 2., 3.
+export function Pitch({ starters, bench, rows, card, compact, benchTitle = t('Substitutes'), benchLabel = null, className = '' }) {
   const lines = rows || POSITION_ORDER.map(pos => (starters || []).filter(s => s.player.positionId === pos)).filter(r => r.length);
-  const labels = benchLabels(bench || []);
+  const labels = benchLabel ? (bench || []).map(benchLabel) : benchLabels(bench || []);
   return (
     <div className={`fpl-pitch${compact ? ' is-compact' : ''} ${className}`}>
       <div className="fpl-pitch-field">
