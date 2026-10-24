@@ -100,3 +100,14 @@ test('each week carries what the unchanged squad would score', () => {
   assert.ok(plan.weeks[0].points > plan.weeks[0].baseline);
   assert.equal(Math.round(plan.weeks.reduce((s, w) => s + w.baseline, 0) * 10) / 10, plan.baseline);
 });
+
+test('selling prices: a defender bought for £9.0m is only affordable when the seller frees enough', () => {
+  // Defender 3 (£5.0m today) is out; the £9.0m defender 103 scores far more.
+  const base = setup({ squadPts: { 3: flat(0) }, poolPts: { 103: flat(9) }, bank: 40 });
+  const yes = planTransfers({ ...base, freeTransfers: 1 });
+  assert.deepEqual(yes.weeks[0].moves.map(m => [m.out.id, m.in.id]), [[3, 103]], 'at today\'s £5.0m plus £4.0m in the bank it fits');
+  // Every defender was bought for £4.8m and rose to £5.0m: each sells for
+  // £4.9m, £0.1m short.
+  const no = planTransfers({ ...base, freeTransfers: 1, sellTenthsById: { 3: 49, 4: 49, 5: 49, 6: 49, 7: 49 } });
+  assert.ok(!no.weeks.some(w => w.moves.some(m => m.in.id === 103)), 'a selling price below today\'s is respected');
+});

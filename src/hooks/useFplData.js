@@ -3,6 +3,7 @@
 // any team's squad for a gameweek. Also the gameweek picked in the header.
 import { useEffect, useRef, useState } from 'react';
 import { fetchFplJson, loadStaticData, loadStaticDataAsOf } from '../lib/fplClient.js';
+import { sellingPrices } from '../lib/squadLogic.js';
 import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLocked, snapshotFromModel, snapshotIsForSeason, snapshotXiTotal, withPredictionSource } from '../lib/predictions.js';
 import { liveTeamScore, projectedBonus, teamStates } from '../lib/live.js';
 import { computeOptimalXiTotal } from '../lib/squadLogic.js';
@@ -286,6 +287,12 @@ export function useFplData({ admin = false } = {}) {
     // bonus, automatic subs, the vice-captain), which needs its matches.
     const fixturesPromise = isPastGwView && !weekFinished ? fixturesForGw(gwId) : Promise.resolve(null);
     const frozenPromise = isPastGwView ? frozenOptimalXi(gwId, staticData) : Promise.resolve(null);
+    // For selling prices (sellingPrices): what each player was bought for,
+    // and which weeks were Free Hits. Only for the gameweek being planned;
+    // without them, players sell at today's price.
+    const quiet = promise => promise.catch(() => null);
+    const sellInfoPromise = isPastGwView ? Promise.resolve(null)
+      : Promise.all([quiet(fetchFplJson(`entry/${teamId}/transfers/`)), quiet(fetchFplJson(`entry/${teamId}/history/`))]);
     const settle = promise => promise.then(value => ({ value }), error => ({ error }));
     const [picksResult, entryResult] = await Promise.all([
       settle(fetchFplJson(`entry/${teamId}/event/${gwId}/picks/`)),
@@ -345,7 +352,7 @@ export function useFplData({ admin = false } = {}) {
     if (borrowed) entryMeta.picksFromGwId = picksGwId;
 
     onProgress(isPastGwView ? t('Rebuilding player data from before that deadline…') : t('Checking fixtures and working out predictions…'));
-    const [gwStatic, liveById, weekFixtures] = await Promise.all([gwStaticPromise, livePromise, fixturesPromise, frozenPromise]);
+    const [gwStatic, liveById, weekFixtures, , sellInfo] = await Promise.all([gwStaticPromise, livePromise, fixturesPromise, frozenPromise, sellInfoPromise]);
     if (isStale()) return null;
 
     const rawSquad = scoreSlots(picks.picks.map(pk => ({
@@ -357,7 +364,12 @@ export function useFplData({ admin = false } = {}) {
     // Only meaningful once the gameweek is closed — automatic_subs is
     // empty for a gameweek still in progress (there's nothing final to
     // apply yet), so this is a no-op for the live/current-gw view.
-    const squad = isPastGwView ? applyAutomaticSubs(rawSquad, picks.automatic_subs, { finished: isGwFinished(staticData, gwId) }) : rawSquad;
+    let squad = isPastGwView ? applyAutomaticSubs(rawSquad, picks.automatic_subs, { finished: isGwFinished(staticData, gwId) }) : rawSquad;
+    if (sellInfo && Array.isArray(sellInfo[0])) {
+      const freeHits = ((sellInfo[1] && sellInfo[1].chips) || []).filter(c => c.name === 'freehit').map(c => c.event);
+      const sell = sellingPrices(squad.map(s => s.player.id), sellInfo[0], gwStatic.playersById, freeHits);
+      squad = squad.map(s => (Number.isFinite(sell[s.player.id]) ? { ...s, sellPrice: sell[s.player.id] / 10 } : s));
+    }
 
     // Changes saved to the account for this gameweek replace the picks on
     // FPL. Only for the gameweek being planned: once it has started, its

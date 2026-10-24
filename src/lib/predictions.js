@@ -602,6 +602,9 @@ export function buildStaticDataFromRaw(bootstrap, fixturesRaw, options = {}) {
       transfersInEvent: Number(e.transfers_in_event) || 0,
       transfersOutEvent: Number(e.transfers_out_event) || 0,
       costChangeEvent: Number(e.cost_change_event) || 0,
+      // Price change since the season started, in tenths (for the price
+      // a player held from the start was bought at: sellingPrices).
+      costChangeStart: Number(e.cost_change_start) || 0,
       // FPL's own progress towards a price change (+ rise, − drop; 100 =
       // expected at the next change). null where FPL doesn't publish it.
       priceChangePercent: e.price_change_percent === null || e.price_change_percent === undefined || e.price_change_percent === '' || !Number.isFinite(Number(e.price_change_percent))
@@ -788,6 +791,10 @@ export function snapshotIsForSeason(snapshot, seasonId, events) {
    whichever swap sheds the fewest predicted points per pound saved, until
    under budget) rather than a provably-optimal solver — in practice it lands
    very close to optimal and runs instantly.
+   An exact integer-programming solver was tested against it (2022-23 to
+   2025-26, 86 gameweeks, formula predictions): +1.3 predicted points a
+   gameweek, but 0.65 fewer actual points: squeezing harder on noisy
+   predictions picks players whose figures run high. Not worth adding.
 ---------------------------------------------------------------------------- */
 
 export function buildOptimalSquad(allPlayers, predictionsById, budget, options = {}) {

@@ -48,7 +48,7 @@ export function swapPlayerInSquad(squad, outPlayerId, inPlayer, predictionsById)
   const pred = predictionsById[inPlayer.id];
   return squad.map(s => {
     if (s.player.id !== outPlayerId) return s;
-    const { actualPoints: _actualPoints, played: _played, ...rest } = s;
+    const { actualPoints: _actualPoints, played: _played, sellPrice: _sellPrice, ...rest } = s;
     return {
       ...rest,
       player: inPlayer,
@@ -63,13 +63,42 @@ export function swapPlayerInSquad(squad, outPlayerId, inPlayer, predictionsById)
   });
 }
 
+// What FPL pays for each player you sell, in tenths of £m ({ [id]: tenths }):
+// what you paid plus half of any rise since (rounded down), or today's price
+// after a fall. What you paid is the cost of your latest transfer in (from
+// FPL's entry/{id}/transfers/, leaving out Free Hit weeks, which revert),
+// else the price at the start of the season (now_cost - cost_change_start)
+// for players held from the start. `playersById` holds price (£m) and
+// costChangeStart (tenths).
+export function sellingPrices(squadIds, transfers, playersById, freeHitEvents = []) {
+  const freeHit = new Set(freeHitEvents);
+  const paid = {};
+  [...(Array.isArray(transfers) ? transfers : [])]
+    .filter(tr => tr && !freeHit.has(tr.event))
+    .sort((a, b) => (a.event - b.event) || String(a.time || '').localeCompare(String(b.time || '')))
+    .forEach(tr => { paid[tr.element_in] = Number(tr.element_in_cost); });
+  const out = {};
+  squadIds.forEach(id => {
+    const p = playersById[id];
+    if (!p) return;
+    const now = Math.round(p.price * 10);
+    const bought = Number.isFinite(paid[id]) ? paid[id] : now - (Number(p.costChangeStart) || 0);
+    out[id] = now <= bought ? now : bought + Math.floor((now - bought) / 2);
+  });
+  return out;
+}
+
+// What selling this squad slot frees, in £m: its selling price when known
+// (sellingPrices), else today's price.
+export const sellPriceOf = slot => (typeof slot.sellPrice === 'number' ? slot.sellPrice : slot.player.price);
+
 // Whether `inPlayer` can replace `outSlot` without breaking FPL's rules:
 // affordable with the bank, and no fourth player from one club (the
 // outgoing player frees a place at their own club). Prices are compared in
 // tenths, as FPL stores them.
 export function swapBlocker(outSlot, inPlayer, squad, bankTenths) {
   const tenths = price => Math.round(price * 10);
-  if (tenths(inPlayer.price) > tenths(outSlot.player.price) + (bankTenths || 0)) return t('Over budget');
+  if (tenths(inPlayer.price) > tenths(sellPriceOf(outSlot)) + (bankTenths || 0)) return t('Over budget');
   const fromClub = squad.filter(s => s.player.team === inPlayer.team && s.player.id !== outSlot.player.id).length;
   if (fromClub >= MAX_PER_REAL_TEAM) return t('{n} from club already', { n: MAX_PER_REAL_TEAM });
   return null;
@@ -197,6 +226,8 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
   const pred = id => predictionsById[id].predicted;
   let players = squad.map(s => s.player);
   const slotById = new Map(squad.map(s => [s.player.id, s]));
+  // What selling a squad player frees (their selling price).
+  const sell = p => tenths(slotById.has(p.id) ? sellPriceOf(slotById.get(p.id)) : p.price);
   const used = new Set(players.map(p => p.id)); // in the squad, or already suggested
   let bankLeft = bankTenths || 0;
 
@@ -229,7 +260,7 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
     inPlayer: inP,
     inPredicted: pred(inP.id),
     gain: Math.round(gain * 10) / 10,
-    costDelta: (tenths(inP.price) - tenths(out.price)) / 10,
+    costDelta: (tenths(inP.price) - sell(out)) / 10,
     reason,
   });
   const reasonFor = out => slotById.get(out.id).availNote || t('Below-average returns for the position');
@@ -244,7 +275,7 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
     for (const out of list) {
       // Only the squad's own players go out, never one just suggested in.
       if (!slotById.has(out.id)) continue;
-      const [inP] = replacementsFor(out, tenths(out.price) + bank, counts);
+      const [inP] = replacementsFor(out, sell(out) + bank, counts);
       if (!inP) continue;
       const gain = xiTotal(swapIn(list, out, inP), predictionsById) - base;
       if (!best || gain > best.gain) best = { out, inP, gain };
@@ -264,7 +295,7 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
       for (let j = 0; j < list.length; j++) {
         const a = list[i], b = list[j];
         if (i === j || !slotById.has(a.id) || !slotById.has(b.id)) continue;
-        const pot = tenths(a.price) + tenths(b.price) + bank;
+        const pot = sell(a) + sell(b) + bank;
         for (const inA of replacementsFor(a, pot, countsA, PAIR_CANDIDATES)) {
           const afterA = swapIn(list, a, inA);
           used.add(inA.id);
@@ -281,7 +312,7 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
 
   const suggestions = [];
   const apply = (out, inP) => {
-    bankLeft -= tenths(inP.price) - tenths(out.price);
+    bankLeft -= tenths(inP.price) - sell(out);
     players = swapIn(players, out, inP);
     used.add(inP.id);
   };
@@ -295,7 +326,7 @@ export function suggestTransfers(squad, allPlayers, predictionsById, bankTenths)
     if (pair && single) {
       const afterSingle = swapIn(players, single.out, single.inP);
       used.add(single.inP.id);
-      const next = bestSingle(afterSingle, bankLeft - (tenths(single.inP.price) - tenths(single.out.price)));
+      const next = bestSingle(afterSingle, bankLeft - (tenths(single.inP.price) - sell(single.out)));
       used.delete(single.inP.id);
       twoSingles = single.gain + (next ? Math.max(0, next.gain) : 0);
     }
