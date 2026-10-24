@@ -139,3 +139,61 @@ export function liveTeamScore({ picks, liveById, bonus, states, playersById }) {
   const total = rows.reduce((s, r) => s + r.points, 0);
   return { total, hit, rows };
 }
+
+// One match in detail, for the live screen's match sheet: every player who
+// has played in it, by side, with his points from this match alone (FPL's
+// per-match breakdown, `explain`), BPS and bonus (confirmed, or projected
+// from BPS while FPL hasn't added it), and the match's events by side.
+// liveElements: event/{gw}/live/'s elements. Returns
+// { home: [row], away: [row], events: { home: {...}, away: {...} }, bonusProjected }
+// with row { element, player, minutes, points, goals, assists, cleanSheet,
+// saves, yellow, red, bps, bonus } (points include projected bonus) and
+// events[side][identifier] = [{ element, player, value }].
+const EVENT_STATS = ['goals_scored', 'assists', 'own_goals', 'penalties_saved', 'penalties_missed', 'yellow_cards', 'red_cards', 'saves'];
+export function matchDetail(fixture, liveElements, playersById = {}) {
+  const sides = stat => {
+    const s = (fixture.stats || []).find(x => x.identifier === stat);
+    return { h: (s && s.h) || [], a: (s && s.a) || [] };
+  };
+  const bps = sides('bps');
+  const confirmed = [...sides('bonus').h, ...sides('bonus').a];
+  const projected = confirmed.length || !fixture.started ? {} : bonusFromBps([...bps.h, ...bps.a]);
+  const bpsOf = new Map([...bps.h, ...bps.a].map(e => [e.element, e.value]));
+  const homeIds = new Set(bps.h.map(e => e.element));
+  const awayIds = new Set(bps.a.map(e => e.element));
+  const home = [];
+  const away = [];
+  (liveElements || []).forEach(el => {
+    const mine = (el.explain || []).find(x => x.fixture === fixture.id);
+    if (!mine) return;
+    const v = id => { const s = (mine.stats || []).find(x => x.identifier === id); return s ? s.value : 0; };
+    const minutes = v('minutes');
+    if (!(minutes > 0)) return;
+    const player = playersById[el.id] || null;
+    const extra = projected[el.id] || 0;
+    const row = {
+      element: el.id,
+      player,
+      minutes,
+      points: (mine.stats || []).reduce((s, x) => s + (x.points || 0), 0) + extra,
+      goals: v('goals_scored'),
+      assists: v('assists'),
+      cleanSheet: v('clean_sheets') > 0,
+      saves: v('saves'),
+      yellow: v('yellow_cards'),
+      red: v('red_cards'),
+      bps: bpsOf.get(el.id) ?? 0, // FPL leaves 0 BPS out of the list
+      bonus: v('bonus') || extra,
+    };
+    const isHome = homeIds.has(el.id) || (!awayIds.has(el.id) && player && player.team === fixture.team_h);
+    (isHome ? home : away).push(row);
+  });
+  const byPoints = (a, b) => b.points - a.points || (b.bps ?? 0) - (a.bps ?? 0) || b.minutes - a.minutes;
+  const events = { home: {}, away: {} };
+  EVENT_STATS.forEach(id => {
+    const s = sides(id);
+    events.home[id] = s.h.map(e => ({ element: e.element, player: playersById[e.element] || null, value: e.value }));
+    events.away[id] = s.a.map(e => ({ element: e.element, player: playersById[e.element] || null, value: e.value }));
+  });
+  return { home: home.sort(byPoints), away: away.sort(byPoints), events, bonusProjected: !confirmed.length && fixture.started };
+}

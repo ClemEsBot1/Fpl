@@ -1509,3 +1509,25 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-admin-pr { margin-left: 10px; font-size: 0.9rem; font-weight: 600; color: var(--ink-dim); padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); vertical-align: middle; }
 .fpl-wildcard .fpl-btn { justify-self: start; min-height: 44px; padding: 0 16px; }
 .fpl-wildcard-sum { margin: 0; font-size: 0.86rem; }
+/* Live: a started match opens its sheet (MatchSheet in LiveScreen.jsx). */
+.fpl-live-match.is-open { position: relative; padding-right: 34px; transition: background-color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+.fpl-live-match.is-open:active { transform: scale(0.99); }
+@media (hover: hover) and (pointer: fine) { .fpl-live-match.is-open:hover { background: rgb(var(--tint) / 0.09); } }
+.fpl-live-match-btn { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; border: 0; border-radius: inherit; background: transparent; color: var(--ink-dim); cursor: pointer; }
+.fpl-live-match-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.fpl-match-sheet .fpl-dialog-card { gap: 12px; }
+.fpl-match-head { margin: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding-right: 28px; font: 700 1rem 'Space Grotesk', sans-serif; }
+.fpl-match-head span:first-child { text-align: right; }
+.fpl-match-head b { font-size: 1.6rem; }
+.fpl-match-status { margin: -6px 0 0; text-align: center; }
+.fpl-match-events { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.fpl-match-events td, .fpl-match-events th { padding: 5px 4px; vertical-align: top; border-top: 1px solid var(--line); }
+.fpl-match-events td:first-child { text-align: right; width: 40%; }
+.fpl-match-events td:last-child { width: 40%; }
+.fpl-match-events th { color: var(--ink-dim); font-weight: 600; text-align: center; white-space: nowrap; }
+.fpl-match-table caption { text-align: left; font: 700 0.9rem 'Space Grotesk', sans-serif; padding: 4px 0 6px; }
+.fpl-match-table th:nth-child(2), .fpl-match-table td:nth-child(2) { text-align: right; }
+.fpl-match-table tr.is-owned td:first-child { box-shadow: inset 3px 0 0 var(--blue); padding-left: 8px; }
+.fpl-card { display: inline-block; width: 8px; height: 11px; border-radius: 2px; margin-left: 5px; vertical-align: -1px; }
+.fpl-card.is-yellow { background: #FFD60A; }
+.fpl-card.is-red { background: #FF4D5A; }

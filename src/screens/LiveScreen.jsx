@@ -1,11 +1,12 @@
 // The gameweek as it happens: your live points (projected bonus, automatic
 // substitutions and the vice-captain's armband counted the way FPL will
 // settle them, see src/lib/live.js) and every match's score and bonus.
-import { useCallback, useEffect, useState } from 'react';
-import { Radio, RefreshCw, Users } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronRight, Radio, RefreshCw, Users, X } from 'lucide-react';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { SkeletonRows } from '../components/common.jsx';
-import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, liveBonusRace } from '../lib/live.js';
+import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, liveBonusRace, matchDetail } from '../lib/live.js';
+import { openPlayerProfile } from '../lib/playerProfile.js';
 import './liveBonus.css';
 import { fmtDateTime, fmtTime, t } from '../lib/i18n.js';
 import { chipName } from '../lib/career.js';
@@ -34,13 +35,14 @@ function fixtureBonus(f) {
   return { projected: true, rows: Object.entries(bonus).map(([element, b]) => ({ element: Number(element), bonus: b })) };
 }
 
-function MatchCard({ f, teamsById, playersById }) {
+function MatchCard({ f, teamsById, playersById, onOpen }) {
   const home = teamsById[f.team_h];
   const away = teamsById[f.team_a];
   const bonus = fixtureBonus(f);
   const live = f.started && !(f.finished || f.finished_provisional);
   return (
-    <li className={`fpl-live-match${live ? ' is-live' : ''}`}>
+    <li className={`fpl-live-match${live ? ' is-live' : ''}${f.started ? ' is-open' : ''}`}>
+      {f.started ? <button type="button" className="fpl-live-match-btn" onClick={() => onOpen(f.id)} aria-label={t('{home} v {away}: players and stats', { home: home ? home.name : '?', away: away ? away.name : '?' })}><ChevronRight size={16} aria-hidden="true" /></button> : null}
       <div className="fpl-live-score">
         <span className="fpl-live-team">{home ? home.short_name : '?'}</span>
         <span className="fpl-mono fpl-live-goals">{f.started ? `${f.team_h_score ?? 0}–${f.team_a_score ?? 0}` : t('v')}</span>
@@ -57,8 +59,107 @@ function MatchCard({ f, teamsById, playersById }) {
   );
 }
 
+// The match's events for one side: goals, assists and so on, as
+// "Saka 2, Rice".
+const EVENT_LABELS = () => [
+  ['goals_scored', t('Goals')], ['assists', t('Assists')], ['own_goals', t('Own goals')],
+  ['penalties_saved', t('Penalties saved')], ['penalties_missed', t('Penalties missed')],
+  ['yellow_cards', t('Yellow cards')], ['red_cards', t('Red cards')], ['saves', t('Saves')],
+];
+const named = list => list.map(e => `${e.player ? e.player.webName : '?'}${e.value > 1 ? ` ${e.value}` : ''}`).join(', ');
+
+function SideTable({ team, rows, ownedIds, projected }) {
+  return (
+    <div className="fpl-compare-wrap">
+      <table className="fpl-profile-table fpl-match-table">
+        <caption>{team ? team.name : '?'}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t('Player')}</th>
+            <th scope="col">{t('Mins')}</th>
+            <th scope="col">{t('G')}</th>
+            <th scope="col">{t('A')}</th>
+            <th scope="col">{t('BPS')}</th>
+            <th scope="col">{t('Bonus')}{projected ? '*' : ''}</th>
+            <th scope="col">{t('Pts')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.element} className={ownedIds.has(r.element) ? 'is-owned' : ''}>
+              <td>
+                {r.player ? <button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(r.element)}>{r.player.webName}</button> : '?'}
+                {r.yellow ? <span className="fpl-card is-yellow" title={t('Yellow cards')} /> : null}
+                {r.red ? <span className="fpl-card is-red" title={t('Red cards')} /> : null}
+              </td>
+              <td>{r.minutes}</td>
+              <td>{r.goals || ''}</td>
+              <td>{r.assists || ''}</td>
+              <td>{r.bps ?? '–'}</td>
+              <td>{r.bonus ? `+${r.bonus}` : ''}</td>
+              <td className="fpl-profile-pts">{r.points}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// One match: its events and every player's points, BPS and bonus, kept up
+// to date with the screen's refresh.
+function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) {
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => { if (dialog && dialog.open) dialog.close(); };
+  }, []);
+  const home = teamsById[f.team_h];
+  const away = teamsById[f.team_a];
+  const d = matchDetail(f, elements, playersById);
+  const live = f.started && !(f.finished || f.finished_provisional);
+  const events = EVENT_LABELS().filter(([id]) => d.events.home[id].length || d.events.away[id].length);
+  return (
+    <dialog
+      ref={dialogRef}
+      className="fpl-dialog fpl-profile fpl-match-sheet"
+      aria-labelledby="match-h"
+      onCancel={e => { e.preventDefault(); onClose(); }}
+      onClick={e => { if (e.target === dialogRef.current) onClose(); }}
+    >
+      <div className="fpl-dialog-card">
+        <button type="button" onClick={onClose} aria-label={t('Close')} className="fpl-dialog-close"><X size={18} /></button>
+        <h2 id="match-h" className="fpl-match-head">
+          <span>{home ? home.name : '?'}</span>
+          <b className="fpl-mono">{f.team_h_score ?? 0}–{f.team_a_score ?? 0}</b>
+          <span>{away ? away.name : '?'}</span>
+        </h2>
+        <p className={`fpl-mono fpl-live-status fpl-match-status${live ? ' is-live' : ''}`}>{fixtureStatus(f)}</p>
+        {events.length ? (
+          <table className="fpl-match-events">
+            <tbody>
+              {events.map(([id, label]) => (
+                <tr key={id}>
+                  <td>{named(d.events.home[id])}</td>
+                  <th scope="row">{label}</th>
+                  <td>{named(d.events.away[id])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+        <SideTable team={home} rows={d.home} ownedIds={ownedIds} projected={d.bonusProjected} />
+        <SideTable team={away} rows={d.away} ownedIds={ownedIds} projected={d.bonusProjected} />
+        {d.bonusProjected ? <p className="fpl-meta fpl-profile-note">{t('* Bonus from the bonus points system: FPL confirms it after the match. Points include it.')}</p> : null}
+      </div>
+    </dialog>
+  );
+}
+
 export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, onAddTeam }) {
   const [state, setState] = useState({ status: 'loading' });
+  const [openMatch, setOpenMatch] = useState(null);
   // Fetches the gameweek and stores it; a failed refresh keeps what's shown.
   const load = useCallback(() => Promise.all([
     fetchJson(`event/${gwId}/live/`),
@@ -69,7 +170,7 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
     (live.elements || []).forEach(el => {
       liveById[el.id] = { totalPoints: el.stats.total_points, minutes: el.stats.minutes, bonus: el.stats.bonus };
     });
-    setState({ status: 'ready', liveById, fixtures, picks, at: new Date() });
+    setState({ status: 'ready', liveById, elements: live.elements || [], fixtures, picks, at: new Date() });
   }, () => {
     setState(s => (s.status === 'ready' ? { ...s, stale: true } : { status: 'error' }));
   }), [fetchJson, gwId, teamId]);
@@ -104,7 +205,7 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
     );
   }
 
-  const { liveById, fixtures, picks, at } = state;
+  const { liveById, elements, fixtures, picks, at } = state;
   const states = teamStates(fixtures);
   const score = picks ? liveTeamScore({ picks, liveById, bonus: projectedBonus(fixtures), states, playersById: staticData.playersById }) : null;
   const ownedIds = picks && Array.isArray(picks.picks) ? picks.picks.map(p => p.element) : [];
@@ -194,9 +295,19 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
         <section className="fpl-glass fpl-tool-card" aria-labelledby="live-matches">
           <h2 id="live-matches" className="fpl-home-h">{t('Matches')}</h2>
           <ul className="fpl-live-matches">
-            {sortedFixtures.map(f => <MatchCard key={f.id} f={f} teamsById={staticData.teamsById} playersById={staticData.playersById} />)}
+            {sortedFixtures.map(f => <MatchCard key={f.id} f={f} teamsById={staticData.teamsById} playersById={staticData.playersById} onOpen={setOpenMatch} />)}
           </ul>
         </section>
+        {openMatch && fixtures.find(f => f.id === openMatch) ? (
+          <MatchSheet
+            f={fixtures.find(f => f.id === openMatch)}
+            elements={elements}
+            teamsById={staticData.teamsById}
+            playersById={staticData.playersById}
+            ownedIds={new Set(ownedIds)}
+            onClose={() => setOpenMatch(null)}
+          />
+        ) : null}
       </div>
     </div>
   );

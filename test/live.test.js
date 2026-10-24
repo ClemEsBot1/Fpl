@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bonusFromBps, liveBonusRace, liveTeamScore, projectedBonus, teamStates } from '../src/lib/live.js';
+import { bonusFromBps, liveBonusRace, liveTeamScore, matchDetail, projectedBonus, teamStates } from '../src/lib/live.js';
 
 test('bonus follows FPL tie rules', () => {
   const b = list => bonusFromBps(list.map((value, i) => ({ element: i + 1, value })));
@@ -100,4 +100,36 @@ test('the live bonus race ranks by BPS across live matches and flags owned playe
   assert.equal(race[1].bonus, 2);
   assert.equal(race[1].owned, true);
   assert.equal(race.some(r => r.element === 99), false, 'confirmed and unstarted matches are left out');
+});
+
+test('a match in detail: each side’s players with this match’s points, BPS and bonus, and its events', () => {
+  const ex = (fixture, stats) => ({ fixture, stats: Object.entries(stats).map(([identifier, [value, points]]) => ({ identifier, value, points })) });
+  const playersById = { 1: { webName: 'Saka', team: 1 }, 2: { webName: 'Rice', team: 1 }, 3: { webName: 'Isak', team: 2 }, 4: { webName: 'Sub', team: 2 } };
+  const fixture = {
+    id: 10, team_h: 1, team_a: 2, started: true, finished: false,
+    stats: [
+      { identifier: 'goals_scored', h: [{ element: 1, value: 2 }], a: [{ element: 3, value: 1 }] },
+      { identifier: 'assists', h: [{ element: 2, value: 1 }], a: [] },
+      { identifier: 'bps', h: [{ element: 1, value: 40 }, { element: 2, value: 25 }], a: [{ element: 3, value: 30 }] },
+    ],
+  };
+  const live = [
+    { id: 1, explain: [ex(10, { minutes: [90, 2], goals_scored: [2, 8] })] },
+    { id: 2, explain: [ex(10, { minutes: [80, 2], assists: [1, 3] })] },
+    // A double gameweek: only this match's points count here.
+    { id: 3, explain: [ex(10, { minutes: [90, 2], goals_scored: [1, 4] }), ex(11, { minutes: [90, 2] })] },
+    { id: 4, explain: [ex(10, { minutes: [0, 0] })] },
+  ];
+  const d = matchDetail(fixture, live, playersById);
+  assert.equal(d.bonusProjected, true);
+  assert.deepEqual(d.home.map(r => [r.player.webName, r.points, r.bonus, r.bps]), [['Saka', 13, 3, 40], ['Rice', 6, 1, 25]], 'projected bonus added');
+  assert.deepEqual(d.away.map(r => [r.player.webName, r.points, r.goals]), [['Isak', 8, 1]], 'no one who didn’t play');
+  assert.deepEqual(d.events.home.goals_scored.map(e => [e.player.webName, e.value]), [['Saka', 2]]);
+  assert.deepEqual(d.events.away.assists, []);
+  // Once FPL confirms bonus, it comes from the breakdown and isn't projected.
+  const done = { ...fixture, finished: true, stats: [...fixture.stats, { identifier: 'bonus', h: [{ element: 1, value: 3 }], a: [] }] };
+  const live2 = live.map(e => (e.id === 1 ? { id: 1, explain: [ex(10, { minutes: [90, 2], goals_scored: [2, 8], bonus: [3, 3] })] } : e));
+  const d2 = matchDetail(done, live2, playersById);
+  assert.equal(d2.bonusProjected, false);
+  assert.deepEqual(d2.home.map(r => [r.points, r.bonus]), [[13, 3], [5, 0]]);
 });
