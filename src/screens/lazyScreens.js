@@ -1,6 +1,6 @@
 // The screens that load on demand (see src/lib/chunks.js).
 import { createElement, lazy, useState } from 'react';
-import { accountChunk, adminChunk, builderChunk, hindsightChunk, leagueChunk, liveChunk, recapChunk, resultsChunk, screenshotChunk, toolsChunk, welcomeChunk } from '../lib/chunks.js';
+import { accountChunk, adminChunk, profileChunk, builderChunk, hindsightChunk, leagueChunk, liveChunk, recapChunk, resultsChunk, screenshotChunk, toolsChunk, welcomeChunk } from '../lib/chunks.js';
 
 // A screen from one of those chunks. Once its code is here it renders
 // straight away: going through Suspense would still hold it behind the
@@ -32,3 +32,4 @@ export const CompareScreen = lazyScreen(toolsChunk, 'CompareScreen');
 export const ExploreScreen = lazyScreen(toolsChunk, 'ExploreScreen');
 export const LiveScreen = lazyScreen(liveChunk, 'LiveScreen');
 export const AdminScreen = lazyScreen(adminChunk, 'AdminScreen');
+export const PlayerProfile = lazyScreen(profileChunk, 'PlayerProfile');

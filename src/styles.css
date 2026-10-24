@@ -1388,3 +1388,48 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 @media (hover: hover) and (pointer: fine) { .fpl-welcome-top .fpl-lang-pick:hover { background: rgba(255,255,255,0.35); } }
 @media (max-width: 420px) { header .fpl-lang-pick span { display: none; } header .fpl-lang-pick { padding: 6px 7px; } }
 @media (max-width: 340px) { header .fpl-acct-label { display: none; } }
+
+/* Player profile (src/components/PlayerProfile.jsx) */
+.fpl-namebtn { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.3); text-underline-offset: 3px; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+.fpl-namebtn:active { transform: scale(0.97); }
+.fpl-namebtn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 3px; }
+@media (hover: hover) and (pointer: fine) { .fpl-namebtn:hover { text-decoration-color: var(--blue); } }
+.fpl-sheet-profile { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 44px; }
+.fpl-profile { max-width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); }
+.fpl-profile .fpl-dialog-card { display: grid; gap: 14px; padding: 16px; max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.fpl-profile .fpl-availnote { margin: 0; }
+.fpl-profile-hero { position: relative; display: flex; align-items: flex-end; gap: 14px; min-height: 132px; padding: 14px 40px 0 14px; border-radius: 14px; overflow: hidden;
+  background: linear-gradient(115deg, #04F9FC 0%, #4FA5FF 45%, #9B4DFF 100%); color: #1A0B3B; }
+.fpl-profile-photo { width: 104px; height: auto; flex: none; align-self: flex-end; filter: drop-shadow(0 6px 10px rgba(26,11,59,0.3)); }
+.fpl-profile-shirt { width: 88px; height: 88px; flex: none; align-self: center; margin-bottom: 14px; }
+.fpl-profile-who { display: grid; gap: 2px; padding-bottom: 14px; min-width: 0; }
+.fpl-profile-pos { font: 700 0.78rem 'Space Grotesk', sans-serif; letter-spacing: 0.02em; }
+.fpl-profile-who h2 { margin: 0; font-size: 1.15rem; line-height: 1.15; color: #1A0B3B; overflow-wrap: anywhere; }
+.fpl-profile-who h2 span { font-weight: 400; }
+.fpl-profile-who h2 b { display: block; font-size: 1.5rem; }
+.fpl-profile-club { font-size: 0.9rem; }
+.fpl-profile .fpl-dialog-close { z-index: 1; top: 22px; right: 22px; color: #1A0B3B; }
+.fpl-profile-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fpl-profile-stats div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.08); }
+.fpl-profile-stats b { font-size: 1.02rem; }
+.fpl-profile-stats span { font-size: 0.7rem; color: var(--ink-dim); }
+.fpl-profile-error { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.05); }
+.fpl-profile-error > span { font-size: 1.5rem; font-weight: 700; color: var(--blue); flex: none; }
+.fpl-profile-error p { margin: 0; font-size: 0.8rem; color: var(--ink-dim); line-height: 1.45; }
+.fpl-profile-error .is-up, .fpl-profile-diff.is-up { color: var(--green); }
+.fpl-profile-error .is-down, .fpl-profile-diff.is-down { color: var(--red); }
+.fpl-profile-tabs { justify-self: start; max-width: 100%; overflow-x: auto; }
+.fpl-profile-tabs button { white-space: nowrap; padding: 0 12px; }
+.fpl-profile-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.fpl-profile-table th, .fpl-profile-table td { padding: 8px 4px; text-align: right; white-space: nowrap; }
+.fpl-profile-table th:first-child, .fpl-profile-table td:first-child, .fpl-profile-table th:nth-child(2), .fpl-profile-table td:nth-child(2) { text-align: left; }
+.fpl-profile-table thead th { color: var(--ink-dim); font-weight: 600; border-bottom: 1px solid var(--line); }
+.fpl-profile-table tbody tr { border-bottom: 1px solid var(--line); }
+.fpl-profile-pts { font-weight: 700; color: var(--blue); }
+.fpl-profile-diff { font-weight: 700; }
+.fpl-profile-opps { display: inline-flex; flex-direction: column; gap: 4px; }
+.fpl-profile-opp { display: inline-flex; align-items: center; gap: 5px; }
+.fpl-profile-score { font: 700 0.7rem 'IBM Plex Mono', monospace; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.14); }
+.fpl-profile-score.is-W { background: #1E9E4A; color: #fff; }
+.fpl-profile-score.is-L { background: #D92D3A; color: #fff; }
+.fpl-profile-note { margin: 8px 0 0; font-size: 0.72rem; white-space: normal; }

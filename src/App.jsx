@@ -22,11 +22,12 @@ import { ScreenErrorBoundary } from './components/ScreenErrorBoundary.jsx';
 import { useInstallPrompt } from './lib/pwa.js';
 import { HomeScreen } from './screens/HomeScreen.jsx';
 import { TeamIdForm } from './screens/IntroScreen.jsx';
-import { AdminScreen, AuthDialog, CompareScreen, CustomSquadBuilder, ExploreScreen, FixturesScreen, GwRecap, HindsightScreen, LiveScreen, MiniLeagueScreen, MyTeamsScreen, ProfileScreen, ResultsScreen, ReviewScreen, ScreenshotForm, WelcomeScreen } from './screens/lazyScreens.js';
+import { AdminScreen, AuthDialog, CompareScreen, CustomSquadBuilder, ExploreScreen, FixturesScreen, GwRecap, HindsightScreen, LiveScreen, MiniLeagueScreen, MyTeamsScreen, PlayerProfile, ProfileScreen, ResultsScreen, ReviewScreen, ScreenshotForm, WelcomeScreen } from './screens/lazyScreens.js';
 import { TermsDialog } from './components/TermsDialog.jsx';
 import { CookieBanner } from './components/CookieBanner.jsx';
 import { analyticsAllowed, fetchCountry, needsConsent, onConsentChange, readConsent, runningAsApp, wantsConsentPrompt, writeConsent } from './lib/consent.js';
 import { track } from './lib/track.js';
+import { onOpenPlayerProfile } from './lib/playerProfile.js';
 import { t } from './lib/i18n.js';
 import { parseTeamId } from './lib/teamIdInput.js';
 import { ALL_CHUNKS, loadCustomSquadBuilder, loadHindsightScreen, loadResultsScreen } from './lib/chunks.js';
@@ -88,6 +89,9 @@ export default function FPLSquadChecker() {
   const account = useAccount({ stage, setStage, setStageRaw, skipWelcome: () => !!restoreViewRef.current || readInApp() });
   const { session, savedTeams, openAuthDialog, handleTeamsResult } = account;
   const fpl = useFplData({ admin: !!(session && session.admin) });
+  // A player's profile, opened from any list of players (openPlayerProfile).
+  const [profileId, setProfileId] = useState(null);
+  useEffect(() => onOpenPlayerProfile(setProfileId), []);
   const { selectedGw, setSelectedGw, gwOptions, liveStatic, staticDataRef, ensureStaticData, staticDataForGw, formulaSnapshot, liveForGw, fixturesForGw, loadTeamForGw, modelChoice, setModelChoice, modelAvailable } = fpl;
   const { resultsData, setResultsData, currentStaticDataRef, buildResultsData, finalizeResults, handleSquadUpdate, rescoreSquadForGw, handleSaveTeamChanges } = useResults({ screens: { newTicket, isCurrent, setStageRaw, showLoading, showError }, fpl, handleTeamsResult });
   // The Terms pop-up shown the first time someone presses Start.
@@ -1014,6 +1018,11 @@ export default function FPLSquadChecker() {
           </Suspense>
         </ScreenErrorBoundary>
       )}
+      {profileId && (liveStatic || staticDataRef.current) ? (
+        <Suspense fallback={null}>
+          <PlayerProfile key={profileId} playerId={profileId} staticData={liveStatic || staticDataRef.current} onClose={() => setProfileId(null)} />
+        </Suspense>
+      ) : null}
       {askConsent && <CookieBanner onChoose={chooseConsent} />}
       {analyticsAllowed(consent, analyticsByDefault) ? <><Analytics /><SpeedInsights /></> : null}
     </div>

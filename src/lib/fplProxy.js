@@ -16,6 +16,8 @@ const ALLOWED_PATHS = [
   { re: /^leagues-classic\/\d{1,10}\/standings\/$/, maxAge: 300 },
   { re: /^entry\/\d{1,10}\/transfers\/$/, maxAge: 300 },
   { re: /^entry\/\d{1,10}\/history\/$/, maxAge: 300 },
+  // One player's matches and past seasons (the player profile).
+  { re: /^element-summary\/\d{1,4}\/$/, maxAge: 600 },
 ];
 
 // Returns the rule for an allowed path, or null.
