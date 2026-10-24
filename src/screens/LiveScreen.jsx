@@ -71,7 +71,7 @@ const named = list => list.map(e => `${e.player ? e.player.webName : '?'}${e.val
 function SideTable({ team, rows, ownedIds, projected }) {
   return (
     <div className="fpl-compare-wrap">
-      <table className="fpl-profile-table fpl-match-table">
+      <table className="fpl-pp-table fpl-match-table">
         <caption>{team ? team.name : '?'}</caption>
         <thead>
           <tr>
@@ -97,7 +97,7 @@ function SideTable({ team, rows, ownedIds, projected }) {
               <td>{r.assists || ''}</td>
               <td>{r.bps ?? '–'}</td>
               <td>{r.bonus ? `+${r.bonus}` : ''}</td>
-              <td className="fpl-profile-pts">{r.points}</td>
+              <td className="fpl-pp-pts">{r.points}</td>
             </tr>
           ))}
         </tbody>
@@ -123,7 +123,7 @@ function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) 
   return (
     <dialog
       ref={dialogRef}
-      className="fpl-dialog fpl-profile fpl-match-sheet"
+      className="fpl-dialog fpl-pp fpl-match-sheet"
       aria-labelledby="match-h"
       onCancel={e => { e.preventDefault(); onClose(); }}
       onClick={e => { if (e.target === dialogRef.current) onClose(); }}
@@ -151,7 +151,7 @@ function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) 
         ) : null}
         <SideTable team={home} rows={d.home} ownedIds={ownedIds} projected={d.bonusProjected} />
         <SideTable team={away} rows={d.away} ownedIds={ownedIds} projected={d.bonusProjected} />
-        {d.bonusProjected ? <p className="fpl-meta fpl-profile-note">{t('* Bonus from the bonus points system: FPL confirms it after the match. Points include it.')}</p> : null}
+        {d.bonusProjected ? <p className="fpl-meta fpl-pp-note">{t('* Bonus from the bonus points system: FPL confirms it after the match. Points include it.')}</p> : null}
       </div>
     </dialog>
   );
