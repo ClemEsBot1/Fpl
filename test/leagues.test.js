@@ -25,11 +25,18 @@ test('standings are read from FPL\'s league page', () => {
 
 test('predicted points count the XI with the captain doubled', () => {
   const squad = [
-    { isStarting: true, predicted: 5, multiplier: 2 },
+    { isStarting: true, isCaptain: true, predicted: 5, multiplier: 2 },
     { isStarting: true, predicted: 3, multiplier: 1 },
     { isStarting: false, predicted: 9, multiplier: 0 },
   ];
   assert.equal(predictedXiTotal(squad), 13);
+  // The captain didn't play and FPL passed the armband to the vice: the
+  // prediction still doubles the captain picked.
+  const passed = [
+    { isStarting: true, isCaptain: true, predicted: 5, multiplier: 0 },
+    { isStarting: true, isViceCaptain: true, predicted: 3, multiplier: 2 },
+  ];
+  assert.equal(predictedXiTotal(passed), 13);
 });
 
 test('team loads run a few at a time and report every result', async () => {

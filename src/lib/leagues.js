@@ -6,6 +6,7 @@
 // people mean by "mini-league". FPL's own leagues (overall, country, club,
 // gameweek joined) have league_type 's'.
 import { t } from './i18n.js';
+import { predictedMultiplier } from './format.js';
 
 export function privateLeagues(entry) {
   const classic = entry && entry.leagues && Array.isArray(entry.leagues.classic) ? entry.leagues.classic : [];
@@ -34,7 +35,7 @@ export function parseStandings(json) {
 // tripled under Triple Captain) — the same figure as "predicted XI points"
 // on Home and My team.
 export function predictedXiTotal(squad) {
-  return squad.reduce((sum, s) => (s.isStarting ? sum + s.predicted * (s.multiplier || 1) : sum), 0);
+  return squad.reduce((sum, s) => (s.isStarting ? sum + s.predicted * predictedMultiplier(s) : sum), 0);
 }
 
 // Runs `fn` over `items` with at most `limit` at a time, calling `onEach`

@@ -5,7 +5,7 @@ import { ArrowLeftRight, ArrowRight, ArrowUpDown, Ban, Bell, Bookmark, Check, Ch
 import { DifficultyChips } from '../components/common.jsx';
 import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
-import { POSITION_LABELS, availClass, fmtPrice, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
+import { POSITION_LABELS, availClass, fmtPrice, predictedMultiplier, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { openPlayerProfile } from '../lib/playerProfile.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
@@ -666,7 +666,7 @@ export function ResultsActions({ squad, teamName, gwName, teamsById, deadline, s
   const [shareState, setShareState] = useState('');
   const [copied, setCopied] = useState(false);
   const deadlineAhead = deadline && new Date(deadline).getTime() > Date.now();
-  const total = squad.filter(s => s.isStarting).reduce((sum, s) => sum + s.nextMatchPredicted * (s.multiplier || 1), 0);
+  const total = squad.filter(s => s.isStarting).reduce((sum, s) => sum + s.nextMatchPredicted * predictedMultiplier(s), 0);
   const message = shareMessage({ gwName, total, score });
   const links = shareLinks(message);
   async function copyLink() {
@@ -1034,24 +1034,26 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
     const target = squad.find(s => s.player.id === playerId);
     if (!target || !target.isStarting) return; // armbands are for starters only
     const plain = s => (s.isStarting ? 1 : 0);
+    // Giving one armband to the player wearing the other swaps them, as on
+    // FPL, so the team never loses its captain: the vice-captain only
+    // changes who stands in, never the predicted points.
+    const oldCaptain = squad.find(s => s.isCaptain);
+    const oldVice = squad.find(s => s.isViceCaptain);
     const newSquad = squad.map(s => {
       const isTarget = s.player.id === playerId;
       if (role === 'captain') {
-        const nowCaptain = isTarget && !s.isCaptain;
-        return {
-          ...s,
-          isCaptain: nowCaptain,
-          multiplier: nowCaptain ? armband : plain(s),
-          isViceCaptain: nowCaptain ? false : s.isViceCaptain,
-        };
+        const nowCaptain = isTarget ? !s.isCaptain : false;
+        const nowVice = isTarget ? false : (target.isViceCaptain && s === oldCaptain ? true : s.isViceCaptain);
+        return { ...s, isCaptain: nowCaptain, isViceCaptain: nowVice, multiplier: nowCaptain ? armband : plain(s) };
       }
-      const nowVice = isTarget && !s.isViceCaptain;
-      return {
-        ...s,
-        isViceCaptain: nowVice,
-        isCaptain: nowVice ? false : s.isCaptain,
-        multiplier: nowVice && s.isCaptain ? plain(s) : s.multiplier,
-      };
+      if (target.isCaptain) {
+        // The captain made vice: the vice-captain (if any) takes the armband.
+        if (!oldVice) return s;
+        if (isTarget) return { ...s, isCaptain: false, isViceCaptain: true, multiplier: plain(s) };
+        if (s === oldVice) return { ...s, isCaptain: true, isViceCaptain: false, multiplier: armband };
+        return s;
+      }
+      return { ...s, isViceCaptain: isTarget ? !s.isViceCaptain : false };
     });
     onSquadUpdate(newSquad, bankTenths);
   }
@@ -1284,7 +1286,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           const mult = slot.isStarting ? (slot.multiplier || 1) : 1;
           const points = isPastGw
             ? (slot.played === false ? '–' : (slot.actualPoints ?? 0) * mult)
-            : fmtPts(slot.predicted * mult);
+            : fmtPts(slot.predicted * (slot.isStarting ? predictedMultiplier(slot, activeChip) : 1));
           const raw = isPastGw ? (slot.actualPoints ?? 0) : slot.predicted;
           const tone = isPastGw ? (slot.played === false ? null : raw >= 6 ? 'high' : raw <= 1 ? 'low' : null) : (raw >= 5 ? 'high' : raw < 2 ? 'low' : null);
           let state = null;

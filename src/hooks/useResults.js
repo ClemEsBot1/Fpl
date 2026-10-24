@@ -8,6 +8,7 @@ import { currentGwId, isGwFinished } from '../lib/gameweeks.js';
 import { postJson } from './useAccount.js';
 import { scoreSlots } from './useFplData.js';
 import { t } from '../lib/i18n.js';
+import { predictedMultiplier } from '../lib/format.js';
 
 // `screens` is what useStage returns, `fpl` what useFplData returns, and
 // `handleTeamsResult` comes from useAccount.
@@ -72,9 +73,11 @@ export function useResults({ screens, fpl, handleTeamsResult }) {
     let actualXiTotal = 0;
     squad.forEach(s => {
       // Starters count at their multiplier (the captain's 2, or 3 under
-      // Triple Captain); the bench only counts under Bench Boost.
+      // Triple Captain); the bench only counts under Bench Boost. The
+      // prediction counts the captain picked, not the vice-captain FPL may
+      // have passed the armband to (predictedMultiplier).
       const mult = s.isStarting || activeChip === 'bboost' ? (s.multiplier || 1) : 0;
-      xiTotal += s.predicted * mult;
+      xiTotal += s.predicted * predictedMultiplier(s, activeChip);
       actualXiTotal += (s.actualPoints || 0) * mult;
     });
 

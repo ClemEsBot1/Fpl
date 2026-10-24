@@ -1442,3 +1442,4 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-availnote.is-c50, .fpl-club-flag.is-c50, .fpl-compare-flag.is-c50, .fpl-home-worry.is-c50 b { color: var(--avail-50); }
 .fpl-availnote.is-c25, .fpl-club-flag.is-c25, .fpl-compare-flag.is-c25, .fpl-home-worry.is-c25 b { color: var(--avail-25); }
 .fpl-availnote.is-out, .fpl-club-flag.is-out, .fpl-compare-flag.is-out, .fpl-home-worry.is-out b { color: var(--avail-out); }
+.fpl-admin-pr { margin-left: 10px; font-size: 0.9rem; font-weight: 600; color: var(--ink-dim); padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); vertical-align: middle; }
