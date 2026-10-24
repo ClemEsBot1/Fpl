@@ -29,7 +29,7 @@ import { analyticsAllowed, fetchCountry, needsConsent, onConsentChange, readCons
 import { track } from './lib/track.js';
 import { t } from './lib/i18n.js';
 import { parseTeamId } from './lib/teamIdInput.js';
-import { ALL_CHUNKS, loadCustomSquadBuilder, loadHindsightScreen, loadResultsScreen, preload } from './lib/chunks.js';
+import { ALL_CHUNKS, loadCustomSquadBuilder, loadHindsightScreen, loadResultsScreen } from './lib/chunks.js';
 import { MAX_COMPARE, RESTORABLE_VIEWS, readCompareIds, readInApp, readTeamParam, readTermsAccepted, readViewParam, writeCompareIds, writeInApp, writeParams, writeTermsAccepted } from './lib/appStorage.js';
 import { currentGwId, isGwFinished, liveGwIdFor, recapGwFor } from './lib/gameweeks.js';
 import { savedChangesFor, teamChangesFor } from './lib/savedSquads.js';
@@ -130,15 +130,26 @@ export default function FPLSquadChecker() {
   const toggleCompare = id => setCompareIds(compareIds.includes(id) ? compareIds.filter(x => x !== id) : [...compareIds, id].slice(0, MAX_COMPARE));
   const mainRef = useRef(null);
 
-  // Fetch the other screens once the home screen has settled.
+  // Fetch the other screens once the home screen has settled, one per idle
+  // moment: loading all of them at once ran their code in one long burst
+  // that held up taps on a phone.
   useEffect(() => {
-    const fetchAll = () => ALL_CHUNKS.forEach(source => preload(source)());
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(fetchAll, { timeout: 5000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = setTimeout(fetchAll, 2000);
-    return () => clearTimeout(timer);
+    let stopped = false;
+    let handle = null;
+    const queue = [...ALL_CHUNKS];
+    const idle = fn => (typeof window.requestIdleCallback === 'function'
+      ? { id: window.requestIdleCallback(fn, { timeout: 5000 }), idle: true }
+      : { id: setTimeout(fn, 300), idle: false });
+    const next = () => {
+      const source = queue.shift();
+      if (stopped || !source) return;
+      source.load().catch(() => {}).then(() => { if (!stopped) handle = idle(next); });
+    };
+    handle = idle(next);
+    return () => {
+      stopped = true;
+      if (handle) (handle.idle ? window.cancelIdleCallback : clearTimeout)(handle.id);
+    };
   }, []);
 
 

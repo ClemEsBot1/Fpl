@@ -389,8 +389,14 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
   }
 
   if (req.method === 'GET') {
+    // ?session=1 is the app's start-up check: "not logged in" is a normal
+    // answer there, so it comes back as 200 { loggedIn: false } rather
+    // than a 401 the browser logs as an error. Plain GET keeps the 401.
+    const notLoggedIn = () => (req.query && req.query.session
+      ? res.status(200).json({ loggedIn: false })
+      : res.status(401).json({ error: 'not_logged_in' }));
     const session = getSessionFromRequest(req, secret);
-    if (!session) { res.status(401).json({ error: 'not_logged_in' }); return; }
+    if (!session) { notLoggedIn(); return; }
     let record;
     try {
       record = await getJSON(redisOverride || getRedis(), userKeyFor(session.username));
@@ -403,7 +409,7 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       // The account is gone, or its password was reset since this session
       // started.
       res.setHeader('Set-Cookie', buildClearedSessionCookie());
-      res.status(401).json({ error: 'not_logged_in' });
+      notLoggedIn();
       return;
     }
     res.status(200).json(account(record));
