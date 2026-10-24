@@ -38,10 +38,10 @@ function PointsChart({ rows }) {
   const y = v => PAD + ((top - v) / (top - bottom)) * (H - PAD * 2);
   const ticks = [top, top / 2, 0];
   return (
-    <figure className="fpl-profile-chart">
+    <figure className="fpl-pp-chart">
       <figcaption>
         <span>{t('Points and predictions')}</span>
-        <span className="fpl-profile-legend"><i className="is-actual" /> {t('Points')} <i className="is-pred" /> {t('Predicted')}</span>
+        <span className="fpl-pp-legend"><i className="is-actual" /> {t('Points')} <i className="is-pred" /> {t('Predicted')}</span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('Points and predictions')}>
         {ticks.map(v => (
@@ -81,7 +81,7 @@ function PriceChart({ series }) {
   const path = series.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.price).toFixed(1)}`).join(' ');
   const first = series[0], last = series[series.length - 1];
   return (
-    <figure className="fpl-profile-chart">
+    <figure className="fpl-pp-chart">
       <figcaption><span>{t('Price')}</span><span className="fpl-mono">{fmtPrice(first.price)} → {fmtPrice(last.price)}</span></figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('Price from {from} to {to}', { from: fmtPrice(first.price), to: fmtPrice(last.price) })}>
         <path d={path} className="fpl-chart-line" />
@@ -105,7 +105,7 @@ function Alternatives({ player, staticData }) {
   const mine = ((staticData.predictionsById[player.id] || {}).byGw || []).reduce((s, w) => s + (w.points || 0), 0);
   const weeks = ((staticData.predictionsById[player.id] || {}).byGw || []).length;
   return (
-    <section className="fpl-profile-alts" aria-labelledby="alts-h">
+    <section className="fpl-pp-alts" aria-labelledby="alts-h">
       <h3 id="alts-h">{t('Cheaper options')}</h3>
       <p className="fpl-meta">{t('Same position, £0.5m or more cheaper, and predicted at least 80% of {name}’s {mine} points over the next {n} gameweeks.', { name: player.webName, mine: fmtPts(mine), n: weeks })}</p>
       <ul>
@@ -114,11 +114,11 @@ function Alternatives({ player, staticData }) {
           return (
             <li key={a.player.id}>
               <span className="fpl-explore-shirt"><Shirt team={team} isKeeper={a.player.positionId === 1} /></span>
-              <span className="fpl-profile-alt-who">
+              <span className="fpl-pp-alt-who">
                 <button type="button" className="fpl-namebtn" onClick={() => openPlayerProfile(a.player.id)}>{a.player.webName}</button>
-                <span className="fpl-meta">{team ? team.short_name : '—'} · {fmtPrice(a.player.price)} · <b className="fpl-profile-save">−{fmtPrice(a.saving)}</b></span>
+                <span className="fpl-meta">{team ? team.short_name : '—'} · {fmtPrice(a.player.price)} · <b className="fpl-pp-save">−{fmtPrice(a.saving)}</b></span>
               </span>
-              <span className="fpl-mono fpl-profile-alt-pts">{fmtPts(a.next)}<small>{t('pts')}</small></span>
+              <span className="fpl-mono fpl-pp-alt-pts">{fmtPts(a.next)}<small>{t('pts')}</small></span>
             </li>
           );
         })}
@@ -130,17 +130,17 @@ function Alternatives({ player, staticData }) {
 function Photo({ player, team }) {
   const [tried, setTried] = useState(0);
   const urls = player.code ? photoUrls(player.code) : [];
-  if (tried >= urls.length) return <span className="fpl-profile-shirt"><Shirt team={team} isKeeper={player.positionId === 1} /></span>;
-  return <img className="fpl-profile-photo" src={urls[tried]} alt="" width="110" height="140" decoding="async" onError={() => setTried(n => n + 1)} />;
+  if (tried >= urls.length) return <span className="fpl-pp-shirt"><Shirt team={team} isKeeper={player.positionId === 1} /></span>;
+  return <img className="fpl-pp-photo" src={urls[tried]} alt="" width="110" height="140" decoding="async" onError={() => setTried(n => n + 1)} />;
 }
 
 function Matches({ matches }) {
   return (
-    <span className="fpl-profile-opps">
+    <span className="fpl-pp-opps">
       {matches.map((m, i) => (
-        <span key={i} className="fpl-profile-opp">
+        <span key={i} className="fpl-pp-opp">
           <span>{m.opponent} ({m.home ? t('H') : t('A')})</span>
-          {m.score ? <span className={`fpl-profile-score is-${m.result}`}>{m.score[0]}-{m.score[1]}</span> : null}
+          {m.score ? <span className={`fpl-pp-score is-${m.result}`}>{m.score[0]}-{m.score[1]}</span> : null}
         </span>
       ))}
     </span>
@@ -149,7 +149,7 @@ function Matches({ matches }) {
 
 function Diff({ value }) {
   if (value === null) return <td className="fpl-meta">–</td>;
-  return <td className={`fpl-profile-diff${value > 0 ? ' is-up' : value < 0 ? ' is-down' : ''}`}>{signed(value)}</td>;
+  return <td className={`fpl-pp-diff${value > 0 ? ' is-up' : value < 0 ? ' is-down' : ''}`}>{signed(value)}</td>;
 }
 
 export function PlayerProfile({ playerId, staticData, onClose }) {
@@ -192,23 +192,23 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
   return (
     <dialog
       ref={dialogRef}
-      className="fpl-dialog fpl-profile"
+      className="fpl-dialog fpl-pp"
       aria-labelledby="profile-h"
       onCancel={e => { e.preventDefault(); onClose(); }}
       onClick={e => { if (e.target === dialogRef.current) onClose(); }}
     >
       <div className="fpl-dialog-card">
         <button type="button" onClick={onClose} aria-label={t('Close')} className="fpl-dialog-close"><X size={18} /></button>
-        <div className="fpl-profile-hero">
+        <div className="fpl-pp-hero">
           <Photo player={player} team={team} />
-          <div className="fpl-profile-who">
-            <span className="fpl-profile-pos">{positionName(player.positionId)}</span>
+          <div className="fpl-pp-who">
+            <span className="fpl-pp-pos">{positionName(player.positionId)}</span>
             <h2 id="profile-h" className="fpl-display"><span>{player.firstName}</span> <b>{player.secondName}</b></h2>
-            <span className="fpl-profile-club">{team ? team.name : '—'}</span>
+            <span className="fpl-pp-club">{team ? team.name : '—'}</span>
           </div>
         </div>
         {prediction && prediction.availNote ? <p className={`fpl-availnote${availClass(player)}`}>{prediction.availNote}</p> : null}
-        <div className="fpl-profile-stats">
+        <div className="fpl-pp-stats">
           <div><b className="fpl-mono">{fmtPrice(player.price)}</b><span>{t('Price')}</span></div>
           <div><b className="fpl-mono">{player.form.toFixed(1)}</b><span>{t('Form')}</span></div>
           <div><b className="fpl-mono">{player.totalPoints}</b><span>{t('season points')}</span></div>
@@ -217,7 +217,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
           <div><b className="fpl-mono">{prediction ? fmtPts(prediction.predicted) : '–'}</b><span>{t('predicted per week')}</span></div>
         </div>
         {error ? (
-          <div className="fpl-profile-error">
+          <div className="fpl-pp-error">
             <span className="fpl-mono">±{error.meanMiss.toFixed(1)}</span>
             <p>
               {t('Average miss of the predictions over the {n} gameweeks played.', { n: error.n })}
@@ -227,7 +227,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
           </div>
         ) : null}
         <Alternatives player={player} staticData={staticData} />
-        <div className="fpl-seg fpl-profile-tabs" role="group" aria-label={t('Show')}>
+        <div className="fpl-seg fpl-pp-tabs" role="group" aria-label={t('Show')}>
           <button type="button" className={tab === 'season' ? 'is-on' : ''} aria-pressed={tab === 'season'} onClick={() => setTab('season')}>{t('This season')}</button>
           <button type="button" className={tab === 'fixtures' ? 'is-on' : ''} aria-pressed={tab === 'fixtures'} onClick={() => setTab('fixtures')}>{t('Fixtures')}</button>
           <button type="button" className={tab === 'past' ? 'is-on' : ''} aria-pressed={tab === 'past'} onClick={() => setTab('past')}>{t('Past seasons')}</button>
@@ -243,7 +243,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
         {state.summary && tab === 'season' ? (
           played.length ? (
             <div className="fpl-compare-wrap">
-              <table className="fpl-profile-table">
+              <table className="fpl-pp-table">
                 <thead>
                   <tr>
                     <th scope="col">{t('GW')}</th>
@@ -261,7 +261,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                     <tr key={r.gw}>
                       <td>{r.gw}</td>
                       <td><Matches matches={r.matches} /></td>
-                      <td className="fpl-profile-pts">{r.points}</td>
+                      <td className="fpl-pp-pts">{r.points}</td>
                       <td>{r.predicted !== null ? `${fmtPts(r.predicted)}${r.workedOut ? '*' : ''}` : '–'}</td>
                       <Diff value={r.diff} />
                       <td>{r.minutes}</td>
@@ -271,14 +271,14 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                   ))}
                 </tbody>
               </table>
-              {played.some(r => r.workedOut) ? <p className="fpl-meta fpl-profile-note">{t('* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.')}</p> : null}
+              {played.some(r => r.workedOut) ? <p className="fpl-meta fpl-pp-note">{t('* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.')}</p> : null}
             </div>
           ) : <p className="fpl-meta">{t('No matches played this season yet.')}</p>
         ) : null}
         {state.summary && tab === 'fixtures' ? (
           upcoming.length ? (
             <div className="fpl-compare-wrap">
-              <table className="fpl-profile-table">
+              <table className="fpl-pp-table">
                 <thead>
                   <tr>
                     <th scope="col">{t('GW')}</th>
@@ -291,14 +291,14 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                     <tr key={r.gw}>
                       <td>{r.gw}</td>
                       <td>
-                        <span className="fpl-profile-opps">
+                        <span className="fpl-pp-opps">
                           {r.matches.map((m, i) => {
                             const c = DIFF_COLORS[m.difficulty] || DIFF_COLORS[3];
                             return <span key={i} className="fpl-fixchip" style={{ background: c.bg, color: c.text }}>{m.opponent} {m.home ? t('H') : t('A')}</span>;
                           })}
                         </span>
                       </td>
-                      <td className="fpl-profile-pts">{r.predicted !== null ? fmtPts(r.predicted) : '–'}</td>
+                      <td className="fpl-pp-pts">{r.predicted !== null ? fmtPts(r.predicted) : '–'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -309,7 +309,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
         {state.summary && tab === 'past' ? (
           seasons.length ? (
             <div className="fpl-compare-wrap">
-              <table className="fpl-profile-table">
+              <table className="fpl-pp-table">
                 <thead>
                   <tr>
                     <th scope="col">{t('Season')}</th>
@@ -325,7 +325,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                   {seasons.map(s => (
                     <tr key={s.season}>
                       <td>{s.season}</td>
-                      <td className="fpl-profile-pts">{s.points}</td>
+                      <td className="fpl-pp-pts">{s.points}</td>
                       <td>{s.starts}</td>
                       <td>{s.minutes.toLocaleString()}</td>
                       <td>{s.goals}</td>
