@@ -21,6 +21,21 @@ const gwShort = id => `GW${id}`;
 const sum = xs => xs.reduce((s, x) => s + x, 0);
 
 // "Martin Ødegaard" → "martin-odegaard".
+// Short addresses for player pages (/player/haaland -> /player/erling-haaland):
+// the slug of a player's FPL name and of his surname, each only when exactly
+// one player has it and it isn't already someone's full slug.
+// { [alias]: full slug }.
+export function playerAliases(elements, players) {
+  const full = new Set(players.map(p => p.slug));
+  const owners = {};
+  elements.forEach((e, i) => {
+    new Set([slugify(e.web_name || ''), slugify(e.second_name || '')]).forEach(a => {
+      if (a && !full.has(a)) (owners[a] ||= new Set()).add(players[i].slug);
+    });
+  });
+  return Object.fromEntries(Object.entries(owners).filter(([, s]) => s.size === 1).map(([a, s]) => [a, [...s][0]]));
+}
+
 export function slugify(text) {
   return String(text || '')
     .replace(/[øØ]/g, 'o').replace(/[æÆ]/g, 'ae').replace(/ß/g, 'ss').replace(/[łŁ]/g, 'l').replace(/[đĐ]/g, 'd').replace(/ı/g, 'i')
@@ -110,6 +125,7 @@ export function seoModel({ bootstrap, fixtures, event, saved }) {
     teamBySlug: Object.fromEntries(teams.map(t => [t.slug, t])),
     players,
     playerBySlug: Object.fromEntries(players.map(p => [p.slug, p])),
+    playerAliases: playerAliases(bootstrap.elements, players),
     playerById: Object.fromEntries(players.map(p => [p.id, p])),
   };
 }

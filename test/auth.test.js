@@ -360,3 +360,18 @@ test('?region tells the app the visitor\'s country from Vercel\'s header, storin
   assert.equal(de.headers['Cache-Control'], 'no-store');
   assert.deepEqual((await ask({})).body, { country: '' });
 });
+
+test('the start-up check (?session=1) answers 200 when logged out; plain GET keeps its 401', async () => {
+  const get = async query => {
+    const res = { headers: {}, statusCode: 0, body: null };
+    res.status = c => { res.statusCode = c; return res; };
+    res.json = b => { res.body = b; return res; };
+    res.setHeader = (k, v) => { res.headers[k] = v; return res; };
+    await handler({ method: 'GET', query, headers: {}, socket: { remoteAddress: '203.0.113.1' } }, res, fakeRedis());
+    return res;
+  };
+  const probe = await get({ session: '1' });
+  assert.equal(probe.statusCode, 200);
+  assert.deepEqual(probe.body, { loggedIn: false });
+  assert.equal((await get({})).statusCode, 401);
+});

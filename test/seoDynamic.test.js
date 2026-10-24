@@ -108,3 +108,13 @@ test('player names are escaped', () => {
   const html = playerPage(evil, evil.players[0]);
   assert.ok(!html.includes('<script>x') && !html.includes('<b>x'));
 });
+
+test('short player addresses: a unique FPL name or surname points to the full page', () => {
+  const a = model.playerAliases;
+  assert.equal(a.haaland, 'erling-haaland');
+  assert.equal(a.odegaard, 'martin-odegaard');
+  assert.equal(a.raya, 'david-raya');
+  assert.equal(a['g-jesus'], model.playerById[4].slug, 'his FPL name is unique even though his surname isn\'t');
+  assert.equal(a.jesus, undefined, 'two Jesuses: no guess');
+  assert.equal(a['erling-haaland'], undefined, 'full slugs are not aliases');
+});
