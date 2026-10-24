@@ -1,6 +1,6 @@
 // "Best XI: last gameweek" — what was predicted vs. what scored best.
 import { AlertTriangle, Info, RotateCcw } from 'lucide-react';
-import { POSITION_LABELS, fmtPrice, fmtPts } from '../lib/format.js';
+import { POSITION_LABELS, fmtPrice, fmtPts, noPointsLabel } from '../lib/format.js';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { t } from '../lib/i18n.js';
 import { tr } from '../lib/i18nRich.jsx';
@@ -31,9 +31,9 @@ export function HindsightPlayerRow({ slot, teamsById }) {
       </div>
       <div className="fpl-row-pred">
         <div className="fpl-row-pred-num" style={{ color: !played ? 'var(--ink-dim)' : (actualPoints >= 6 ? 'var(--lime)' : actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
-          {!played ? t('NP') : (actualPoints ?? '—')}
+          {!played ? noPointsLabel(slot) : (actualPoints ?? '—')}
         </div>
-        <div className="fpl-row-pred-label" style={{ textTransform: 'uppercase' }}>{!played ? t('Not played') : t('Actual pts')}</div>
+        <div className="fpl-row-pred-label" style={{ textTransform: 'uppercase' }}>{slot.dnp ? t('Did not play') : !played ? t('Not played') : t('Actual pts')}</div>
       </div>
     </div>
   );
@@ -51,7 +51,7 @@ export function HindsightSquadColumn({ title, squad, score, teamsById }) {
         key={slot.player.id}
         slot={slot}
         team={club}
-        points={slot.played === false ? '–' : pts * mult}
+        points={slot.played === false ? noPointsLabel(slot) : pts * mult}
         pointsTone={slot.played === false ? null : pts >= 6 ? 'high' : pts <= 1 ? 'low' : null}
         info={club ? club.short_name : ''}
       />

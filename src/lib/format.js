@@ -217,3 +217,7 @@ export function officialGwPoints(data) {
   if (live && typeof data.liveTotal === 'number') return data.liveTotal;
   return !live && history && typeof history.points === 'number' ? history.points : data.actualXiTotal;
 }
+
+// A gameweek's points for a player who has none to show: "DNP" once his
+// matches are over without him playing (slot.dnp), else a dash.
+export const noPointsLabel = slot => (slot && slot.dnp ? t('DNP') : '–');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { officialGwPoints } from '../src/lib/format.js';
+import { noPointsLabel, officialGwPoints } from '../src/lib/format.js';
 
 test("a past gameweek's points use FPL's own figure when there is one", () => {
   assert.equal(officialGwPoints({ entryHistory: { points: 64 }, actualXiTotal: 61 }), 64);
@@ -53,4 +53,9 @@ test('the build knows its pull request from Vercel or the squash merge', async (
   assert.equal(prNumberFrom({ message: 'Fix (#12) thing\n\nbody (#5)' }), null, 'only a number closing the title');
   assert.equal(prNumberFrom({ prId: '', message: 'Local change' }), null);
   assert.equal(prNumberFrom(), null);
+});
+
+test('a player with no points to show reads DNP once his matches are over, else a dash', () => {
+  assert.equal(noPointsLabel({ played: false, dnp: true }), 'DNP');
+  assert.equal(noPointsLabel({ played: false }), '–');
 });

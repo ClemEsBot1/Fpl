@@ -5,7 +5,7 @@ import { ArrowLeftRight, ArrowRight, ArrowUpDown, Ban, Bell, Bookmark, Check, Ch
 import { DifficultyChips } from '../components/common.jsx';
 import { EmptyCard, Pitch, PlayerCard, Shirt } from '../components/Pitch.jsx';
 import { nextFixtureLabel } from '../lib/pitch.js';
-import { POSITION_LABELS, availClass, fmtPrice, predictedMultiplier, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
+import { POSITION_LABELS, availClass, fmtPrice, noPointsLabel, predictedMultiplier, fmtPts, formatCountdown, officialGwPoints, playerMatchesSearch, searchKey } from '../lib/format.js';
 import { openPlayerProfile } from '../lib/playerProfile.js';
 import { POSITION_ORDER } from '../lib/predictions.js';
 import { applyBenchOrder, suggestBenchOrder } from '../lib/bench.js';
@@ -215,9 +215,9 @@ export function PlayerRow({ slot, teamsById, fixturesByTeam, editable, isOpen, o
         {isPastGw ? (
           <div className="fpl-row-pred">
             <div className="fpl-row-pred-num" style={{ color: !slot.played ? 'var(--ink-dim)' : (slot.actualPoints >= 6 ? 'var(--lime)' : slot.actualPoints <= 1 ? 'var(--red)' : 'var(--ink)') }}>
-              {!slot.played ? t('NP') : (slot.actualPoints ?? '—')}
+              {!slot.played ? noPointsLabel(slot) : (slot.actualPoints ?? '—')}
             </div>
-            <div className="fpl-row-pred-label">{!slot.played ? t('NOT PLAYED') : t('ACTUAL PTS')}</div>
+            <div className="fpl-row-pred-label">{slot.dnp ? t('DID NOT PLAY') : !slot.played ? t('NOT PLAYED') : t('ACTUAL PTS')}</div>
             <div className="fpl-mono" style={{ fontSize: '0.58rem', color: 'var(--ink-dim)', marginTop: 2 }}>{fmtPts(predicted)} predicted</div>
           </div>
         ) : (
@@ -854,7 +854,7 @@ function PlayerSheet({ slot, team, teamsById, fixturesByTeam, isPastGw, canEdit,
         {slot.availNote ? <p className={`fpl-availnote${availClass(player)}`}>{slot.availNote}</p> : null}
         <div className="fpl-sheet-stats">
           {isPastGw ? (
-            <div><b className="fpl-mono">{slot.played === false ? '–' : slot.actualPoints ?? '–'}</b><span>{t('points this gameweek')}</span></div>
+            <div><b className="fpl-mono">{slot.played === false ? noPointsLabel(slot) : slot.actualPoints ?? '–'}</b><span>{t('points this gameweek')}</span></div>
           ) : (
             <div><b className="fpl-mono">{fmtPts(slot.nextMatchPredicted ?? slot.predicted)}</b><span>{t('predicted this gameweek')}</span></div>
           )}
@@ -1349,7 +1349,7 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
           const id = slot.player.id;
           const mult = slot.isStarting ? (slot.multiplier || 1) : 1;
           const points = isPastGw
-            ? (slot.played === false ? '–' : (slot.actualPoints ?? 0) * mult)
+            ? (slot.played === false ? noPointsLabel(slot) : (slot.actualPoints ?? 0) * mult)
             : fmtPts(slot.predicted * (slot.isStarting ? predictedMultiplier(slot, activeChip) : 1));
           const raw = isPastGw ? (slot.actualPoints ?? 0) : slot.predicted;
           const tone = isPastGw ? (slot.played === false ? null : raw >= 6 ? 'high' : raw <= 1 ? 'low' : null) : (raw >= 5 ? 'high' : raw < 2 ? 'low' : null);

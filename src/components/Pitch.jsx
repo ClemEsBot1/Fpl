@@ -55,7 +55,7 @@ export function PlayerCard({ slot, team, info, points, pointsTone, state, onClic
     priceMoveText(priceMove) || null,
     state === 'eligible' ? t('can swap with the selected player') : state === 'dim' ? t("can't swap with the selected player") : null,
   ].filter(Boolean).join(', ');
-  const baseLabel = label || `${player.webName}${info ? `, ${info}` : ''}${points !== undefined && points !== null ? `, ${t('{n} points', { n: points })}` : ''}`;
+  const baseLabel = label || `${player.webName}${info ? `, ${info}` : ''}${points !== undefined && points !== null ? `, ${slot.dnp ? t('did not play') : t('{n} points', { n: points })}` : ''}`;
   return (
     <div className={`fpl-pc${state ? ` is-${state}` : ''}`}>
       {price !== undefined ? <span className={`fpl-pc-price fpl-mono${move ? ` is-${priceMove.dir}` : ''}`}>{fmtPrice(price)}{move}</span> : null}

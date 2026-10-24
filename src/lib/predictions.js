@@ -13,6 +13,7 @@ import { buildCareerBaselineByCode, buildLastSeasonStatsByCode } from './playerH
 import { buildOddsByTeam, oddsAdjustmentForMatches } from './oddsAdjustment.js';
 import { blendValue, blendWeightsFrom } from './blend.js';
 import { t } from './i18n.js';
+import { didNotPlay } from './live.js';
 
 export const POSITION_ORDER = [1, 2, 3, 4];
 export const SQUAD_SLOTS = { 1: 2, 2: 5, 3: 5, 4: 3 }; // required count per position in a full 15-man squad
@@ -1083,6 +1084,7 @@ export function buildHindsightSquad(allPlayers, liveEventPointsById, budget = SQ
       multiplier: isCaptain ? 2 : 1,
       actualPoints: live ? live.totalPoints : 0,
       played: live ? live.minutes > 0 : false,
+      dnp: didNotPlay(live),
     };
   });
 
@@ -1194,6 +1196,7 @@ export function buildSavedSquadActualPerformance(playerIds, captainId, viceCapta
       multiplier: isCaptain ? 2 : 1,
       actualPoints: live ? live.totalPoints : 0,
       played: live ? live.minutes > 0 : false,
+      dnp: didNotPlay(live),
     };
   });
 
@@ -1267,6 +1270,7 @@ export function hydrateFrozenSquadSnapshot(snapshot, staticData, liveEventPoints
       multiplier: isCaptain ? 2 : 1,
       actualPoints: live ? live.totalPoints : null,
       played: live ? live.minutes > 0 : false,
+      dnp: didNotPlay(live),
     };
   });
 
