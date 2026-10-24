@@ -8,6 +8,7 @@
  "(optional, for password resets)": "(optional, zum Zurücksetzen des Passworts)",
  "(optional, if you’d like a reply)": "(optional, falls du eine Antwort möchtest)",
  "(−{n} hit)": "(−{n} Hit)",
+ "* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.": "* Nachträglich aus dem vorhergesagt, was vor dieser Deadline bekannt war, da diese Spieltage vor dem Speichern der Prognosen gespielt wurden.",
  "+{n} pts": "+{n} Pkt",
  "+{n} pts/wk": "+{n} Pkt/Wo",
  "-{hit} HIT · NET {n} PTS OVER 4 GWS": "-{hit} HIT · NETTO {n} PKT ÜBER 4 SPIELTAGE",

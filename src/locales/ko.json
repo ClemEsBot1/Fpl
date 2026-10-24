@@ -8,6 +8,7 @@
  "(optional, for password resets)": "(선택, 비밀번호 재설정용)",
  "(optional, if you’d like a reply)": "(선택, 답장을 원하면)",
  "(−{n} hit)": "(−{n} 히트)",
+ "* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.": "* 예측이 저장되기 전에 치러진 게임위크라서, 마감 전에 알려진 정보로 나중에 계산한 예측입니다.",
  "+{n} pts": "+{n}점",
  "+{n} pts/wk": "+{n}점/주",
  "-{hit} HIT · NET {n} PTS OVER 4 GWS": "-{hit} 히트 · 4라운드 순 {n}점",

@@ -8,6 +8,7 @@
  "(optional, for password resets)": "(वैकल्पिक, पासवर्ड रीसेट के लिए)",
  "(optional, if you’d like a reply)": "(वैकल्पिक, अगर जवाब चाहिए)",
  "(−{n} hit)": "(−{n} हिट)",
+ "* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.": "* बाद में उस डेडलाइन से पहले की जानकारी से अनुमान लगाया गया, क्योंकि ये गेमवीक अनुमान सहेजे जाने से पहले खेले गए थे।",
  "+{n} pts": "+{n} अंक",
  "+{n} pts/wk": "+{n} अंक/हफ़्ता",
  "-{hit} HIT · NET {n} PTS OVER 4 GWS": "-{hit} हिट · 4 गेमवीक में कुल {n} अंक",

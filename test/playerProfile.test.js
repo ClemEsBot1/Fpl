@@ -50,3 +50,8 @@ test('saved predictions for one player, past seasons newest first, signs and pho
   assert.equal(signed(0), '0.0');
   assert.deepEqual(photoUrls(223094).map(u => u.split('/').pop()), ['223094.png', 'p223094.png']);
 });
+
+test('a prediction worked out afterwards is marked as such', () => {
+  const rows = profileRows({ history: [played(1, 7, true, 1, 0, 6), played(2, 9, false, 0, 0, 2)] }, { teamsById, predictedByGw: { 1: 3, 2: 4 }, finishedGws: new Set([1, 2]), workedOutGws: new Set([1]) });
+  assert.deepEqual(rows.map(r => [r.gw, r.workedOut]), [[2, false], [1, true]]);
+});

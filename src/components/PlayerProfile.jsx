@@ -78,7 +78,8 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
   const rows = useMemo(() => {
     if (!state.summary) return [];
     const upcomingByGw = Object.fromEntries(((prediction && prediction.byGw) || []).map(w => [w.event, w.points]));
-    return profileRows(state.summary, { teamsById: staticData.teamsById, predictedByGw: savedFor(state.saved, playerId), upcomingByGw, finishedGws });
+    const workedOutGws = new Set((state.saved && state.saved.workedOut) || []);
+    return profileRows(state.summary, { teamsById: staticData.teamsById, predictedByGw: savedFor(state.saved, playerId), upcomingByGw, finishedGws, workedOutGws });
   }, [state, staticData, prediction, playerId, finishedGws]);
   const played = rows.filter(r => r.played);
   const upcoming = rows.filter(r => !r.played).reverse();
@@ -152,7 +153,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                       <td>{r.gw}</td>
                       <td><Matches matches={r.matches} /></td>
                       <td className="fpl-profile-pts">{r.points}</td>
-                      <td>{r.predicted !== null ? fmtPts(r.predicted) : '–'}</td>
+                      <td>{r.predicted !== null ? `${fmtPts(r.predicted)}${r.workedOut ? '*' : ''}` : '–'}</td>
                       <Diff value={r.diff} />
                       <td>{r.minutes}</td>
                       <td>{r.goals}</td>
@@ -161,6 +162,7 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                   ))}
                 </tbody>
               </table>
+              {played.some(r => r.workedOut) ? <p className="fpl-meta fpl-profile-note">{t('* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.')}</p> : null}
             </div>
           ) : <p className="fpl-meta">{t('No matches played this season yet.')}</p>
         ) : null}

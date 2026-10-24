@@ -8,6 +8,7 @@
  "(optional, for password resets)": "(اختياري، لإعادة تعيين كلمة المرور)",
  "(optional, if you’d like a reply)": "(اختياري، إذا أردت ردًا)",
  "(−{n} hit)": "(خصم −{n})",
+ "* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.": "* توقّع لاحق بناءً على ما كان معروفًا قبل ذلك الموعد النهائي، لأن هذه الجولات لُعبت قبل حفظ التوقعات.",
  "+{n} pts": "+{n} نقطة",
  "+{n} pts/wk": "+{n} نقطة/أسبوع",
  "-{hit} HIT · NET {n} PTS OVER 4 GWS": "خصم -{hit} · الصافي {n} نقطة في 4 جولات",

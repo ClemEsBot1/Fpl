@@ -51,19 +51,44 @@ async function savedPredictions(bootstrap, gwId) {
   return savedJson;
 }
 
-// GET /api/accuracy?all=1 — every player's saved prediction for each
-// gameweek this season whose deadline has passed, for the player profile
-// (src/lib/playerProfile.js): { season, gws: { [gw]: { [id]: points } } }.
+// For a gameweek with no saved predictions (before saving began, or a
+// missed run): the formula's, worked out afterwards from what was known
+// before its deadline. Kept in a file of its own, so the accuracy figures
+// stay those of predictions made at the time.
+const workedOutPathFor = gwId => `predictions-asof-gw${gwId}.json`;
+async function workedOutPredictions(bootstrap, gwId) {
+  const season = seasonIdFor(bootstrap.events);
+  const kept = await get(workedOutPathFor(gwId), { access: 'public', useCache: false });
+  if (kept) {
+    const json = JSON.parse(await new Response(kept.stream).text());
+    if (json.season === season) return json.predictedById;
+  }
+  const predictedById = await formulaPredictionsAsOf(bootstrap, gwId);
+  try {
+    await put(workedOutPathFor(gwId), JSON.stringify({ gwId, season, predictedById, source: 'formula-asof' }), { access: 'public', contentType: 'application/json', allowOverwrite: true });
+  } catch { /* worked out again next time */ }
+  return predictedById;
+}
+
+// GET /api/accuracy?all=1 — every player's prediction for each gameweek
+// this season whose deadline has passed, for the player profile
+// (src/lib/playerProfile.js): { season, gws: { [gw]: { [id]: points } },
+// workedOut: [gw] } — workedOut lists those worked out afterwards.
 async function allSaved(res, bootstrap) {
   const now = Date.now();
   const closed = (bootstrap.events || []).filter(e => Date.parse(e.deadline_time) <= now).map(e => e.id);
   const files = await Promise.all(closed.map(gw => savedPredictions(bootstrap, gw).catch(() => null)));
   const gws = {};
-  closed.forEach((gw, i) => { if (files[i] && files[i].predictedById) gws[gw] = files[i].predictedById; });
+  const workedOut = [];
+  await Promise.all(closed.map(async (gw, i) => {
+    if (files[i] && files[i].predictedById) { gws[gw] = files[i].predictedById; return; }
+    const byId = await workedOutPredictions(bootstrap, gw).catch(() => null);
+    if (byId) { gws[gw] = byId; workedOut.push(gw); }
+  }));
   res
     .status(200)
     .setHeader('Cache-Control', 'public, max-age=1800, s-maxage=1800, stale-while-revalidate=86400')
-    .json({ season: seasonIdFor(bootstrap.events), gws });
+    .json({ season: seasonIdFor(bootstrap.events), gws, workedOut: workedOut.sort((a, b) => a - b) });
 }
 
 function notAvailable(res, body) {

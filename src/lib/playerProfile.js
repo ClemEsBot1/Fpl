@@ -33,7 +33,8 @@ function match(teamsById, opponentId, home, scoreFor, scoreAgainst, difficulty =
 //   upcomingByGw:  { [gw]: points } predicted now (the byGw of his prediction)
 //   finishedGws:   Set of gameweeks that are over
 // diff is his points less the prediction, once the gameweek is over.
-export function profileRows(summary, { teamsById = {}, predictedByGw = {}, upcomingByGw = {}, finishedGws = new Set() } = {}) {
+//   workedOutGws:  Set of gameweeks whose prediction was worked out afterwards
+export function profileRows(summary, { teamsById = {}, predictedByGw = {}, upcomingByGw = {}, finishedGws = new Set(), workedOutGws = new Set() } = {}) {
   const rows = new Map();
   const row = gw => {
     if (!rows.has(gw)) rows.set(gw, { gw, matches: [], points: null, minutes: 0, starts: 0, goals: 0, assists: 0, played: false });
@@ -64,7 +65,7 @@ export function profileRows(summary, { teamsById = {}, predictedByGw = {}, upcom
       const saved = predictedByGw[r.gw];
       const predicted = typeof saved === 'number' ? saved : (!r.played && typeof upcomingByGw[r.gw] === 'number' ? upcomingByGw[r.gw] : null);
       const diff = finished && r.played && predicted !== null ? round1(r.points - predicted) : null;
-      return { ...r, finished, predicted, diff };
+      return { ...r, finished, predicted, diff, workedOut: typeof saved === 'number' && workedOutGws.has(r.gw) };
     })
     .sort((a, b) => b.gw - a.gw);
 }
