@@ -571,3 +571,28 @@ export function buildSquadExportPayload(data) {
     })),
   };
 }
+
+// A wildcard with your own money: the best squad you could pick now, with
+// everything you'd get for your players (their selling prices) plus the
+// bank. A player you already own costs his selling price, as keeping him
+// does on FPL; everyone else costs today's price.
+// Returns { budgetTenths, squad, bankTenths, ins, outs, xiNow, xiWildcard }:
+// ins/outs are players, xi* the predicted points a week of each XI, the
+// captain doubled.
+export function wildcardSquad(squad, bankTenths, allPlayers, predictionsById) {
+  const sell = new Map(squad.map(s => [s.player.id, sellPriceOf(s)]));
+  const budgetTenths = squad.reduce((sum, s) => sum + Math.round(sellPriceOf(s) * 10), 0) + (bankTenths || 0);
+  const players = allPlayers.map(p => (sell.has(p.id) ? { ...p, price: sell.get(p.id) } : p));
+  const built = buildOptimalTeam({ allPlayers: players, predictionsById }, budgetTenths / 10);
+  const xi = list => list.reduce((sum, s) => sum + (s.isStarting ? (s.predicted || 0) * (s.isCaptain ? 2 : 1) : 0), 0);
+  const newIds = new Set(built.squad.map(s => s.player.id));
+  return {
+    budgetTenths,
+    squad: built.squad,
+    bankTenths: built.bankTenths,
+    ins: built.squad.filter(s => !sell.has(s.player.id)).map(s => s.player).sort((a, b) => a.positionId - b.positionId),
+    outs: squad.filter(s => !newIds.has(s.player.id)).map(s => s.player).sort((a, b) => a.positionId - b.positionId),
+    xiNow: xi(squad),
+    xiWildcard: xi(built.squad),
+  };
+}
