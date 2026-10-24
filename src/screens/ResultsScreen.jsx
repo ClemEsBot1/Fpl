@@ -140,8 +140,20 @@ export function PredictionBreakdown({ breakdown, prediction, player }) {
         <div key={`mult-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '3px 0', color: 'var(--ink-dim)' }}>
           <span>{label}</span>
           <span className="fpl-mono">{val}</span>
+          {typeof b.expectedBonus === 'number' && !b.isBlankThisEvent ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '5px 0 0', marginTop: 4, borderTop: '1px solid var(--line)', color: 'var(--ink-dim)' }}>
+          <span>{t('Bonus points expected (already in the prediction)')}</span>
+          <span className="fpl-mono">{fmtPts(b.expectedBonus)}</span>
         </div>
+      ) : null}
+    </div>
       ))}
+      {typeof b.expectedBonus === 'number' && !b.isBlankThisEvent ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '5px 0 0', marginTop: 4, borderTop: '1px solid var(--line)', color: 'var(--ink-dim)' }}>
+          <span>{t('Bonus points expected (already in the prediction)')}</span>
+          <span className="fpl-mono">{fmtPts(b.expectedBonus)}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

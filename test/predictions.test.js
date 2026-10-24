@@ -429,3 +429,14 @@ test('a frozen best squad XI total counts the starters, the captain twice', () =
   assert.equal(snapshotXiTotal({ playerIds: [1] }), null);
   assert.equal(snapshotXiTotal(null), null);
 });
+
+test('expected bonus: his own rate once he has minutes, his position’s before, scaled by minutes, fitness and matches', async () => {
+  const { expectedBonus } = await import('../src/lib/predictions.js');
+  // No minutes yet: a midfielder's usual 0.38 per 90.
+  assert.equal(expectedBonus({ positionId: 3, minutes: 0, bonus: 0 }), 0.38);
+  // 900 minutes and 10 bonus (1 per 90): halfway between his rate and the prior.
+  assert.equal(expectedBonus({ positionId: 3, minutes: 900, bonus: 10 }), 0.69);
+  // Plays half the minutes lately, 75% to play, a double gameweek.
+  assert.equal(expectedBonus({ positionId: 3, minutes: 900, bonus: 10, recentMinutesShare: 0.5 }, { fixtures: 2, availMult: 0.75 }), 0.52);
+  assert.equal(expectedBonus({ positionId: 4, minutes: 900, bonus: 10 }, { fixtures: 0 }), 0, 'a blank');
+});
