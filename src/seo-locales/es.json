@@ -1,0 +1,201 @@
+{
+ "ui": {
+  "cta": "Abrir FPL Checker",
+  "questions": "Preguntas",
+  "more": "Más de FPL Checker",
+  "english": "Todas las guías (en inglés)",
+  "footer": "FPL Checker es una herramienta gratuita de Fantasy Premier League. No está afiliada a la Premier League ni a Fantasy Premier League."
+ },
+ "pages": {
+  "home": {
+   "label": "FPL Checker",
+   "title": "FPL Checker — predictor de puntos FPL y análisis de tu equipo, gratis",
+   "description": "Herramienta gratuita de Fantasy Premier League: puntos previstos de cada jugador, tu mejor once y capitán, sugerencias de fichajes y la mejor plantilla de 100 M£, cada jornada.",
+   "h1": "Analiza tu equipo de FPL. Predice tus puntos.",
+   "intro": "FPL Checker es una herramienta gratuita de Fantasy Premier League. Introduce tu ID de equipo de FPL o sube una captura de tu equipo para ver los puntos previstos de cada jugador, el mejor capitán y sugerencias de fichajes para la próxima jornada.",
+   "s1": {
+    "h": "Qué hace",
+    "items": [
+     "<b>Puntos previstos</b> de cada jugador para esta jornada y las cuatro siguientes.",
+     "<b>Capitán</b>: la mejor opción para tu plantilla y una alternativa diferencial.",
+     "<b>Fichajes</b>: a quién vender y comprar en las próximas cinco jornadas, con penalizaciones incluidas.",
+     "<b>Minilligas</b>: el equipo de cada rival previsto y en qué puesto se espera que termines.",
+     "<b>Mejor plantilla</b>: el equipo más fuerte que se puede comprar con 100 M£ esta jornada."
+    ]
+   },
+   "s2": {
+    "h": "Cómo empezar",
+    "items": [
+     "Busca tu ID de equipo: el número que aparece después de /entry/ en la dirección de tu página de Puntos de FPL.",
+     "Introdúcelo en FPL Checker o sube una captura de tu equipo.",
+     "Mira tus puntos previstos, tu capitán y tus fichajes. No hace falta cuenta."
+    ]
+   },
+   "faq": [
+    [
+     "¿FPL Checker es gratis?",
+     "Sí. Es gratis y no necesita cuenta; una cuenta solo guarda tus equipos entre dispositivos."
+    ],
+    [
+     "¿FPL Checker forma parte del juego oficial de FPL?",
+     "No. Es una herramienta independiente hecha por aficionados, sin relación con la Premier League ni con Fantasy Premier League."
+    ],
+    [
+     "¿Puede cambiar mi equipo de FPL?",
+     "No. Solo lee tu equipo público a partir de tu ID; los cambios los haces en la app o la web de FPL."
+    ]
+   ]
+  },
+  "fpl-points-predictor": {
+   "label": "Predictor de puntos FPL",
+   "title": "Predictor de puntos FPL — puntos previstos de cada jugador | FPL Checker",
+   "description": "Predictor de puntos FPL gratis: los puntos de Fantasy Premier League previstos para cada jugador esta jornada y las cuatro siguientes, según forma, partidos, minutos, cuotas de apuestas y lesiones.",
+   "h1": "Predictor de puntos FPL",
+   "intro": "FPL Checker predice cuántos puntos de Fantasy Premier League sumará cada jugador esta jornada y en las cuatro siguientes. Introduce tu ID de equipo de FPL para ver previsto a toda tu plantilla.",
+   "s1": {
+    "h": "En qué se basan las predicciones",
+    "items": [
+     "<b>Partidos</b>: la fuerza de cada rival, local o visitante, y jornadas dobles o en blanco.",
+     "<b>Minutos</b>: si el jugador ha sido titular últimamente.",
+     "<b>Forma y estadísticas</b>: puntos recientes, goles y asistencias esperados, balón parado.",
+     "<b>Cuotas de apuestas</b> para goles y porterías a cero, y <b>noticias de lesiones</b>."
+    ]
+   },
+   "s2": {
+    "h": "Qué puedes hacer",
+    "items": [
+     "Ver los puntos previstos de tu plantilla, con el capitán doblado.",
+     "Elegir automáticamente el mejor once y el orden del banquillo.",
+     "Planificar fichajes para las próximas cinco jornadas."
+    ]
+   },
+   "faq": [
+    [
+     "¿Qué precisión tienen las predicciones de puntos de FPL?",
+     "Ninguna predicción sabe quién marcará, así que la de un jugador para una jornada falla por unos 1,3 puntos de media. Las predicciones aciertan mucho más al ordenar a los jugadores, que es lo que necesitas para elegir equipo, capitán o fichajes."
+    ],
+    [
+     "¿El predictor de puntos FPL es gratis?",
+     "Sí. Es gratis y no necesita cuenta."
+    ],
+    [
+     "¿Cada cuánto se actualizan las predicciones?",
+     "Cada día, y otra vez en las horas previas a cada fecha límite para incluir las últimas noticias de lesiones."
+    ]
+   ]
+  },
+  "fpl-captain-picks": {
+   "label": "Mejor capitán FPL",
+   "title": "Mejor capitán FPL esta jornada — opciones de capitán | FPL Checker",
+   "description": "A quién poner de capitán en FPL esta jornada: las mejores opciones ordenadas por puntos previstos, con la probabilidad de cada una de sumar 10 puntos o más y cuántos mánagers la tienen.",
+   "h1": "Mejor capitán FPL esta jornada",
+   "intro": "Tu capitán puntúa doble, así que es la decisión más importante de cada semana. FPL Checker valora como capitán a cada jugador de tu plantilla y propone una opción segura y una diferencial.",
+   "s1": {
+    "h": "Cómo se elige el capitán",
+    "items": [
+     "<b>Opción segura</b>: el jugador con más puntos previstos.",
+     "<b>Diferencial</b>: un jugador cerca de la opción segura pero en muchos menos equipos.",
+     "<b>Probabilidad de gran puntuación</b>: con qué frecuencia un jugador con esta previsión ha sumado 10 o más.",
+     "<b>Estado físico</b>: un jugador en duda es un capitán arriesgado, así que el brazalete va a alguien en forma."
+    ]
+   },
+   "s2": {
+    "h": "Triple Capitán",
+    "items": [
+     "Mira cuánto sumaría el Triple Capitán con tu plantilla en cada una de las próximas cinco jornadas.",
+     "Guárdalo para la semana en que más sume."
+    ]
+   },
+   "faq": [
+    [
+     "¿A quién pongo de capitán en FPL esta semana?",
+     "Normalmente al jugador con más puntos previstos que seguro vaya a ser titular. FPL Checker te muestra esa opción para tu plantilla y una diferencial si está lo bastante cerca."
+    ],
+    [
+     "¿Cuándo merece la pena un capitán diferencial?",
+     "Cuando necesitas recortar a tus rivales. Si defiendes una ventaja, es mejor la opción segura."
+    ],
+    [
+     "¿Es gratis?",
+     "Sí. Introduce tu ID de equipo; no hace falta cuenta."
+    ]
+   ]
+  },
+  "fpl-transfer-suggestions": {
+   "label": "Sugerencias de fichajes FPL",
+   "title": "Sugerencias de fichajes FPL — a quién comprar y vender | FPL Checker",
+   "description": "Sugerencias de fichajes de FPL para tu equipo: a quién vender, a quién fichar y si compensa una penalización de -4, planificado para las próximas cinco jornadas dentro de tu presupuesto.",
+   "h1": "Sugerencias de fichajes FPL",
+   "intro": "Introduce tu ID de equipo de FPL y FPL Checker te sugiere los fichajes que más puntos previstos suman a tu plantilla, dentro de tu presupuesto y del límite de tres jugadores por club.",
+   "s1": {
+    "h": "Cómo se sugieren los fichajes",
+    "items": [
+     "<b>A cinco jornadas, no a una</b>: una racha de partidos fáciles vale más que un buen partido.",
+     "<b>Penalizaciones incluidas</b>: solo se sugiere un -4 cuando gana más de 4 puntos.",
+     "<b>Guardar el fichaje gratis</b>: a veces lo mejor es reservarlo para la semana siguiente.",
+     "<b>Precios de venta</b>: tu presupuesto usa lo que FPL te paga de verdad por cada jugador."
+    ]
+   },
+   "s2": {
+    "h": "Planifícalo tú",
+    "items": [
+     "Abre tu equipo y pulsa Fichajes.",
+     "Quita a un jugador y elige un sustituto, o usa la selección automática.",
+     "Mira el cambio previsto para las próximas cinco jornadas antes de hacerlo en FPL."
+    ]
+   },
+   "faq": [
+    [
+     "¿Debo aceptar una penalización de -4 en FPL?",
+     "Solo si se prevé que el nuevo jugador sume más de 4 puntos que el que sale en las próximas jornadas. FPL Checker muestra esa cifra para cada fichaje planificado."
+    ],
+    [
+     "¿FPL Checker hace los fichajes por mí?",
+     "No. Nunca entra en FPL; los fichajes los haces en la app o la web de FPL."
+    ],
+    [
+     "¿Dónde encuentro mi ID de equipo de FPL?",
+     "En la web de FPL, abre la página de Puntos: tu ID de equipo es el número que aparece después de /entry/ en la dirección."
+    ]
+   ]
+  },
+  "rate-my-fpl-team": {
+   "label": "Valora mi equipo de FPL",
+   "title": "Valora mi equipo de FPL — análisis gratuito | FPL Checker",
+   "description": "Valora tu equipo de FPL gratis: puntos previstos de tu plantilla, una puntuación frente al mejor equipo posible, tu mejor once, capitán y sugerencias de fichajes.",
+   "h1": "Valora mi equipo de FPL",
+   "intro": "FPL Checker analiza tu equipo de Fantasy Premier League: cuántos puntos se prevé que sume, cómo se compara con la mejor plantilla que se puede comprar con 100 M£ y qué cambiar.",
+   "s1": {
+    "h": "Qué muestra el análisis",
+    "items": [
+     "<b>Puntuación de plantilla</b>: tus puntos previstos frente a la mejor plantilla posible.",
+     "<b>Mejor once y orden del banquillo</b>, con la formación elegida por ti.",
+     "<b>Avisos</b>: jugadores lesionados, sancionados o en duda, y bajadas de precio.",
+     "<b>Chips</b>: la mejor semana para Bench Boost y Triple Capitán."
+    ]
+   },
+   "s2": {
+    "h": "Tres formas de cargar tu equipo",
+    "items": [
+     "<b>ID de equipo</b>: el número después de /entry/ en tu página de Puntos de FPL.",
+     "<b>Captura</b>: sube una captura de tu equipo; se lee en tu dispositivo.",
+     "<b>Crea uno</b>: elige tú una plantilla para probar ideas."
+    ]
+   },
+   "faq": [
+    [
+     "¿Mi equipo de FPL es bueno?",
+     "Compara sus puntos previstos con la mejor plantilla de la misma jornada: FPL Checker lo muestra como una puntuación y qué cambios reducirían la diferencia."
+    ],
+    [
+     "¿Tengo que entrar con mi cuenta de FPL?",
+     "No. Tu ID de equipo solo muestra lo que ya es público; no puede cambiar tu equipo."
+    ],
+    [
+     "¿Puede valorar mi equipo antes de la fecha límite?",
+     "Sí. Usa tu último equipo visible, que es el mismo salvo que hayas hecho fichajes."
+    ]
+   ]
+  }
+ }
+}

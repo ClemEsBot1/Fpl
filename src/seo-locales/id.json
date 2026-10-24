@@ -1,0 +1,201 @@
+{
+ "ui": {
+  "cta": "Buka FPL Checker",
+  "questions": "Pertanyaan",
+  "more": "Lainnya dari FPL Checker",
+  "english": "Semua panduan (dalam bahasa Inggris)",
+  "footer": "FPL Checker adalah alat gratis untuk Fantasy Premier League. Tidak berafiliasi dengan Premier League maupun Fantasy Premier League."
+ },
+ "pages": {
+  "home": {
+   "label": "FPL Checker",
+   "title": "FPL Checker — prediksi poin FPL dan cek tim gratis",
+   "description": "Alat gratis untuk Fantasy Premier League: prediksi poin setiap pemain, XI terbaik dan kapten timmu, saran transfer, dan skuad terbaik £100m di setiap gameweek.",
+   "h1": "Cek tim FPL-mu. Prediksi poinmu.",
+   "intro": "FPL Checker adalah alat gratis untuk Fantasy Premier League. Masukkan ID tim FPL-mu atau unggah screenshot timmu untuk melihat prediksi poin setiap pemain, kapten terbaik, dan saran transfer untuk gameweek berikutnya.",
+   "s1": {
+    "h": "Apa yang dilakukannya",
+    "items": [
+     "<b>Prediksi poin</b> setiap pemain untuk gameweek ini dan empat berikutnya.",
+     "<b>Kapten</b>: pilihan terbaik untuk skuadmu dan satu pilihan differential.",
+     "<b>Transfer</b>: siapa yang dijual dan dibeli dalam lima gameweek ke depan, termasuk potongan poin.",
+     "<b>Mini-liga</b>: tim setiap rival diprediksi, dan di posisi mana kamu diperkirakan finis.",
+     "<b>Skuad terbaik</b>: tim terkuat yang bisa dibeli dengan £100m di gameweek ini."
+    ]
+   },
+   "s2": {
+    "h": "Cara memulai",
+    "items": [
+     "Temukan ID timmu: angka setelah /entry/ di alamat halaman Poin FPL-mu.",
+     "Masukkan di FPL Checker, atau unggah screenshot timmu.",
+     "Lihat prediksi poin, kapten, dan transfermu. Tanpa perlu akun."
+    ]
+   },
+   "faq": [
+    [
+     "Apakah FPL Checker gratis?",
+     "Ya. Gratis dan tanpa akun; akun hanya menyimpan timmu di semua perangkat."
+    ],
+    [
+     "Apakah FPL Checker bagian dari game FPL resmi?",
+     "Bukan. Ini alat independen buatan penggemar, tidak berafiliasi dengan Premier League maupun Fantasy Premier League."
+    ],
+    [
+     "Bisakah ia mengubah tim FPL-ku?",
+     "Tidak. Ia hanya membaca tim publikmu dari ID; perubahan kamu lakukan di aplikasi atau situs FPL."
+    ]
+   ]
+  },
+  "fpl-points-predictor": {
+   "label": "Prediksi poin FPL",
+   "title": "Prediksi Poin FPL — prediksi poin setiap pemain | FPL Checker",
+   "description": "Prediksi poin FPL gratis: prediksi poin Fantasy Premier League setiap pemain untuk gameweek ini dan empat berikutnya, dari performa, jadwal, menit bermain, odds taruhan, dan kabar cedera.",
+   "h1": "Prediksi poin FPL",
+   "intro": "FPL Checker memprediksi berapa poin Fantasy Premier League yang akan dicetak setiap pemain di gameweek ini dan empat berikutnya. Masukkan ID tim FPL-mu untuk melihat prediksi seluruh skuadmu.",
+   "s1": {
+    "h": "Dasar prediksinya",
+    "items": [
+     "<b>Jadwal</b>: kekuatan setiap lawan, kandang atau tandang, dan gameweek ganda atau kosong.",
+     "<b>Menit bermain</b>: apakah pemain itu jadi starter belakangan ini.",
+     "<b>Performa dan statistik</b>: poin terbaru, gol dan assist yang diharapkan, bola mati.",
+     "<b>Odds taruhan</b> untuk gol dan clean sheet, serta <b>kabar cedera</b>."
+    ]
+   },
+   "s2": {
+    "h": "Yang bisa kamu lakukan",
+    "items": [
+     "Melihat prediksi poin skuadmu, dengan poin kapten dua kali lipat.",
+     "Memilih XI terbaik dan urutan bangku cadangan secara otomatis.",
+     "Merencanakan transfer untuk lima gameweek ke depan."
+    ]
+   },
+   "faq": [
+    [
+     "Seberapa akurat prediksi poin FPL?",
+     "Tidak ada prediksi yang tahu siapa yang akan mencetak gol, jadi prediksi satu pemain untuk satu gameweek rata-rata meleset sekitar 1,3 poin. Prediksi jauh lebih baik dalam mengurutkan pemain, dan itulah yang kamu butuhkan untuk memilih tim, kapten, atau transfer."
+    ],
+    [
+     "Apakah prediksi poin FPL ini gratis?",
+     "Ya. Gratis dan tanpa akun."
+    ],
+    [
+     "Seberapa sering prediksi diperbarui?",
+     "Setiap hari, dan sekali lagi beberapa jam sebelum setiap deadline agar kabar cedera terbaru ikut dihitung."
+    ]
+   ]
+  },
+  "fpl-captain-picks": {
+   "label": "Kapten FPL terbaik",
+   "title": "Kapten FPL Terbaik Gameweek Ini — pilihan kapten | FPL Checker",
+   "description": "Siapa yang dijadikan kapten di FPL gameweek ini: pilihan terbaik berdasarkan prediksi poin, dengan peluang masing-masing mencetak 10 poin atau lebih dan berapa manajer yang memilikinya.",
+   "h1": "Kapten FPL terbaik gameweek ini",
+   "intro": "Kaptenmu mencetak poin dua kali lipat, jadi ia keputusan terpenting setiap minggu. FPL Checker menilai setiap pemain di skuadmu sebagai kapten dan menyarankan pilihan aman serta pilihan differential.",
+   "s1": {
+    "h": "Cara memilih kapten",
+    "items": [
+     "<b>Pilihan aman</b>: pemain dengan prediksi poin tertinggi.",
+     "<b>Differential</b>: pemain yang mendekati pilihan aman tapi dimiliki jauh lebih sedikit manajer.",
+     "<b>Peluang haul</b>: seberapa sering pemain dengan prediksi seperti ini mencetak 10 poin atau lebih.",
+     "<b>Kebugaran</b>: pemain yang diragukan adalah kapten berisiko, jadi ban kapten diberikan ke pemain yang fit."
+    ]
+   },
+   "s2": {
+    "h": "Triple Captain",
+    "items": [
+     "Lihat tambahan poin dari Triple Captain dengan skuadmu di setiap lima gameweek ke depan.",
+     "Simpan untuk minggu dengan tambahan terbesar."
+    ]
+   },
+   "faq": [
+    [
+     "Siapa yang kujadikan kapten di FPL minggu ini?",
+     "Biasanya pemain dengan prediksi poin tertinggi yang pasti jadi starter. FPL Checker menunjukkan pilihan itu untuk skuadmu, plus differential jika cukup dekat."
+    ],
+    [
+     "Kapan kapten differential layak dipilih?",
+     "Saat kamu perlu mengejar rival. Jika kamu mempertahankan keunggulan, pilihan aman lebih baik."
+    ],
+    [
+     "Apakah gratis?",
+     "Ya. Masukkan ID timmu; tanpa perlu akun."
+    ]
+   ]
+  },
+  "fpl-transfer-suggestions": {
+   "label": "Saran transfer FPL",
+   "title": "Saran Transfer FPL — siapa dibeli dan dijual | FPL Checker",
+   "description": "Saran transfer FPL untuk timmu: siapa yang dijual, siapa yang didatangkan, dan apakah potongan -4 sepadan, direncanakan untuk lima gameweek ke depan sesuai anggaranmu.",
+   "h1": "Saran transfer FPL",
+   "intro": "Masukkan ID tim FPL-mu dan FPL Checker menyarankan transfer yang paling menambah prediksi poin skuadmu, sesuai saldo dan aturan tiga pemain per klub.",
+   "s1": {
+    "h": "Cara transfer disarankan",
+    "items": [
+     "<b>Untuk lima gameweek, bukan satu</b>: rangkaian laga mudah lebih berharga daripada satu laga bagus.",
+     "<b>Potongan poin dihitung</b>: -4 hanya disarankan jika menambah lebih dari 4 poin.",
+     "<b>Menyimpan transfer gratis</b>: kadang langkah terbaik adalah menyimpannya untuk minggu depan.",
+     "<b>Harga jual</b>: anggaranmu memakai harga yang benar-benar dibayar FPL untuk setiap pemain."
+    ]
+   },
+   "s2": {
+    "h": "Rencanakan sendiri",
+    "items": [
+     "Buka timmu dan ketuk Transfer.",
+     "Keluarkan pemain lalu pilih penggantinya, atau gunakan pilih otomatis.",
+     "Lihat perubahan prediksi untuk lima gameweek ke depan sebelum melakukannya di FPL."
+    ]
+   },
+   "faq": [
+    [
+     "Haruskah aku menerima potongan -4 di FPL?",
+     "Hanya jika pemain baru diprediksi mencetak lebih dari 4 poin lebih banyak daripada pemain yang keluar dalam beberapa gameweek ke depan. FPL Checker menampilkan angka itu untuk setiap transfer yang direncanakan."
+    ],
+    [
+     "Apakah FPL Checker melakukan transfer untukku?",
+     "Tidak. Ia tidak pernah masuk ke FPL; kamu yang melakukan transfer di aplikasi atau situs FPL."
+    ],
+    [
+     "Di mana aku menemukan ID tim FPL-ku?",
+     "Di situs FPL, buka halaman Poin: ID timmu adalah angka setelah /entry/ di alamatnya."
+    ]
+   ]
+  },
+  "rate-my-fpl-team": {
+   "label": "Nilai tim FPL-ku",
+   "title": "Nilai Tim FPL-ku — cek tim gratis | FPL Checker",
+   "description": "Nilai tim FPL-mu gratis: prediksi poin skuadmu, skor dibandingkan tim terbaik, XI terbaik, kapten, dan saran transfer.",
+   "h1": "Nilai tim FPL-ku",
+   "intro": "FPL Checker memeriksa tim Fantasy Premier League-mu: berapa poin yang diprediksi, bagaimana perbandingannya dengan skuad terbaik £100m, dan apa yang perlu diubah.",
+   "s1": {
+    "h": "Yang ditunjukkan cek tim",
+    "items": [
+     "<b>Skor skuad</b>: prediksi poinmu dibandingkan skuad terbaik.",
+     "<b>XI terbaik dan urutan bangku cadangan</b>, dengan formasi yang dipilihkan.",
+     "<b>Peringatan</b>: pemain cedera, diskors, atau diragukan, dan penurunan harga.",
+     "<b>Chip</b>: minggu terbaik untuk Bench Boost dan Triple Captain."
+    ]
+   },
+   "s2": {
+    "h": "Tiga cara memuat timmu",
+    "items": [
+     "<b>ID tim</b>: angka setelah /entry/ di halaman Poin FPL-mu.",
+     "<b>Screenshot</b>: unggah screenshot timmu; dibaca di perangkatmu.",
+     "<b>Buat sendiri</b>: susun skuad sendiri untuk mencoba ide."
+    ]
+   },
+   "faq": [
+    [
+     "Apakah tim FPL-ku bagus?",
+     "Bandingkan prediksi poinnya dengan skuad terbaik di gameweek yang sama: FPL Checker menampilkannya sebagai skor, beserta perubahan yang akan memperkecil selisihnya."
+    ],
+    [
+     "Apakah aku perlu masuk dengan akun FPL?",
+     "Tidak. ID timmu hanya menampilkan yang sudah publik; ia tidak bisa mengubah timmu."
+    ],
+    [
+     "Bisakah ia menilai timku sebelum deadline?",
+     "Ya. Ia memakai tim terakhirmu yang terlihat, yang sama kecuali kamu sudah melakukan transfer."
+    ]
+   ]
+  }
+ }
+}

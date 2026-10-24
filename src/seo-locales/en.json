@@ -1,0 +1,201 @@
+{
+ "ui": {
+  "cta": "Open FPL Checker",
+  "questions": "Questions",
+  "more": "More from FPL Checker",
+  "english": "All guides (in English)",
+  "footer": "FPL Checker is a free Fantasy Premier League tool. It isn't affiliated with the Premier League or Fantasy Premier League."
+ },
+ "pages": {
+  "home": {
+   "label": "FPL Checker",
+   "title": "FPL Checker — free FPL points predictor and team checker",
+   "description": "Free Fantasy Premier League tool: predicted points for every player, your best XI and captain, transfer suggestions and the best £100m squad, every gameweek.",
+   "h1": "Check your FPL team. Predict your points.",
+   "intro": "FPL Checker is a free Fantasy Premier League tool. Enter your FPL Team ID or upload a screenshot of your team to see predicted points for every player, the best captain and transfer suggestions for the next gameweek.",
+   "s1": {
+    "h": "What it does",
+    "items": [
+     "<b>Predicted points</b> for every player this gameweek and the next four.",
+     "<b>Captain</b>: the best pick for your squad and a differential.",
+     "<b>Transfers</b>: who to sell and buy over the next five gameweeks, hits included.",
+     "<b>Mini-leagues</b>: every rival's team predicted, and where you are expected to finish.",
+     "<b>Best squad</b>: the strongest team £100m can buy this gameweek."
+    ]
+   },
+   "s2": {
+    "h": "How to start",
+    "items": [
+     "Find your Team ID: the number after /entry/ in the address of your FPL Points page.",
+     "Enter it in FPL Checker, or upload a screenshot of your team instead.",
+     "See your predicted points, captain and transfers. No account needed."
+    ]
+   },
+   "faq": [
+    [
+     "Is FPL Checker free?",
+     "Yes. It is free and needs no account; an account only saves your teams across devices."
+    ],
+    [
+     "Is FPL Checker part of the official FPL game?",
+     "No. It is an independent fan-made tool, not affiliated with the Premier League or Fantasy Premier League."
+    ],
+    [
+     "Can it change my FPL team?",
+     "No. It only reads your public team from your Team ID; you make your changes in the FPL app or website."
+    ]
+   ]
+  },
+  "fpl-points-predictor": {
+   "label": "FPL points predictor",
+   "title": "FPL Points Predictor — predicted points for every player | FPL Checker",
+   "description": "Free FPL points predictor: predicted Fantasy Premier League points for every player this gameweek and the next four, from form, fixtures, minutes, betting odds and injury news.",
+   "h1": "FPL points predictor",
+   "intro": "FPL Checker predicts how many Fantasy Premier League points every player will score this gameweek and over the next four. Enter your FPL Team ID to see your whole squad predicted.",
+   "s1": {
+    "h": "What the predictions use",
+    "items": [
+     "<b>Fixtures</b>: how strong each opponent is, home or away, and double or blank gameweeks.",
+     "<b>Minutes</b>: whether a player has been starting lately.",
+     "<b>Form and underlying stats</b>: recent points, expected goals and assists, set pieces.",
+     "<b>Betting odds</b> for goals and clean sheets, and <b>injury news</b>."
+    ]
+   },
+   "s2": {
+    "h": "What you can do with it",
+    "items": [
+     "See your squad's predicted points, captain doubled.",
+     "Pick the best starting XI and bench order automatically.",
+     "Plan transfers over the next five gameweeks."
+    ]
+   },
+   "faq": [
+    [
+     "How accurate are FPL points predictions?",
+     "No prediction knows who will score, so one player's prediction for one gameweek misses by about 1.3 points on average. Predictions are much better at ranking players, which is what picking a team, captain or transfer needs."
+    ],
+    [
+     "Is the FPL points predictor free?",
+     "Yes. It is free and needs no account."
+    ],
+    [
+     "How often are the predictions updated?",
+     "Every day, and again in the hours before each deadline so late injury news is included."
+    ]
+   ]
+  },
+  "fpl-captain-picks": {
+   "label": "Best FPL captain",
+   "title": "Best FPL Captain This Gameweek — captain picks | FPL Checker",
+   "description": "Who to captain in FPL this gameweek: the top captain options ranked by predicted points, with each one's chance of a 10-point haul and how many managers own him.",
+   "h1": "Best FPL captain this gameweek",
+   "intro": "Your captain scores double, so he is the biggest decision you make each week. FPL Checker ranks every player in your squad as a captain and suggests a safe pick and a differential.",
+   "s1": {
+    "h": "How the captain pick is made",
+    "items": [
+     "<b>Safe pick</b>: the player with the most predicted points.",
+     "<b>Differential</b>: a player close to the safe pick but owned by far fewer managers.",
+     "<b>Chance of a haul</b>: how often a player predicted like this has scored 10 or more.",
+     "<b>Fitness</b>: a doubtful player is a risky captain, so the armband goes to someone fit."
+    ]
+   },
+   "s2": {
+    "h": "Triple Captain",
+    "items": [
+     "See what Triple Captain would add with your squad in each of the next five gameweeks.",
+     "Save it for the week it adds the most."
+    ]
+   },
+   "faq": [
+    [
+     "Who should I captain in FPL this week?",
+     "Usually your player with the highest predicted points who is certain to start. FPL Checker shows that pick for your squad, plus a differential if one is close enough."
+    ],
+    [
+     "When is a differential captain worth it?",
+     "When you need to gain on rivals. If you are protecting a lead, the safe pick is better."
+    ],
+    [
+     "Is it free?",
+     "Yes. Enter your Team ID; no account needed."
+    ]
+   ]
+  },
+  "fpl-transfer-suggestions": {
+   "label": "FPL transfer suggestions",
+   "title": "FPL Transfer Suggestions — who to buy and sell | FPL Checker",
+   "description": "FPL transfer suggestions for your team: who to sell, who to bring in, and whether a -4 hit pays off, planned over the next five gameweeks within your budget.",
+   "h1": "FPL transfer suggestions",
+   "intro": "Enter your FPL Team ID and FPL Checker suggests the transfers that add the most predicted points to your squad, within your bank and the three-per-club rule.",
+   "s1": {
+    "h": "How transfers are suggested",
+    "items": [
+     "<b>Over five gameweeks, not one</b>: an easy run of fixtures is worth more than one good match.",
+     "<b>Hits counted</b>: a -4 is only suggested when it gains more than 4 points.",
+     "<b>Rolling a free transfer</b>: sometimes the best move is to save it for next week.",
+     "<b>Selling prices</b>: your budget uses what FPL actually pays you for each player."
+    ]
+   },
+   "s2": {
+    "h": "Plan it yourself",
+    "items": [
+     "Open your team and press Transfers.",
+     "Remove a player and pick a replacement, or use Auto pick.",
+     "See the predicted change over the next five gameweeks before you make it in FPL."
+    ]
+   },
+   "faq": [
+    [
+     "Should I take a -4 hit in FPL?",
+     "Only when the new player is predicted to outscore the old one by more than 4 points over the next few gameweeks. FPL Checker shows that figure for every planned transfer."
+    ],
+    [
+     "Does FPL Checker make transfers for me?",
+     "No. It never logs into FPL; you make the transfers in the FPL app or website."
+    ],
+    [
+     "Where do I find my FPL Team ID?",
+     "On the FPL website, open the Points page: your Team ID is the number after /entry/ in the address."
+    ]
+   ]
+  },
+  "rate-my-fpl-team": {
+   "label": "Rate my FPL team",
+   "title": "Rate My FPL Team — free FPL team checker | FPL Checker",
+   "description": "Rate your FPL team for free: predicted points for your squad, a squad score against the best possible team, your best XI, captain and transfer suggestions.",
+   "h1": "Rate my FPL team",
+   "intro": "FPL Checker checks your Fantasy Premier League team: how many points it is predicted to score, how it compares with the best squad £100m can buy, and what to change.",
+   "s1": {
+    "h": "What the team check shows",
+    "items": [
+     "<b>Squad score</b>: your predicted points against the best possible squad.",
+     "<b>Best XI and bench order</b>, with the formation picked for you.",
+     "<b>Flags</b>: injured, suspended or doubtful players and price drops.",
+     "<b>Chips</b>: the best week for Bench Boost and Triple Captain."
+    ]
+   },
+   "s2": {
+    "h": "Three ways to load your team",
+    "items": [
+     "<b>Team ID</b>: the number after /entry/ on your FPL Points page.",
+     "<b>Screenshot</b>: upload a screenshot of your team; it is read on your device.",
+     "<b>Build one</b>: pick a squad yourself to try out ideas."
+    ]
+   },
+   "faq": [
+    [
+     "Is my FPL team any good?",
+     "Compare its predicted points with the best squad for the same gameweek: FPL Checker shows this as a squad score, and which changes would close the gap."
+    ],
+    [
+     "Do I need to log in with my FPL account?",
+     "No. Your Team ID only shows what is already public; it can't change your team."
+    ],
+    [
+     "Can it rate my team before the deadline?",
+     "Yes. It uses your latest visible team, which is the same unless you have made transfers."
+    ]
+   ]
+  }
+ }
+}
