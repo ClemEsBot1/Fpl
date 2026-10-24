@@ -42,3 +42,38 @@ test('every guide page declares the favicon Google shows in search results', () 
     assert.ok(html.includes('href="/favicon-96x96.png"'), path);
   }
 });
+
+test('the translated pages link every language version both ways, in their own language', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { SEO_LANGS, TRANSLATED_PAGES, alternatesFor, translatedPages } = await import('../src/lib/seoPage.js');
+  const read = lang => JSON.parse(readFileSync(new URL(`../src/seo-locales/${lang}.json`, import.meta.url), 'utf8'));
+  const en = read('en');
+  const shape = d => JSON.stringify(d, (k, v) => (typeof v === 'string' ? '' : v));
+  const locales = Object.fromEntries(SEO_LANGS.map(lang => [lang, read(lang)]));
+  for (const lang of SEO_LANGS) {
+    assert.equal(shape(locales[lang]), shape(en), `${lang}.json has every string en.json has`);
+    assert.ok(locales[lang].ui.footer.includes('FPL Checker'), `${lang} footer names the site`);
+  }
+  const pages = translatedPages(locales);
+  assert.equal(pages.length, SEO_LANGS.length * TRANSLATED_PAGES.length);
+  const byPath = new Map([...pages, ...staticPages()].map(p => [p.path, p.html]));
+  byPath.set('/', readFileSync(new URL('../index.html', import.meta.url), 'utf8').replace(/ \/>/g, '>'));
+  for (const key of TRANSLATED_PAGES) {
+    const versions = alternatesFor(key);
+    assert.equal(versions.length, SEO_LANGS.length + 1);
+    for (const { path } of versions) {
+      const html = byPath.get(path);
+      assert.ok(html, `${path} exists`);
+      for (const v of versions) assert.ok(html.includes(`<link rel="alternate" hreflang="${v.lang}" href="https://fplchecker.co.uk${v.path}">`), `${path} links to ${v.path}`);
+      assert.ok(html.includes(`hreflang="x-default" href="https://fplchecker.co.uk${versions[0].path}"`), `${path} has an x-default`);
+    }
+  }
+  const es = byPath.get('/es/fpl-captain-picks');
+  assert.match(es, /<html lang="es">/);
+  assert.match(es, /href="\/\?lang=es">Abrir FPL Checker</);
+  assert.match(es, /<link rel="canonical" href="https:\/\/fplchecker.co.uk\/es\/fpl-captain-picks">/);
+  assert.match(byPath.get('/ar/'), /<html lang="ar" dir="rtl">/);
+  assert.ok(!/&lt;b&gt;/.test(es) && /<b>/.test(es), 'bold kept, nothing else unescaped');
+  const ld = ldBlocks(byPath.get('/fr/')).find(d => d['@type'] === 'BreadcrumbList');
+  assert.equal(ld.itemListElement.length, 1, 'a home page is its own only crumb');
+});

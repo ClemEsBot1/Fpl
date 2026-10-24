@@ -1,0 +1,201 @@
+{
+ "ui": {
+  "cta": "FPL Checker openen",
+  "questions": "Vragen",
+  "more": "Meer van FPL Checker",
+  "english": "Alle gidsen (in het Engels)",
+  "footer": "FPL Checker is een gratis tool voor Fantasy Premier League. Het is niet verbonden aan de Premier League of Fantasy Premier League."
+ },
+ "pages": {
+  "home": {
+   "label": "FPL Checker",
+   "title": "FPL Checker — gratis FPL-puntenvoorspeller en teamcheck",
+   "description": "Gratis tool voor Fantasy Premier League: voorspelde punten voor elke speler, je beste elftal en aanvoerder, transfertips en de beste selectie voor £100m, elke speelronde.",
+   "h1": "Check je FPL-team. Voorspel je punten.",
+   "intro": "FPL Checker is een gratis tool voor Fantasy Premier League. Vul je FPL-team-ID in of upload een screenshot van je team en zie de voorspelde punten van elke speler, de beste aanvoerder en transfertips voor de volgende speelronde.",
+   "s1": {
+    "h": "Wat het doet",
+    "items": [
+     "<b>Voorspelde punten</b> voor elke speler deze speelronde en de vier daarna.",
+     "<b>Aanvoerder</b>: de beste keuze voor je selectie en een differential.",
+     "<b>Transfers</b>: wie je de komende vijf speelrondes verkoopt en koopt, inclusief puntenaftrek.",
+     "<b>Minicompetities</b>: het team van elke rivaal voorspeld en waar je naar verwachting eindigt.",
+     "<b>Beste selectie</b>: het sterkste team dat je deze speelronde voor £100m kunt kopen."
+    ]
+   },
+   "s2": {
+    "h": "Zo begin je",
+    "items": [
+     "Zoek je team-ID: het getal na /entry/ in het adres van je FPL-puntenpagina.",
+     "Vul het in bij FPL Checker, of upload een screenshot van je team.",
+     "Bekijk je voorspelde punten, aanvoerder en transfers. Geen account nodig."
+    ]
+   },
+   "faq": [
+    [
+     "Is FPL Checker gratis?",
+     "Ja. Het is gratis en je hebt geen account nodig; een account bewaart alleen je teams op al je apparaten."
+    ],
+    [
+     "Hoort FPL Checker bij het officiële FPL-spel?",
+     "Nee. Het is een onafhankelijke tool van fans, niet verbonden aan de Premier League of Fantasy Premier League."
+    ],
+    [
+     "Kan het mijn FPL-team aanpassen?",
+     "Nee. Het leest alleen je openbare team via je ID; wijzigingen doe je in de FPL-app of op de FPL-website."
+    ]
+   ]
+  },
+  "fpl-points-predictor": {
+   "label": "FPL-puntenvoorspeller",
+   "title": "FPL-puntenvoorspeller — voorspelde punten voor elke speler | FPL Checker",
+   "description": "Gratis FPL-puntenvoorspeller: de voorspelde Fantasy Premier League-punten van elke speler deze speelronde en de vier daarna, op basis van vorm, wedstrijden, speelminuten, wedkansen en blessures.",
+   "h1": "FPL-puntenvoorspeller",
+   "intro": "FPL Checker voorspelt hoeveel Fantasy Premier League-punten elke speler deze speelronde en de vier daarna haalt. Vul je FPL-team-ID in en zie de voorspelling voor je hele selectie.",
+   "s1": {
+    "h": "Waar de voorspellingen op steunen",
+    "items": [
+     "<b>Wedstrijden</b>: hoe sterk elke tegenstander is, thuis of uit, en dubbele of lege speelrondes.",
+     "<b>Speelminuten</b>: of de speler de laatste tijd in de basis stond.",
+     "<b>Vorm en statistieken</b>: recente punten, verwachte goals en assists, standaardsituaties.",
+     "<b>Wedkansen</b> voor goals en clean sheets, en <b>blessurenieuws</b>."
+    ]
+   },
+   "s2": {
+    "h": "Wat je ermee kunt",
+    "items": [
+     "De voorspelde punten van je selectie zien, aanvoerder dubbel.",
+     "Automatisch het beste elftal en de volgorde op de bank kiezen.",
+     "Transfers plannen voor de komende vijf speelrondes."
+    ]
+   },
+   "faq": [
+    [
+     "Hoe nauwkeurig zijn FPL-puntenvoorspellingen?",
+     "Geen voorspelling weet wie scoort: voor één speler in één speelronde zit hij er gemiddeld zo'n 1,3 punt naast. Voorspellingen zijn veel beter in het rangschikken van spelers, en dat is wat je nodig hebt voor je team, aanvoerder of transfers."
+    ],
+    [
+     "Is de FPL-puntenvoorspeller gratis?",
+     "Ja. Hij is gratis en je hebt geen account nodig."
+    ],
+    [
+     "Hoe vaak worden de voorspellingen bijgewerkt?",
+     "Elke dag, en opnieuw in de uren voor elke deadline zodat laat blessurenieuws meetelt."
+    ]
+   ]
+  },
+  "fpl-captain-picks": {
+   "label": "Beste FPL-aanvoerder",
+   "title": "Beste FPL-aanvoerder deze speelronde — aanvoerderskeuzes | FPL Checker",
+   "description": "Wie je deze speelronde in FPL aanvoerder maakt: de beste opties op voorspelde punten, met hun kans op 10 punten of meer en hoeveel managers ze hebben.",
+   "h1": "Beste FPL-aanvoerder deze speelronde",
+   "intro": "Je aanvoerder scoort dubbel, dus hij is je belangrijkste beslissing van de week. FPL Checker beoordeelt elke speler in je selectie als aanvoerder en stelt een veilige keuze en een differential voor.",
+   "s1": {
+    "h": "Hoe de aanvoerder wordt gekozen",
+    "items": [
+     "<b>Veilige keuze</b>: de speler met de meeste voorspelde punten.",
+     "<b>Differential</b>: een speler vlak achter de veilige keuze maar in veel minder teams.",
+     "<b>Kans op een uitschieter</b>: hoe vaak een speler met zo'n voorspelling 10 of meer punten haalde.",
+     "<b>Fitheid</b>: een twijfelachtige speler is een riskante aanvoerder, dus de band gaat naar iemand die fit is."
+    ]
+   },
+   "s2": {
+    "h": "Triple Captain",
+    "items": [
+     "Zie wat Triple Captain met jouw selectie oplevert in elk van de komende vijf speelrondes.",
+     "Bewaar hem voor de week waarin hij het meest oplevert."
+    ]
+   },
+   "faq": [
+    [
+     "Wie maak ik deze week aanvoerder in FPL?",
+     "Meestal je speler met de meeste voorspelde punten die zeker start. FPL Checker toont die keuze voor je selectie, plus een differential als die dichtbij genoeg zit."
+    ],
+    [
+     "Wanneer is een differential als aanvoerder het waard?",
+     "Als je op rivalen moet inlopen. Verdedig je een voorsprong, dan is de veilige keuze beter."
+    ],
+    [
+     "Is het gratis?",
+     "Ja. Vul je team-ID in; geen account nodig."
+    ]
+   ]
+  },
+  "fpl-transfer-suggestions": {
+   "label": "FPL-transfertips",
+   "title": "FPL-transfertips — wie kopen en verkopen | FPL Checker",
+   "description": "FPL-transfertips voor je team: wie je verkoopt, wie je haalt en of een -4 aftrek loont, gepland over de komende vijf speelrondes en binnen je budget.",
+   "h1": "FPL-transfertips",
+   "intro": "Vul je FPL-team-ID in en FPL Checker stelt de transfers voor die je selectie de meeste voorspelde punten opleveren, binnen je budget en de regel van drie spelers per club.",
+   "s1": {
+    "h": "Hoe transfers worden voorgesteld",
+    "items": [
+     "<b>Over vijf speelrondes, niet één</b>: een reeks makkelijke wedstrijden is meer waard dan één goede wedstrijd.",
+     "<b>Aftrek meegerekend</b>: een -4 wordt alleen voorgesteld als hij meer dan 4 punten oplevert.",
+     "<b>Vrije transfer bewaren</b>: soms is het beste om hem voor volgende week te sparen.",
+     "<b>Verkoopprijzen</b>: je budget rekent met wat FPL je echt voor elke speler betaalt."
+    ]
+   },
+   "s2": {
+    "h": "Zelf plannen",
+    "items": [
+     "Open je team en tik op Transfers.",
+     "Haal een speler weg en kies een vervanger, of gebruik automatisch kiezen.",
+     "Zie de voorspelde verandering over de komende vijf speelrondes voordat je hem in FPL doet."
+    ]
+   },
+   "faq": [
+    [
+     "Moet ik in FPL een -4 aftrek nemen?",
+     "Alleen als de nieuwe speler de komende speelrondes naar verwachting meer dan 4 punten meer haalt dan de speler die vertrekt. FPL Checker toont dat getal voor elke geplande transfer."
+    ],
+    [
+     "Doet FPL Checker de transfers voor mij?",
+     "Nee. Het logt nooit in bij FPL; je doet de transfers in de FPL-app of op de FPL-website."
+    ],
+    [
+     "Waar vind ik mijn FPL-team-ID?",
+     "Open op de FPL-website de puntenpagina: je team-ID is het getal na /entry/ in het adres."
+    ]
+   ]
+  },
+  "rate-my-fpl-team": {
+   "label": "Beoordeel mijn FPL-team",
+   "title": "Beoordeel mijn FPL-team — gratis teamcheck | FPL Checker",
+   "description": "Beoordeel je FPL-team gratis: voorspelde punten van je selectie, een score tegenover het best mogelijke team, je beste elftal, aanvoerder en transfertips.",
+   "h1": "Beoordeel mijn FPL-team",
+   "intro": "FPL Checker controleert je Fantasy Premier League-team: hoeveel punten het naar verwachting haalt, hoe het zich verhoudt tot de beste selectie voor £100m en wat je moet veranderen.",
+   "s1": {
+    "h": "Wat de teamcheck laat zien",
+    "items": [
+     "<b>Selectiescore</b>: je voorspelde punten tegenover de best mogelijke selectie.",
+     "<b>Beste elftal en bankvolgorde</b>, met de formatie voor je gekozen.",
+     "<b>Waarschuwingen</b>: geblesseerde, geschorste of twijfelachtige spelers en prijsdalingen.",
+     "<b>Chips</b>: de beste week voor Bench Boost en Triple Captain."
+    ]
+   },
+   "s2": {
+    "h": "Drie manieren om je team te laden",
+    "items": [
+     "<b>Team-ID</b>: het getal na /entry/ op je FPL-puntenpagina.",
+     "<b>Screenshot</b>: upload een screenshot van je team; die wordt op je apparaat gelezen.",
+     "<b>Zelf maken</b>: stel zelf een selectie samen om ideeën uit te proberen."
+    ]
+   },
+   "faq": [
+    [
+     "Is mijn FPL-team goed?",
+     "Vergelijk de voorspelde punten met de beste selectie van dezelfde speelronde: FPL Checker toont dat als score en welke wijzigingen het verschil kleiner maken."
+    ],
+    [
+     "Moet ik inloggen met mijn FPL-account?",
+     "Nee. Je team-ID laat alleen zien wat al openbaar is; het kan je team niet aanpassen."
+    ],
+    [
+     "Kan het mijn team voor de deadline beoordelen?",
+     "Ja. Het gebruikt je laatst zichtbare team, dat hetzelfde is tenzij je transfers hebt gedaan."
+    ]
+   ]
+  }
+ }
+}

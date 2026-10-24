@@ -59,13 +59,39 @@ export const EXTENSION_STORE_URL = '';
 export const DYNAMIC_GUIDES = ['/fpl-predictions', '/fpl-players', '/fpl-tips', '/fpl-deadline', '/fpl-price-changes', '/fpl-differentials', '/fpl-double-gameweek', '/fpl-blank-gameweek', '/fpl-prediction-accuracy',
   '/fpl-best-goalkeepers', '/fpl-best-defenders', '/fpl-best-midfielders', '/fpl-best-forwards', '/fpl-budget-players', '/fpl-fixture-difficulty', '/fpl-injuries', '/fpl-most-owned', '/fpl-in-form'];
 
+// The pages translated into other languages (src/seo-locales/<code>.json,
+// built by translatedPages): the home page and four guides, at /<code>/ and
+// /<code>/<guide>. Each lists the others as hreflang alternates.
+export const SEO_LANGS = ['es', 'fr', 'de', 'pt', 'it', 'nl', 'ar', 'id', 'hi', 'ko'];
+export const TRANSLATED_PAGES = ['home', 'fpl-points-predictor', 'fpl-captain-picks', 'fpl-transfer-suggestions', 'rate-my-fpl-team'];
+const RTL_LANGS = new Set(['ar']);
+const pagePath = (lang, key) => (lang === 'en' ? '' : `/${lang}`) + (key === 'home' ? '/' : `/${key}`);
+
+// The hreflang links for a translated page in every language: [{ lang, path }],
+// English first (also the x-default).
+export function alternatesFor(key) {
+  return ['en', ...SEO_LANGS].map(lang => ({ lang, path: pagePath(lang, key) }));
+}
+
+const hreflangLinks = alternates => (alternates.length
+  ? `${alternates.map(a => `<link rel="alternate" hreflang="${a.lang}" href="${SITE + a.path}">`).join('\n')}\n<link rel="alternate" hreflang="x-default" href="${SITE + alternates[0].path}">\n`
+  : '');
+
+const UI_EN = {
+  questions: 'Questions',
+  more: 'More from FPL Checker',
+  footer: 'FPL Checker is a free Fantasy Premier League tool. It isn\'t affiliated with the Premier League or Fantasy Premier League.',
+};
+
 // A whole page. body is HTML; faq is [[question, answer]] (plain text).
 // crumbs are the pages between the home page and this one ([{ name, path }]);
 // canonical is the address search engines should list it under, when
 // that's another page; noindex keeps a not-found page out of search.
-export function layout({ path, title, description, h1, intro, body, faq = [], cta = { href: '/', label: 'Open FPL Checker' }, extraJsonLd = [], crumbs = [], canonical = path, noindex = false, image = '/og-image.png' }) {
+// A translated page also passes its lang, home (/<lang>/), ui strings and
+// nav; alternates are its hreflang versions (alternatesFor).
+export function layout({ path, title, description, h1, intro, body, faq = [], cta = { href: '/', label: 'Open FPL Checker' }, extraJsonLd = [], crumbs = [], canonical = path, noindex = false, image = '/og-image.png', lang = 'en-GB', home = '/', ui = UI_EN, nav: navHtml, alternates = [] }) {
   const url = SITE + path;
-  const trail = [{ name: SITE_NAME, path: '/' }, ...crumbs, { name: h1, path }];
+  const trail = path === home ? [{ name: SITE_NAME, path }] : [{ name: SITE_NAME, path: home }, ...crumbs, { name: h1, path }];
   const jsonLd = [
     {
       '@context': 'https://schema.org',
@@ -79,16 +105,16 @@ export function layout({ path, title, description, h1, intro, body, faq = [], ct
     }] : []),
     ...extraJsonLd,
   ];
-  const nav = GUIDES.map(g => `<a href="${g.path}"${g.path === path ? ' aria-current="page"' : ''}>${escapeHtml(g.label)}</a>`).join('');
+  const nav = navHtml || GUIDES.map(g => `<a href="${g.path}"${g.path === path ? ' aria-current="page"' : ''}>${escapeHtml(g.label)}</a>`).join('');
   return `<!doctype html>
-<html lang="en-GB">
+<html lang="${lang}"${RTL_LANGS.has(lang) ? ' dir="rtl"' : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}">
 ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${SITE + canonical}">`}
-<meta name="theme-color" content="#0a081e">
+${hreflangLinks(alternates)}<meta name="theme-color" content="#0a081e">
 <link rel="icon" href="/favicon-48x48.png" type="image/png" sizes="48x48">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" href="/favicon-96x96.png" type="image/png" sizes="96x96">
@@ -106,17 +132,17 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" hr
 ${jsonLd.map(d => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
 </head>
 <body>
-<header class="seo-head"><a class="seo-brand" href="/"><i aria-hidden="true"></i>FPL <span>CHECKER</span></a><a class="seo-btn" href="${cta.href}">${escapeHtml(cta.label)}</a></header>
+<header class="seo-head"><a class="seo-brand" dir="ltr" href="${home}"><i aria-hidden="true"></i>FPL <span>CHECKER</span></a><a class="seo-btn" href="${cta.href}">${escapeHtml(cta.label)}</a></header>
 <main class="seo-main">
 ${crumbs.length ? `<nav class="seo-crumbs" aria-label="Breadcrumb">${trail.slice(0, -1).map(c => `<a href="${c.path}">${escapeHtml(c.name)}</a>`).join(' / ')}</nav>` : ''}
 <h1>${escapeHtml(h1)}</h1>
 <p class="seo-intro">${intro}</p>
 <p><a class="seo-btn seo-btn-big" href="${cta.href}">${escapeHtml(cta.label)}</a></p>
 ${body}
-${faq.length ? `<section class="seo-card"><h2>Questions</h2>${faq.map(([q, a]) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join('')}</section>` : ''}
-<nav class="seo-card seo-nav" aria-label="More FPL guides"><h2>More from FPL Checker</h2>${nav}</nav>
+${faq.length ? `<section class="seo-card"><h2>${escapeHtml(ui.questions)}</h2>${faq.map(([q, a]) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join('')}</section>` : ''}
+<nav class="seo-card seo-nav" aria-label="More FPL guides"><h2>${escapeHtml(ui.more)}</h2>${nav}</nav>
 </main>
-<footer class="seo-foot"><p><a href="/">FPL Checker</a> is a free Fantasy Premier League tool. It isn't affiliated with the Premier League or Fantasy Premier League.</p></footer>
+<footer class="seo-foot"><p>${escapeHtml(ui.footer).replace(SITE_NAME, `<a href="${home}">${SITE_NAME}</a>`)}</p></footer>
 </body>
 </html>
 `;
@@ -136,6 +162,7 @@ export function staticPages() {
       path: '/fpl-points-predictor',
       html: layout({
         path: '/fpl-points-predictor',
+        alternates: alternatesFor('fpl-points-predictor'),
         title: 'FPL Points Predictor — predicted points for every player | FPL Checker',
         description: 'Free FPL points predictor: predicted Fantasy Premier League points for every player this gameweek and the next five, from form, fixtures, minutes, betting odds and injury news.',
         h1: 'FPL points predictor',
@@ -165,6 +192,7 @@ export function staticPages() {
       path: '/fpl-captain-picks',
       html: layout({
         path: '/fpl-captain-picks',
+        alternates: alternatesFor('fpl-captain-picks'),
         title: 'Best FPL Captain This Gameweek — captain picks and differentials | FPL Checker',
         description: 'Who to captain in FPL this gameweek: the top captain options ranked by predicted points, each with their chance of a 10-point haul and how many managers own them.',
         h1: 'Best FPL captain this gameweek',
@@ -187,6 +215,7 @@ export function staticPages() {
       path: '/fpl-transfer-suggestions',
       html: layout({
         path: '/fpl-transfer-suggestions',
+        alternates: alternatesFor('fpl-transfer-suggestions'),
         title: 'FPL Transfer Suggestions — who to buy and sell this week | FPL Checker',
         description: 'FPL transfer suggestions for your team: who to sell, who to bring in, and whether a -4 hit pays off, planned over the next five gameweeks within your budget.',
         h1: 'FPL transfer suggestions',
@@ -213,6 +242,7 @@ export function staticPages() {
       path: '/rate-my-fpl-team',
       html: layout({
         path: '/rate-my-fpl-team',
+        alternates: alternatesFor('rate-my-fpl-team'),
         title: 'Rate My FPL Team — free FPL team checker | FPL Checker',
         description: 'Rate your FPL team for free: predicted points for your squad, a squad score against the best possible team, your best XI, captain and transfer suggestions. From your Team ID or a screenshot.',
         h1: 'Rate my FPL team',
@@ -483,3 +513,41 @@ export function predictionsPage({ gwName, deadline, players, best, updatedAt, na
 
 // The pages in public/sitemap-pages.xml; the rest are in /sitemap-fpl.xml.
 export const SEO_PATHS = ['/', ...GUIDES.map(g => g.path).filter(p => p !== '/fpl-players')];
+
+// The translated pages (see SEO_LANGS): { path, html } for each language and
+// page, from `locales` ({ <code>: the parsed src/seo-locales/<code>.json }).
+// "Open FPL Checker" opens the app in that language (?lang=, i18nLoad.js).
+// Translated text is escaped, keeping only its <b> tags.
+const bold = text => escapeHtml(text).replace(/&lt;(\/?)b&gt;/g, '<$1b>');
+
+export function translatedPages(locales) {
+  return SEO_LANGS.flatMap(lang => {
+    const { ui, pages } = locales[lang];
+    const home = pagePath(lang, 'home');
+    const nav = TRANSLATED_PAGES.map(k => `<a href="${pagePath(lang, k)}">${escapeHtml(pages[k].label)}</a>`).join('') + `<a href="/" hreflang="en">${escapeHtml(ui.english)}</a>`;
+    return TRANSLATED_PAGES.map(key => {
+      const page = pages[key];
+      const path = pagePath(lang, key);
+      return {
+        path,
+        html: layout({
+          path,
+          lang,
+          home,
+          ui,
+          nav: nav.replace(`href="${path}"`, `href="${path}" aria-current="page"`),
+          alternates: alternatesFor(key),
+          title: page.title,
+          description: page.description,
+          h1: page.h1,
+          intro: escapeHtml(page.intro),
+          body: section(page.s1.h, list(page.s1.items.map(bold))) + section(page.s2.h, list(page.s2.items.map(bold))),
+          faq: page.faq,
+          cta: { href: `/?lang=${lang}`, label: ui.cta },
+        }),
+      };
+    });
+  });
+}
+
+export const TRANSLATED_PATHS = SEO_LANGS.flatMap(lang => TRANSLATED_PAGES.map(key => pagePath(lang, key)));

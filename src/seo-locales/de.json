@@ -1,0 +1,201 @@
+{
+ "ui": {
+  "cta": "FPL Checker öffnen",
+  "questions": "Fragen",
+  "more": "Mehr von FPL Checker",
+  "english": "Alle Ratgeber (auf Englisch)",
+  "footer": "FPL Checker ist ein kostenloses Tool für Fantasy Premier League. Es steht in keiner Verbindung zur Premier League oder zu Fantasy Premier League."
+ },
+ "pages": {
+  "home": {
+   "label": "FPL Checker",
+   "title": "FPL Checker — kostenlose FPL-Punkteprognose und Team-Check",
+   "description": "Kostenloses Tool für Fantasy Premier League: prognostizierte Punkte für jeden Spieler, deine beste Elf und dein Kapitän, Transfervorschläge und der beste Kader für 100 Mio. £, an jedem Spieltag.",
+   "h1": "Prüfe dein FPL-Team. Sag deine Punkte voraus.",
+   "intro": "FPL Checker ist ein kostenloses Tool für Fantasy Premier League. Gib deine FPL-Team-ID ein oder lade einen Screenshot deines Teams hoch und sieh die prognostizierten Punkte jedes Spielers, den besten Kapitän und Transfervorschläge für den nächsten Spieltag.",
+   "s1": {
+    "h": "Was es kann",
+    "items": [
+     "<b>Prognostizierte Punkte</b> für jeden Spieler an diesem und den nächsten vier Spieltagen.",
+     "<b>Kapitän</b>: die beste Wahl für deinen Kader und eine Differential-Option.",
+     "<b>Transfers</b>: wen du in den nächsten fünf Spieltagen verkaufen und kaufen solltest, Punktabzüge eingerechnet.",
+     "<b>Mini-Ligen</b>: das Team jedes Rivalen prognostiziert und deine erwartete Platzierung.",
+     "<b>Bester Kader</b>: das stärkste Team, das 100 Mio. £ an diesem Spieltag kaufen können."
+    ]
+   },
+   "s2": {
+    "h": "So geht's los",
+    "items": [
+     "Finde deine Team-ID: die Zahl nach /entry/ in der Adresse deiner FPL-Punkteseite.",
+     "Gib sie in FPL Checker ein oder lade stattdessen einen Screenshot deines Teams hoch.",
+     "Sieh deine prognostizierten Punkte, deinen Kapitän und deine Transfers. Kein Konto nötig."
+    ]
+   },
+   "faq": [
+    [
+     "Ist FPL Checker kostenlos?",
+     "Ja. Es ist kostenlos und braucht kein Konto; ein Konto speichert nur deine Teams geräteübergreifend."
+    ],
+    [
+     "Gehört FPL Checker zum offiziellen FPL-Spiel?",
+     "Nein. Es ist ein unabhängiges Fan-Tool ohne Verbindung zur Premier League oder zu Fantasy Premier League."
+    ],
+    [
+     "Kann es mein FPL-Team ändern?",
+     "Nein. Es liest nur dein öffentliches Team über deine ID; Änderungen machst du in der FPL-App oder auf der FPL-Website."
+    ]
+   ]
+  },
+  "fpl-points-predictor": {
+   "label": "FPL-Punkteprognose",
+   "title": "FPL-Punkteprognose — prognostizierte Punkte für jeden Spieler | FPL Checker",
+   "description": "Kostenlose FPL-Punkteprognose: die prognostizierten Fantasy-Premier-League-Punkte jedes Spielers für diesen und die nächsten vier Spieltage, aus Form, Spielplan, Einsatzzeit, Wettquoten und Verletzungen.",
+   "h1": "FPL-Punkteprognose",
+   "intro": "FPL Checker sagt voraus, wie viele Fantasy-Premier-League-Punkte jeder Spieler an diesem und den nächsten vier Spieltagen holt. Gib deine FPL-Team-ID ein und sieh die Prognose für deinen ganzen Kader.",
+   "s1": {
+    "h": "Worauf die Prognosen beruhen",
+    "items": [
+     "<b>Spielplan</b>: wie stark jeder Gegner ist, Heim- oder Auswärtsspiel, Doppel- oder Leerspieltage.",
+     "<b>Einsatzzeit</b>: ob der Spieler zuletzt in der Startelf stand.",
+     "<b>Form und Statistiken</b>: aktuelle Punkte, erwartete Tore und Vorlagen, Standards.",
+     "<b>Wettquoten</b> für Tore und Zu-null-Spiele sowie <b>Verletzungsnews</b>."
+    ]
+   },
+   "s2": {
+    "h": "Was du damit machen kannst",
+    "items": [
+     "Die prognostizierten Punkte deines Kaders sehen, Kapitän doppelt gezählt.",
+     "Automatisch die beste Startelf und Bankreihenfolge wählen.",
+     "Transfers für die nächsten fünf Spieltage planen."
+    ]
+   },
+   "faq": [
+    [
+     "Wie genau sind FPL-Punkteprognosen?",
+     "Keine Prognose weiß, wer trifft: Für einen Spieler an einem Spieltag liegt sie im Schnitt etwa 1,3 Punkte daneben. Viel besser sind Prognosen darin, Spieler zu reihen – und genau das brauchst du für Aufstellung, Kapitän und Transfers."
+    ],
+    [
+     "Ist die FPL-Punkteprognose kostenlos?",
+     "Ja. Sie ist kostenlos und braucht kein Konto."
+    ],
+    [
+     "Wie oft werden die Prognosen aktualisiert?",
+     "Täglich und noch einmal in den Stunden vor jeder Deadline, damit späte Verletzungsnews drin sind."
+    ]
+   ]
+  },
+  "fpl-captain-picks": {
+   "label": "Bester FPL-Kapitän",
+   "title": "Bester FPL-Kapitän an diesem Spieltag — Kapitänswahl | FPL Checker",
+   "description": "Wen du in FPL an diesem Spieltag zum Kapitän machst: die besten Optionen nach prognostizierten Punkten, mit ihrer Chance auf 10 oder mehr Punkte und wie viele Manager sie besitzen.",
+   "h1": "Bester FPL-Kapitän an diesem Spieltag",
+   "intro": "Dein Kapitän punktet doppelt – er ist deine wichtigste Entscheidung jede Woche. FPL Checker bewertet jeden Spieler deines Kaders als Kapitän und schlägt eine sichere Wahl und ein Differential vor.",
+   "s1": {
+    "h": "Wie der Kapitän gewählt wird",
+    "items": [
+     "<b>Sichere Wahl</b>: der Spieler mit den meisten prognostizierten Punkten.",
+     "<b>Differential</b>: ein Spieler knapp hinter der sicheren Wahl, aber in viel weniger Teams.",
+     "<b>Chance auf einen Haul</b>: wie oft ein so prognostizierter Spieler 10 oder mehr Punkte geholt hat.",
+     "<b>Fitness</b>: ein fraglicher Spieler ist ein riskanter Kapitän, die Binde geht an einen fitten Spieler."
+    ]
+   },
+   "s2": {
+    "h": "Triple Captain",
+    "items": [
+     "Sieh, was Triple Captain mit deinem Kader an jedem der nächsten fünf Spieltage bringen würde.",
+     "Heb ihn für die Woche auf, in der er am meisten bringt."
+    ]
+   },
+   "faq": [
+    [
+     "Wen mache ich diese Woche in FPL zum Kapitän?",
+     "Meist deinen Spieler mit den meisten prognostizierten Punkten, der sicher startet. FPL Checker zeigt dir diese Wahl für deinen Kader und ein Differential, wenn eines nah genug dran ist."
+    ],
+    [
+     "Wann lohnt sich ein Differential-Kapitän?",
+     "Wenn du auf Rivalen aufholen musst. Verteidigst du einen Vorsprung, ist die sichere Wahl besser."
+    ],
+    [
+     "Ist das kostenlos?",
+     "Ja. Gib deine Team-ID ein; kein Konto nötig."
+    ]
+   ]
+  },
+  "fpl-transfer-suggestions": {
+   "label": "FPL-Transfervorschläge",
+   "title": "FPL-Transfervorschläge — wen kaufen und verkaufen | FPL Checker",
+   "description": "FPL-Transfervorschläge für dein Team: wen du verkaufst, wen du holst und ob sich ein -4-Abzug lohnt, geplant für die nächsten fünf Spieltage und innerhalb deines Budgets.",
+   "h1": "FPL-Transfervorschläge",
+   "intro": "Gib deine FPL-Team-ID ein und FPL Checker schlägt die Transfers vor, die deinem Kader die meisten prognostizierten Punkte bringen – innerhalb deines Budgets und der Drei-pro-Verein-Regel.",
+   "s1": {
+    "h": "Wie Transfers vorgeschlagen werden",
+    "items": [
+     "<b>Über fünf Spieltage, nicht einen</b>: eine Reihe leichter Spiele zählt mehr als ein gutes Spiel.",
+     "<b>Abzüge eingerechnet</b>: ein -4 wird nur vorgeschlagen, wenn er mehr als 4 Punkte bringt.",
+     "<b>Freien Transfer aufheben</b>: manchmal ist es am besten, ihn für nächste Woche zu sparen.",
+     "<b>Verkaufspreise</b>: dein Budget rechnet mit dem, was FPL dir für jeden Spieler wirklich zahlt."
+    ]
+   },
+   "s2": {
+    "h": "Selbst planen",
+    "items": [
+     "Öffne dein Team und tippe auf Transfers.",
+     "Nimm einen Spieler raus und wähle einen Ersatz oder nutze die automatische Auswahl.",
+     "Sieh die prognostizierte Veränderung über die nächsten fünf Spieltage, bevor du es in FPL machst."
+    ]
+   },
+   "faq": [
+    [
+     "Soll ich in FPL einen -4-Abzug nehmen?",
+     "Nur wenn der neue Spieler in den nächsten Spieltagen voraussichtlich mehr als 4 Punkte mehr holt als der abgegebene. FPL Checker zeigt diesen Wert für jeden geplanten Transfer."
+    ],
+    [
+     "Macht FPL Checker die Transfers für mich?",
+     "Nein. Es meldet sich nie bei FPL an; die Transfers machst du in der FPL-App oder auf der FPL-Website."
+    ],
+    [
+     "Wo finde ich meine FPL-Team-ID?",
+     "Öffne auf der FPL-Website die Punkteseite: Deine Team-ID ist die Zahl nach /entry/ in der Adresse."
+    ]
+   ]
+  },
+  "rate-my-fpl-team": {
+   "label": "Bewerte mein FPL-Team",
+   "title": "Bewerte mein FPL-Team — kostenloser Team-Check | FPL Checker",
+   "description": "Bewerte dein FPL-Team kostenlos: prognostizierte Punkte deines Kaders, ein Kader-Score gegenüber dem bestmöglichen Team, deine beste Elf, Kapitän und Transfervorschläge.",
+   "h1": "Bewerte mein FPL-Team",
+   "intro": "FPL Checker prüft dein Fantasy-Premier-League-Team: wie viele Punkte es voraussichtlich holt, wie es sich mit dem besten Kader für 100 Mio. £ vergleicht und was du ändern solltest.",
+   "s1": {
+    "h": "Was der Team-Check zeigt",
+    "items": [
+     "<b>Kader-Score</b>: deine prognostizierten Punkte im Vergleich zum bestmöglichen Kader.",
+     "<b>Beste Elf und Bankreihenfolge</b>, mit der passenden Formation.",
+     "<b>Hinweise</b>: verletzte, gesperrte oder fragliche Spieler und Preisstürze.",
+     "<b>Chips</b>: die beste Woche für Bench Boost und Triple Captain."
+    ]
+   },
+   "s2": {
+    "h": "Drei Wege, dein Team zu laden",
+    "items": [
+     "<b>Team-ID</b>: die Zahl nach /entry/ auf deiner FPL-Punkteseite.",
+     "<b>Screenshot</b>: lade einen Screenshot deines Teams hoch; er wird auf deinem Gerät gelesen.",
+     "<b>Selbst bauen</b>: stell selbst einen Kader zusammen und probiere Ideen aus."
+    ]
+   },
+   "faq": [
+    [
+     "Ist mein FPL-Team gut?",
+     "Vergleiche seine prognostizierten Punkte mit dem besten Kader desselben Spieltags: FPL Checker zeigt das als Kader-Score und welche Änderungen den Abstand verkleinern."
+    ],
+    [
+     "Muss ich mich mit meinem FPL-Konto anmelden?",
+     "Nein. Deine Team-ID zeigt nur, was ohnehin öffentlich ist; sie kann dein Team nicht ändern."
+    ],
+    [
+     "Kann es mein Team vor der Deadline bewerten?",
+     "Ja. Es nutzt dein zuletzt sichtbares Team, das gleich ist, solange du keine Transfers gemacht hast."
+    ]
+   ]
+  }
+ }
+}

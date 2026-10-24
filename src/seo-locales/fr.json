@@ -1,0 +1,201 @@
+{
+ "ui": {
+  "cta": "Ouvrir FPL Checker",
+  "questions": "Questions",
+  "more": "Plus sur FPL Checker",
+  "english": "Tous les guides (en anglais)",
+  "footer": "FPL Checker est un outil gratuit pour Fantasy Premier League. Il n'est affilié ni à la Premier League ni à Fantasy Premier League."
+ },
+ "pages": {
+  "home": {
+   "label": "FPL Checker",
+   "title": "FPL Checker — prédicteur de points FPL et analyse d'équipe gratuits",
+   "description": "Outil gratuit pour Fantasy Premier League : points prévus pour chaque joueur, ton meilleur XI et ton capitaine, suggestions de transferts et la meilleure équipe à 100 M£, à chaque journée.",
+   "h1": "Analyse ton équipe FPL. Prévois tes points.",
+   "intro": "FPL Checker est un outil gratuit pour Fantasy Premier League. Saisis ton ID d'équipe FPL ou envoie une capture d'écran de ton équipe pour voir les points prévus de chaque joueur, le meilleur capitaine et des suggestions de transferts pour la prochaine journée.",
+   "s1": {
+    "h": "Ce qu'il fait",
+    "items": [
+     "<b>Points prévus</b> pour chaque joueur cette journée et les quatre suivantes.",
+     "<b>Capitaine</b> : le meilleur choix pour ton équipe et une option différenciante.",
+     "<b>Transferts</b> : qui vendre et qui acheter sur les cinq prochaines journées, pénalités comprises.",
+     "<b>Mini-ligues</b> : l'équipe de chaque rival prévue et ton classement attendu.",
+     "<b>Meilleure équipe</b> : la plus forte équipe possible avec 100 M£ cette journée."
+    ]
+   },
+   "s2": {
+    "h": "Pour commencer",
+    "items": [
+     "Trouve ton ID d'équipe : le nombre après /entry/ dans l'adresse de ta page Points sur FPL.",
+     "Saisis-le dans FPL Checker, ou envoie plutôt une capture d'écran de ton équipe.",
+     "Vois tes points prévus, ton capitaine et tes transferts. Aucun compte nécessaire."
+    ]
+   },
+   "faq": [
+    [
+     "FPL Checker est-il gratuit ?",
+     "Oui. Il est gratuit et ne demande aucun compte ; un compte sert seulement à retrouver tes équipes sur plusieurs appareils."
+    ],
+    [
+     "FPL Checker fait-il partie du jeu officiel FPL ?",
+     "Non. C'est un outil indépendant créé par des fans, sans lien avec la Premier League ni Fantasy Premier League."
+    ],
+    [
+     "Peut-il modifier mon équipe FPL ?",
+     "Non. Il lit seulement ton équipe publique grâce à ton ID ; les changements se font dans l'appli ou sur le site FPL."
+    ]
+   ]
+  },
+  "fpl-points-predictor": {
+   "label": "Prédicteur de points FPL",
+   "title": "Prédicteur de points FPL — points prévus pour chaque joueur | FPL Checker",
+   "description": "Prédicteur de points FPL gratuit : les points Fantasy Premier League prévus pour chaque joueur cette journée et les quatre suivantes, d'après la forme, les matchs, le temps de jeu, les cotes et les blessures.",
+   "h1": "Prédicteur de points FPL",
+   "intro": "FPL Checker prévoit combien de points Fantasy Premier League chaque joueur marquera cette journée et sur les quatre suivantes. Saisis ton ID d'équipe FPL pour voir les prévisions de toute ton équipe.",
+   "s1": {
+    "h": "Sur quoi reposent les prévisions",
+    "items": [
+     "<b>Matchs</b> : la force de chaque adversaire, à domicile ou à l'extérieur, et les journées doubles ou blanches.",
+     "<b>Temps de jeu</b> : si le joueur a été titulaire récemment.",
+     "<b>Forme et statistiques</b> : points récents, buts et passes décisives attendus, coups de pied arrêtés.",
+     "<b>Cotes des bookmakers</b> pour les buts et les clean sheets, et <b>infos blessures</b>."
+    ]
+   },
+   "s2": {
+    "h": "Ce que tu peux en faire",
+    "items": [
+     "Voir les points prévus de ton équipe, capitaine compté double.",
+     "Choisir automatiquement le meilleur XI et l'ordre du banc.",
+     "Planifier tes transferts sur les cinq prochaines journées."
+    ]
+   },
+   "faq": [
+    [
+     "Les prévisions de points FPL sont-elles fiables ?",
+     "Aucune prévision ne sait qui marquera : pour un joueur sur une journée, l'écart moyen est d'environ 1,3 point. Les prévisions sont bien meilleures pour classer les joueurs, ce dont tu as besoin pour choisir ton équipe, ton capitaine ou tes transferts."
+    ],
+    [
+     "Le prédicteur de points FPL est-il gratuit ?",
+     "Oui. Il est gratuit et ne demande aucun compte."
+    ],
+    [
+     "À quelle fréquence les prévisions sont-elles mises à jour ?",
+     "Chaque jour, puis à nouveau dans les heures avant chaque date limite pour inclure les dernières infos blessures."
+    ]
+   ]
+  },
+  "fpl-captain-picks": {
+   "label": "Meilleur capitaine FPL",
+   "title": "Meilleur capitaine FPL cette journée — choix de capitaine | FPL Checker",
+   "description": "Qui choisir comme capitaine en FPL cette journée : les meilleures options classées par points prévus, avec leur chance de faire 10 points ou plus et le nombre de managers qui les possèdent.",
+   "h1": "Meilleur capitaine FPL cette journée",
+   "intro": "Ton capitaine marque double : c'est ta décision la plus importante chaque semaine. FPL Checker évalue chaque joueur de ton équipe comme capitaine et propose un choix sûr et un choix différenciant.",
+   "s1": {
+    "h": "Comment le capitaine est choisi",
+    "items": [
+     "<b>Choix sûr</b> : le joueur avec le plus de points prévus.",
+     "<b>Différenciant</b> : un joueur proche du choix sûr mais possédé par beaucoup moins de managers.",
+     "<b>Chance de gros score</b> : la fréquence à laquelle un joueur ainsi prévu a marqué 10 points ou plus.",
+     "<b>Forme physique</b> : un joueur incertain est un capitaine risqué, le brassard va donc à un joueur apte."
+    ]
+   },
+   "s2": {
+    "h": "Triple Captain",
+    "items": [
+     "Vois ce que le Triple Captain rapporterait avec ton équipe à chacune des cinq prochaines journées.",
+     "Garde-le pour la semaine où il rapporte le plus."
+    ]
+   },
+   "faq": [
+    [
+     "Qui mettre capitaine en FPL cette semaine ?",
+     "En général, ton joueur avec le plus de points prévus et sûr d'être titulaire. FPL Checker te montre ce choix pour ton équipe, plus un différenciant s'il est assez proche."
+    ],
+    [
+     "Quand un capitaine différenciant vaut-il le coup ?",
+     "Quand tu dois reprendre des points à tes rivaux. Si tu protèges une avance, le choix sûr est meilleur."
+    ],
+    [
+     "C'est gratuit ?",
+     "Oui. Saisis ton ID d'équipe ; aucun compte nécessaire."
+    ]
+   ]
+  },
+  "fpl-transfer-suggestions": {
+   "label": "Suggestions de transferts FPL",
+   "title": "Suggestions de transferts FPL — qui acheter et vendre | FPL Checker",
+   "description": "Suggestions de transferts FPL pour ton équipe : qui vendre, qui recruter et si une pénalité de -4 vaut le coup, sur les cinq prochaines journées et dans ton budget.",
+   "h1": "Suggestions de transferts FPL",
+   "intro": "Saisis ton ID d'équipe FPL et FPL Checker te suggère les transferts qui ajoutent le plus de points prévus à ton équipe, dans ton budget et avec la règle des trois joueurs par club.",
+   "s1": {
+    "h": "Comment les transferts sont suggérés",
+    "items": [
+     "<b>Sur cinq journées, pas une</b> : une série de matchs faciles vaut plus qu'un bon match.",
+     "<b>Pénalités comptées</b> : un -4 n'est suggéré que s'il rapporte plus de 4 points.",
+     "<b>Garder un transfert gratuit</b> : parfois le mieux est de le garder pour la semaine suivante.",
+     "<b>Prix de revente</b> : ton budget utilise ce que FPL te paie vraiment pour chaque joueur."
+    ]
+   },
+   "s2": {
+    "h": "Planifie toi-même",
+    "items": [
+     "Ouvre ton équipe et appuie sur Transferts.",
+     "Retire un joueur et choisis un remplaçant, ou utilise la sélection automatique.",
+     "Vois le gain prévu sur les cinq prochaines journées avant de valider dans FPL."
+    ]
+   },
+   "faq": [
+    [
+     "Faut-il prendre une pénalité de -4 en FPL ?",
+     "Seulement si le nouveau joueur doit marquer plus de 4 points de plus que celui qui part sur les prochaines journées. FPL Checker affiche ce chiffre pour chaque transfert prévu."
+    ],
+    [
+     "FPL Checker fait-il les transferts à ma place ?",
+     "Non. Il ne se connecte jamais à FPL ; tu fais les transferts dans l'appli ou sur le site FPL."
+    ],
+    [
+     "Où trouver mon ID d'équipe FPL ?",
+     "Sur le site FPL, ouvre la page Points : ton ID d'équipe est le nombre après /entry/ dans l'adresse."
+    ]
+   ]
+  },
+  "rate-my-fpl-team": {
+   "label": "Note mon équipe FPL",
+   "title": "Note mon équipe FPL — analyse gratuite | FPL Checker",
+   "description": "Note ton équipe FPL gratuitement : points prévus de ton équipe, un score face à la meilleure équipe possible, ton meilleur XI, ton capitaine et des suggestions de transferts.",
+   "h1": "Note mon équipe FPL",
+   "intro": "FPL Checker analyse ton équipe Fantasy Premier League : combien de points elle doit marquer, comment elle se compare à la meilleure équipe à 100 M£ et quoi changer.",
+   "s1": {
+    "h": "Ce que montre l'analyse",
+    "items": [
+     "<b>Score d'équipe</b> : tes points prévus face à la meilleure équipe possible.",
+     "<b>Meilleur XI et ordre du banc</b>, avec la formation choisie pour toi.",
+     "<b>Alertes</b> : joueurs blessés, suspendus ou incertains, et baisses de prix.",
+     "<b>Chips</b> : la meilleure semaine pour le Bench Boost et le Triple Captain."
+    ]
+   },
+   "s2": {
+    "h": "Trois façons de charger ton équipe",
+    "items": [
+     "<b>ID d'équipe</b> : le nombre après /entry/ sur ta page Points FPL.",
+     "<b>Capture d'écran</b> : envoie une capture de ton équipe ; elle est lue sur ton appareil.",
+     "<b>Crée-en une</b> : compose une équipe toi-même pour tester des idées."
+    ]
+   },
+   "faq": [
+    [
+     "Mon équipe FPL est-elle bonne ?",
+     "Compare ses points prévus à ceux de la meilleure équipe de la même journée : FPL Checker l'affiche sous forme de score, avec les changements qui réduiraient l'écart."
+    ],
+    [
+     "Dois-je me connecter avec mon compte FPL ?",
+     "Non. Ton ID d'équipe ne montre que ce qui est déjà public ; il ne peut pas modifier ton équipe."
+    ],
+    [
+     "Peut-il noter mon équipe avant la date limite ?",
+     "Oui. Il utilise ta dernière équipe visible, identique sauf si tu as fait des transferts."
+    ]
+   ]
+  }
+ }
+}

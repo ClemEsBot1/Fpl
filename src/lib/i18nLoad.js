@@ -9,8 +9,21 @@ function readSaved() {
   try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
 }
 
+// A language in the address (?lang=es, from the translated guide pages)
+// wins and is saved, like picking it in Profile.
+function fromAddress() {
+  try {
+    const code = new URLSearchParams(window.location.search).get('lang');
+    if (code && pickLanguage(code) === code) {
+      try { localStorage.setItem(STORAGE_KEY, code); } catch { /* this visit only */ }
+      return code;
+    }
+  } catch { /* no window */ }
+  return null;
+}
+
 export async function initLanguage() {
-  const code = pickLanguage(readSaved(), typeof navigator !== 'undefined' ? navigator.languages : []);
+  const code = pickLanguage(fromAddress() || readSaved(), typeof navigator !== 'undefined' ? navigator.languages : []);
   let dict = null;
   const load = LOCALES[`../locales/${code}.json`];
   if (code !== 'en' && load) {
