@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, squadProblems, substitutePlayers, substitutionOptions, suggestTransfers, swapPlayerInSquad } from '../src/lib/squadLogic.js';
+import { applyFreeTransferEconomics, ensureCaptaincy, matchExtractedSquad, sellPriceOf, sellingPrices, squadProblems, substitutePlayers, substitutionOptions, suggestTransfers, swapBlocker, swapPlayerInSquad } from '../src/lib/squadLogic.js';
 import { normalize, playerMatchesSearch, levenshtein } from '../src/lib/format.js';
 import { buildStaticDataFromRaw } from '../src/lib/predictions.js';
 import { league } from './helpers/league.js';
@@ -239,4 +239,34 @@ test('a benched captain hands the armband on', () => {
   // The benched player takes the other's place in the order.
   assert.equal(next.findIndex(s => s.player.id === 13), squad.findIndex(s => s.player.id === 15));
   assert.equal(next.findIndex(s => s.player.id === 15), squad.findIndex(s => s.player.id === 13));
+});
+
+test('selling prices: half of a rise (rounded down), all of a fall, latest purchase, Free Hits left out', () => {
+
+  const playersById = {
+    1: { id: 1, price: 5.5, costChangeStart: 0 }, // bought in GW3 for £5.0m: rise of 0.5 -> sells 5.2
+    2: { id: 2, price: 6.0, costChangeStart: 3 }, // held from the start at £5.7m: rise 0.3 -> 5.8
+    3: { id: 3, price: 7.8, costChangeStart: 0 }, // bought for £8.0m: fall -> sells today's 7.8
+    4: { id: 4, price: 9.0, costChangeStart: 0 }, // bought twice: the latest, £8.6m, counts -> 8.8
+    5: { id: 5, price: 4.6, costChangeStart: 0 }, // a Free Hit purchase only: start price 4.6
+  };
+  const transfers = [
+    { element_in: 1, element_in_cost: 50, event: 3, time: '2026-08-20T10:00:00Z' },
+    { element_in: 3, element_in_cost: 80, event: 4, time: '2026-08-27T10:00:00Z' },
+    { element_in: 4, element_in_cost: 82, event: 2, time: '2026-08-13T10:00:00Z' },
+    { element_in: 4, element_in_cost: 86, event: 6, time: '2026-09-17T10:00:00Z' },
+    { element_in: 5, element_in_cost: 40, event: 7, time: '2026-09-24T10:00:00Z' },
+  ];
+  assert.deepEqual(sellingPrices([1, 2, 3, 4, 5, 99], transfers, playersById, [7]), { 1: 52, 2: 58, 3: 78, 4: 88, 5: 46 });
+  assert.equal(sellPriceOf({ player: { price: 5.5 }, sellPrice: 5.2 }), 5.2);
+  assert.equal(sellPriceOf({ player: { price: 5.5 } }), 5.5, 'unknown: today\'s price');
+  const out = { player: { id: 1, team: 1, price: 5.5 }, sellPrice: 5.2 };
+  assert.equal(swapBlocker(out, { id: 9, team: 2, price: 5.5 }, [out], 0), 'Over budget', 'a £0.3m gap the bank can\'t cover');
+  assert.equal(swapBlocker(out, { id: 9, team: 2, price: 5.5 }, [out], 3), null);
+});
+
+test('a player bought in a swap sells at today\'s price, not the one he replaced', () => {
+  const squad = [{ player: { id: 1, price: 5.5 }, sellPrice: 5.2, isStarting: true, multiplier: 1 }];
+  const [after] = swapPlayerInSquad(squad, 1, { id: 2, price: 6 }, { 2: { predicted: 3 } });
+  assert.equal(after.sellPrice, undefined);
 });

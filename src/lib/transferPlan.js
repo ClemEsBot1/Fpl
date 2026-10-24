@@ -15,6 +15,8 @@ import { MAX_PER_REAL_TEAM } from './predictions.js';
 import { FREE_TRANSFER_VALUE, TRANSFER_HIT_COST } from './squadLogic.js';
 
 export const MAX_FREE_TRANSFERS = 5;
+// Tested wider (beam 30, 15 singles, 10 pairs) on the top 30 managers'
+// squads: +0.17 predicted points over a 5-week plan for 3x the time.
 const BEAM = 10;
 const SINGLES = 8;
 const PAIRS = 4;
@@ -45,12 +47,16 @@ export function xiPointsForWeek(players, pointsOf, k) {
 // moving now).
 // Returns { weeks: [{ event, moves: [{ out, in }], hits, freeBefore, points,
 // baseline }], total, baseline, gain } — baseline being the squad with no
-// moves at all.
-export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlayers, pointsById, events, keep = [], avoid = [], horizon = null, rollFirst = false }) {
+// moves at all. sellTenthsById: what selling each owned player frees (their
+// selling price, see sellingPrices); others sell at today's price.
+export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlayers, pointsById, events, keep = [], avoid = [], horizon = null, rollFirst = false, sellTenthsById = {} }) {
   const weeks = horizon ? Math.min(events.length, horizon) : events.length;
   if (!weeks || squadPlayers.length !== 15) return null;
   const pts = (p, k) => (pointsById[p.id] && pointsById[p.id][k]) || 0;
   const tenths = p => Math.round(p.price * 10);
+  // Only the squad you start with has selling prices: a player bought in
+  // the plan sells at what he cost.
+  const sellTenths = p => (Number.isFinite(sellTenthsById[p.id]) ? sellTenthsById[p.id] : tenths(p));
   const restOf = (players, from) => {
     let s = 0;
     for (let k = from; k < weeks; k++) s += xiPointsForWeek(players, pts, k);
@@ -86,7 +92,7 @@ export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlay
       if (kept.has(out.id)) return;
       pool[out.positionId].forEach(inP => {
         if (ids.has(inP.id)) return;
-        if (tenths(inP) > bank + tenths(out)) return;
+        if (tenths(inP) > bank + sellTenths(out)) return;
         if (inP.team !== out.team && (clubs[inP.team] || 0) >= MAX_PER_REAL_TEAM) return;
         const gain = gainOver(inP, out);
         if (gain > 0) moves.push({ out, in: inP, gain });
@@ -104,7 +110,7 @@ export function planTransfers({ squadPlayers, bankTenths, freeTransfers, allPlay
     let bank = state.bank;
     for (const m of moves) {
       if (!players.some(p => p.id === m.out.id) || players.some(p => p.id === m.in.id)) return null;
-      bank += tenths(m.out) - tenths(m.in);
+      bank += sellTenths(m.out) - tenths(m.in);
       if (bank < 0) return null;
       players = players.map(p => (p.id === m.out.id ? m.in : p));
     }

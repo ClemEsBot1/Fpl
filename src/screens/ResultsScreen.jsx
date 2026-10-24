@@ -14,7 +14,7 @@ import { planTransfers, xiPointsForWeek } from '../lib/transferPlan.js';
 import { squadChipWeeks } from '../lib/chipPlanner.js';
 import { VARIANTS as REDDIT_VARIANTS, redditReplies } from '../lib/redditReply.js';
 import { SHARE_URL, shareLinks, shareMessage } from '../lib/shareLinks.js';
-import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
+import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, sellPriceOf, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
 import { track } from '../lib/track.js';
 import { setPieceTags } from '../lib/setPieces.js';
 import { templateReport } from '../lib/ownership.js';
@@ -324,6 +324,7 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
   const weekly = useMemo(() => weeklyPoints(allPlayers, predictionsById), [allPlayers, predictionsById]);
   const args = useMemo(() => ({
     squadPlayers: squad.map(s => s.player), bankTenths, freeTransfers, allPlayers, ...weekly, horizon, keep, avoid,
+    sellTenthsById: Object.fromEntries(squad.map(s => [s.player.id, tenths(sellPriceOf(s))])),
   }), [squad, bankTenths, freeTransfers, allPlayers, weekly, horizon, keep, avoid]);
   const plan = useMemo(() => planTransfers(args), [args]);
   const first = plan && plan.weeks[0];
@@ -532,7 +533,7 @@ export function InlineSwapSearch({ outSlot, squad, allPlayers, predictionsById, 
     }
     return list;
   }, [squad, allPlayers, predictionsById, posId, query, searching]);
-  const remaining = (bankTenths || 0) / 10 + outSlot.player.price;
+  const remaining = (bankTenths || 0) / 10 + sellPriceOf(outSlot);
 
   return (
     <div style={{ padding: 10, borderBottom: '1px solid var(--line)' }} onClick={e => e.stopPropagation()}>
@@ -828,7 +829,7 @@ function applyPlanned(squad, bankTenths, planned, predictionsById) {
     if (!inPlayer) return;
     const out = squad.find(s => s.player.id === Number(outId));
     if (!out) return;
-    bank -= tenths(inPlayer.price) - tenths(out.player.price);
+    bank -= tenths(inPlayer.price) - tenths(sellPriceOf(out));
     work = swapPlayerInSquad(work, out.player.id, inPlayer, predictionsById);
   });
   return { work, bank };
