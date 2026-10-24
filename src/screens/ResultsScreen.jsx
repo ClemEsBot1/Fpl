@@ -15,7 +15,7 @@ import { planTransfers, xiPointsForWeek } from '../lib/transferPlan.js';
 import { squadChipWeeks } from '../lib/chipPlanner.js';
 import { VARIANTS as REDDIT_VARIANTS, redditReplies } from '../lib/redditReply.js';
 import { SHARE_URL, shareLinks, shareMessage } from '../lib/shareLinks.js';
-import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, sellPriceOf, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
+import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, sellPriceOf, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad, wildcardSquad } from '../lib/squadLogic.js';
 import { track } from '../lib/track.js';
 import { setPieceTags } from '../lib/setPieces.js';
 import { templateReport } from '../lib/ownership.js';
@@ -410,6 +410,58 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
 // you own, the template players you're missing with what's at stake on
 // them this gameweek, and your differentials with what they could gain.
 const fmtOwn = v => `${v < 10 ? v.toFixed(1) : Math.round(v)}%`;
+// A wildcard with your own money (wildcardSquad): worked out on request,
+// as it searches the whole player list.
+function WildcardCard({ squad, bankTenths, allPlayers, predictionsById, teamsById }) {
+  const [wc, setWc] = useState(null);
+  const budget = (squad.reduce((sum, s) => sum + Math.round(sellPriceOf(s) * 10), 0) + (bankTenths || 0)) / 10;
+  const work = () => setWc(wildcardSquad(squad, bankTenths, allPlayers, predictionsById));
+  const gain = wc ? wc.xiWildcard - wc.xiNow : 0;
+  const club = p => (teamsById[p.team] ? teamsById[p.team].short_name : '');
+  return (
+    <section className="fpl-block fpl-template fpl-wildcard" aria-labelledby="wildcard-h">
+      <div>
+        <h3 id="wildcard-h" className="fpl-plan-h">{t('Wildcard with your budget')}</h3>
+        <p className="fpl-meta" style={{ margin: '4px 0 0' }}>
+          {t('The best squad you could pick with {budget}: what your players sell for plus your bank.', { budget: fmtPrice(budget) })}
+        </p>
+      </div>
+      {!wc ? (
+        <button type="button" className="fpl-btn" onClick={work}>{t('Work out my wildcard')}</button>
+      ) : (
+        <>
+          <p className="fpl-wildcard-sum">
+            {wc.ins.length
+              ? <>{t('{n} changes', { n: wc.ins.length })} · <b className={gain > 0 ? 'fpl-template-up' : 'fpl-template-down'}>{gain > 0 ? '+' : ''}{fmtPts(gain)}</b> {t('predicted points a week')} · {t('{bank} left', { bank: fmtPrice(wc.bankTenths / 10) })}</>
+              : t('Your squad is already the best you can afford.')}
+          </p>
+          {wc.ins.length ? (
+            <div className="fpl-template-cols">
+              <div>
+                <h4 className="fpl-mono fpl-template-h">{t('OUT')}</h4>
+                <ul className="fpl-template-list">
+                  {wc.outs.map(p => <li key={p.id}><span className="fpl-template-name">{p.webName}</span><span className="fpl-mono fpl-meta">{club(p)} · {POSITION_LABELS[p.positionId]}</span></li>)}
+                </ul>
+              </div>
+              <div>
+                <h4 className="fpl-mono fpl-template-h">{t('IN')}</h4>
+                <ul className="fpl-template-list">
+                  {wc.ins.map(p => (
+                    <li key={p.id}>
+                      <button type="button" className="fpl-namebtn fpl-template-name" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>
+                      <span className="fpl-mono fpl-meta">{club(p)} · {fmtPrice(p.price)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
 export function TemplateCard({ squad, allPlayers, predictionsById }) {
   const r = useMemo(() => templateReport(squad.map(s => s.player), allPlayers, predictionsById), [squad, allPlayers, predictionsById]);
   if (!r.template.length) return null;
@@ -1500,6 +1552,10 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       {!isPastGw && allPlayers && predictionsById && (
         <TemplateCard squad={squad} allPlayers={allPlayers} predictionsById={predictionsById} />
       )}
+
+      {canEdit && allPlayers && predictionsById ? (
+        <WildcardCard squad={squad} bankTenths={bankTenths} allPlayers={allPlayers} predictionsById={predictionsById} teamsById={teamsById} />
+      ) : null}
 
       {canEdit && (
         <div style={{ marginBottom: 8 }}>
