@@ -1,13 +1,13 @@
 // Mini-league: the standings of one of your classic leagues, with what
 // every member's team is predicted to score this gameweek. Tap a member to
 // see their team.
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Anchor, Armchair, Check, MessageCircle, Scale, Share2, Swords, ArrowDown, ArrowRight, ArrowRightLeft, ArrowUp, Ban, ChartBar, ChevronDown, Crown, Gem, Heart, LogIn, LogOut, Medal, PiggyBank, RotateCcw, Shuffle, Star, StarOff, Target, ThumbsDown, TrendingDown, TrendingUp, Trophy, Users } from 'lucide-react';
 import { SkeletonRows } from '../components/common.jsx';
 import './headToHead.css';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { fmtPrice, fmtPts, noPointsLabel } from '../lib/format.js';
-import { expectedPositions, forEachLimited, headToHead, latestTransfers, leagueDifferentials, leagueHighlights, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { expectedPositions, forEachLimited, headToHead, latestTransfers, leagueDifferentials, leagueHighlights, liveLeagueRank, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
 import { parseLeagueId } from '../lib/teamIdInput.js';
 import { fmtNumber, ordinal as ordinalFor, t } from '../lib/i18n.js';
 import { tr } from '../lib/i18nRich.jsx';
@@ -19,6 +19,18 @@ const LEAGUE_KEY = 'fpl_league_id';
 const TEAM_LOADS_AT_ONCE = 4;
 const RETRIES_AT_ONCE = 2;
 const RETRY_AFTER_MS = 1500;
+// While a gameweek is being played, the teams' live points and your leagues'
+// ranks are fetched again this often (while the page is in view).
+const LIVE_REFRESH_MS = 2 * 60 * 1000;
+
+// Runs `fn` every LIVE_REFRESH_MS while `on` and the page is visible.
+function useLiveRefresh(on, fn) {
+  useEffect(() => {
+    if (!on) return undefined;
+    const id = setInterval(() => { if (document.visibilityState === 'visible') fn(); }, LIVE_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [on, fn]);
+}
 
 function readSavedLeague() {
   try { return Number(localStorage.getItem(LEAGUE_KEY)) || null; } catch { return null; }
@@ -309,7 +321,7 @@ function ShareLeague({ leagueId, name, gwName }) {
   );
 }
 
-function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam }) {
+function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam, onLiveRank }) {
   // A gameweek that has started is shown as it stood after it; the one
   // being planned with the latest points and its predictions.
   const started = !!(gwId && targetGwId && gwId < targetGwId);
@@ -347,6 +359,25 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
       .catch(() => { if (!cancelled) setStandings({ status: 'error', data: null }); });
     return () => { cancelled = true; };
   }, [leagueId, gwId, fetchJson, loadTeam]);
+
+  // While the gameweek is on, every team's live points again now and then
+  // (kept on screen while they load), and your live place for the league
+  // picker.
+  const isLive = !!(liveGwId && !liveGwFinished);
+  const [refreshAt, setRefreshAt] = useState(0);
+  const refresh = useCallback(() => setRefreshAt(Date.now()), []);
+  useLiveRefresh(isLive && standings.status === 'ready', refresh);
+  useEffect(() => {
+    if (!refreshAt || !standings.data) return undefined;
+    let cancelled = false;
+    forEachLimited(standings.data.members, TEAM_LOADS_AT_ONCE, m => loadTeam(m.entry, gwId), (m, team, error) => {
+      if (cancelled || error || !team) return;
+      setTeams(prev => ({ ...prev, [m.entry]: { status: 'ready', ...team } }));
+    });
+    return () => { cancelled = true; };
+  }, [refreshAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liveRank = useMemo(() => (isLive ? liveLeagueRank(standings.data, teams, liveGwId, homeTeamId) : null), [isLive, standings.data, teams, liveGwId, homeTeamId]);
+  useEffect(() => { if (liveRank !== null && onLiveRank) onLiveRank(leagueId, liveRank); }, [liveRank, leagueId, onLiveRank]);
 
   // Where everyone would be after the next gameweek if it went as
   // predicted, worked out again as each team arrives.
@@ -474,10 +505,30 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
   );
 }
 
+// Your place in a league on its picker button; a green dot while the
+// gameweek is being played, as the place moves with the live points.
+function LeagueRank({ rank, live }) {
+  if (!rank) return null;
+  return (
+    <span className="fpl-mono fpl-league-chip-rank">
+      {' · '}{ordinalFor(rank)}
+      {live ? <span className="fpl-league-live-dot" role="img" aria-label={t('Live')} title={t('Updates live')} /> : null}
+    </span>
+  );
+}
+
 export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById = {}, fetchJson, loadTeam, onOpenTeam, onAddTeamId }) {
   const [leagues, setLeagues] = useState({ status: homeTeamId ? 'loading' : 'none', list: [] });
   const [leagueId, setLeagueId] = useState(readSavedLeague);
   const [idInput, setIdInput] = useState('');
+  // Your place in each league opened here, worked out live (LeagueTable).
+  const [liveRanks, setLiveRanks] = useState({});
+  const onLiveRank = useCallback((id, rank) => setLiveRanks(prev => (prev[id] === rank ? prev : { ...prev, [id]: rank })), []);
+  const isLive = !!(liveGwId && !liveGwFinished);
+  const [leaguesAt, setLeaguesAt] = useState(0);
+  const refreshLeagues = useCallback(() => setLeaguesAt(Date.now()), []);
+  // FPL's ranks in every league, fetched again while the gameweek is on.
+  useLiveRefresh(isLive && !!homeTeamId, refreshLeagues);
 
   // Your leagues, from your Team ID. The first one is shown unless a
   // league was picked last time.
@@ -491,9 +542,9 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
         setLeagues({ status: 'ready', list });
         setLeagueId(current => current || (list[0] ? list[0].id : null));
       })
-      .catch(() => { if (!cancelled) setLeagues({ status: 'error', list: [] }); });
+      .catch(() => { if (!cancelled && !leaguesAt) setLeagues({ status: 'error', list: [] }); });
     return () => { cancelled = true; };
-  }, [homeTeamId, fetchJson]);
+  }, [homeTeamId, fetchJson, leaguesAt]);
 
   function submitLeagueId(e) {
     e.preventDefault();
@@ -520,7 +571,7 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
           <div className="fpl-league-chips">
             {leagues.list.map(l => (
               <button key={l.id} type="button" className={`fpl-chip-btn${l.id === leagueId ? ' active' : ''}`} aria-pressed={l.id === leagueId} onClick={() => setLeagueId(l.id)}>
-                {l.name}{l.rank ? <span className="fpl-mono"> · {ordinalFor(l.rank)}</span> : null}
+                {l.name}<LeagueRank rank={isLive && liveRanks[l.id] ? liveRanks[l.id] : l.rank} live={isLive} />
               </button>
             ))}
           </div>
@@ -541,7 +592,7 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
 
       {leagueId && (
         // Mounted afresh for each league and gameweek.
-        <LeagueTable key={`${leagueId}-${gwId}`} homeTeamId={homeTeamId} leagueId={leagueId} gwId={gwId} targetGwId={targetGwId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} />
+        <LeagueTable key={`${leagueId}-${gwId}`} homeTeamId={homeTeamId} leagueId={leagueId} gwId={gwId} targetGwId={targetGwId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} onLiveRank={onLiveRank} />
       )}
     </div>
   );

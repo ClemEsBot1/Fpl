@@ -484,6 +484,10 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .fpl-league-chips .fpl-chip-btn { padding: 8px 12px; font-size: 0.85rem; }
 .fpl-league-chips .fpl-mono { color: var(--ink-dim); font-size: 0.72rem; }
+.fpl-league-chip-rank { display: inline-flex; align-items: center; gap: 5px; white-space: pre; }
+.fpl-league-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgb(54 254 72 / 0.6); animation: fpl-live-dot 2s ease-out infinite; }
+@keyframes fpl-live-dot { 0% { box-shadow: 0 0 0 0 rgb(54 254 72 / 0.55); } 70%, 100% { box-shadow: 0 0 0 5px rgb(54 254 72 / 0); } }
+@media (prefers-reduced-motion: reduce) { .fpl-league-live-dot { animation: none; } }
 .fpl-league-sort { display: flex; gap: 6px; }
 .fpl-league-sort .fpl-chip-btn { padding: 5px 10px; font-size: 0.75rem; }
 .fpl-league-cols, .fpl-league-row { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) 2.8rem 3.2rem 2.8rem; align-items: center; gap: 6px; }
