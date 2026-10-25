@@ -125,6 +125,18 @@ export function membersAtGw(members, teams, gwId, { finished = true } = {}) {
   return rows.map(r => (r.total === null ? r : { ...r, rank: after.get(r), lastRank: before.get(r) }));
 }
 
+// Your place in a league right now, during gameweek `liveGwId`: every
+// member's total before it plus their live points so far (membersAtGw).
+// null until every member's team is in (a partial count would put you too
+// high), or when the standings only had their first page (hasMore).
+export function liveLeagueRank(standings, teams, liveGwId, youEntry) {
+  if (!standings || standings.hasMore || !liveGwId || !Array.isArray(standings.members)) return null;
+  const members = standings.members;
+  if (members.some(m => !teams[m.entry] || teams[m.entry].status !== 'ready')) return null;
+  const me = membersAtGw(members, teams, liveGwId, { finished: false }).find(m => String(m.entry) === String(youEntry));
+  return me && typeof me.rank === 'number' ? me.rank : null;
+}
+
 // One member's numbers for the league analysis, from their picks for the
 // latest gameweek to have started (`gw`), FPL's live scores for it, their
 // transfers, entry/{id}/ and entry/{id}/history/. Anything missing is null.

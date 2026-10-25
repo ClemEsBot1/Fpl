@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expectedPositions, forEachLimited, leagueHighlights, livePointsFor, memberWeekStats, membersAtGw, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
+import { expectedPositions, forEachLimited, leagueHighlights, livePointsFor, memberWeekStats, liveLeagueRank, membersAtGw, parseStandings, predictedXiTotal, privateLeagues } from '../src/lib/leagues.js';
 
 test("a team's mini-leagues leave out FPL's own leagues", () => {
   const entry = { leagues: { classic: [
@@ -214,4 +214,16 @@ test('a rival’s latest gameweek of transfers', async () => {
     { event: 8, element_in: 5, element_out: 6 },
   ];
   assert.deepEqual(latestTransfers(list), { gw: 8, moves: [{ inId: 3, outId: 4 }, { inId: 5, outId: 6 }] });
+});
+
+test('your live place in a league counts every member’s live points, once all are in', () => {
+  const team = (before, live, hit = 0) => ({ status: 'ready', livePoints: live, liveHit: hit, history: [{ event: 7, points: 50, total: before }, { event: 8, points: live, total: before + live }] });
+  const standings = { hasMore: false, members: [{ entry: 1, rank: 1 }, { entry: 2, rank: 2 }, { entry: 3, rank: 3 }] };
+  // You (3) started 20 behind but are 30 up on the week, less a 4 point hit.
+  const teams = { 1: team(500, 40), 2: team(490, 30), 3: team(480, 70, 4) };
+  assert.equal(liveLeagueRank(standings, teams, 8, '3'), 1);
+  assert.equal(liveLeagueRank(standings, teams, 8, 2), 3);
+  assert.equal(liveLeagueRank(standings, { ...teams, 2: { status: 'loading' } }, 8, 3), null);
+  assert.equal(liveLeagueRank({ ...standings, hasMore: true }, teams, 8, 3), null);
+  assert.equal(liveLeagueRank(standings, teams, null, 3), null);
 });
