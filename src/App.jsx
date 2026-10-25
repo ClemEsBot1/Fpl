@@ -92,6 +92,9 @@ export default function FPLSquadChecker() {
   const fpl = useFplData({ admin: !!(session && session.admin) });
   // A player's profile, opened from any list of players (openPlayerProfile).
   const [profileId, setProfileId] = useState(null);
+  // Another manager's team on the Live screen, opened from the mini-league
+  // ({ id, name }); null for yours.
+  const [liveTeam, setLiveTeam] = useState(null);
   useEffect(() => onOpenPlayerProfile(setProfileId), []);
   const { selectedGw, setSelectedGw, gwOptions, liveStatic, staticDataRef, ensureStaticData, staticDataForGw, formulaSnapshot, liveForGw, fixturesForGw, loadTeamForGw, modelChoice, setModelChoice, modelAvailable } = fpl;
   const { resultsData, setResultsData, currentStaticDataRef, buildResultsData, finalizeResults, handleSquadUpdate, rescoreSquadForGw, handleSaveTeamChanges } = useResults({ screens: { newTicket, isCurrent, setStageRaw, showLoading, showError }, fpl, handleTeamsResult });
@@ -730,7 +733,7 @@ export default function FPLSquadChecker() {
       run: () => (homeTeam.teamId ? handleTeamIdSubmit(homeTeam.teamId) : setStage('teamIdForm')),
     },
     { id: 'league', label: t('Mini-league'), desc: t('Your leagues, every team predicted'), group: t('Your team'), Icon: Users, run: () => setStage('league') },
-    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'live', label: t('Live'), desc: t('Your points and every match, as it happens'), group: t('Your team'), Icon: Radio, run: () => setStage('live') }] : []),
+    ...(gwOptions.some(e => isEventLocked(e)) ? [{ id: 'live', label: t('Live'), desc: t('Your points and every match, as it happens'), group: t('Your team'), Icon: Radio, run: () => { setLiveTeam(null); setStage('live'); } }] : []),
     { id: 'screenshot', label: t('Screenshot'), desc: t('Read a squad from a screenshot'), group: t('Your team'), Icon: Camera, footer: true, run: () => setStage('screenshotForm') },
     { id: 'best', label: t('Best squad'), desc: t('The top-predicted 15 for £100m'), group: t('Tools'), Icon: Trophy, footer: true, run: () => loadOptimalSquadForGw(selectedGw) },
     { id: 'build', label: t('Build a squad'), desc: t('Pick your own and preview chips'), group: t('Tools'), Icon: Wand2, run: handleStartCustomBuild },
@@ -927,6 +930,7 @@ export default function FPLSquadChecker() {
                 fetchJson={fetchFplJson}
                 loadTeam={loadLeagueTeam}
                 onOpenTeam={entryId => handleTeamIdSubmit(String(entryId))}
+                onViewLive={(entryId, name) => { setLiveTeam(name ? { id: entryId, name } : null); setStage('live'); }}
                 onAddTeamId={() => setStage('home')}
               />
             )}
@@ -936,10 +940,12 @@ export default function FPLSquadChecker() {
                 key={leagueWeekGw}
                 staticData={liveStatic}
                 gwId={leagueWeekGw}
-                teamId={homeTeam.teamId}
+                teamId={liveTeam ? liveTeam.id : homeTeam.teamId}
+                managerName={liveTeam ? liveTeam.name : null}
                 fetchJson={fetchFplJson}
                 onOpenLeague={() => setStage('league')}
                 onAddTeam={() => setStage('home')}
+                onShowMine={() => setLiveTeam(null)}
               />
             )}
             {stage === 'fixtures' && liveStatic && (

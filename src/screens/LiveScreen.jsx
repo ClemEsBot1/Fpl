@@ -203,7 +203,9 @@ function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) 
   );
 }
 
-export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, onAddTeam }) {
+// `managerName`: another manager's team (from the mini-league) rather than
+// yours, with `onShowMine` to go back to yours.
+export function LiveScreen({ staticData, gwId, teamId, managerName = null, fetchJson, onOpenLeague, onAddTeam, onShowMine }) {
   const [state, setState] = useState({ status: 'loading' });
   const [openMatch, setOpenMatch] = useState(null);
   // Fetches the gameweek and stores it; a failed refresh keeps what's shown.
@@ -302,14 +304,17 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
       </div>
       <div className="fpl-live-grid">
         <section className="fpl-glass fpl-tool-card" aria-labelledby="live-you">
-          <h2 id="live-you" className="fpl-home-h">{t('Your points')}</h2>
+          <div className="fpl-live-you-head">
+            <h2 id="live-you" className="fpl-home-h">{managerName ? t("{name}'s points", { name: managerName }) : t('Your points')}</h2>
+            {managerName && onShowMine ? <button type="button" className="fpl-link" onClick={onShowMine}>{t('Your points')}</button> : null}
+          </div>
           {score ? (
             <>
               <div className="fpl-live-total">
                 <b className="fpl-mono">{score.total}</b>
                 <span className="fpl-meta">
                   {projectedTotal ? <>{tr('Includes <b>+{n}</b> projected bonus.', { n: projectedTotal }, { b: s => <b>{s}</b> })} </> : null}
-                  {score.hit ? <>{t('Transfer hit −{n}, taken off your season total.', { n: score.hit })} </> : null}
+                  {score.hit ? <>{managerName ? t('Transfer hit −{n}, taken off their season total.', { n: score.hit }) : t('Transfer hit −{n}, taken off your season total.', { n: score.hit })} </> : null}
                   {average ? <>{t('Average {n}.', { n: average })}</> : null}
                   {picks.active_chip ? <> {t('Chip: {chip}.', { chip: chipName(picks.active_chip) })}</> : null}
                 </span>
@@ -317,7 +322,7 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
               <Pitch starters={rows.filter(r => r.slot <= 11)} bench={rows.filter(r => r.slot > 11)} card={card} compact benchTitle={t('Substitutes')} />
             </>
           ) : teamId ? (
-            <p className="fpl-meta" style={{ margin: 0 }}>{t('Couldn’t load your team for this gameweek.')}</p>
+            <p className="fpl-meta" style={{ margin: 0 }}>{managerName ? t('Couldn’t load their team for this gameweek.') : t('Couldn’t load your team for this gameweek.')}</p>
           ) : (
             <>
               <p className="fpl-meta" style={{ margin: 0 }}>{t('Add your FPL Team ID on Home to follow your points live.')}</p>
@@ -328,7 +333,7 @@ export function LiveScreen({ staticData, gwId, teamId, fetchJson, onOpenLeague, 
         {bonusRace.length ? (
           <section className="fpl-glass fpl-tool-card" aria-labelledby="live-bonus">
             <h2 id="live-bonus" className="fpl-home-h">{t('Bonus race')}</h2>
-            <p className="fpl-meta" style={{ margin: 0 }}>{t('If live matches ended now. Your players highlighted.')}</p>
+            <p className="fpl-meta" style={{ margin: 0 }}>{managerName ? t('If live matches ended now. Their players highlighted.') : t('If live matches ended now. Your players highlighted.')}</p>
             <ul className="fpl-bonusrace">
               {bonusRace.map(r => (
                 <li key={r.element} className={r.owned ? 'is-owned' : ''}>

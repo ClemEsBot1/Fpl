@@ -41,7 +41,7 @@ function saveLeague(id) {
 
 // One member's 15 on a pitch: the XI, then the bench, each player's
 // predicted points (or what they scored, for a gameweek that has started).
-function MemberTeam({ team, teamsById, onOpen }) {
+function MemberTeam({ team, teamsById, onOpen, onViewLive }) {
   const starters = team.squad.filter(s => s.isStarting);
   const bench = team.squad.filter(s => !s.isStarting);
   const card = slot => {
@@ -64,7 +64,10 @@ function MemberTeam({ team, teamsById, onOpen }) {
         ? <p className="fpl-home-hint">{t('Showing your edits to this team. Open it to change it more, or go back to the team on FPL.')}</p>
         : team.picksFromGwId && <p className="fpl-home-hint">{t("This gameweek's picks are hidden until the deadline, so this is their Gameweek {n} team.", { n: team.picksFromGwId })}</p>}
       <Pitch starters={starters} bench={bench} card={card} compact />
-      <button type="button" className="fpl-link" onClick={onOpen}>{t('Open and edit this team')} <ArrowRight size={14} /></button>
+      {/* While the gameweek is on: their points live, as on the Live screen. */}
+      {onViewLive
+        ? <button type="button" className="fpl-link" onClick={onViewLive}>{t('View live')} <ArrowRight size={14} /></button>
+        : <button type="button" className="fpl-link" onClick={onOpen}>{t('Open and edit this team')} <ArrowRight size={14} /></button>}
     </div>
   );
 }
@@ -321,7 +324,7 @@ function ShareLeague({ leagueId, name, gwName }) {
   );
 }
 
-function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam, onLiveRank }) {
+function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById, fetchJson, loadTeam, onOpenTeam, onViewLive, onLiveRank }) {
   // A gameweek that has started is shown as it stood after it; the one
   // being planned with the latest points and its predictions.
   const started = !!(gwId && targetGwId && gwId < targetGwId);
@@ -463,7 +466,7 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
                     <ExpectedCell rank={m.rank} expected={team && team.status === 'ready' && !notStarted ? expected[m.entry] : null} loading={pending} />
                   </li>
                   {isOpen && team && team.status === 'ready' && (
-                    <li className="fpl-league-open"><MemberTeam team={team} teamsById={teamsById} onOpen={() => onOpenTeam(m.entry)} /></li>
+                    <li className="fpl-league-open"><MemberTeam team={team} teamsById={teamsById} onOpen={() => onOpenTeam(m.entry)} onViewLive={isLive && onViewLive && !notStarted ? () => onViewLive(m.entry, String(m.entry) === String(homeTeamId) ? null : m.managerName) : null} /></li>
                   )}
                 </Fragment>
               );
@@ -517,7 +520,7 @@ function LeagueRank({ rank, live }) {
   );
 }
 
-export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById = {}, fetchJson, loadTeam, onOpenTeam, onAddTeamId }) {
+export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwId, liveGwFinished, teamsById, playersById = {}, fetchJson, loadTeam, onOpenTeam, onViewLive, onAddTeamId }) {
   const [leagues, setLeagues] = useState({ status: homeTeamId ? 'loading' : 'none', list: [] });
   const [leagueId, setLeagueId] = useState(readSavedLeague);
   const [idInput, setIdInput] = useState('');
@@ -592,7 +595,7 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
 
       {leagueId && (
         // Mounted afresh for each league and gameweek.
-        <LeagueTable key={`${leagueId}-${gwId}`} homeTeamId={homeTeamId} leagueId={leagueId} gwId={gwId} targetGwId={targetGwId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} onLiveRank={onLiveRank} />
+        <LeagueTable key={`${leagueId}-${gwId}`} homeTeamId={homeTeamId} leagueId={leagueId} gwId={gwId} targetGwId={targetGwId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} onViewLive={onViewLive} onLiveRank={onLiveRank} />
       )}
     </div>
   );
