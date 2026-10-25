@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ArrowDown, ArrowRight, ArrowUp, Copy, Download, RotateCcw, Share2, Star, X } from 'lucide-react';
 import { DIFF_COLORS, fmtPrice, fmtPts } from '../lib/format.js';
 import { recapText } from '../lib/recap.js';
+import { useBackClose } from '../hooks/useBackClose.js';
 import { fmtNumber, ordinal, t } from '../lib/i18n.js';
 import { tr } from '../lib/i18nRich.jsx';
 
@@ -832,6 +833,7 @@ const LEAGUE_KEY = 'fpl_league_id';
 
 export function GwRecap({ gwId, state, onClose, onRetry, onLoadLeague }) {
   const dialogRef = useRef(null);
+  useBackClose(onClose);
   const bodyRef = useRef(null);
   const wide = useWide();
   const [index, setIndex] = useState(0);

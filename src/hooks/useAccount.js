@@ -62,7 +62,7 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
     setAuthDialog('forgot');
     params.delete('reset');
     const query = params.toString();
-    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+    window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
   }, []);
 
   // Check for an existing logged-in session once on load. The answer
@@ -85,7 +85,7 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
       params.delete('delete-account');
       params.delete('google');
       const query = params.toString();
-      window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+      window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
     }
     const timer = setTimeout(() => leaveBoot(skip ? 'home' : 'welcome'), 3000);
     (async () => {

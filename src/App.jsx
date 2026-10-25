@@ -28,6 +28,7 @@ import { CookieBanner } from './components/CookieBanner.jsx';
 import { analyticsAllowed, fetchCountry, needsConsent, onConsentChange, readConsent, runningAsApp, wantsConsentPrompt, writeConsent } from './lib/consent.js';
 import { track } from './lib/track.js';
 import { onOpenPlayerProfile } from './lib/playerProfile.js';
+import { backNav } from './lib/backNav.js';
 import { t } from './lib/i18n.js';
 import { parseTeamId } from './lib/teamIdInput.js';
 import { ALL_CHUNKS, loadCustomSquadBuilder, loadHindsightScreen, loadResultsScreen } from './lib/chunks.js';
@@ -770,12 +771,26 @@ export default function FPLSquadChecker() {
   useEffect(() => {
     if (stage === 'boot' || stage === 'loading' || stage === 'error' || restoreViewRef.current) return;
     writeInApp(stage !== 'welcome');
-    if (stage === 'welcome') { writeParams({ view: null, team: null }); return; }
-    writeParams({
-      view: RESTORABLE_VIEWS.includes(activeNav) ? activeNav : null,
-      team: resultsTeamId && resultsTeamId !== String(homeTeam.teamId) ? resultsTeamId : null,
-    });
+    const view = stage === 'welcome' ? null : (RESTORABLE_VIEWS.includes(activeNav) ? activeNav : null);
+    const team = stage === 'welcome' ? null : (resultsTeamId && resultsTeamId !== String(homeTeam.teamId) ? resultsTeamId : null);
+    writeParams({ view, team });
+    // A history entry per screen, so the phone's Back button goes back
+    // through them (see backNav and reopenScreen below).
+    if (backNav) backNav.showScreen(`${stage}|${activeNav || ''}|${team || ''}`, { fplStage: stage, fplView: view, fplTeam: team }, window.location.pathname + window.location.search + window.location.hash);
   }, [stage, activeNav, resultsTeamId, homeTeam.teamId]);
+
+  // Back to a screen visited earlier (its history entry's state): screens
+  // with nothing to load are shown again; the rest are opened as from the
+  // menu, as after a reload.
+  const reopenScreenRef = useRef(null);
+  reopenScreenRef.current = entry => {
+    if (!entry || !entry.fplStage) { setStage('home'); return; }
+    if (entry.fplTeam) { handleTeamIdSubmit(entry.fplTeam); return; }
+    if (['home', 'welcome', 'teamIdForm', 'profile'].includes(entry.fplStage)) { setStage(entry.fplStage); return; }
+    const item = navItems.find(i => i.id === entry.fplView);
+    if (item) item.run(); else setStage('home');
+  };
+  useEffect(() => { if (backNav) backNav.onScreenBack(entry => reopenScreenRef.current(entry)); }, []);
 
   // The summary row under the header: the squad on the results screen, or
   // on Home the remembered team for the picked gameweek.

@@ -10,6 +10,7 @@ import { fetchFplJson } from '../lib/fplClient.js';
 import { DIFF_COLORS, availClass, fmtPrice, fmtPts } from '../lib/format.js';
 import { cheaperAlternatives, openPlayerProfile, pastSeasons, photoUrls, predictionError, priceSeries, profileRows, savedFor, signed } from '../lib/playerProfile.js';
 import { t } from '../lib/i18n.js';
+import { useBackClose } from '../hooks/useBackClose.js';
 
 const positionName = id => ({ 1: t('Goalkeeper'), 2: t('Defender'), 3: t('Midfielder'), 4: t('Forward') })[id];
 
@@ -154,6 +155,7 @@ function Diff({ value }) {
 
 export function PlayerProfile({ playerId, staticData, onClose }) {
   const dialogRef = useRef(null);
+  useBackClose(onClose);
   const [tab, setTab] = useState('season');
   const [state, setState] = useState({ summary: null, saved: null, error: false });
   const player = staticData.playersById[playerId];

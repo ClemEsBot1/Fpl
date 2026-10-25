@@ -12,6 +12,7 @@ import './liveBonus.css';
 import { fmtDateTime, fmtTime, t } from '../lib/i18n.js';
 import { chipName } from '../lib/career.js';
 import { tr } from '../lib/i18nRich.jsx';
+import { useBackClose } from '../hooks/useBackClose.js';
 
 const REFRESH_MS = 60 * 1000;
 
@@ -140,6 +141,7 @@ function SidePitch({ team, rows, ownedIds }) {
 // One match: its events and every player's points, BPS and bonus, kept up
 // to date with the screen's refresh.
 function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) {
+  useBackClose(onClose);
   const dialogRef = useRef(null);
   const [side, setSide] = useState('home');
   const [view, setView] = useState('pitch');
