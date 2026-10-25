@@ -1540,3 +1540,6 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-card.is-yellow { background: #FFD60A; }
 .fpl-card.is-red { background: #FF4D5A; }
 .fpl-match-switch { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+/* The Live screen's team heading, with a way back to your own team. */
+.fpl-live-you-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
