@@ -140,3 +140,52 @@ test('the refresh job learns the weights once a gameweek has finished, and keeps
   await refreshBlendWeights({ bootstrap, base: null, fetchImpl, blob, now });
   assert.equal(puts.length, 2);
 });
+
+test('a gameweek whose matches are over but not yet confirmed by FPL is in the head-to-head, provisional', async () => {
+  const { headToHeadEvents, finishedEvents } = await import('../src/lib/modelWeeks.js');
+  const events = [
+    { id: 7, finished: true, data_checked: true },
+    { id: 8, finished: false, data_checked: false },
+    { id: 9, finished: false, data_checked: false },
+  ];
+  const fixtures = [
+    { event: 7, finished: true }, { event: 8, finished: false, finished_provisional: true },
+    { event: 9, finished: false, finished_provisional: false },
+  ];
+  assert.deepEqual(headToHeadEvents(events, fixtures).map(e => [e.id, !!e.provisional]), [[7, false], [8, true]]);
+  // The blend's weights still only learn from confirmed weeks.
+  assert.deepEqual(finishedEvents(events).map(e => e.id), [7]);
+});
+
+test('a provisional week is scored afresh each time, never kept', async () => {
+  const { modelHeadToHead } = await import('../src/lib/adminServer.js');
+  const { fakeRedis } = await import('./helpers/fakeRedis.js');
+  const { seasonIdFor } = await import('../src/lib/predictions.js');
+  const season = seasonIdFor(bootstrap.events);
+  const finished = bootstrap.events.filter(e => e.finished).map(e => e.id);
+  const last = finished[finished.length - 1];
+  // FPL hasn't confirmed the last week yet: only its final whistles are in.
+  const unconfirmed = { ...bootstrap, events: bootstrap.events.map(e => (e.id === last ? { ...e, finished: false, data_checked: false } : e)) };
+  const provisionalFixtures = fixtures.map(f => (f.event === last ? { ...f, finished: false, finished_provisional: true } : f));
+  const preds = Object.fromEntries(ids.map(id => [id, scored(id)]));
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(url);
+    const body = url.endsWith('bootstrap-static/') ? unconfirmed
+      : url.endsWith('fixtures/') ? provisionalFixtures
+      : url.includes('/live/') ? { elements: live }
+      : url.endsWith(`/ml/predictions-gw${last}.json`) ? { season, gwId: last, builtAt: 'x', byId: Object.fromEntries(ids.map(id => [id, [scored(id), 1, 1, 1, 1]])) }
+      : null;
+    return { ok: !!body, json: async () => body };
+  };
+  const blob = { get: async pathname => (pathname === `predictions-gw${last}.json`
+    ? { stream: new Response(JSON.stringify({ gwId: last, season, source: 'formula', predictedById: preds })).body } : null) };
+  const redis = fakeRedis();
+  const out = await modelHeadToHead(redis, { host: 'localhost:3000', fetchImpl, blob });
+  const week = out.weeks.find(w => w.gwId === last);
+  assert.ok(week && week.formula && week.ml && week.blend, 'scored');
+  assert.equal(week.provisional, true);
+  urls.length = 0;
+  await modelHeadToHead(redis, { host: 'localhost:3000', fetchImpl, blob });
+  assert.ok(urls.some(u => u.includes(`event/${last}/live/`)), 'fetched again: not kept');
+});

@@ -37,6 +37,20 @@ export function finishedEvents(events) {
   return (events || []).filter(e => e.finished && e.data_checked !== false).slice(-MODEL_WEEKS);
 }
 
+// The gameweeks the admin head-to-head shows: the confirmed ones above, and
+// one whose matches are all over but whose points FPL hasn't confirmed yet
+// (that can take a day), marked provisional: it's scored on the points so
+// far and never learned from or kept (see modelHeadToHead).
+export function headToHeadEvents(events, fixtures) {
+  const byEvent = {};
+  (fixtures || []).forEach(f => { if (f.event) (byEvent[f.event] ||= []).push(f); });
+  const playedOut = e => !!byEvent[e.id] && byEvent[e.id].every(f => f.finished || f.finished_provisional);
+  return (events || [])
+    .map(e => (e.finished && e.data_checked !== false ? e : playedOut(e) ? { ...e, provisional: true } : null))
+    .filter(Boolean)
+    .slice(-MODEL_WEEKS);
+}
+
 // One finished gameweek: { gwId, formula, ml, blend, blendLearned, live,
 // mlBuiltAt }, formula, ml and blend each { [playerId]: points predicted }
 // and live FPL's event/{gw}/live/ elements; or { gwId, missing } naming what

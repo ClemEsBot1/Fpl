@@ -11,7 +11,7 @@ import { googleKeyFor } from './googleAuth.js';
 import { recentErrors } from './errorLog.js';
 import { compareGameweek } from './headToHead.js';
 import { buildStaticDataFromRaw, seasonIdFor } from './predictions.js';
-import { BLEND_WEIGHTS_PATHNAME, blobJson, finishedEvents, loadModelWeek, siteBase } from './modelWeeks.js';
+import { BLEND_WEIGHTS_PATHNAME, blobJson, headToHeadEvents, loadModelWeek, siteBase } from './modelWeeks.js';
 import { blendWeightsFrom } from './blend.js';
 
 const FPL = 'https://fantasy.premierleague.com/api/';
@@ -267,16 +267,17 @@ export async function modelHeadToHead(redis, { host, fetchImpl = fetch, blob = {
   let staticData = null;
   const positionById = Object.fromEntries((bootstrap.elements || []).map(e => [e.id, e.element_type]));
   const weeks = [];
-  for (const event of finishedEvents(bootstrap.events)) {
+  for (const event of headToHeadEvents(bootstrap.events, fixtures)) {
     const key = `admin:head-to-head:v2:${season}:gw${event.id}`;
-    const cached = await getJSON(redis, key);
+    // A provisional week is scored afresh each time: its points can change.
+    const cached = event.provisional ? null : await getJSON(redis, key);
     if (cached) { weeks.push(cached); continue; }
     const loaded = await loadModelWeek({ event, season, events: bootstrap.events, base, fetchImpl, blob, positionById });
     if (loaded.missing) { weeks.push(loaded); continue; }
     staticData = staticData || buildStaticDataFromRaw(bootstrap, fixtures);
     const result = compareGameweek({ ...loaded, positionById, staticData });
-    const week = { gwId: event.id, formula: result.formula, ml: result.ml, blend: result.blend, blendLearned: loaded.blendLearned, mlBuiltAt: loaded.mlBuiltAt };
-    if (result.formula && result.ml && result.blend) await setJSON(redis, key, week);
+    const week = { gwId: event.id, formula: result.formula, ml: result.ml, blend: result.blend, blendLearned: loaded.blendLearned, mlBuiltAt: loaded.mlBuiltAt, ...(event.provisional ? { provisional: true } : {}) };
+    if (result.formula && result.ml && result.blend && !event.provisional) await setJSON(redis, key, week);
     weeks.push(week);
   }
   const kept = await blobJson(blob, BLEND_WEIGHTS_PATHNAME).catch(() => null);
