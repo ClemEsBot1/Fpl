@@ -71,3 +71,16 @@ test('price through the season and cheaper players predicted nearly as well', as
   assert.equal(alts[1].next, 21);
   assert.deepEqual(cheaperAlternatives(me, all, { 1: weeks(0) }), []);
 });
+
+test("each gameweek's expected goals and assists, and the season's against what he scored", async () => {
+  const { profileRows, xgSummary } = await import('../src/lib/playerProfile.js');
+  const summary = { history: [
+    { round: 1, opponent_team: 2, was_home: true, team_h_score: 2, team_a_score: 0, total_points: 9, minutes: 90, goals_scored: 1, assists: 0, expected_goals: '0.45', expected_assists: '0.10' },
+    { round: 2, opponent_team: 3, was_home: false, team_h_score: 1, team_a_score: 1, total_points: 2, minutes: 90, goals_scored: 0, assists: 1, expected_goals: '0.30', expected_assists: '0.05' },
+  ], fixtures: [] };
+  const rows = profileRows(summary, { finishedGws: new Set([1, 2]) });
+  assert.equal(rows.find(r => r.gw === 1).xg, 0.45);
+  assert.equal(rows.find(r => r.gw === 2).xa, 0.05);
+  assert.deepEqual(xgSummary(rows), { goals: 1, xg: 0.75, assists: 1, xa: 0.15 });
+  assert.equal(xgSummary([]), null);
+});

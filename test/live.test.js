@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bonusFromBps, didNotPlay, lineup, liveBonusRace, liveTeamScore, matchDetail, matchesOver, projectedBonus, teamStates } from '../src/lib/live.js';
+import { bonusFromBps, didNotPlay, vsField, lineup, liveBonusRace, liveTeamScore, matchDetail, matchesOver, projectedBonus, teamStates } from '../src/lib/live.js';
 
 test('bonus follows FPL tie rules', () => {
   const b = list => bonusFromBps(list.map((value, i) => ({ element: i + 1, value })));
@@ -157,4 +157,15 @@ test("a player didn't play once his matches are over without minutes, not before
   assert.equal(didNotPlay({ minutes: 12, matchesOver: true }), false);
   assert.equal(didNotPlay({ minutes: 0, matchesOver: false }), false);
   assert.equal(didNotPlay(undefined), false);
+});
+
+test('against the field: your multiplier less how many own each player, times his points', () => {
+  const playersById = { 1: { webName: 'Haaland', selectedBy: 60 }, 2: { webName: 'Salah', selectedBy: 40 }, 3: { webName: 'Diff', selectedBy: 5 } };
+  const rows = [{ id: 1, multiplier: 2 }, { id: 3, multiplier: 1 }];
+  const liveById = { 1: { totalPoints: 10 }, 2: { totalPoints: 12, bonus: 0 }, 3: { totalPoints: 6 } };
+  const f = vsField({ rows, liveById, bonus: { 2: 3 }, playersById });
+  // Haaland 10 × (2 − 0.6) = 14; Salah 15 × (0 − 0.4) = −6; Diff 6 × 0.95 = 5.7.
+  assert.equal(f.net, 13.7);
+  assert.deepEqual(f.gains.map(x => [x.player.webName, x.swing]), [['Haaland', 14], ['Diff', 5.7]]);
+  assert.deepEqual(f.losses.map(x => [x.player.webName, x.swing, x.points]), [['Salah', -6, 15]]);
 });
