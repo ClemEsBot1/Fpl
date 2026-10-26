@@ -1543,3 +1543,21 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 
 /* The Live screen's team heading, with a way back to your own team. */
 .fpl-live-you-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* Head-to-head leagues on the Mini-league screen. */
+.fpl-h2h-sub { margin: 4px 0 8px; font-size: 0.85rem; color: var(--ink-dim); }
+.fpl-h2h-matches { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.fpl-h2h-matches li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-alt); }
+.fpl-h2h-matches li.is-you { outline: 1px solid var(--blue); }
+.fpl-h2h-matches li > .fpl-h2h-side:last-child { text-align: right; }
+.fpl-h2h-side { display: grid; min-width: 0; }
+.fpl-h2h-side b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.fpl-h2h-side small { color: var(--ink-dim); font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpl-h2h-side.is-won b { color: var(--green); }
+.fpl-h2h-side.is-you b::after { content: ' ●'; color: var(--blue); font-size: 0.6rem; vertical-align: middle; }
+.fpl-h2h-score { font-weight: 700; font-size: 1.05rem; }
+.fpl-h2h-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.fpl-h2h-table th, .fpl-h2h-table td { padding: 6px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+.fpl-h2h-table th:nth-child(2), .fpl-h2h-table td:nth-child(2) { text-align: left; }
+.fpl-h2h-table td:nth-child(2) b { display: block; font-weight: 600; }
+.fpl-h2h-table td:nth-child(2) small { color: var(--ink-dim); font-size: 0.72rem; }
+.fpl-h2h-table tr.is-you td { background: rgb(var(--tint) / 0.08); }

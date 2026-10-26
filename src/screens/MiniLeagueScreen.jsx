@@ -7,7 +7,7 @@ import { SkeletonRows } from '../components/common.jsx';
 import './headToHead.css';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { fmtPrice, fmtPts, noPointsLabel } from '../lib/format.js';
-import { expectedPositions, forEachLimited, headToHead, latestTransfers, leagueDifferentials, leagueHighlights, liveLeagueRank, membersAtGw, parseStandings, privateLeagues } from '../lib/leagues.js';
+import { expectedPositions, forEachLimited, h2hLeagues, headToHead, latestTransfers, leagueDifferentials, leagueHighlights, liveLeagueRank, membersAtGw, parseH2hMatches, parseH2hStandings, parseStandings, privateLeagues } from '../lib/leagues.js';
 import { parseLeagueId } from '../lib/teamIdInput.js';
 import { fmtNumber, ordinal as ordinalFor, t } from '../lib/i18n.js';
 import { tr } from '../lib/i18nRich.jsx';
@@ -508,6 +508,99 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
   );
 }
 
+// A head-to-head league: this gameweek's matches (yours first), the table
+// (won, drawn, lost, league points, points scored), and who you play next.
+// matchGw: the gameweek being played or just played; nextGw: the one being
+// planned, when different.
+const MATCHES_SHOWN = 6; // yours first, then the rest behind "Show all"
+function H2hLeague({ leagueId, homeTeamId, matchGw, nextGw, fetchJson }) {
+  const [state, setState] = useState({ status: 'loading' });
+  const [allMatches, setAllMatches] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const matches = gw => (gw ? fetchJson(`leagues-h2h-matches/league/${leagueId}/?event=${gw}`).catch(() => null) : Promise.resolve(null));
+    Promise.all([fetchJson(`leagues-h2h/${leagueId}/standings/`), matches(matchGw), nextGw && nextGw !== matchGw ? matches(nextGw) : Promise.resolve(null)])
+      .then(([standingsJson, nowJson, nextJson]) => {
+        if (cancelled) return;
+        const standings = parseH2hStandings(standingsJson);
+        if (!standings) { setState({ status: 'error' }); return; }
+        setState({ status: 'ready', standings, now: nowJson ? parseH2hMatches(nowJson, homeTeamId) : [], next: nextJson ? parseH2hMatches(nextJson, homeTeamId) : [] });
+      })
+      .catch(() => { if (!cancelled) setState({ status: 'error' }); });
+    return () => { cancelled = true; };
+  }, [leagueId, homeTeamId, matchGw, nextGw, fetchJson]);
+
+  if (state.status === 'loading') return <section className="fpl-glass fpl-home-card"><SkeletonRows rows={6} label={t('Loading the league…')} /></section>;
+  if (state.status === 'error') return <section className="fpl-glass fpl-home-card"><p className="fpl-home-text" role="alert">{t("Couldn't load league {id}. Check the ID, or try again in a minute.", { id: leagueId })}</p></section>;
+  const { standings, now, next } = state;
+  const shownMatches = allMatches ? now : now.slice(0, MATCHES_SHOWN);
+  const isYou = entry => String(entry) === String(homeTeamId);
+  const yourNext = next.find(m => m.isYou);
+  const side = (x, won) => (x ? (
+    <span className={`fpl-h2h-side${isYou(x.entry) ? ' is-you' : ''}${won ? ' is-won' : ''}`}>
+      <b>{x.teamName}</b><small>{x.managerName}</small>
+    </span>
+  ) : <span className="fpl-h2h-side"><b>{t('Bye')}</b></span>);
+  return (
+    <section className="fpl-glass fpl-home-card" aria-labelledby="h2h-h">
+      <h2 id="h2h-h" className="fpl-home-h"><Swords size={18} aria-hidden="true" /> {standings.league.name}</h2>
+      {now.length ? (
+        <>
+          <h3 className="fpl-h2h-sub">{t('Gameweek {n} matches', { n: matchGw })}</h3>
+          <ul className="fpl-h2h-matches">
+            {shownMatches.map(m => (
+              <li key={m.id} className={m.isYou ? 'is-you' : ''}>
+                {side(m.home, m.winner === 'home')}
+                <span className="fpl-mono fpl-h2h-score">{m.home.points}–{m.away ? m.away.points : '–'}</span>
+                {side(m.away, m.winner === 'away')}
+              </li>
+            ))}
+          </ul>
+          {now.length > MATCHES_SHOWN ? (
+            <button type="button" className="fpl-link" onClick={() => setAllMatches(v => !v)}>
+              {allMatches ? t('Show fewer') : t('Show all {n} matches', { n: now.length })}
+            </button>
+          ) : null}
+        </>
+      ) : null}
+      {yourNext ? (
+        <p className="fpl-home-text">
+          {t('Gameweek {n}: you play {team} ({manager}).', { n: nextGw, team: (isYou(yourNext.home.entry) ? yourNext.away : yourNext.home)?.teamName || t('Bye'), manager: (isYou(yourNext.home.entry) ? yourNext.away : yourNext.home)?.managerName || '–' })}
+        </p>
+      ) : null}
+      <div className="fpl-compare-wrap">
+        <table className="fpl-h2h-table">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">{t('Team')}</th>
+              <th scope="col" title={t('Won')}>{t('W')}</th>
+              <th scope="col" title={t('Drawn')}>{t('D')}</th>
+              <th scope="col" title={t('Lost')}>{t('L')}</th>
+              <th scope="col" title={t('League points')}>{t('Pts')}</th>
+              <th scope="col" title={t('FPL points scored')}>{t('Score')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standings.rows.map(r => (
+              <tr key={r.entry} className={isYou(r.entry) ? 'is-you' : ''}>
+                <td className="fpl-mono">{r.rank}</td>
+                <td><b>{r.teamName}</b><small>{r.managerName}</small></td>
+                <td className="fpl-mono">{r.won}</td>
+                <td className="fpl-mono">{r.drawn}</td>
+                <td className="fpl-mono">{r.lost}</td>
+                <td className="fpl-mono"><b>{r.leaguePoints}</b></td>
+                <td className="fpl-mono">{fmtNumber(r.pointsFor)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {standings.hasMore ? <p className="fpl-meta">{t('Showing the top 50.')}</p> : null}
+    </section>
+  );
+}
+
 // Your place in a league on its picker button; a green dot while the
 // gameweek is being played, as the place moves with the live points.
 function LeagueRank({ rank, live }) {
@@ -524,6 +617,9 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
   const [leagues, setLeagues] = useState({ status: homeTeamId ? 'loading' : 'none', list: [] });
   const [leagueId, setLeagueId] = useState(readSavedLeague);
   const [idInput, setIdInput] = useState('');
+  // A head-to-head league picked instead of a classic one.
+  const [h2hId, setH2hId] = useState(null);
+  const [h2hList, setH2hList] = useState([]);
   // Your place in each league opened here, worked out live (LeagueTable).
   const [liveRanks, setLiveRanks] = useState({});
   const onLiveRank = useCallback((id, rank) => setLiveRanks(prev => (prev[id] === rank ? prev : { ...prev, [id]: rank })), []);
@@ -543,6 +639,7 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
         if (cancelled) return;
         const list = privateLeagues(entry);
         setLeagues({ status: 'ready', list });
+        setH2hList(h2hLeagues(entry));
         setLeagueId(current => current || (list[0] ? list[0].id : null));
       })
       .catch(() => { if (!cancelled && !leaguesAt) setLeagues({ status: 'error', list: [] }); });
@@ -552,7 +649,7 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
   function submitLeagueId(e) {
     e.preventDefault();
     const id = Number(idInput);
-    if (id > 0) { setLeagueId(id); setIdInput(''); }
+    if (id > 0) { setLeagueId(id); setH2hId(null); setIdInput(''); }
   }
 
   return (
@@ -573,11 +670,23 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
         {leagues.list.length > 0 && (
           <div className="fpl-league-chips">
             {leagues.list.map(l => (
-              <button key={l.id} type="button" className={`fpl-chip-btn${l.id === leagueId ? ' active' : ''}`} aria-pressed={l.id === leagueId} onClick={() => setLeagueId(l.id)}>
+              <button key={l.id} type="button" className={`fpl-chip-btn${l.id === leagueId && !h2hId ? ' active' : ''}`} aria-pressed={l.id === leagueId && !h2hId} onClick={() => { setLeagueId(l.id); setH2hId(null); }}>
                 {l.name}<LeagueRank rank={isLive && liveRanks[l.id] ? liveRanks[l.id] : l.rank} live={isLive} />
               </button>
             ))}
           </div>
+        )}
+        {h2hList.length > 0 && (
+          <>
+            <h3 className="fpl-h2h-sub">{t('Head-to-head leagues')}</h3>
+            <div className="fpl-league-chips">
+              {h2hList.map(l => (
+                <button key={l.id} type="button" className={`fpl-chip-btn${l.id === h2hId ? ' active' : ''}`} aria-pressed={l.id === h2hId} onClick={() => setH2hId(l.id)}>
+                  {l.name}<LeagueRank rank={l.rank} live={false} />
+                </button>
+              ))}
+            </div>
+          </>
         )}
         <form className="fpl-home-tid" onSubmit={submitLeagueId}>
           <input
@@ -593,7 +702,10 @@ export function MiniLeagueScreen({ homeTeamId, gwId, targetGwId, gwName, liveGwI
         <p className="fpl-home-hint">{tr("A league's ID is the number after <m>/leagues/</m> in its address on the FPL site.", undefined, { m: s => <span className="fpl-mono">{s}</span> })}</p>
       </section>
 
-      {leagueId && (
+      {h2hId ? (
+        <H2hLeague key={h2hId} leagueId={h2hId} homeTeamId={homeTeamId} matchGw={liveGwId} nextGw={targetGwId} fetchJson={fetchJson} />
+      ) : null}
+      {leagueId && !h2hId && (
         // Mounted afresh for each league and gameweek.
         <LeagueTable key={`${leagueId}-${gwId}`} homeTeamId={homeTeamId} leagueId={leagueId} gwId={gwId} targetGwId={targetGwId} gwName={gwName} liveGwId={liveGwId} liveGwFinished={liveGwFinished} teamsById={teamsById} playersById={playersById} fetchJson={fetchJson} loadTeam={loadTeam} onOpenTeam={onOpenTeam} onViewLive={onViewLive} onLiveRank={onLiveRank} />
       )}

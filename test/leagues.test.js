@@ -227,3 +227,21 @@ test('your live place in a league counts every member’s live points, once all 
   assert.equal(liveLeagueRank({ ...standings, hasMore: true }, teams, 8, 3), null);
   assert.equal(liveLeagueRank(standings, teams, null, 3), null);
 });
+
+test('head-to-head leagues: your leagues, the table, and a gameweek of matches with yours first', async () => {
+  const { h2hLeagues, parseH2hStandings, parseH2hMatches } = await import('../src/lib/leagues.js');
+  assert.deepEqual(h2hLeagues({ leagues: { h2h: [{ id: 3612, name: 'Discord H2H', entry_rank: 4 }] } }), [{ id: 3612, name: 'Discord H2H', rank: 4 }]);
+  assert.deepEqual(h2hLeagues({}), []);
+  const table = parseH2hStandings({ league: { id: 3612, name: 'Discord H2H' }, standings: { has_next: true, results: [
+    { entry: 9, entry_name: 'Change Name', player_name: 'Ahmed W', rank: 1, last_rank: 2, matches_won: 8, matches_drawn: 0, matches_lost: 0, total: 24, points_for: 569 },
+  ] } });
+  assert.deepEqual(table.rows[0], { entry: 9, teamName: 'Change Name', managerName: 'Ahmed W', rank: 1, lastRank: 2, won: 8, drawn: 0, lost: 0, leaguePoints: 24, pointsFor: 569 });
+  assert.equal(table.hasMore, true);
+  const matches = parseH2hMatches({ results: [
+    { id: 1, entry_1_entry: 5, entry_1_name: 'A', entry_1_player_name: 'a', entry_1_points: 40, entry_2_entry: 6, entry_2_name: 'B', entry_2_player_name: 'b', entry_2_points: 50, winner: 6, is_bye: false },
+    { id: 2, entry_1_entry: 7, entry_1_name: 'You', entry_1_player_name: 'me', entry_1_points: 45, entry_2_entry: 8, entry_2_name: 'C', entry_2_player_name: 'c', entry_2_points: 45, winner: null, is_bye: false },
+    { id: 3, entry_1_entry: 9, entry_1_name: 'D', entry_1_player_name: 'd', entry_1_points: 30, entry_2_entry: null, is_bye: true, winner: null },
+  ] }, 7);
+  assert.deepEqual(matches.map(m => [m.id, m.isYou, m.winner]), [[2, true, null], [1, false, 'away'], [3, false, null]]);
+  assert.equal(matches[2].away, null, 'a bye');
+});
