@@ -116,9 +116,18 @@ test('the mini-league slide finds the week winner and the closest rival', () => 
 
 test('you against the model is a share of the best possible XI', () => {
   const v = buildRecap({ ...base, modelScore: 68, bestScore: 120 }).vsModel;
-  assert.deepEqual({ ...v, teams: undefined }, { you: 48, model: 68, best: 120, percent: 40, teams: undefined });
+  assert.deepEqual({ ...v, teams: undefined }, { you: 48, model: 68, best: 120, percent: 40, bestOwned: null, teams: undefined });
   assert.equal(v.teams.model, null);
   assert.equal(buildRecap(base).vsModel, null);
+});
+
+test('the best XI marks the players you owned, benched ones too', () => {
+  const other = { id: 99, webName: 'Other', positionId: 4, team: 1 };
+  const bestSquad = [slot(salah, 15, 7.1), slot(benchGk, 9, 3), slot(other, 20, 5)];
+  const v = buildRecap({ ...base, bestScore: 44, bestSquad }).vsModel;
+  assert.equal(v.bestOwned, 2);
+  assert.deepEqual(v.teams.best.map(r => [r.name, r.owned]), [['Raya', true], ['Salah', true], ['Other', false]]);
+  assert.equal(v.teams.you.some(r => 'owned' in r), false);
 });
 
 test('the prediction check sorts players by how far they beat their prediction', () => {

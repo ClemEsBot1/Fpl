@@ -372,10 +372,15 @@ export function leagueSlide(league, teamId) {
 function vsModelSlide({ points, modelScore, bestScore, squad, modelSquad, bestSquad, liveById }) {
   if (typeof bestScore !== 'number' || bestScore <= 0) return null;
   const list = slots => (slots ? xiRows(slots.filter(s => s.isStarting), liveById) : null);
+  // Which of the best XI were in your 15, starting or not.
+  const yours = new Set(squad.map(s => s.player.id));
+  const best = list(bestSquad);
+  const bestRows = best ? best.map(r => ({ ...r, owned: yours.has(r.id) })) : null;
   return {
     you: points, model: typeof modelScore === 'number' ? modelScore : null, best: bestScore,
     percent: Math.round((points / bestScore) * 100),
-    teams: { you: xiRows(squad, liveById), model: list(modelSquad), best: list(bestSquad) },
+    bestOwned: bestRows ? bestRows.filter(r => r.owned).length : null,
+    teams: { you: xiRows(squad, liveById), model: list(modelSquad), best: bestRows },
   };
 }
 
