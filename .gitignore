@@ -42,3 +42,4 @@ __pycache__
 graphify-out/*
 # Answers to the report's questions (graphify save-result), kept between sessions.
 !graphify-out/memory/
+admin-account.local.txt
