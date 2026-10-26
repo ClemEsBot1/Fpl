@@ -7,12 +7,13 @@ import { forEachLimited, parseStandings, privateLeagues } from '../lib/leagues.j
 import { summariseAccuracy } from '../lib/accuracy.js';
 import { buildRecap, freeTransfersFor, lastFinishedGw, markRecapSeen, recapSeenFor, suggestionsBefore } from '../lib/recap.js';
 import { recapChunk } from '../lib/chunks.js';
+import { seenGwIn } from '../lib/recapSeen.js';
 import { isGwFinished, liveGwIdFor } from '../lib/gameweeks.js';
 import { teamErrorMessage } from './useFplData.js';
 import { t } from '../lib/i18n.js';
 
 // `fpl` is what useFplData returns.
-// `accountSeen` ({ [teamId]: gwId }, null when logged out) is the account's
+// `accountSeen` ({ [teamId]: 'season:gwId' }, null when logged out) is the account's
 // record of recaps seen, and `onSeen(teamId, gwId)` adds to it, so the
 // pop-up shows once per account as well as once per device.
 export function useRecap({ stage, homeTeamId, fpl, accountSeen = null, onSeen = () => {} }) {
@@ -144,10 +145,11 @@ export function useRecap({ stage, homeTeamId, fpl, accountSeen = null, onSeen = 
   useEffect(() => {
     if (stage !== 'home' || !liveStatic || !homeTeamId || recap) return;
     const gwId = lastFinishedGw(liveStatic.allEvents);
-    const seen = Math.max(recapSeenFor(homeTeamId), Number(accountSeen && accountSeen[homeTeamId]) || 0);
+    const season = liveStatic.seasonId;
+    const seen = Math.max(recapSeenFor(homeTeamId, season), seenGwIn(accountSeen && accountSeen[homeTeamId], season));
     if (!gwId || seen >= gwId) return;
-    markRecapSeen(homeTeamId, gwId);
-    onSeen(homeTeamId, gwId);
+    markRecapSeen(homeTeamId, gwId, season);
+    onSeen(homeTeamId, gwId, season);
     openRecap(gwId, { open: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, liveStatic, homeTeamId]);

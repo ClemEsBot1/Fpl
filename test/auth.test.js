@@ -376,18 +376,22 @@ test('the start-up check (?session=1) answers 200 when logged out; plain GET kee
   assert.equal((await get({})).statusCode, 401);
 });
 
-test('the gameweek recap seen is kept on the account, only ever moving forward', async () => {
+test('the gameweek recap seen is kept on the account, per season, only ever moving forward', async () => {
   const cookie = cookieFrom(await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' }));
-  assert.equal((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 8 })).status, 401, 'logged in only');
-  assert.equal((await call(redis, { action: 'recap_seen', teamId: 'abc', gwId: 8 }, undefined, cookie)).status, 400);
-  assert.equal((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 39 }, undefined, cookie)).status, 400);
-  const seen = await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 8 }, undefined, cookie);
+  const mark = (gwId, season = '2026-27', c = cookie) => call(redis, { action: 'recap_seen', teamId: 1234, gwId, season }, undefined, c);
+  assert.equal((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 8, season: '2026-27' })).status, 401, 'logged in only');
+  assert.equal((await call(redis, { action: 'recap_seen', teamId: 'abc', gwId: 8, season: '2026-27' }, undefined, cookie)).status, 400);
+  assert.equal((await mark(39)).status, 400);
+  assert.equal((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 8 }, undefined, cookie)).status, 400, 'needs the season');
+  const seen = await mark(8);
   assert.equal(seen.status, 200);
-  assert.deepEqual(seen.body.recapSeen, { 1234: 8 });
+  assert.deepEqual(seen.body.recapSeen, { 1234: '2026-27:8' });
   // An older one doesn't take it back.
-  assert.deepEqual((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 7 }, undefined, cookie)).body.recapSeen, { 1234: 8 });
+  assert.deepEqual((await mark(7)).body.recapSeen, { 1234: '2026-27:8' });
+  // A new season starts again from gameweek 1.
+  assert.deepEqual((await mark(1, '2027-28')).body.recapSeen, { 1234: '2027-28:1' });
   // Another device signing in to the same account gets it with the account.
   const again = cookieFrom(await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' }));
   const session = await call(redis, {}, undefined, again, 'GET');
-  assert.deepEqual(session.body.recapSeen, { 1234: 8 });
+  assert.deepEqual(session.body.recapSeen, { 1234: '2027-28:1' });
 });

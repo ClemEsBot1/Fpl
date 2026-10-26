@@ -27,6 +27,7 @@ import { recordEvent, usageReport } from '../src/lib/usage.js';
 import { addFeedback, cleanFeedback, clearFeedback, listFeedback } from '../src/lib/feedback.js';
 import { digestHandler } from '../src/lib/digestHandler.js';
 import { cleanTeamId } from '../src/lib/digest.js';
+import { seenGwIn, seenValue } from '../src/lib/recapSeen.js';
 import { cleanCountry } from '../src/lib/consent.js';
 
 // Without a cap, anyone could keep guessing a user's password forever.
@@ -635,16 +636,18 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
     if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
     const teamId = cleanTeamId(body.teamId);
     const gwId = Number(body.gwId);
-    if (!teamId || !Number.isInteger(gwId) || gwId < 1 || gwId > 38) { res.status(400).json({ error: 'bad_request' }); return; }
+    const season = typeof body.season === 'string' && /^\d{4}-\d{2}$/.test(body.season) ? body.season : null;
+    if (!teamId || !season || !Number.isInteger(gwId) || gwId < 1 || gwId > 38) { res.status(400).json({ error: 'bad_request' }); return; }
     try {
       let problem = null;
       const updated = await updateJSON(redis, userKeyFor(session.username), record => {
         if (!sessionMatchesRecord(session, record)) { problem = 'signed_out'; return null; }
         const seen = record.recapSeen && typeof record.recapSeen === 'object' ? record.recapSeen : {};
-        if ((Number(seen[teamId]) || 0) >= gwId) return record;
-        // A new season starts again from gameweek 1: keep the latest few teams.
+        // Kept per season (src/lib/recapSeen.js): a new one starts again
+        // from gameweek 1. Only the latest few teams are kept.
+        if (seenGwIn(seen[teamId], season) >= gwId) return record;
         const rest = Object.fromEntries(Object.entries(seen).filter(([id]) => id !== String(teamId)));
-        const kept = Object.entries({ ...rest, [teamId]: gwId }).slice(-RECAP_SEEN_TEAMS);
+        const kept = Object.entries({ ...rest, [teamId]: seenValue(season, gwId) }).slice(-RECAP_SEEN_TEAMS);
         return { ...record, recapSeen: Object.fromEntries(kept) };
       });
       if (updated === undefined || problem) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }

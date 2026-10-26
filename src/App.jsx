@@ -864,7 +864,7 @@ export default function FPLSquadChecker() {
                 onChangeTeam={() => rememberHomeTeam(null)}
                 onRetryTeam={() => loadHomeTeam(homeTeam.teamId)}
                 recapGw={homeTeam.teamId ? recapGwFor(liveStatic, selectedGw) : null}
-                onOpenRecap={gwId => { markRecapSeen(homeTeam.teamId, gwId); account.markRecapSeenOnAccount(homeTeam.teamId, gwId); openRecap(gwId); }}
+                onOpenRecap={gwId => { const season = liveStatic && liveStatic.seasonId; markRecapSeen(homeTeam.teamId, gwId, season); account.markRecapSeenOnAccount(homeTeam.teamId, gwId, season); openRecap(gwId); }}
               />
             )}
             {stage === 'teamIdForm' && (
