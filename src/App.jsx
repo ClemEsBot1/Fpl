@@ -10,6 +10,7 @@ import { DAILY_REFRESH_HOUR_UTC, formatCountdown, getNextDailyRefreshUTC, isDead
 import { fetchFplJson } from './lib/fplClient.js';
 import { SQUAD_BUDGET, applyAutomaticSubs, buildHindsightSquad, buildOptimalTeam, buildSavedSquadActualPerformance, hydrateFrozenSquadSnapshot, hydrateSquadSnapshot, isEventLocked, snapshotIsForSeason } from './lib/predictions.js';
 import { livePointsFor, memberWeekStats, predictedXiTotal } from './lib/leagues.js';
+import { chipsLeft } from './lib/career.js';
 import { liveTeamScore, projectedBonus, teamStates } from './lib/live.js';
 import { leagueSlide, markRecapSeen } from './lib/recap.js';
 import { clearTeamEdit } from './lib/teamEdits.js';
@@ -716,6 +717,8 @@ export default function FPLSquadChecker() {
       history: seasonSoFar,
       // For the league analysis (most captained, best transfers and so on).
       stats: memberWeekStats({ gw: weekGw, picks: livePicks, liveById, transfers, entry: result.entry, history }),
+      // The chips they still have for the gameweek being planned.
+      chipsLeft: history ? chipsLeft(history, target) : null,
     };
   };
   // A new one when an admin switches model, so the league loads again.

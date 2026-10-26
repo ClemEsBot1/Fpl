@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { careerStats, rankChartPoints, valueChartPoints } from '../src/lib/career.js';
+import { careerStats, chipsLeft, rankChartPoints, valueChartPoints } from '../src/lib/career.js';
 
 const history = {
   current: [
@@ -85,4 +85,13 @@ test('value chart: highest value at the top, on a linear scale', () => {
   assert.deepEqual(pts.map(p => p.y), [100, 0, 50]);
   assert.deepEqual(valueChartPoints([], { width: 10, height: 10 }), []);
   assert.equal(valueChartPoints([{ gw: 1, value: 100 }, { gw: 2, value: 100 }], { width: 200, height: 100, pad: 0 })[0].y, 50, 'a flat value sits in the middle');
+});
+
+test('chipsLeft: one of each chip per half, played ones taken off', () => {
+  const history = { chips: [{ name: 'wildcard', event: 4 }, { name: '3xc', event: 9 }, { name: 'freehit', event: 21 }, { name: 'manager', event: 5 }] };
+  assert.deepEqual(chipsLeft(history, 10).map(c => c.name), ['freehit', 'bboost']);
+  // The second half starts with all four back, less the Free Hit played in it.
+  assert.deepEqual(chipsLeft(history, 20).map(c => c.name), ['wildcard', 'bboost', '3xc']);
+  assert.deepEqual(chipsLeft({ chips: [] }, 1).map(c => c.short), ['WC', 'FH', 'BB', 'TC']);
+  assert.deepEqual(chipsLeft(null, 39), []);
 });
