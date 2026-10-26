@@ -5,7 +5,7 @@ import { matchOddsToFixtures } from '../src/lib/oddsAdjustment.js';
 import { predictionsPathnameFor } from '../src/lib/accuracy.js';
 import { indexNowEnabled, pingIndexNow } from '../src/lib/indexNow.js';
 import { SITE } from '../src/lib/seoPage.js';
-import { refreshBlendWeights, siteBase } from '../src/lib/modelWeeks.js';
+import { refreshBase, refreshBlendWeights } from '../src/lib/modelWeeks.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 // The Odds API (the-odds-api.com) — free tier (500 requests/month) is
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const base = siteBase(req.headers && req.headers.host);
+    const base = refreshBase(req.headers && req.headers.host);
     const [bootstrap, fixturesRaw, playerHistoryData, oddsApiEvents, mlData] = await Promise.all([
       fetchFplJsonServer('bootstrap-static/'),
       fetchFplJsonServer('fixtures/'),

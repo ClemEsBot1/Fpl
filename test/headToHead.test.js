@@ -189,3 +189,11 @@ test('a provisional week is scored afresh each time, never kept', async () => {
   await modelHeadToHead(redis, { host: 'localhost:3000', fetchImpl, blob });
   assert.ok(urls.some(u => u.includes(`event/${last}/live/`)), 'fetched again: not kept');
 });
+
+test('the refresh job reads the ML file from the public address in production, not the cron’s own host', async () => {
+  const { refreshBase } = await import('../src/lib/modelWeeks.js');
+  const prod = { VERCEL_ENV: 'production', VERCEL_PROJECT_PRODUCTION_URL: 'fplchecker.co.uk' };
+  assert.equal(refreshBase('fpl-abc123-team.vercel.app', prod), 'https://fplchecker.co.uk');
+  assert.equal(refreshBase('fpl-git-branch-team.vercel.app', { VERCEL_ENV: 'preview', VERCEL_PROJECT_PRODUCTION_URL: 'fplchecker.co.uk' }), 'https://fpl-git-branch-team.vercel.app');
+  assert.equal(refreshBase('localhost:3000', {}), 'http://localhost:3000');
+});
