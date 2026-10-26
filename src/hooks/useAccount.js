@@ -7,6 +7,7 @@ import { squadSnapshot } from '../lib/savedSquads.js';
 import { track } from '../lib/track.js';
 import { t } from '../lib/i18n.js';
 import { serverMessage } from '../lib/serverMessages.js';
+import { seenGwIn, seenValue } from '../lib/recapSeen.js';
 
 // Wraps fetch + JSON parsing consistently for every /api/auth and
 // /api/teams call: distinguishes a genuine network failure (fetch itself
@@ -321,11 +322,11 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
 
   // A gameweek recap seen while logged in is kept on the account, so it
   // doesn't pop up again on another device (useRecap).
-  function markRecapSeenOnAccount(teamId, gwId) {
-    if (!session || !teamId || !gwId) return;
-    if ((Number(session.recapSeen && session.recapSeen[teamId]) || 0) >= gwId) return;
-    setSession(s => (s ? { ...s, recapSeen: { ...(s.recapSeen || {}), [teamId]: gwId } } : s));
-    postJson('/api/auth', { action: 'recap_seen', teamId, gwId }).catch(() => {});
+  function markRecapSeenOnAccount(teamId, gwId, season) {
+    if (!session || !teamId || !gwId || !season) return;
+    if (seenGwIn(session.recapSeen && session.recapSeen[teamId], season) >= gwId) return;
+    setSession(s => (s ? { ...s, recapSeen: { ...(s.recapSeen || {}), [teamId]: seenValue(season, gwId) } } : s));
+    postJson('/api/auth', { action: 'recap_seen', teamId, gwId, season }).catch(() => {});
   }
 
   return {

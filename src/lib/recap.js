@@ -1,5 +1,6 @@
 import { fmtNumber, ordinal, plural, t } from './i18n.js';
 import { sellingPrices, suggestTransfers } from './squadLogic.js';
+import { seenGwIn, seenValue } from './recapSeen.js';
 // The gameweek recap: the slides that pop up once a gameweek is over,
 // summing up how your team did. Pure functions; App.jsx fetches what they
 // need and src/components/GwRecap.jsx draws the slides.
@@ -13,19 +14,20 @@ export function lastFinishedGw(events) {
   return done.length ? done.reduce((a, b) => (b.id > a.id ? b : a)).id : null;
 }
 
-// The last gameweek whose recap popped up for a team on this device.
-export function recapSeenFor(teamId) {
+// The last gameweek of `season` whose recap popped up for a team on this
+// device (see src/lib/recapSeen.js).
+export function recapSeenFor(teamId, season) {
   try {
     const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
-    return Number(seen[teamId]) || 0;
+    return seenGwIn(seen[teamId], season);
   } catch { return 0; }
 }
 
-export function markRecapSeen(teamId, gwId) {
+export function markRecapSeen(teamId, gwId, season) {
   try {
     const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
-    if ((Number(seen[teamId]) || 0) >= gwId) return;
-    localStorage.setItem(SEEN_KEY, JSON.stringify({ ...seen, [teamId]: gwId }));
+    if (seenGwIn(seen[teamId], season) >= gwId) return;
+    localStorage.setItem(SEEN_KEY, JSON.stringify({ ...seen, [teamId]: seenValue(season, gwId) }));
   } catch { /* storage unavailable: it pops up again next visit */ }
 }
 
