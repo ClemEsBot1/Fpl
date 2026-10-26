@@ -52,6 +52,23 @@ export function difficultyWord(d) {
 // saved = { predictedById, byGwById? } where byGwById[id] is that gameweek
 // and the next four. Players are keyed by a slug of their full name, with
 // the id added where two players share one.
+// An earlier gameweek's saved predictions moved on `weeksOn` gameweeks: its
+// byGwById holds that gameweek and the next few, so the week now planned
+// is a few entries in. For the hours between a deadline and the refresh
+// job saving the new gameweek's file, so the pages don't go down. null
+// without the weeks ahead.
+export function carriedForward(saved, weeksOn) {
+  if (!saved || !saved.byGwById || !(weeksOn > 0)) return null;
+  const byGwById = {};
+  const predictedById = {};
+  for (const [id, weeks] of Object.entries(saved.byGwById)) {
+    if (!Array.isArray(weeks) || weeks.length <= weeksOn) continue;
+    byGwById[id] = weeks.slice(weeksOn);
+    predictedById[id] = byGwById[id][0];
+  }
+  return Object.keys(predictedById).length ? { ...saved, gwId: saved.gwId + weeksOn, predictedById, byGwById, carriedFrom: saved.gwId } : null;
+}
+
 export function seoModel({ bootstrap, fixtures, event, saved }) {
   const teams = bootstrap.teams.map(t => ({ id: t.id, name: t.name, short: t.short_name, slug: slugify(t.name), fixtures: [] }));
   const teamById = Object.fromEntries(teams.map(t => [t.id, t]));
