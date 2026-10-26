@@ -152,6 +152,33 @@ export function liveTeamScore({ picks, liveById, bonus, states, playersById }) {
   return { total, hit, rows };
 }
 
+// How your week compares with the field's: every player with points so far
+// counts for you by your multiplier and for an average manager by how many
+// own him (FPL's selected-by %, so captaincy isn't counted). The sum is the
+// points you're gaining (+) or losing (−) on the average team, which is
+// what moves an overall rank. rows: liveTeamScore()'s. Returns
+// { net, gains: [...], losses: [...] }, each { id, player, points, yours, owned, swing }.
+export function vsField({ rows, liveById, bonus = {}, playersById, limit = 5 }) {
+  const mine = {};
+  rows.forEach(r => { mine[r.id] = (mine[r.id] || 0) + r.multiplier; });
+  const items = [];
+  Object.entries(liveById || {}).forEach(([key, live]) => {
+    const id = Number(key);
+    const player = playersById[id];
+    if (!player) return;
+    const points = (live.totalPoints || 0) + (!live.bonus && bonus[id] ? bonus[id] : 0);
+    if (!points) return;
+    const owned = (player.selectedBy || 0) / 100;
+    const yours = mine[id] || 0;
+    const swing = Math.round(points * (yours - owned) * 10) / 10;
+    if (swing) items.push({ id, player, points, yours, owned, swing });
+  });
+  const net = Math.round(items.reduce((s, x) => s + x.swing, 0) * 10) / 10;
+  const gains = items.filter(x => x.swing > 0).sort((a, b) => b.swing - a.swing).slice(0, limit);
+  const losses = items.filter(x => x.swing < 0).sort((a, b) => a.swing - b.swing).slice(0, limit);
+  return { net, gains, losses };
+}
+
 // One match in detail, for the live screen's match sheet: every player who
 // has played in it, by side, with his points from this match alone (FPL's
 // per-match breakdown, `explain`), BPS and bonus (confirmed, or projected

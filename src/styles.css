@@ -1543,3 +1543,19 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 
 /* The Live screen's team heading, with a way back to your own team. */
 .fpl-live-you-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* The Live screen's "Against the field" card. */
+.fpl-live-field-net { display: flex; align-items: baseline; gap: 10px; margin: 0; flex-wrap: wrap; }
+.fpl-live-field-net b { font-size: 1.8rem; }
+.fpl-live-field-net .is-up, .fpl-live-field .is-up { color: var(--green); }
+.fpl-live-field-net .is-down, .fpl-live-field .is-down { color: var(--red); }
+.fpl-live-field-lists { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.fpl-live-field-h { margin: 0 0 6px; font-size: 0.85rem; }
+.fpl-live-field { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fpl-live-field li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: center; }
+.fpl-live-field-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpl-live-field li .fpl-meta { grid-column: 1; font-size: 0.72rem; }
+.fpl-live-field li b { grid-column: 2; grid-row: 1 / span 2; }
+/* Expected goals and assists in the player profile's matches. */
+.fpl-pp-table td.fpl-pp-dim { color: var(--ink-dim); }
+.fpl-pp-note b.is-up { color: var(--green); }
+.fpl-pp-note b.is-down { color: var(--red); }
