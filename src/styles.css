@@ -1543,3 +1543,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 
 /* The Live screen's team heading, with a way back to your own team. */
 .fpl-live-you-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* Expected goals and assists in the player profile's matches. */
+.fpl-pp-table td.fpl-pp-dim { color: var(--ink-dim); }
+.fpl-pp-note b.is-up { color: var(--green); }
+.fpl-pp-note b.is-down { color: var(--red); }

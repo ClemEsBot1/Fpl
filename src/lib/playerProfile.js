@@ -37,7 +37,7 @@ function match(teamsById, opponentId, home, scoreFor, scoreAgainst, difficulty =
 export function profileRows(summary, { teamsById = {}, predictedByGw = {}, upcomingByGw = {}, finishedGws = new Set(), workedOutGws = new Set() } = {}) {
   const rows = new Map();
   const row = gw => {
-    if (!rows.has(gw)) rows.set(gw, { gw, matches: [], points: null, minutes: 0, starts: 0, goals: 0, assists: 0, played: false });
+    if (!rows.has(gw)) rows.set(gw, { gw, matches: [], points: null, minutes: 0, starts: 0, goals: 0, assists: 0, xg: 0, xa: 0, played: false });
     return rows.get(gw);
   };
   for (const h of (summary && summary.history) || []) {
@@ -50,6 +50,9 @@ export function profileRows(summary, { teamsById = {}, predictedByGw = {}, upcom
     r.starts += Number(h.starts) || 0;
     r.goals += Number(h.goals_scored) || 0;
     r.assists += Number(h.assists) || 0;
+    // Expected goals and assists (FPL sends them as strings).
+    r.xg += Number(h.expected_goals) || 0;
+    r.xa += Number(h.expected_assists) || 0;
     r.played = true;
   }
   // A match under way is in both lists.
@@ -65,7 +68,7 @@ export function profileRows(summary, { teamsById = {}, predictedByGw = {}, upcom
       const saved = predictedByGw[r.gw];
       const predicted = typeof saved === 'number' ? saved : (!r.played && typeof upcomingByGw[r.gw] === 'number' ? upcomingByGw[r.gw] : null);
       const diff = finished && r.played && predicted !== null ? round1(r.points - predicted) : null;
-      return { ...r, finished, predicted, diff, workedOut: typeof saved === 'number' && workedOutGws.has(r.gw) };
+      return { ...r, xg: Math.round(r.xg * 100) / 100, xa: Math.round(r.xa * 100) / 100, finished, predicted, diff, workedOut: typeof saved === 'number' && workedOutGws.has(r.gw) };
     })
     .sort((a, b) => b.gw - a.gw);
 }
@@ -153,4 +156,14 @@ export function cheaperAlternatives(player, allPlayers, predictionsById, { n = 3
     .sort((a, b) => b.next - a.next)
     .slice(0, n)
     .map(a => ({ ...a, saving: round1(player.price - a.player.price), share: a.next / mine }));
+}
+
+// His goals and assists this season against what his chances were worth:
+// { goals, xg, assists, xa } over the gameweeks played, or null before any.
+export function xgSummary(rows) {
+  const played = rows.filter(r => r.played);
+  if (!played.length) return null;
+  const sum = k => played.reduce((s, r) => s + (r[k] || 0), 0);
+  const r2 = n => Math.round(n * 100) / 100;
+  return { goals: sum('goals'), xg: r2(sum('xg')), assists: sum('assists'), xa: r2(sum('xa')) };
 }
