@@ -72,6 +72,19 @@ function MemberTeam({ team, teamsById, onOpen, onViewLive }) {
   );
 }
 
+// The chips a member still has this half of the season, as short tags
+// (WC, FH, BB, TC) with the full names for screen readers and on hover.
+function ChipsLeft({ chips }) {
+  if (!chips.length) return <span className="fpl-league-chipsleft is-none">{t('No chips left')}</span>;
+  const all = chips.map(c => c.label).join(', ');
+  return (
+    <span className="fpl-league-chipsleft" title={t('Chips left: {chips}', { chips: all })}>
+      <span className="fpl-sr-only">{t('Chips left: {chips}', { chips: all })}</span>
+      {chips.map(c => <span key={c.name} className={`fpl-chipleft is-${c.name === '3xc' ? 'tc' : c.name}`} aria-hidden="true">{c.short}</span>)}
+    </span>
+  );
+}
+
 // Expected position after the next gameweek, with how far that is from
 // the current rank.
 function ExpectedCell({ rank, expected, loading }) {
@@ -453,6 +466,7 @@ function LeagueTable({ homeTeamId, leagueId, gwId, targetGwId, gwName, liveGwId,
                       onClick={() => (failed ? retryTeam(m.entry) : setOpen(isOpen ? null : m.entry))} disabled={pending || notStarted}>
                       <b>{m.teamName}{team && team.edited && <span className="fpl-league-edited">{t('Edited')}</span>}</b>
                       <small>{t('{n} pts', { n: m.total ?? '–' })} · {failed ? t("Couldn't load, tap to try again") : notStarted ? t('Joined after Gameweek {n}', { n: gwId }) : m.managerName}</small>
+                      {team && team.status === 'ready' && !notStarted && Array.isArray(team.chipsLeft) && <ChipsLeft chips={team.chipsLeft} />}
                       {failed ? <RotateCcw size={14} aria-hidden="true" className="fpl-league-chev" /> : <ChevronDown size={14} aria-hidden="true" className="fpl-league-chev" />}
                     </button>
                     <span className="fpl-league-live fpl-mono">
