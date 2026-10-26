@@ -1327,5 +1327,9 @@
  "— shrunk toward position average, early season": "— naar het positiegemiddelde getrokken, begin van het seizoen",
  "…": "…",
  "← → to move · Esc to close": "← → om te bladeren · Esc om te sluiten",
- "−{n} pts in hits": "−{n} ptn aan hits"
+ "−{n} pts in hits": "−{n} ptn aan hits",
+ "⚽ {name} scored": "⚽ Doelpunt van {name}",
+ "⭐ {name} gets {n} bonus": "⭐ {name} krijgt {n} bonus",
+ "🅰️ Assist for {name}": "🅰️ Assist van {name}",
+ "🟥 {name} sent off": "🟥 {name} van het veld gestuurd"
 }

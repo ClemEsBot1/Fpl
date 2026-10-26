@@ -1327,5 +1327,9 @@
  "— shrunk toward position average, early season": "— ramené vers la moyenne du poste, début de saison",
  "…": "…",
  "← → to move · Esc to close": "← → pour naviguer · Échap pour fermer",
- "−{n} pts in hits": "−{n} pts de pénalités"
+ "−{n} pts in hits": "−{n} pts de pénalités",
+ "⚽ {name} scored": "⚽ But de {name}",
+ "⭐ {name} gets {n} bonus": "⭐ {name} prend {n} de bonus",
+ "🅰️ Assist for {name}": "🅰️ Passe décisive de {name}",
+ "🟥 {name} sent off": "🟥 {name} expulsé"
 }

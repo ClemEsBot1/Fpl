@@ -19,13 +19,14 @@ import webpush from 'web-push';
 import { getRedis, getJSON, setJSON } from './redis.js';
 import { bump, clientIp } from './rateLimit.js';
 import { buildAlerts, predictionBaseline } from './alerts.js';
+import { RECENT_MS, liveAlerts } from './liveAlerts.js';
 import { cleanTeamId } from './digest.js';
 import { buildStaticDataFromRaw } from './predictions.js';
 import { isJsonRequest } from './auth.js';
 import { LANGUAGES, makeT, t } from './i18n.js';
 
 const PREFIX = 'push:sub:';
-const MAX_SENT = 100;
+const MAX_SENT = 200;
 const MAX_PLAYERS = 15;
 export const SUBSCRIBE_WINDOW_SECONDS = 60 * 60;
 export const MAX_SUBSCRIBES_PER_IP = 30;
@@ -115,7 +116,24 @@ async function noTransferYet(fetchTransfers, teamId, event) {
 // its squad's predictions as first seen this gameweek, so a later drop is
 // pushed too. With a team id, the two-hour deadline alert checks FPL for
 // a transfer this gameweek (one request per team, only then).
-export async function sendPushAlerts({ redis, sender, staticData, now = Date.now(), fetchTransfers = id => fetchFpl(`entry/${id}/transfers/`) }) {
+// The gameweek with a match under way or just played (within RECENT_MS of
+// kickoff): its live scores and fixtures, for the match alerts. null when
+// no match is, or FPL's live data can't be had.
+async function liveWeek(bootstrap, fixtures, now) {
+  const recent = (fixtures || []).filter(f => f.event && f.started && f.kickoff_time && now - new Date(f.kickoff_time).getTime() < RECENT_MS);
+  if (!recent.length) return null;
+  const gwId = Math.max(...recent.map(f => f.event));
+  try {
+    const data = await fetchFpl(`event/${gwId}/live/`);
+    return { gwId, elements: data.elements || [], fixtures: fixtures.filter(f => f.event === gwId) };
+  } catch {
+    return null;
+  }
+}
+
+// live: the gameweek being played ({ gwId, elements, fixtures }), for the
+// match alerts (src/lib/liveAlerts.js); null between gameweeks.
+export async function sendPushAlerts({ redis, sender, staticData, live = null, now = Date.now(), fetchTransfers = id => fetchFpl(`entry/${id}/transfers/`) }) {
   let sent = 0;
   let removed = 0;
   const dicts = await dictionaries();
@@ -139,6 +157,7 @@ export async function sendPushAlerts({ redis, sender, staticData, now = Date.now
       && await noTransferYet(fetchTransfers, record.teamId, target.id)) {
       fresh = buildAlerts(staticData, playerIds, now, { baseline: seen, noTransferYet: true, tr, watchIds }).filter(isNew);
     }
+    fresh = [...fresh, ...liveAlerts(live, playerIds, { playersById: staticData.playersById, teamsById: staticData.teamsById, now, tr }).filter(isNew)];
     if (!fresh.length) continue;
     let gone = false;
     const delivered = [];
@@ -226,8 +245,14 @@ export async function pushHandler(req, res, deps = {}) {
       sender = webpush;
     }
     try {
-      const staticData = deps.staticData || buildStaticDataFromRaw(await fetchFpl('bootstrap-static/'), await fetchFpl('fixtures/'));
-      res.status(200).json({ ok: true, ...(await sendPushAlerts({ redis, sender, staticData, now: deps.now || Date.now(), ...(deps.fetchTransfers ? { fetchTransfers: deps.fetchTransfers } : {}) })) });
+      let staticData = deps.staticData;
+      let live = deps.live || null;
+      if (!staticData) {
+        const [bootstrap, fixtures] = [await fetchFpl('bootstrap-static/'), await fetchFpl('fixtures/')];
+        staticData = buildStaticDataFromRaw(bootstrap, fixtures);
+        live = await liveWeek(bootstrap, fixtures, deps.now || Date.now());
+      }
+      res.status(200).json({ ok: true, ...(await sendPushAlerts({ redis, sender, staticData, live, now: deps.now || Date.now(), ...(deps.fetchTransfers ? { fetchTransfers: deps.fetchTransfers } : {}) })) });
     } catch (e) {
       res.status(502).json({ error: 'send_failed', detail: String((e && e.message) || e) });
     }

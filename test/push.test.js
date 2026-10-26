@@ -158,3 +158,36 @@ test('watched players are stored with the subscription and pushed too', async ()
   await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [] } });
   assert.equal(JSON.parse(await redis.get(subscriptionKey(SUB.endpoint))).watchIds, undefined, 'an emptied watchlist is cleared');
 });
+
+test("match alerts for your players: each goal, assist and confirmed bonus once, only from recent matches", async () => {
+  const { liveAlerts } = await import('../src/lib/liveAlerts.js');
+  const now = Date.parse('2026-10-25T16:30:00Z');
+  const fixtures = [
+    { id: 70, event: 9, started: true, kickoff_time: '2026-10-25T15:00:00Z', team_h: 1, team_a: 2, team_h_score: 2, team_a_score: 0 },
+    { id: 60, event: 9, started: true, kickoff_time: '2026-10-24T15:00:00Z', team_h: 1, team_a: 2, team_h_score: 1, team_a_score: 0 },
+  ];
+  const elements = [
+    { id: 7, explain: [
+      { fixture: 70, stats: [{ identifier: 'goals_scored', value: 2 }, { identifier: 'bonus', value: 3 }] },
+      { fixture: 60, stats: [{ identifier: 'goals_scored', value: 1 }] },
+    ] },
+    { id: 8, explain: [{ fixture: 70, stats: [{ identifier: 'assists', value: 1 }] }] },
+  ];
+  const opts = { playersById: { 7: { webName: 'Isak' }, 8: { webName: 'Gordon' } }, teamsById: { 1: { short_name: 'NEW' }, 2: { short_name: 'LIV' } }, now };
+  const alerts = liveAlerts({ gwId: 9, elements, fixtures }, [7], opts);
+  assert.deepEqual(alerts.map(a => a.id), ['live-9-70-7-goal-1', 'live-9-70-7-goal-2', 'live-9-70-7-bonus']);
+  assert.equal(alerts[0].title, '⚽ Isak scored');
+  assert.equal(alerts[0].body, 'NEW 2–0 LIV');
+  assert.deepEqual(liveAlerts(null, [7], opts), []);
+
+  // Sent with the other pushes, each once.
+  const redis = fakeRedis();
+  await call({ push: 'subscribe' }, { redis, body: { subscription: SUB, playerIds: [7] } });
+  const staticData = { targetEvent: null, playersById: opts.playersById, teamsById: opts.teamsById, predictionsById: {} };
+  const sent = [];
+  const sender = { sendNotification: async (sub, payload) => { sent.push(JSON.parse(payload).tag); } };
+  const auth = { 'content-type': 'application/json', authorization: 'Bearer cron' };
+  await call({ push: 'send' }, { redis, sender, staticData, live: { gwId: 9, elements, fixtures }, now, headers: auth });
+  await call({ push: 'send' }, { redis, sender, staticData, live: { gwId: 9, elements, fixtures }, now, headers: auth });
+  assert.deepEqual(sent, ['live-9-70-7-goal-1', 'live-9-70-7-goal-2', 'live-9-70-7-bonus']);
+});

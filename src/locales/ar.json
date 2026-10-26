@@ -1327,5 +1327,9 @@
  "— shrunk toward position average, early season": "— مقرّب من متوسط المركز، بداية الموسم",
  "…": "…",
  "← → to move · Esc to close": "← → للتنقل · Esc للإغلاق",
- "−{n} pts in hits": "−{n} نقطة من الخصومات"
+ "−{n} pts in hits": "−{n} نقطة من الخصومات",
+ "⚽ {name} scored": "⚽ {name} سجّل",
+ "⭐ {name} gets {n} bonus": "⭐ {name} يحصل على {n} نقاط إضافية",
+ "🅰️ Assist for {name}": "🅰️ تمريرة حاسمة من {name}",
+ "🟥 {name} sent off": "🟥 طرد {name}"
 }

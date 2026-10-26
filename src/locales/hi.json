@@ -1327,5 +1327,9 @@
  "— shrunk toward position average, early season": "— सीज़न की शुरुआत, पोज़िशन औसत की ओर समायोजित",
  "…": "…",
  "← → to move · Esc to close": "← → चलाने के लिए · Esc बंद करने के लिए",
- "−{n} pts in hits": "हिट में −{n} अंक"
+ "−{n} pts in hits": "हिट में −{n} अंक",
+ "⚽ {name} scored": "⚽ {name} ने गोल किया",
+ "⭐ {name} gets {n} bonus": "⭐ {name} को {n} बोनस",
+ "🅰️ Assist for {name}": "🅰️ {name} का असिस्ट",
+ "🟥 {name} sent off": "🟥 {name} को रेड कार्ड"
 }
