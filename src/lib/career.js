@@ -8,6 +8,33 @@ export const chipName = chip => CHIP_NAMES[chip] || chip;
 
 const num = v => (v === null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
+// FPL's chips: one of each in each half of the season, as bootstrap-static's
+// chips list has them (the Wildcard and Free Hit can't go in Gameweek 1).
+export const CHIP_WINDOWS = [
+  { name: 'wildcard', from: 2, to: 19 }, { name: 'freehit', from: 2, to: 19 },
+  { name: 'bboost', from: 1, to: 19 }, { name: '3xc', from: 1, to: 19 },
+  { name: 'wildcard', from: 20, to: 38 }, { name: 'freehit', from: 20, to: 38 },
+  { name: 'bboost', from: 20, to: 38 }, { name: '3xc', from: 20, to: 38 },
+];
+const CHIP_ORDER = ['wildcard', 'freehit', 'bboost', '3xc'];
+const CHIP_SHORT = { wildcard: t('WC'), freehit: t('FH'), bboost: t('BB'), '3xc': t('TC') };
+
+// The chips a manager still has for gameweek `gw` and the rest of its half
+// of the season, from FPL's entry/<id>/history/ answer: [{ name, label,
+// short }] in FPL's order. A chip counts as played when history.chips has
+// it in that window, including one played in a gameweek still going on.
+export function chipsLeft(history, gw, windows = CHIP_WINDOWS) {
+  const played = Array.isArray(history && history.chips) ? history.chips : [];
+  const left = [];
+  CHIP_ORDER.forEach(name => {
+    const window = windows.find(w => w.name === name && gw <= w.to);
+    if (!window) return;
+    const used = played.some(c => c.name === name && num(c.event) >= window.from && num(c.event) <= window.to);
+    if (!used) left.push({ name, label: chipName(name), short: CHIP_SHORT[name] || name });
+  });
+  return left;
+}
+
 export function careerStats(history, entry = {}) {
   const current = Array.isArray(history && history.current) ? history.current : [];
   const past = (Array.isArray(history && history.past) ? history.past : [])
