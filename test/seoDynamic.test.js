@@ -118,3 +118,15 @@ test('short player addresses: a unique FPL name or surname points to the full pa
   assert.equal(a.jesus, undefined, 'two Jesuses: no guess');
   assert.equal(a['erling-haaland'], undefined, 'full slugs are not aliases');
 });
+
+test("just after a deadline, last gameweek's saved predictions are moved on a week so the pages stay up", async () => {
+  const { carriedForward } = await import('../src/lib/seoDynamic.js');
+  const saved = { gwId: 8, season: '2026-27', predictedById: { 1: 5, 2: 3 }, byGwById: { 1: [5, 6, 7], 2: [3], 3: [] } };
+  const on = carriedForward(saved, 1);
+  assert.equal(on.gwId, 9);
+  assert.equal(on.carriedFrom, 8);
+  assert.deepEqual(on.predictedById, { 1: 6 });
+  assert.deepEqual(on.byGwById, { 1: [6, 7] });
+  assert.equal(carriedForward({ gwId: 8, predictedById: { 1: 5 } }, 1), null, 'no weeks ahead saved');
+  assert.equal(carriedForward(null, 1), null);
+});

@@ -6,6 +6,7 @@ import { getTargetEvent, seasonIdFor, snapshotIsForSeason } from '../src/lib/pre
 import { SITE, predictionsPage } from '../src/lib/seoPage.js';
 import { summariseAccuracy } from '../src/lib/accuracy.js';
 import { getRedis } from '../src/lib/redis.js';
+import { readLastGood } from '../src/lib/lastGood.js';
 import { customPost, duePosts, pastResults, xIntentUrl } from '../src/lib/social.js';
 import { blueskyConfigured, postBluesky } from '../src/lib/bluesky.js';
 import { runSocial, sentTo } from '../src/lib/socialSent.js';
@@ -16,7 +17,7 @@ import { accuracyPage, comparePage, comparePairs, comparePath, deadlinePage, dif
 import { indexNowKey } from '../src/lib/indexNow.js';
 import { extensionFeed } from '../src/lib/extensionFeed.js';
 import { POSITION_PAGES, budgetPage, fixtureDifficultyPage, inFormPage, injuriesPage, mostOwnedPage, positionPage } from '../src/lib/seoHubs.js';
-import { AHEAD, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
+import { AHEAD, carriedForward, futureGwPage, gwNav, notFoundPage, pastGwPage, playerPage, playersHubPage, seoModel, sitemapXml, teamPage } from '../src/lib/seoDynamic.js';
 
 const FPL_BASE = 'https://fantasy.premierleague.com/api/';
 
@@ -32,13 +33,26 @@ async function fetchFpl(path, timeout = 15_000) {
   return r.json();
 }
 
+// FPL's answer, or while FPL is down (as it often is around deadlines) the
+// last good copy the /api/fpl proxy kept in Redis (src/lib/lastGood.js).
+async function fplOrLastGood(path) {
+  try {
+    return await fetchFpl(path);
+  } catch (e) {
+    let saved = null;
+    try { saved = await readLastGood(getRedis(), `fpl:${path}`); } catch { /* no Redis */ }
+    if (!saved) throw e;
+    return JSON.parse(saved.text);
+  }
+}
+
 // FPL's data and this gameweek's saved predictions, kept for 10 minutes by
 // a warm function so a crawler going through player pages doesn't fetch
 // them for each one.
 let cached = null;
 async function loadModel() {
   if (cached && Date.now() - cached.at < 10 * 60_000) return cached.value;
-  const [bootstrap, fixtures] = await Promise.all([fetchFpl('bootstrap-static/'), fetchFpl('fixtures/')]);
+  const [bootstrap, fixtures] = await Promise.all([fplOrLastGood('bootstrap-static/'), fplOrLastGood('fixtures/')]);
   const event = getTargetEvent(bootstrap.events);
   if (!event) throw new Error('no gameweek to plan');
   const season = seasonIdFor(bootstrap.events);
@@ -46,16 +60,28 @@ async function loadModel() {
     readBlobJson(predictionsPathnameFor(event.id)).catch(() => null),
     readBlobJson(snapshotPathnameFor(event.id)).catch(() => null),
   ]);
-  const fresh = saved && saved.predictedById && snapshotIsForSeason(saved, season, bootstrap.events) ? saved : null;
+  let fresh = saved && saved.predictedById && snapshotIsForSeason(saved, season, bootstrap.events) ? saved : null;
+  // Just after a deadline the new gameweek's predictions aren't saved until
+  // the refresh job next runs: the last gameweek's, moved on a week, keep
+  // the pages up meanwhile (they were a server error, 5xx, for Google).
+  let carried = false;
+  if (!fresh && event.id > 1) {
+    const before = await readBlobJson(predictionsPathnameFor(event.id - 1)).catch(() => null);
+    fresh = before && snapshotIsForSeason(before, season, bootstrap.events) ? carriedForward(before, 1) : null;
+    carried = !!fresh;
+  }
   const value = { bootstrap, season, saved: fresh, snap, model: seoModel({ bootstrap, fixtures, event, saved: fresh }) };
-  // Not kept without predictions: they may just have failed to load.
-  if (fresh) cached = { at: Date.now(), value };
+  // Not kept without predictions: they may just have failed to load. Ones
+  // carried forward are kept briefly, so the new file is picked up soon.
+  if (fresh) cached = { at: Date.now() - (carried ? 8 * 60_000 : 0), value };
   return value;
 }
 
 function sendHtml(res, status, html) {
   res.status(status).setHeader('Content-Type', 'text/html; charset=utf-8');
-  if (status === 200) res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400');
+  // stale-if-error: the CDN keeps serving the last good page for a week if
+  // FPL or Blob is down when it's refreshed, rather than a server error.
+  if (status === 200) res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400, stale-if-error=604800');
   else res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600');
   res.send(html);
 }
@@ -178,7 +204,7 @@ async function seoHtml(req, res) {
     const { model } = data;
     if (page === 'sitemap') {
       res.status(200).setHeader('Content-Type', 'application/xml; charset=utf-8')
-        .setHeader('Cache-Control', 'public, max-age=3600, s-maxage=21600').send(sitemapXml(model, await gwIdsWithPages(data), data.saved ? comparePairs(model) : []));
+        .setHeader('Cache-Control', 'public, max-age=3600, s-maxage=21600, stale-if-error=604800').send(sitemapXml(model, await gwIdsWithPages(data), data.saved ? comparePairs(model) : []));
       return;
     }
     // Made from FPL's data alone, so there with or without predictions.
@@ -198,7 +224,7 @@ async function seoHtml(req, res) {
     if (page === 'most-owned') return sendHtml(res, 200, mostOwnedPage(model));
     if (page === 'form') return sendHtml(res, 200, inFormPage(model));
     if (page === 'accuracy') {
-      res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=21600, stale-while-revalidate=86400');
+      res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=21600, stale-while-revalidate=86400, stale-if-error=604800');
       res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(accuracyPage(model, await accuracyRows(data)));
       return;
     }
@@ -243,7 +269,7 @@ async function seoHtml(req, res) {
       // frame-ancestors 'none' (see vercel.json).
       res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8')
         .setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors *; base-uri 'none'; form-action 'none'")
-        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400')
+        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400, stale-if-error=604800')
         .send(embedCaptainsHtml(model, { theme: req.query.theme === 'light' ? 'light' : 'dark' }));
       return;
     }
@@ -252,7 +278,7 @@ async function seoHtml(req, res) {
       // open to any origin: it's the same public data as the pages.
       res.status(200).setHeader('Content-Type', 'application/json; charset=utf-8')
         .setHeader('Access-Control-Allow-Origin', '*')
-        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=1800, stale-while-revalidate=86400')
+        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=1800, stale-while-revalidate=86400, stale-if-error=604800')
         .send(JSON.stringify(extensionFeed(model, data.snap, data.saved.savedAt || null)));
       return;
     }
@@ -271,7 +297,7 @@ async function seoHtml(req, res) {
           .then(d => { picks[entry] = d.picks; }).catch(() => {})));
       }
       standings.standings.results = (standings.standings.results || []).slice(0, 20);
-      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400');
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400, stale-if-error=604800');
       res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(leaguePage(model, id, standings, picks));
       return;
     }
@@ -279,7 +305,7 @@ async function seoHtml(req, res) {
       const image = await bestXiImage(data);
       if (!image) { res.status(404).setHeader('Cache-Control', 'public, max-age=300').json({ error: 'no_best_xi' }); return; }
       res.status(200).setHeader('Content-Type', 'image/png')
-        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400').send(image.png);
+        .setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400, stale-if-error=604800').send(image.png);
       return;
     }
     return sendHtml(res, 200, plannedPage(data, '/fpl-predictions'));
