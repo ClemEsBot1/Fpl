@@ -24,6 +24,15 @@ export function isGwFinished(staticData, gwId) {
   return !!(staticData.allEvents || []).find(e => e.id === gwId && e.finished);
 }
 
+// Over and processed by FPL: its bonus confirmed and its automatic subs
+// applied to each team's picks and history. A gameweek can be over a day
+// before that (bonusPending, see withPlayedOutEvents); until then its
+// points are worked out live (liveTeamScore), since FPL's own totals don't
+// count the players who came off the bench yet.
+export function isGwSettled(staticData, gwId) {
+  return !!(staticData.allEvents || []).find(e => e.id === gwId && e.finished && !e.bonusPending);
+}
+
 // The gameweek Home's recap button opens: the one picked in the header if
 // it's over, else the latest to finish. null before any has.
 export function recapGwFor(staticData, selectedGw) {

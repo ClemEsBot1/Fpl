@@ -8,7 +8,7 @@ import { applyAutomaticSubs, formulaSnapshotFor, hydrateSquadSnapshot, isEventLo
 import { didNotPlay, liveTeamScore, matchesOver, projectedBonus, teamStates } from '../lib/live.js';
 import { computeOptimalXiTotal } from '../lib/squadLogic.js';
 import { readGwParam, readModelChoice, writeGwParam, writeModelChoice } from '../lib/appStorage.js';
-import { currentGwId, defaultGwId, isGwFinished } from '../lib/gameweeks.js';
+import { currentGwId, defaultGwId, isGwFinished, isGwSettled } from '../lib/gameweeks.js';
 import { t } from '../lib/i18n.js';
 
 // How long live points for a gameweek that's still being played stay fresh.
@@ -293,7 +293,8 @@ export function useFplData({ admin = false } = {}) {
     const livePromise = isPastGwView ? liveForGw(gwId, weekFinished) : Promise.resolve({});
     // A week still being played is scored as FPL will settle it (projected
     // bonus, automatic subs, the vice-captain), which needs its matches.
-    const fixturesPromise = isPastGwView && !weekFinished ? fixturesForGw(gwId) : Promise.resolve(null);
+    // So is one that's over but not yet processed by FPL (isGwSettled).
+    const fixturesPromise = isPastGwView && !isGwSettled(staticData, gwId) ? fixturesForGw(gwId) : Promise.resolve(null);
     const frozenPromise = isPastGwView ? frozenOptimalXi(gwId, staticData) : Promise.resolve(null);
     // For selling prices (sellingPrices): what each player was bought for,
     // and which weeks were Free Hits. Only for the gameweek being planned;

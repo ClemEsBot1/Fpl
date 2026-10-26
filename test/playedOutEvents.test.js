@@ -20,3 +20,12 @@ test('a gameweek counts as over once all its matches have had the final whistle'
   const playing = withPlayedOutEvents(events, [{ event: 8, finished: false, finished_provisional: true }, { event: 8, started: true, finished: false, finished_provisional: false }]);
   assert.equal(playing[0].finished, false);
 });
+
+test('a gameweek is settled once FPL has processed it, not at the last final whistle', async () => {
+  const { isGwSettled, isGwFinished } = await import('../src/lib/gameweeks.js');
+  const staticData = { allEvents: [{ id: 7, finished: true }, { id: 8, finished: true, bonusPending: true }, { id: 9, finished: false }] };
+  assert.equal(isGwSettled(staticData, 7), true);
+  assert.equal(isGwFinished(staticData, 8), true);
+  assert.equal(isGwSettled(staticData, 8), false);
+  assert.equal(isGwSettled(staticData, 9), false);
+});
