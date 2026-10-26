@@ -14,6 +14,9 @@ const ALLOWED_PATHS = [
   { re: /^entry\/\d{1,10}\/event\/\d{1,2}\/picks\/$/, maxAge: 120 },
   { re: /^event\/\d{1,2}\/live\/$/, maxAge: 60, shared: true },
   { re: /^leagues-classic\/\d{1,10}\/standings\/$/, maxAge: 300 },
+  // Head-to-head leagues: the table, and one gameweek's matches.
+  { re: /^leagues-h2h\/\d{1,10}\/standings\/$/, maxAge: 300 },
+  { re: /^leagues-h2h-matches\/league\/\d{1,10}\/\?event=\d{1,2}$/, maxAge: 120 },
   { re: /^entry\/\d{1,10}\/transfers\/$/, maxAge: 300 },
   { re: /^entry\/\d{1,10}\/history\/$/, maxAge: 300 },
   // One player's matches and past seasons (the player profile).

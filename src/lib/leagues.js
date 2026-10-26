@@ -15,6 +15,50 @@ export function privateLeagues(entry) {
     .map(l => ({ id: l.id, name: l.name, rank: l.entry_rank ?? null }));
 }
 
+// Your head-to-head leagues, from entry/{id}/: [{ id, name, rank }].
+export function h2hLeagues(entry) {
+  const h2h = entry && entry.leagues && Array.isArray(entry.leagues.h2h) ? entry.leagues.h2h : [];
+  return h2h.filter(l => l && l.id).map(l => ({ id: l.id, name: l.name, rank: l.entry_rank ?? null }));
+}
+
+// leagues-h2h/{id}/standings/ as { league: { id, name }, rows, hasMore }:
+// each row's won, drawn and lost, league points (3 a win, 1 a draw) and
+// FPL points scored. Only the first page (50) is used.
+export function parseH2hStandings(json) {
+  if (!json || !json.league || !json.standings) return null;
+  const rows = (json.standings.results || []).map(r => ({
+    entry: r.entry, teamName: r.entry_name, managerName: r.player_name,
+    rank: r.rank, lastRank: r.last_rank,
+    won: r.matches_won || 0, drawn: r.matches_drawn || 0, lost: r.matches_lost || 0,
+    leaguePoints: r.total || 0, pointsFor: r.points_for || 0,
+  }));
+  return { league: { id: json.league.id, name: json.league.name }, rows, hasMore: !!json.standings.has_next };
+}
+
+// leagues-h2h-matches/league/{id}/?event={gw} as one gameweek's matches,
+// yours first: [{ id, home: side, away: side | null (a bye), winner:
+// 'home' | 'away' | 'draw' | null (not decided), isYou }], each side
+// { entry, teamName, managerName, points }.
+export function parseH2hMatches(json, youEntry) {
+  const results = json && Array.isArray(json.results) ? json.results : [];
+  const side = (r, n) => (r[`entry_${n}_entry`] ? {
+    entry: r[`entry_${n}_entry`], teamName: r[`entry_${n}_name`], managerName: r[`entry_${n}_player_name`], points: r[`entry_${n}_points`] ?? 0,
+  } : null);
+  const winner = r => {
+    if (!r.winner) return null;
+    if (r.winner === r.entry_1_entry) return 'home';
+    if (r.winner === r.entry_2_entry) return 'away';
+    return 'draw';
+  };
+  const matches = results.map(r => {
+    const home = side(r, 1);
+    const away = r.is_bye ? null : side(r, 2);
+    const isYou = [home, away].some(x => x && String(x.entry) === String(youEntry));
+    return { id: r.id, home, away, winner: winner(r), isYou };
+  }).filter(m => m.home);
+  return [...matches.filter(m => m.isYou), ...matches.filter(m => !m.isYou)];
+}
+
 // leagues-classic/{id}/standings/ as { league: { id, name }, members, hasMore }.
 // FPL sends 50 members a page; only the first page is used.
 export function parseStandings(json) {
