@@ -577,7 +577,7 @@ function HeadToHead() {
               ) : null}
             </table>
           </div>
-          {priorWeeks ? <p className="fpl-meta" style={{ margin: 0 }}>* Before the blend went live: its figures are worked out at half each.</p> : null}
+          {priorWeeks ? <p className="fpl-meta" style={{ margin: 0 }}>* Saved from the formula alone (before the blend went live, or the deadline’s refresh couldn’t read the ML model): the blend’s figures are worked out at half each.</p> : null}
           {scored.some(w => w.provisional) ? <p className="fpl-meta" style={{ margin: 0 }}>† Provisional: its matches are over but FPL hasn’t confirmed the points (bonus) yet, so it’s scored on the points so far and updates until then.</p> : null}
           <ul className="fpl-h2h-tally">
             {tally.map(({ m, wins }) => (

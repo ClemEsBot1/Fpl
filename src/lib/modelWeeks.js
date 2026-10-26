@@ -31,6 +31,17 @@ export function siteBase(host) {
   return host ? `${host.startsWith('localhost') ? 'http' : 'https'}://${host}` : null;
 }
 
+// Where the refresh job reads the site's own files (public/ml/) from. In
+// production that's the site's public address (Vercel's
+// VERCEL_PROJECT_PRODUCTION_URL), not the request's host: the daily cron
+// calls the deployment's own *.vercel.app address, which is behind
+// Deployment Protection, so the ML file couldn't be read there and the
+// gameweek's predictions were saved from the formula alone.
+export function refreshBase(host, env = process.env) {
+  if (env.VERCEL_ENV === 'production' && env.VERCEL_PROJECT_PRODUCTION_URL) return siteBase(env.VERCEL_PROJECT_PRODUCTION_URL);
+  return siteBase(host);
+}
+
 // The finished gameweeks to look at: the last MODEL_WEEKS whose points FPL
 // has confirmed.
 export function finishedEvents(events) {
