@@ -1313,5 +1313,9 @@
  "— shrunk toward position average, early season": "— ditarik ke rata-rata posisi, awal musim",
  "…": "…",
  "← → to move · Esc to close": "← → untuk berpindah · Esc untuk menutup",
- "−{n} pts in hits": "−{n} poin dari hit"
+ "−{n} pts in hits": "−{n} poin dari hit",
+ "⚽ {name} scored": "⚽ {name} mencetak gol",
+ "⭐ {name} gets {n} bonus": "⭐ {name} dapat {n} bonus",
+ "🅰️ Assist for {name}": "🅰️ Assist untuk {name}",
+ "🟥 {name} sent off": "🟥 {name} diusir"
 }

@@ -1313,5 +1313,9 @@
  "— shrunk toward position average, early season": "— zum Positionsschnitt hin gedämpft, Saisonstart",
  "…": "…",
  "← → to move · Esc to close": "← → zum Blättern · Esc zum Schließen",
- "−{n} pts in hits": "−{n} Pkt durch Hits"
+ "−{n} pts in hits": "−{n} Pkt durch Hits",
+ "⚽ {name} scored": "⚽ Tor von {name}",
+ "⭐ {name} gets {n} bonus": "⭐ {name} bekommt {n} Bonus",
+ "🅰️ Assist for {name}": "🅰️ Vorlage von {name}",
+ "🟥 {name} sent off": "🟥 {name} vom Platz gestellt"
 }

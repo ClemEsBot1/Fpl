@@ -1313,5 +1313,9 @@
  "— shrunk toward position average, early season": "— 시즌 초반, 포지션 평균 쪽으로 조정",
  "…": "…",
  "← → to move · Esc to close": "← → 이동 · Esc 닫기",
- "−{n} pts in hits": "히트로 −{n}점"
+ "−{n} pts in hits": "히트로 −{n}점",
+ "⚽ {name} scored": "⚽ {name} 득점",
+ "⭐ {name} gets {n} bonus": "⭐ {name} 보너스 {n}점",
+ "🅰️ Assist for {name}": "🅰️ {name} 어시스트",
+ "🟥 {name} sent off": "🟥 {name} 퇴장"
 }
