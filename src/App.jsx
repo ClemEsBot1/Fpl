@@ -969,6 +969,7 @@ export default function FPLSquadChecker() {
             {stage === 'profile' && session && (
               <ProfileScreen
                 session={session}
+                staticData={liveStatic}
                 analyticsByDefault={analyticsByDefault}
                 notice={account.profileNotice}
                 onDismissNotice={() => account.setProfileNotice('')}

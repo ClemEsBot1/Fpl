@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Bell, Bookmark, Check, ChevronRight, Cookie, FileTe
 import { TERMS_PATH } from '../lib/terms.js';
 import { fetchFplJson } from '../lib/fplClient.js';
 import { careerStats, rankChartPoints, valueChartPoints } from '../lib/career.js';
+import { rankProjection } from '../lib/rankProjection.js';
 import { parseTeamId } from '../lib/teamIdInput.js';
 import { useGoogleEnabled } from '../lib/googleEnabled.js';
 import { GoogleMark } from '../components/GoogleMark.jsx';
@@ -28,6 +29,27 @@ function StatTile({ label, value, sub }) {
       <div className="fpl-mono fpl-profile-stat-label">{label}</div>
       <div className="fpl-profile-stat-value">{value}</div>
       {sub && <div className="fpl-mono fpl-profile-stat-sub">{sub}</div>}
+    </div>
+  );
+}
+
+// Where the overall rank would end up at the pace so far (src/lib/rankProjection.js).
+const compactRank = n => fmtNumber(n, { notation: 'compact', maximumSignificantDigits: 2 });
+function SeasonEnd({ p }) {
+  const pace = Math.abs(p.pace).toFixed(1);
+  return (
+    <div className="fpl-block fpl-profile-proj">
+      <div className="fpl-mono fpl-profile-stat-label">{t('Season end, at your pace')}</div>
+      <p className="fpl-profile-proj-main">
+        <b className="fpl-mono">{t('about {rank}', { rank: compactRank(p.rank) })}</b>
+        <span className="fpl-mono">{t('likely {best} to {worst}', { best: compactRank(p.best), worst: compactRank(p.worst) })}</span>
+      </p>
+      <p className="fpl-home-hint">
+        {p.pace > 0 ? t("You've scored {n} pts a week more than the average manager.", { n: pace })
+          : p.pace < 0 ? t("You've scored {n} pts a week less than the average manager.", { n: pace })
+            : t("You've scored the same as the average manager.")}
+        {' '}{t('Keep that up for the {n} gameweeks left and your overall rank would end around here; a good or bad run moves it within the range. A rough guide, not a forecast.', { n: p.weeksLeft })}
+      </p>
     </div>
   );
 }
@@ -215,7 +237,7 @@ function RankChart({ rows }) {
   );
 }
 
-export function ProfileScreen({ session, analyticsByDefault = false, notice = '', onDismissNotice, savedTeams = [], homeTeamId, onPickTeam, onOpenDialog, onMyTeams, onLogout }) {
+export function ProfileScreen({ session, staticData = null, analyticsByDefault = false, notice = '', onDismissNotice, savedTeams = [], homeTeamId, onPickTeam, onOpenDialog, onMyTeams, onLogout }) {
   const googleEnabled = useGoogleEnabled();
   const teamIds = [...new Set([homeTeamId, session.digestTeamId, ...savedTeams.filter(t => t.type === 'teamId').map(t => t.teamId)].filter(Boolean).map(String))];
   const [teamId, setTeamId] = useState(teamIds[0] || '');
@@ -228,12 +250,20 @@ export function ProfileScreen({ session, analyticsByDefault = false, notice = ''
     if (!teamId) return undefined;
     let live = true;
     Promise.all([fetchFplJson(`entry/${teamId}/`), fetchFplJson(`entry/${teamId}/history/`)])
-      .then(([entry, history]) => { if (live) setLoaded({ teamId, status: 'ready', data: careerStats(history, entry) }); })
+      .then(([entry, history]) => { if (live) setLoaded({ teamId, status: 'ready', data: careerStats(history, entry), history }); })
       .catch(() => { if (live) setLoaded({ teamId, status: 'error', data: null }); });
     return () => { live = false; };
   }, [teamId]);
 
   const c = career.data;
+  // Where this season is heading at the pace so far, from the finished
+  // gameweeks' average scores.
+  const projection = (() => {
+    if (!c || !career.history || !staticData || !Array.isArray(staticData.allEvents)) return null;
+    const averages = {};
+    staticData.allEvents.forEach(e => { if (e.finished && e.average_entry_score > 0) averages[e.id] = e.average_entry_score; });
+    return rankProjection(career.history.current, averages, staticData.totalPlayers);
+  })();
   const since = memberSince(session.createdAt);
   const initial = (session.username || '?').slice(0, 1).toUpperCase();
 
@@ -319,6 +349,8 @@ export function ProfileScreen({ session, analyticsByDefault = false, notice = ''
             </div>
 
             <RankChart rows={c.gwHistory || []} />
+
+            {projection && <SeasonEnd p={projection} />}
 
             {c.chips.length > 0 && (
               <div className="fpl-profile-chips" aria-label={t('Chips played this season')}>

@@ -1298,6 +1298,12 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-profile-stat-label { text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.06em; color: var(--ink-dim); }
 .fpl-profile-stat-value { font: 700 1.2rem 'Space Grotesk', sans-serif; margin-top: 4px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fpl-profile-stat-sub { font-size: 0.64rem; color: var(--ink-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The profile's season-end rank at the pace so far. */
+.fpl-profile-proj { padding: 14px 16px; display: grid; gap: 6px; }
+.fpl-profile-proj-main { margin: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fpl-profile-proj-main b { font-size: 1.6rem; color: var(--lime); }
+.fpl-profile-proj-main span { font-size: 0.8rem; color: var(--ink-dim); }
+.fpl-profile-proj .fpl-home-hint { margin: 0; }
 .fpl-profile-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .fpl-profile-chip { padding: 5px 10px; border-radius: 999px; font-size: 0.74rem; background: rgba(206,255,16,0.12); border: 1px solid rgba(206,255,16,0.4); }
 .fpl-profile-chip .fpl-mono { color: var(--ink-dim); font-size: 0.68rem; }
