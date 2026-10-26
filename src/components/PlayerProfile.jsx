@@ -8,7 +8,7 @@ import { X } from 'lucide-react';
 import { Shirt } from './Pitch.jsx';
 import { fetchFplJson } from '../lib/fplClient.js';
 import { DIFF_COLORS, availClass, fmtPrice, fmtPts } from '../lib/format.js';
-import { cheaperAlternatives, openPlayerProfile, pastSeasons, photoUrls, predictionError, priceSeries, profileRows, savedFor, signed } from '../lib/playerProfile.js';
+import { cheaperAlternatives, openPlayerProfile, xgSummary, pastSeasons, photoUrls, predictionError, priceSeries, profileRows, savedFor, signed } from '../lib/playerProfile.js';
 import { t } from '../lib/i18n.js';
 import { useBackClose } from '../hooks/useBackClose.js';
 
@@ -153,6 +153,21 @@ function Diff({ value }) {
   return <td className={`fpl-pp-diff${value > 0 ? ' is-up' : value < 0 ? ' is-down' : ''}`}>{signed(value)}</td>;
 }
 
+// Goals and assists this season against expected (xG, xA): over them is
+// finishing above his chances (or luck), under is the reverse.
+function XgLine({ summary }) {
+  if (!summary || !(summary.xg > 0 || summary.xa > 0)) return null;
+  const vs = (actual, expected) => {
+    const d = Math.round((actual - expected) * 10) / 10;
+    return <b className={d > 0 ? 'is-up' : d < 0 ? 'is-down' : ''}>{d > 0 ? '+' : d < 0 ? '−' : ''}{Math.abs(d).toFixed(1)}</b>;
+  };
+  return (
+    <p className="fpl-meta fpl-pp-note">
+      {t('Goals {g} from {xg} xG', { g: summary.goals, xg: summary.xg.toFixed(1) })} ({vs(summary.goals, summary.xg)}) · {t('Assists {a} from {xa} xA', { a: summary.assists, xa: summary.xa.toFixed(1) })} ({vs(summary.assists, summary.xa)})
+    </p>
+  );
+}
+
 export function PlayerProfile({ playerId, staticData, onClose }) {
   const dialogRef = useRef(null);
   useBackClose(onClose);
@@ -256,6 +271,8 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                     <th scope="col">{t('Mins')}</th>
                     <th scope="col">{t('G')}</th>
                     <th scope="col">{t('A')}</th>
+                    <th scope="col" title={t('Expected goals')}>xG</th>
+                    <th scope="col" title={t('Expected assists')}>xA</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -269,10 +286,13 @@ export function PlayerProfile({ playerId, staticData, onClose }) {
                       <td>{r.minutes}</td>
                       <td>{r.goals}</td>
                       <td>{r.assists}</td>
+                      <td className="fpl-pp-dim">{r.xg.toFixed(2)}</td>
+                      <td className="fpl-pp-dim">{r.xa.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <XgLine summary={xgSummary(rows)} />
               {played.some(r => r.workedOut) ? <p className="fpl-meta fpl-pp-note">{t('* Predicted afterwards from what was known before that deadline, as these gameweeks were played before predictions were saved.')}</p> : null}
             </div>
           ) : <p className="fpl-meta">{t('No matches played this season yet.')}</p>
