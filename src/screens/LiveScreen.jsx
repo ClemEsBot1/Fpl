@@ -6,7 +6,7 @@ import { ChevronRight, Radio, RefreshCw, Users, X } from 'lucide-react';
 import { Pitch, PlayerCard } from '../components/Pitch.jsx';
 import { POSITION_LABELS } from '../lib/format.js';
 import { SkeletonRows } from '../components/common.jsx';
-import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, lineup, liveBonusRace, matchDetail } from '../lib/live.js';
+import { liveTeamScore, projectedBonus, teamStates, bonusFromBps, lineup, liveBonusRace, matchDetail, vsField } from '../lib/live.js';
 import { openPlayerProfile } from '../lib/playerProfile.js';
 import './liveBonus.css';
 import { fmtDateTime, fmtTime, t } from '../lib/i18n.js';
@@ -203,6 +203,25 @@ function MatchSheet({ f, elements, teamsById, playersById, ownedIds, onClose }) 
   );
 }
 
+// Players moving you against the field: name, points, and the swing.
+function FieldList({ title, items }) {
+  if (!items.length) return null;
+  return (
+    <div>
+      <h3 className="fpl-live-field-h">{title}</h3>
+      <ul className="fpl-live-field">
+        {items.map(x => (
+          <li key={x.id}>
+            <span className="fpl-live-field-name">{x.player.webName}</span>
+            <span className="fpl-mono fpl-meta">{t('{n} pts', { n: x.points })} · {t('{p}% own', { p: Math.round(x.owned * 100) })}{x.yours ? ` · ${x.yours > 1 ? t('your captain') : t('yours')}` : ''}</span>
+            <b className={`fpl-mono ${x.swing > 0 ? 'is-up' : 'is-down'}`}>{x.swing > 0 ? '+' : '−'}{Math.abs(x.swing).toFixed(1)}</b>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // `managerName`: another manager's team (from the mini-league) rather than
 // yours, with `onShowMine` to go back to yours.
 export function LiveScreen({ staticData, gwId, teamId, managerName = null, fetchJson, onOpenLeague, onAddTeam, onShowMine }) {
@@ -258,6 +277,7 @@ export function LiveScreen({ staticData, gwId, teamId, managerName = null, fetch
   const score = picks ? liveTeamScore({ picks, liveById, bonus: projectedBonus(fixtures), states, playersById: staticData.playersById }) : null;
   const ownedIds = picks && Array.isArray(picks.picks) ? picks.picks.map(p => p.element) : [];
   const bonusRace = liveBonusRace(fixtures, { ownedIds, limit: 10 });
+  const field = score && !managerName ? vsField({ rows: score.rows, liveById, bonus: projectedBonus(fixtures), playersById: staticData.playersById }) : null;
   const sortedFixtures = [...fixtures].sort((a, b) => {
     const rank = f => (f.started && !(f.finished || f.finished_provisional) ? 0 : !f.started ? 1 : 2);
     return rank(a) - rank(b) || new Date(a.kickoff_time) - new Date(b.kickoff_time);
@@ -330,6 +350,20 @@ export function LiveScreen({ staticData, gwId, teamId, managerName = null, fetch
             </>
           )}
         </section>
+        {field ? (
+          <section className="fpl-glass fpl-tool-card" aria-labelledby="live-field">
+            <h2 id="live-field" className="fpl-home-h">{t('Against the field')}</h2>
+            <p className="fpl-live-field-net">
+              <b className={`fpl-mono ${field.net > 0 ? 'is-up' : field.net < 0 ? 'is-down' : ''}`}>{field.net > 0 ? '+' : field.net < 0 ? '−' : ''}{Math.abs(field.net).toFixed(1)}</b>
+              <span className="fpl-meta">{field.net > 0 ? t('pts ahead of the average manager: your rank is likely rising.') : field.net < 0 ? t('pts behind the average manager: your rank is likely falling.') : t('Level with the average manager.')}</span>
+            </p>
+            <div className="fpl-live-field-lists">
+              <FieldList title={t('Gaining you ground')} items={field.gains} />
+              <FieldList title={t('Costing you ground')} items={field.losses} />
+            </div>
+            <p className="fpl-meta" style={{ margin: 0 }}>{t('From how many managers own each player. Captains aren’t counted, so it’s an estimate.')}</p>
+          </section>
+        ) : null}
         {bonusRace.length ? (
           <section className="fpl-glass fpl-tool-card" aria-labelledby="live-bonus">
             <h2 id="live-bonus" className="fpl-home-h">{t('Bonus race')}</h2>
