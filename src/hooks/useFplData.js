@@ -236,7 +236,10 @@ export function useFplData({ admin = false } = {}) {
   // predictions.
   function liveForGw(gwId, finished) {
     const cached = liveCacheRef.current.get(gwId);
-    if (cached && (finished || Date.now() - cached.at < LIVE_IN_PROGRESS_TTL_MS)) return cached.promise;
+    // Over but with bonus still to be confirmed: fetched again now and then.
+    const event = staticDataRef.current && (staticDataRef.current.allEvents || []).find(e => e.id === gwId);
+    const settled = finished && !(event && event.bonusPending);
+    if (cached && (settled || Date.now() - cached.at < LIVE_IN_PROGRESS_TTL_MS)) return cached.promise;
     // For a week still being played, which of its matches are over.
     const fixturesPromise = finished ? Promise.resolve(null) : fixturesForGw(gwId);
     const promise = Promise.all([fetchFplJson(`event/${gwId}/live/`), fixturesPromise]).then(([live, fixtures]) => {

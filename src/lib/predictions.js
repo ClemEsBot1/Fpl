@@ -474,16 +474,23 @@ export function getDefaultEvent(events, now = Date.now()) {
 }
 
 // FPL's events with a gameweek counted as finished once every one of its
-// matches is: FPL only sets an event's own `finished` once it has checked
-// the data, which can be a day or more after the last match, and until
-// then the app would keep showing the gameweek as still being played.
+// matches is over: FPL only sets an event's own `finished` once it has
+// checked the data, which can be a day or more after the last match, and
+// until then the app would keep showing the gameweek as still being played.
+// A match is over at the final whistle (finished_provisional); its own
+// `finished` waits for the bonus to be confirmed, so until every match has
+// that the event is marked bonusPending (its live points can still change).
 export function withPlayedOutEvents(events, fixturesRaw) {
   const byEvent = {};
   (fixturesRaw || []).forEach(f => {
     if (f.event === null || f.event === undefined) return;
     (byEvent[f.event] ||= []).push(f);
   });
-  return (events || []).map(e => (!e.finished && byEvent[e.id] && byEvent[e.id].every(f => f.finished) ? { ...e, finished: true } : e));
+  return (events || []).map(e => {
+    const list = byEvent[e.id];
+    if (e.finished || !list || !list.every(f => f.finished || f.finished_provisional)) return e;
+    return { ...e, finished: true, bonusPending: !list.every(f => f.finished) };
+  });
 }
 
 // A gameweek is "closed" once its deadline has passed: picks are locked in,
