@@ -375,3 +375,19 @@ test('the start-up check (?session=1) answers 200 when logged out; plain GET kee
   assert.deepEqual(probe.body, { loggedIn: false });
   assert.equal((await get({})).statusCode, 401);
 });
+
+test('the gameweek recap seen is kept on the account, only ever moving forward', async () => {
+  const cookie = cookieFrom(await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' }));
+  assert.equal((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 8 })).status, 401, 'logged in only');
+  assert.equal((await call(redis, { action: 'recap_seen', teamId: 'abc', gwId: 8 }, undefined, cookie)).status, 400);
+  assert.equal((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 39 }, undefined, cookie)).status, 400);
+  const seen = await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 8 }, undefined, cookie);
+  assert.equal(seen.status, 200);
+  assert.deepEqual(seen.body.recapSeen, { 1234: 8 });
+  // An older one doesn't take it back.
+  assert.deepEqual((await call(redis, { action: 'recap_seen', teamId: 1234, gwId: 7 }, undefined, cookie)).body.recapSeen, { 1234: 8 });
+  // Another device signing in to the same account gets it with the account.
+  const again = cookieFrom(await call(redis, { action: 'login', username: 'clem', password: 'correct-horse1' }));
+  const session = await call(redis, {}, undefined, again, 'GET');
+  assert.deepEqual(session.body.recapSeen, { 1234: 8 });
+});

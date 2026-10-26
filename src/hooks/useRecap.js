@@ -12,7 +12,10 @@ import { teamErrorMessage } from './useFplData.js';
 import { t } from '../lib/i18n.js';
 
 // `fpl` is what useFplData returns.
-export function useRecap({ stage, homeTeamId, fpl }) {
+// `accountSeen` ({ [teamId]: gwId }, null when logged out) is the account's
+// record of recaps seen, and `onSeen(teamId, gwId)` adds to it, so the
+// pop-up shows once per account as well as once per device.
+export function useRecap({ stage, homeTeamId, fpl, accountSeen = null, onSeen = () => {} }) {
   const { liveStatic, ensureStaticData, loadTeamForGw, liveForGw, formulaSnapshot, staticDataForGw } = fpl;
   // { gwId, teamId, status: 'loading' | 'ready' | 'error', data, error, open }
   const [recap, setRecap] = useState(null);
@@ -136,13 +139,15 @@ export function useRecap({ stage, homeTeamId, fpl }) {
     setRecap(null);
   }
 
-  // Once a gameweek is over, its recap pops up on Home, once per team on
-  // this device.
+  // Once a gameweek is over, its recap pops up on Home, once per team: on
+  // this device, and on the account when logged in.
   useEffect(() => {
     if (stage !== 'home' || !liveStatic || !homeTeamId || recap) return;
     const gwId = lastFinishedGw(liveStatic.allEvents);
-    if (!gwId || recapSeenFor(homeTeamId) >= gwId) return;
+    const seen = Math.max(recapSeenFor(homeTeamId), Number(accountSeen && accountSeen[homeTeamId]) || 0);
+    if (!gwId || seen >= gwId) return;
     markRecapSeen(homeTeamId, gwId);
+    onSeen(homeTeamId, gwId);
     openRecap(gwId, { open: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, liveStatic, homeTeamId]);
