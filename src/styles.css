@@ -503,11 +503,19 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-league-who:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .fpl-league-who b { font-family: 'Space Grotesk', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fpl-league-who small { grid-column: 1; font-size: 0.75rem; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fpl-league-chev { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--ink-dim); transition: transform 160ms ease-out; }
+.fpl-league-chev { grid-column: 2; grid-row: 1 / span 3; align-self: center; color: var(--ink-dim); transition: transform 160ms ease-out; }
 .fpl-league-who:disabled .fpl-league-chev { opacity: 0.3; }
 .fpl-league-who.is-failed small { color: var(--yellow); }
 .fpl-league-row.is-open .fpl-league-chev { transform: rotate(180deg); }
 @media (hover: hover) and (pointer: fine) { .fpl-league-who:not(:disabled):hover { background: rgb(var(--tint) / 0.08); } }
+/* The chips a member has left (WC, FH, BB, TC) under their name. */
+.fpl-league-chipsleft { grid-column: 1; display: flex; gap: 3px; margin-top: 3px; min-width: 0; overflow: hidden; }
+.fpl-league-chipsleft.is-none { font-size: 0.68rem; color: var(--ink-dim); }
+.fpl-chipleft { font: 600 0.6rem/1 'IBM Plex Mono', monospace; letter-spacing: 0.04em; padding: 2px 4px; border-radius: 4px; color: var(--ink-dim); background: rgb(var(--tint) / 0.08); }
+.fpl-chipleft.is-wildcard { color: var(--green); }
+.fpl-chipleft.is-freehit { color: var(--blue); }
+.fpl-chipleft.is-bboost { color: var(--amber); }
+.fpl-chipleft.is-tc { color: var(--sky); }
 .fpl-league-edited { margin-left: 6px; font: 600 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.04em; text-transform: uppercase; color: #05041A; background: var(--yellow); padding: 1px 5px; border-radius: 4px; vertical-align: 2px; }
 .fpl-league-live { text-align: right; font-weight: 700; color: var(--blue); font-variant-numeric: tabular-nums; }
 .fpl-league-exp { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; display: grid; justify-items: end; line-height: 1.1; }
