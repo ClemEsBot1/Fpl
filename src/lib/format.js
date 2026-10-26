@@ -213,7 +213,9 @@ export function officialGwPoints(data) {
   if (!data) return null;
   const history = data.entryHistory;
   const event = Array.isArray(data.allEvents) ? data.allEvents.find(e => e.id === data.gwId) : null;
-  const live = event && !event.finished;
+  // Still being played, or over but not yet processed by FPL (its history
+  // doesn't count the automatic subs yet): the live total.
+  const live = event && (!event.finished || event.bonusPending);
   if (live && typeof data.liveTotal === 'number') return data.liveTotal;
   return !live && history && typeof history.points === 'number' ? history.points : data.actualXiTotal;
 }

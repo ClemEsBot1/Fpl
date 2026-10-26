@@ -59,3 +59,10 @@ test('a player with no points to show reads DNP once his matches are over, else 
   assert.equal(noPointsLabel({ played: false, dnp: true }), 'DNP');
   assert.equal(noPointsLabel({ played: false }), '–');
 });
+
+test("a gameweek over but not yet processed by FPL shows the live total, which counts the automatic subs", () => {
+  const allEvents = [{ id: 8, finished: true, bonusPending: true }];
+  assert.equal(officialGwPoints({ gwId: 8, allEvents, entryHistory: { points: 34 }, liveTotal: 41 }), 41);
+  const settled = [{ id: 8, finished: true, bonusPending: false }];
+  assert.equal(officialGwPoints({ gwId: 8, allEvents: settled, entryHistory: { points: 41 }, liveTotal: 40 }), 41);
+});

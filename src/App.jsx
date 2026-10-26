@@ -33,7 +33,7 @@ import { t } from './lib/i18n.js';
 import { parseTeamId } from './lib/teamIdInput.js';
 import { ALL_CHUNKS, loadCustomSquadBuilder, loadHindsightScreen, loadResultsScreen } from './lib/chunks.js';
 import { MAX_COMPARE, RESTORABLE_VIEWS, readCompareIds, readInApp, readTeamParam, readTermsAccepted, readViewParam, writeCompareIds, writeInApp, writeParams, writeTermsAccepted } from './lib/appStorage.js';
-import { currentGwId, isGwFinished, liveGwIdFor, recapGwFor } from './lib/gameweeks.js';
+import { currentGwId, isGwFinished, isGwSettled, liveGwIdFor, recapGwFor } from './lib/gameweeks.js';
 import { savedChangesFor, teamChangesFor } from './lib/savedSquads.js';
 import { useStage } from './hooks/useStage.js';
 import { postJson, useAccount } from './hooks/useAccount.js';
@@ -696,7 +696,7 @@ export default function FPLSquadChecker() {
       ? history.current.map(r => ({ event: r.event, points: r.points, hit: r.event_transfers_cost || 0, total: r.total_points })) : null;
     // A finished week's points from FPL's own record, which counts
     // automatic subs; one still being played from the picks and live scores.
-    const weekRow = seasonSoFar && weekGw && isGwFinished(staticData, weekGw) ? seasonSoFar.find(r => r.event === weekGw) : null;
+    const weekRow = seasonSoFar && weekGw && isGwSettled(staticData, weekGw) ? seasonSoFar.find(r => r.event === weekGw) : null;
     if (result.notStarted) return { squad: [], xiTotal: 0, livePoints: null, liveHit: 0, notStarted: true, history: seasonSoFar, stats: null };
     // The week's picks: already loaded when that's the gameweek shown.
     const livePicks = !weekGw ? null : (started && result.picks ? result.picks : await optional(`entry/${entryId}/event/${weekGw}/picks/`));
