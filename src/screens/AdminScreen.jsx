@@ -552,7 +552,7 @@ function HeadToHead() {
               <tbody>
                 {scored.map(w => (
                   <tr key={w.gwId}>
-                    <th scope="row">GW{w.gwId}{w.blendLearned ? '' : '*'}</th>
+                    <th scope="row">GW{w.gwId}{w.blendLearned ? '' : '*'}{w.provisional ? '†' : ''}</th>
                     {H2H_MEASURES.map(m => {
                       const who = h2hWinner(m, H2H_MODELS.map(({ key }) => w[key][m.key]));
                       return H2H_MODELS.map(({ key }) => (
@@ -578,6 +578,7 @@ function HeadToHead() {
             </table>
           </div>
           {priorWeeks ? <p className="fpl-meta" style={{ margin: 0 }}>* Before the blend went live: its figures are worked out at half each.</p> : null}
+          {scored.some(w => w.provisional) ? <p className="fpl-meta" style={{ margin: 0 }}>† Provisional: its matches are over but FPL hasn’t confirmed the points (bonus) yet, so it’s scored on the points so far and updates until then.</p> : null}
           <ul className="fpl-h2h-tally">
             {tally.map(({ m, wins }) => (
               <li key={m.key}><span>{m.label}</span><span className="fpl-mono">{H2H_MODELS.map(({ key, label }) => `${label} ${wins[key]}`).join(' · ')}</span></li>
