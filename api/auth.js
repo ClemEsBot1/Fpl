@@ -113,12 +113,16 @@ async function recordFor(redis, identifier) {
 
 // What every signed-in response carries: the account and its saved teams,
 // so the app doesn't need a second request for the teams.
+// Teams whose last seen recap an account keeps (the newest ones).
+const RECAP_SEEN_TEAMS = 20;
+
 function account(record) {
   return {
     ok: true, username: record.username, email: record.email || '', teams: Array.isArray(record.teams) ? record.teams : [],
     emailVerified: !!(record.email && record.emailVerified),
     hasPassword: !!record.passwordHash, google: !!record.googleSub, createdAt: record.createdAt || null,
     digestTeamId: record.digest && record.digest.teamId ? record.digest.teamId : null,
+    recapSeen: record.recapSeen && typeof record.recapSeen === 'object' ? record.recapSeen : {},
     ...(isAdmin(record.username) ? { admin: true } : {}),
   };
 }
@@ -618,6 +622,33 @@ export default async function handler(req, res, redisOverride, mailOverride, adm
       if (problem === 'unverified') { res.status(400).json({ error: 'Confirm your email address first: enter the code we emailed you.' }); return; }
       if (updated === undefined || problem) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
       res.status(200).json(account(updated));
+    } catch (e) {
+      storageFailed(res, e, redis);
+    }
+    return;
+  }
+
+  // The latest gameweek recap this account has seen, per team, so it pops
+  // up once per account rather than once per device.
+  if (action === 'recap_seen') {
+    const session = getSessionFromRequest(req, secret);
+    if (!session) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+    const teamId = cleanTeamId(body.teamId);
+    const gwId = Number(body.gwId);
+    if (!teamId || !Number.isInteger(gwId) || gwId < 1 || gwId > 38) { res.status(400).json({ error: 'bad_request' }); return; }
+    try {
+      let problem = null;
+      const updated = await updateJSON(redis, userKeyFor(session.username), record => {
+        if (!sessionMatchesRecord(session, record)) { problem = 'signed_out'; return null; }
+        const seen = record.recapSeen && typeof record.recapSeen === 'object' ? record.recapSeen : {};
+        if ((Number(seen[teamId]) || 0) >= gwId) return record;
+        // A new season starts again from gameweek 1: keep the latest few teams.
+        const rest = Object.fromEntries(Object.entries(seen).filter(([id]) => id !== String(teamId)));
+        const kept = Object.entries({ ...rest, [teamId]: gwId }).slice(-RECAP_SEEN_TEAMS);
+        return { ...record, recapSeen: Object.fromEntries(kept) };
+      });
+      if (updated === undefined || problem) { res.status(401).json({ error: LOG_IN_AGAIN }); return; }
+      res.status(200).json({ ok: true, recapSeen: updated.recapSeen || {} });
     } catch (e) {
       storageFailed(res, e, redis);
     }

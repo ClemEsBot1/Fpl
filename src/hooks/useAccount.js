@@ -113,6 +113,7 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
     setSession({
       username: data.username, email: data.email || '', emailVerified: !!data.emailVerified, admin: !!data.admin, digestTeamId: data.digestTeamId || null,
       hasPassword: data.hasPassword !== false, google: !!data.google, createdAt: data.createdAt || null,
+      recapSeen: data.recapSeen && typeof data.recapSeen === 'object' ? data.recapSeen : {},
     });
     if (Array.isArray(data.teams)) setSavedTeams(data.teams);
     else fetchSavedTeams();
@@ -318,11 +319,20 @@ export function useAccount({ stage, setStage, setStageRaw, skipWelcome }) {
     // non-critical — list just stays as-is on failure
   }
 
+  // A gameweek recap seen while logged in is kept on the account, so it
+  // doesn't pop up again on another device (useRecap).
+  function markRecapSeenOnAccount(teamId, gwId) {
+    if (!session || !teamId || !gwId) return;
+    if ((Number(session.recapSeen && session.recapSeen[teamId]) || 0) >= gwId) return;
+    setSession(s => (s ? { ...s, recapSeen: { ...(s.recapSeen || {}), [teamId]: gwId } } : s));
+    postJson('/api/auth', { action: 'recap_seen', teamId, gwId }).catch(() => {});
+  }
+
   return {
     session, savedTeams, authDialog, authNotice, authError, authLoading, profileNotice, setProfileNotice, setAuthError,
     openAuthDialog, closeAuthDialog, handleTeamsResult,
     handleAuthSubmit, handleForgotPassword, handleResetPassword, handleDeleteAccount, handleSendFeedback,
     handleSetCredentials, handleChangePassword, handleVerifyEmail, handleResendVerify, handleSetEmail, handleLogout,
-    handleSaveTeamId, handleSaveCustomSquad, handleDeleteSavedTeam,
+    handleSaveTeamId, handleSaveCustomSquad, handleDeleteSavedTeam, markRecapSeenOnAccount,
   };
 }

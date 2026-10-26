@@ -724,7 +724,10 @@ export default function FPLSquadChecker() {
 
   /* ---------- The gameweek recap ---------- */
 
-  const { recap, openRecap, closeRecap, loadRecapLeague } = useRecap({ stage, homeTeamId: homeTeam.teamId, fpl });
+  const { recap, openRecap, closeRecap, loadRecapLeague } = useRecap({
+    stage, homeTeamId: homeTeam.teamId, fpl,
+    accountSeen: session ? session.recapSeen || {} : null, onSeen: account.markRecapSeenOnAccount,
+  });
 
   const navItems = [
     { id: 'home', label: t('Home'), desc: t('Your gameweek and the fixture ticker'), group: t('Your team'), Icon: House, footer: true, run: () => setStage('home') },
@@ -861,7 +864,7 @@ export default function FPLSquadChecker() {
                 onChangeTeam={() => rememberHomeTeam(null)}
                 onRetryTeam={() => loadHomeTeam(homeTeam.teamId)}
                 recapGw={homeTeam.teamId ? recapGwFor(liveStatic, selectedGw) : null}
-                onOpenRecap={gwId => { markRecapSeen(homeTeam.teamId, gwId); openRecap(gwId); }}
+                onOpenRecap={gwId => { markRecapSeen(homeTeam.teamId, gwId); account.markRecapSeenOnAccount(homeTeam.teamId, gwId); openRecap(gwId); }}
               />
             )}
             {stage === 'teamIdForm' && (
