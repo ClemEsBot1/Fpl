@@ -60,9 +60,9 @@ function XiList({ title, sub, total, rows, accent }) {
       {sub ? <small>{sub}</small> : null}
       <ol>
         {rows.map(r => (
-          <li key={r.id}>
+          <li key={r.id} className={r.owned ? 'is-owned' : undefined}>
             <span className="fpl-recap-pos">{r.pos}</span>
-            <b>{r.name}{r.isCaptain ? <span className="fpl-recap-c" aria-label={t('captain')}>{t('C')}</span> : null}</b>
+            <b>{r.name}{r.owned ? <span className="fpl-sr-only"> ({t('yours')})</span> : null}{r.isCaptain ? <span className="fpl-recap-c" aria-label={t('captain')}>{t('C')}</span> : null}</b>
             <span className="fpl-mono">{r.points}</span>
           </li>
         ))}
@@ -617,6 +617,9 @@ function VsModel({ recap, wide }) {
           {v.you > v.model ? t("You beat the app's best squad by {n}", { n: v.you - v.model }) : v.you < v.model ? t("The app's best squad beat you by {n}", { n: v.model - v.you }) : t("You tied with the app's best squad")}
         </span>
       ) : null}
+      {v.bestOwned !== null ? (
+        <p className="fpl-recap-note">{v.bestOwned === 1 ? t('You had 1 of the best XI.') : t('You had {n} of the best XI.', { n: v.bestOwned })}</p>
+      ) : null}
       <p className="fpl-recap-note is-small">{t('The best XI is hindsight: the top-scoring 11 anyone could have picked within £100m.')}</p>
     </>
   );
@@ -627,7 +630,7 @@ function VsModel({ recap, wide }) {
       <div className="fpl-recap-teams">
         <XiList title={t('Your XI')} total={v.you} rows={v.teams.you} accent="lime" />
         {v.teams.model ? <XiList title={t("App's best squad")} sub={t('Picked before the deadline')} total={v.model} rows={v.teams.model} accent="blue" /> : null}
-        {v.teams.best ? <XiList title={t('Best possible XI')} sub={t('Hindsight')} total={v.best} rows={v.teams.best} /> : null}
+        {v.teams.best ? <XiList title={t('Best possible XI')} sub={v.bestOwned ? t('Hindsight · yours highlighted') : t('Hindsight')} total={v.best} rows={v.teams.best} /> : null}
       </div>
     </div>
   );

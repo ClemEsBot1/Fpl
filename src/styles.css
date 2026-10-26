@@ -755,6 +755,8 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-recap-xi li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8rem; }
 .fpl-recap-xi li b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .fpl-recap-xi li .fpl-mono { font-weight: 700; }
+.fpl-recap-xi li.is-owned { box-shadow: inset 3px 0 0 var(--lime); padding-left: 6px; margin-left: -6px; }
+.fpl-recap-xi li.is-owned b { color: var(--lime); }
 .fpl-recap-pos { font: 600 0.6rem 'IBM Plex Mono', monospace; color: var(--ink-dim); background: rgba(255,255,255,0.08); padding: 2px 0; border-radius: 4px; text-align: center; }
 .fpl-recap-c { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 6px; border-radius: 4px; background: var(--blue); color: #03132B; font: 700 0.6rem 'IBM Plex Mono', monospace; vertical-align: 1px; }
 .fpl-recap-stat { display: grid; gap: 3px; min-width: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.08); }
