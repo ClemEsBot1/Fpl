@@ -1555,3 +1555,7 @@ button.fpl-search-item:focus-visible, .fpl-row-editable:focus-visible { outline:
 .fpl-live-field-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fpl-live-field li .fpl-meta { grid-column: 1; font-size: 0.72rem; }
 .fpl-live-field li b { grid-column: 2; grid-row: 1 / span 2; }
+/* Expected goals and assists in the player profile's matches. */
+.fpl-pp-table td.fpl-pp-dim { color: var(--ink-dim); }
+.fpl-pp-note b.is-up { color: var(--green); }
+.fpl-pp-note b.is-down { color: var(--red); }
