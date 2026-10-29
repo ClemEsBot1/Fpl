@@ -15,7 +15,8 @@ import { planTransfers, xiPointsForWeek } from '../lib/transferPlan.js';
 import { squadChipWeeks } from '../lib/chipPlanner.js';
 import { VARIANTS as REDDIT_VARIANTS, redditReplies } from '../lib/redditReply.js';
 import { SHARE_URL, shareLinks, shareMessage } from '../lib/shareLinks.js';
-import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, sellPriceOf, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad, wildcardSquad } from '../lib/squadLogic.js';
+import { CHIP_INFO, analyzeChipTiming, applyFreeTransferEconomics, buildSquadExportPayload, ensureCaptaincy, sellPriceOf, substitutePlayers, substitutionOptions, swapBlocker, swapPlayerInSquad } from '../lib/squadLogic.js';
+import { FIRST_HALF_LAST_GW, freeHitPlan, wildcardPlan } from '../lib/transferChips.js';
 import { track } from '../lib/track.js';
 import { setPieceTags } from '../lib/setPieces.js';
 import { templateReport } from '../lib/ownership.js';
@@ -422,55 +423,130 @@ export function TransferPlanCard({ squad, bankTenths, freeTransfers, allPlayers,
 // you own, the template players you're missing with what's at stake on
 // them this gameweek, and your differentials with what they could gain.
 const fmtOwn = v => `${v < 10 ? v.toFixed(1) : Math.round(v)}%`;
-// A wildcard with your own money (wildcardSquad): worked out on request,
-// as it searches the whole player list.
-function WildcardCard({ squad, bankTenths, allPlayers, predictionsById, teamsById }) {
-  const [wc, setWc] = useState(null);
-  const budget = (squad.reduce((sum, s) => sum + Math.round(sellPriceOf(s) * 10), 0) + (bankTenths || 0)) / 10;
-  const work = () => setWc(wildcardSquad(squad, bankTenths, allPlayers, predictionsById));
-  const gain = wc ? wc.xiWildcard - wc.xiNow : 0;
+// The Wildcard and Free Hit for this squad with your own money (src/lib/
+// transferChips.js): the squad each would pick, what it adds week by week
+// and when to play it. A Wildcard's squad stays, so it's built for the next
+// few gameweeks; a Free Hit's goes back after the deadline, so each week's
+// is built for that week alone.
+const TRANSFER_CHIPS = [['wildcard', t('Wildcard')], ['freehit', t('Free Hit')]];
+const BIG_WILDCARD = 15; // pts over the weeks shown: a strong time to play it
+const SOME_WILDCARD = 6;
+const BIG_FREE_HIT = 5; // pts in one week: worth spending a Free Hit on
+const FREE_HIT_STANDS_OUT = 4; // pts over a typical week: a week to save it for
+const WILDCARD_JOB = 10; // pts a Free Hit adds in a typical week: the squad needs a Wildcard
+function ChipMoves({ ins, outs, teamsById }) {
   const club = p => (teamsById[p.team] ? teamsById[p.team].short_name : '');
+  if (!ins.length) return null;
   return (
-    <section className="fpl-block fpl-template fpl-wildcard" aria-labelledby="wildcard-h">
+    <div className="fpl-template-cols">
       <div>
-        <h3 id="wildcard-h" className="fpl-plan-h">{t('Wildcard with your budget')}</h3>
-        <p className="fpl-meta" style={{ margin: '4px 0 0' }}>
-          {t('The best squad you could pick with {budget}: what your players sell for plus your bank.', { budget: fmtPrice(budget) })}
-        </p>
+        <h4 className="fpl-mono fpl-template-h">{t('OUT')}</h4>
+        <ul className="fpl-template-list">
+          {outs.map(p => <li key={p.id}><span className="fpl-template-name">{p.webName}</span><span className="fpl-mono fpl-meta">{club(p)} · {POSITION_LABELS[p.positionId]}</span></li>)}
+        </ul>
       </div>
-      {!wc ? (
-        <button type="button" className="fpl-btn" onClick={work}>{t('Work out my wildcard')}</button>
-      ) : (
-        <>
-          <p className="fpl-wildcard-sum">
-            {wc.ins.length
-              ? <>{t('{n} changes', { n: wc.ins.length })} · <b className={gain > 0 ? 'fpl-template-up' : 'fpl-template-down'}>{gain > 0 ? '+' : ''}{fmtPts(gain)}</b> {t('predicted points a week')} · {t('{bank} left', { bank: fmtPrice(wc.bankTenths / 10) })}</>
-              : t('Your squad is already the best you can afford.')}
-          </p>
-          {wc.ins.length ? (
-            <div className="fpl-template-cols">
-              <div>
-                <h4 className="fpl-mono fpl-template-h">{t('OUT')}</h4>
-                <ul className="fpl-template-list">
-                  {wc.outs.map(p => <li key={p.id}><span className="fpl-template-name">{p.webName}</span><span className="fpl-mono fpl-meta">{club(p)} · {POSITION_LABELS[p.positionId]}</span></li>)}
-                </ul>
-              </div>
-              <div>
-                <h4 className="fpl-mono fpl-template-h">{t('IN')}</h4>
-                <ul className="fpl-template-list">
-                  {wc.ins.map(p => (
-                    <li key={p.id}>
-                      <button type="button" className="fpl-namebtn fpl-template-name" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>
-                      <span className="fpl-mono fpl-meta">{club(p)} · {fmtPrice(p.price)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ) : null}
-        </>
-      )}
-    </section>
+      <div>
+        <h4 className="fpl-mono fpl-template-h">{t('IN')}</h4>
+        <ul className="fpl-template-list">
+          {ins.map(p => (
+            <li key={p.id}>
+              <button type="button" className="fpl-namebtn fpl-template-name" onClick={() => openPlayerProfile(p.id)}>{p.webName}</button>
+              <span className="fpl-mono fpl-meta">{club(p)} · {fmtPrice(p.price)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function ChipWeekTable({ weeks, label, picked, onPick }) {
+  return (
+    <table className="fpl-mini-table fpl-tchip-table">
+      <caption className="fpl-sr-only">{t('Predicted points each gameweek: your squad against the chip')}</caption>
+      <thead><tr><th scope="col">{t('GW')}</th><th scope="col">{t('Your squad')}</th><th scope="col">{label}</th><th scope="col">{t('Gain')}</th></tr></thead>
+      <tbody>
+        {weeks.map(w => (
+          <tr key={w.event} className={picked === w.event ? 'is-picked' : undefined}>
+            <th scope="row" className="fpl-mono">
+              {onPick ? <button type="button" className="fpl-tchip-gw" aria-pressed={picked === w.event} onClick={() => onPick(w.event)}>{w.event}</button> : w.event}
+            </th>
+            <td className="fpl-mono">{fmtPts(w.now)}</td>
+            <td className="fpl-mono">{fmtPts(w.chip)}</td>
+            <td className={`fpl-mono ${w.gain > 0 ? 'is-up' : w.gain < 0 ? 'is-down' : ''}`}>{w.gain > 0 ? '+' : ''}{fmtPts(w.gain)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function TransferChip({ kind, squad, bankTenths, allPlayers, predictionsById, teamsById }) {
+  const isWildcard = kind === 'wildcard';
+  const plan = useMemo(
+    () => (isWildcard ? wildcardPlan : freeHitPlan)(squad, bankTenths, allPlayers, predictionsById),
+    [isWildcard, squad, bankTenths, allPlayers, predictionsById],
+  );
+  const [picked, setPicked] = useState(null);
+  const budget = (squad.reduce((sum, s) => sum + Math.round(sellPriceOf(s) * 10), 0) + (bankTenths || 0)) / 10;
+  const first = plan.weeks[0];
+  if (!first) return <p className="fpl-meta" style={{ margin: 0 }}>{t('No predictions for the coming gameweeks yet.')}</p>;
+  const n = plan.weeks.length;
+  // The first of each chip runs out after GW19.
+  const expiry = first.event <= FIRST_HALF_LAST_GW
+    ? t('Your first {chip} has to be played by GW{gw}; a second one comes in GW{next}.', { chip: isWildcard ? t('Wildcard') : t('Free Hit'), gw: FIRST_HALF_LAST_GW, next: FIRST_HALF_LAST_GW + 1 })
+    : null;
+
+  if (isWildcard) {
+    const verdict = plan.gain >= BIG_WILDCARD
+      ? t('A good time for it: +{n} pts over the next {weeks} gameweeks, and the new squad keeps paying after that.', { n: fmtPts(plan.gain), weeks: n })
+      : plan.gain >= SOME_WILDCARD
+        ? t('Some gain, +{n} pts over the next {weeks} gameweeks. Worth it if you would otherwise take hits; if not, a free transfer or two may get most of it.', { n: fmtPts(plan.gain), weeks: n })
+        : t('Not worth it now: +{n} pts over the next {weeks} gameweeks. Your squad is close to the best you can afford, so save it.', { n: fmtPts(plan.gain), weeks: n });
+    return (
+      <div className="fpl-tchip">
+        <p className="fpl-tchip-desc">{t('Unlimited free transfers, and the new squad stays. So it is picked on the next few gameweeks, not just this one, with {budget}: what your players sell for plus your bank.', { budget: fmtPrice(budget) })}</p>
+        <p className={`fpl-tchip-verdict${plan.gain >= BIG_WILDCARD ? ' is-go' : plan.gain < SOME_WILDCARD ? ' is-wait' : ''}`}>{verdict}</p>
+        <ChipWeekTable weeks={plan.weeks} label={t('Wildcard')} />
+        <p className="fpl-wildcard-sum">
+          {plan.ins.length ? <>{t('{n} changes', { n: plan.ins.length })} · {t('{bank} left', { bank: fmtPrice(plan.bankTenths / 10) })}</> : t('Your squad is already the best you can afford.')}
+        </p>
+        <ChipMoves ins={plan.ins} outs={plan.outs} teamsById={teamsById} />
+        {expiry && <p className="fpl-meta" style={{ margin: 0 }}>{expiry}</p>}
+      </div>
+    );
+  }
+
+  const best = plan.best;
+  const shown = plan.weeks.find(w => w.event === picked) || best;
+  // A Free Hit is worth most in a week that stands out from the rest; a gap
+  // that's the same every week is your squad's, and a Wildcard's to fix.
+  const gains = plan.weeks.map(w => w.gain).sort((a, b) => a - b);
+  const typical = gains[Math.floor(gains.length / 2)];
+  const standsOut = best.gain - typical >= FREE_HIT_STANDS_OUT;
+  const verdict = best.gain < BIG_FREE_HIT
+    ? t('No week in the next {weeks} stands out (+{n} pts at most). Save it for a blank or double gameweek.', { weeks: n, n: fmtPts(best.gain) })
+    : !standsOut
+      ? t('Every week adds about the same (+{low} to +{high}), so none of the next {weeks} stands out. Save it for a blank or double gameweek.', { low: fmtPts(gains[0]), high: fmtPts(best.gain), weeks: n })
+      : best.event === first.event
+        ? t('This gameweek stands out: +{n} pts, against about +{typical} in the others.', { n: fmtPts(best.gain), typical: fmtPts(typical) })
+        : t('Save it for GW{gw}: +{n} pts, against about +{typical} in the other weeks. This gameweek it would add +{now}.', { gw: best.event, n: fmtPts(best.gain), typical: fmtPts(typical), now: fmtPts(first.gain) });
+  const wildcardJob = typical >= WILDCARD_JOB
+    ? t('Your squad trails the best you can afford by about {n} pts every week: that is a job for a Wildcard, which keeps the new squad.', { n: fmtPts(typical) })
+    : null;
+  return (
+    <div className="fpl-tchip">
+      <p className="fpl-tchip-desc">{t('Unlimited free transfers for one gameweek. Your squad comes back after it, so only that week counts: each week below gets its own best squad for {budget}.', { budget: fmtPrice(budget) })}</p>
+      <p className={`fpl-tchip-verdict${best.gain >= BIG_FREE_HIT && standsOut ? ' is-go' : ' is-wait'}`}>{verdict}{wildcardJob ? <> {wildcardJob}</> : null}</p>
+      <ChipWeekTable weeks={plan.weeks} label={t('Free Hit')} picked={shown.event} onPick={setPicked} />
+      <p className="fpl-wildcard-sum">
+        {shown.ins.length
+          ? <>{t('Free Hit squad for GW{gw}', { gw: shown.event })} · {t('{n} changes', { n: shown.ins.length })} · {t('{bank} left', { bank: fmtPrice(shown.bankTenths / 10) })}</>
+          : t('Your squad is already the best for GW{gw}.', { gw: shown.event })}
+      </p>
+      <ChipMoves ins={shown.ins} outs={shown.outs} teamsById={teamsById} />
+      <p className="fpl-meta" style={{ margin: 0 }}>{[t('Tap a gameweek to see its squad.'), expiry].filter(Boolean).join(' ')}</p>
+    </div>
   );
 }
 
@@ -1019,6 +1095,9 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
   // A finished gameweek is a record of what happened: no editing, chip
   // planning or transfers.
   const canEdit = !isOptimalBuild && !isPastGw;
+  // The Wildcard and Free Hit buttons: for your own squad, with the whole
+  // player list to pick from.
+  const transferChips = canEdit && !!allPlayers && !!predictionsById;
   // The captain's multiplier: 3 while Triple Captain is active, else 2.
   const armband = activeChip === '3xc' ? 3 : 2;
   // Purely a UI input — suggestTransfers itself has no idea how many free
@@ -1231,7 +1310,14 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
               {Object.entries(CHIP_INFO).map(([key, info]) => (
                 <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{info.label}</button>
               ))}
+              {transferChips && TRANSFER_CHIPS.map(([key, label]) => (
+                <button key={key} className={`fpl-chip-btn ${chipPreview === key ? 'active' : ''}`} onClick={() => setChipPreview(key)}>{label}</button>
+              ))}
             </div>
+            {transferChips && TRANSFER_CHIPS.some(([key]) => key === chipPreview) ? (
+              <TransferChip key={chipPreview} kind={chipPreview} squad={squad} bankTenths={bankTenths} allPlayers={allPlayers} predictionsById={predictionsById} teamsById={teamsById} />
+            ) : (
+            <>
             <div style={{ fontSize: '0.8rem', color: 'var(--ink-dim)', lineHeight: 1.5, marginBottom: 10 }}>
               {chipPreview ? CHIP_INFO[chipPreview].desc : t('No chip active: normal scoring (starting XI only, captain at 2x).')}
             </div>
@@ -1241,6 +1327,8 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
             </div>
             {chipPreview && (
               <div className="fpl-mono" style={{ fontSize: '0.65rem', color: 'var(--ink-dim)', marginTop: 4 }}>{t('vs {n}pts with no chip', { n: fmtPts(normalTotal) })}</div>
+            )}
+            </>
             )}
           </div>
         </>
@@ -1564,10 +1652,6 @@ function SquadResults({ data, onStartOver, onSquadUpdate, session, onSaveTeamId,
       {!isPastGw && allPlayers && predictionsById && (
         <TemplateCard squad={squad} allPlayers={allPlayers} predictionsById={predictionsById} />
       )}
-
-      {canEdit && allPlayers && predictionsById ? (
-        <WildcardCard squad={squad} bankTenths={bankTenths} allPlayers={allPlayers} predictionsById={predictionsById} teamsById={teamsById} />
-      ) : null}
 
       {canEdit && (
         <div style={{ marginBottom: 8 }}>
