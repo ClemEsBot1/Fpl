@@ -23,6 +23,10 @@ Rules:
 - Only suggest what isn't there. If something exists in part, say so and name the file, and suggest the missing piece instead (e.g. "price forecast exists in src/lib/priceForecast.js; missing: X").
 - Don't suggest having native speakers review the translations.
 
+## Check facts before reporting
+
+- Always cross-check information before reporting it to the user: verify facts against a primary source (the official site, the docs, the code, a live API call) instead of stating them from memory. Say what you checked and link it. If something can't be verified, say so plainly rather than presenting a guess as fact.
+
 ## Always
 
 - Always use the /caveman skill, on every message, whatever the task and whether or not it is coding. Reply in the caveman skill's voice until told "stop caveman" or "normal mode".
